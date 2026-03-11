@@ -1,0 +1,229 @@
+import 'package:moniq/data/models/schedule_model.dart';
+import 'package:moniq/data/models/shift_model.dart';
+import 'package:moniq/data/models/shift_rule_model.dart';
+import 'package:moniq/data/models/shift_type_model.dart';
+import 'package:moniq/data/models/user_model.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class ShiftRemoteDataSource {
+  ShiftRemoteDataSource({required SupabaseClient client}) : _client = client;
+
+  final SupabaseClient _client;
+
+  String? get _userId => _client.auth.currentUser?.id;
+
+  Future<List<ShiftTypeModel>> getShiftTypes(String teamId) async {
+    final rows = await _client
+        .from('shift_types')
+        .select()
+        .eq('team_id', teamId)
+        .eq('is_active', true)
+        .order('display_order');
+
+    return (rows as List)
+        .map((r) => ShiftTypeModel.fromJson(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// 내 모든 근무 (전체 팀, 기간 필터) — 홈 캘린더용
+  Future<List<ShiftModel>> getMyShifts({
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    if (_userId == null) throw Exception('Not authenticated');
+
+    final startStr = _dateStr(start);
+    final endStr = _dateStr(end);
+
+    final rows = await _client
+        .from('shifts')
+        .select()
+        .eq('user_id', _userId!)
+        .gte('shift_date', startStr)
+        .lte('shift_date', endStr)
+        .order('shift_date');
+
+    return (rows as List)
+        .map((r) => ShiftModel.fromJson(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// 팀 전체 근무 — 팀 캘린더용
+  Future<List<ShiftModel>> getTeamShifts({
+    required String teamId,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final startStr = _dateStr(start);
+    final endStr = _dateStr(end);
+
+    final rows = await _client
+        .from('shifts')
+        .select()
+        .eq('team_id', teamId)
+        .gte('shift_date', startStr)
+        .lte('shift_date', endStr)
+        .order('shift_date');
+
+    return (rows as List)
+        .map((r) => ShiftModel.fromJson(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// 팀 멤버 + 유저 정보 — 로스터용
+  Future<List<UserModel>> getTeamUsers(String teamId) async {
+    final memberRows = await _client
+        .from('team_members')
+        .select('user_id')
+        .eq('team_id', teamId)
+        .eq('is_deleted', false);
+
+    final userIds = (memberRows as List)
+        .map((r) => r['user_id'] as String)
+        .toList();
+
+    if (userIds.isEmpty) return [];
+
+    final userRows = await _client
+        .from('users')
+        .select()
+        .inFilter('id', userIds)
+        .eq('is_deleted', false);
+
+    return (userRows as List)
+        .map((r) => UserModel.fromJson(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// 팀의 게시된 스케줄 목록
+  Future<List<ScheduleModel>> getPublishedSchedules({
+    required String teamId,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final startStr = _dateStr(start);
+    final endStr = _dateStr(end);
+
+    final rows = await _client
+        .from('schedules')
+        .select()
+        .eq('team_id', teamId)
+        .eq('status', 'published')
+        .lte('period_start', endStr)
+        .gte('period_end', startStr)
+        .order('version_no', ascending: false);
+
+    return (rows as List)
+        .map((r) => ScheduleModel.fromJson(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  // ── 근무 유형 CRUD ──
+
+  /// 모든 근무 유형 (비활성 포함) — 관리 화면용
+  Future<List<ShiftTypeModel>> getAllShiftTypes(String teamId) async {
+    final rows = await _client
+        .from('shift_types')
+        .select()
+        .eq('team_id', teamId)
+        .order('display_order');
+
+    return (rows as List)
+        .map((r) => ShiftTypeModel.fromJson(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ShiftTypeModel> createShiftType(
+    String teamId, {
+    required String name,
+    required String code,
+    String? startTime,
+    String? endTime,
+    required String color,
+    required int displayOrder,
+  }) async {
+    final row = await _client
+        .from('shift_types')
+        .insert({
+          'team_id': teamId,
+          'name': name,
+          'code': code,
+          'start_time': startTime,
+          'end_time': endTime,
+          'color': color,
+          'display_order': displayOrder,
+        })
+        .select()
+        .single();
+
+    return ShiftTypeModel.fromJson(row);
+  }
+
+  Future<void> updateShiftType(
+    String id, {
+    String? name,
+    String? code,
+    String? startTime,
+    String? endTime,
+    String? color,
+  }) async {
+    final updates = <String, dynamic>{};
+    if (name != null) updates['name'] = name;
+    if (code != null) updates['code'] = code;
+    if (startTime != null) updates['start_time'] = startTime;
+    if (endTime != null) updates['end_time'] = endTime;
+    if (color != null) updates['color'] = color;
+    if (updates.isEmpty) return;
+
+    await _client.from('shift_types').update(updates).eq('id', id);
+  }
+
+  Future<void> toggleShiftTypeActive(String id, bool isActive) async {
+    await _client
+        .from('shift_types')
+        .update({'is_active': isActive})
+        .eq('id', id);
+  }
+
+  Future<void> reorderShiftTypes(
+      String teamId, List<String> orderedIds) async {
+    for (var i = 0; i < orderedIds.length; i++) {
+      await _client
+          .from('shift_types')
+          .update({'display_order': i})
+          .eq('id', orderedIds[i]);
+    }
+  }
+
+  // ── 규칙 CRUD ──
+
+  Future<List<ShiftRuleModel>> getShiftRules(String teamId) async {
+    final rows = await _client
+        .from('shift_rules')
+        .select()
+        .eq('team_id', teamId)
+        .order('rule_type');
+
+    return (rows as List)
+        .map((r) => ShiftRuleModel.fromJson(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> upsertShiftRule(
+    String teamId, {
+    required String ruleType,
+    required Map<String, dynamic> ruleValue,
+  }) async {
+    await _client.from('shift_rules').upsert(
+      {
+        'team_id': teamId,
+        'rule_type': ruleType,
+        'rule_value': ruleValue,
+      },
+      onConflict: 'team_id,rule_type',
+    );
+  }
+
+  String _dateStr(DateTime dt) =>
+      '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+}

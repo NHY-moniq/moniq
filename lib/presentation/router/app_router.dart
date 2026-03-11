@@ -1,0 +1,154 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/data/providers/supabase_providers.dart';
+import 'package:moniq/presentation/router/app_shell.dart';
+import 'package:moniq/presentation/screens/auth/forgot_password_screen.dart';
+import 'package:moniq/presentation/screens/auth/login_screen.dart';
+import 'package:moniq/presentation/screens/auth/signup_screen.dart';
+import 'package:moniq/presentation/screens/home/home_screen.dart';
+import 'package:moniq/presentation/screens/settings/settings_screen.dart';
+import 'package:moniq/presentation/screens/team/members_screen.dart';
+import 'package:moniq/presentation/screens/team/rules_screen.dart';
+import 'package:moniq/presentation/screens/team/shift_types_screen.dart';
+import 'package:moniq/presentation/screens/team/team_create_screen.dart';
+import 'package:moniq/presentation/screens/team/team_detail_screen.dart';
+import 'package:moniq/presentation/screens/team/team_join_screen.dart';
+import 'package:moniq/presentation/screens/team/team_screen.dart';
+
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
+final _homeNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'home');
+final _teamNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'team');
+final _settingsNavigatorKey =
+    GlobalKey<NavigatorState>(debugLabel: 'settings');
+
+final appRouterProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authStateChangesProvider);
+
+  return GoRouter(
+    navigatorKey: _rootNavigatorKey,
+    initialLocation: '/login',
+    redirect: (context, state) {
+      final isLoggedIn = authState.whenOrNull(
+            data: (auth) => auth.session != null,
+          ) ??
+          false;
+
+      final isAuthRoute = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/signup' ||
+          state.matchedLocation == '/forgot-password';
+
+      if (!isLoggedIn && !isAuthRoute) {
+        return '/login';
+      }
+
+      if (isLoggedIn && isAuthRoute) {
+        return '/home';
+      }
+
+      return null;
+    },
+    routes: [
+      // Auth routes (outside shell)
+      GoRoute(
+        path: '/login',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/signup',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const SignupScreen(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+
+      // App Shell with bottom navigation
+      StatefulShellRoute.indexedStack(
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state, navigationShell) => AppShell(
+          navigationShell: navigationShell,
+        ),
+        branches: [
+          // Home tab
+          StatefulShellBranch(
+            navigatorKey: _homeNavigatorKey,
+            routes: [
+              GoRoute(
+                path: '/home',
+                builder: (context, state) => const HomeScreen(),
+              ),
+            ],
+          ),
+
+          // Team tab
+          StatefulShellBranch(
+            navigatorKey: _teamNavigatorKey,
+            routes: [
+              GoRoute(
+                path: '/teams',
+                builder: (context, state) => const TeamScreen(),
+              ),
+            ],
+          ),
+
+          // Settings tab
+          StatefulShellBranch(
+            navigatorKey: _settingsNavigatorKey,
+            routes: [
+              GoRoute(
+                path: '/settings',
+                builder: (context, state) => const SettingsScreen(),
+              ),
+            ],
+          ),
+        ],
+      ),
+
+      // Team management routes (outside shell)
+      GoRoute(
+        path: '/teams/create',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const TeamCreateScreen(),
+      ),
+      GoRoute(
+        path: '/teams/join',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const TeamJoinScreen(),
+      ),
+
+      // Team detail routes (outside shell)
+      GoRoute(
+        path: '/teams/:teamId/detail',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => TeamDetailScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/teams/:teamId/members',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => MembersScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/teams/:teamId/shift-types',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => ShiftTypesScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/teams/:teamId/rules',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => RulesScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+    ],
+  );
+});
