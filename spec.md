@@ -41,7 +41,7 @@ Ship an MVP as fast as possible with a complete end-to-end user flow.
 - An Organization team admin can generate a schedule for a selected period.
 - A user can view their own calendar.
 - A user can view a team calendar.
-- A user can submit a swap/change request.
+- A user can submit a change request.
 
 ### Non-goals for MVP
 - Community/social feed
@@ -147,7 +147,6 @@ Personal schedule dashboard.
     - My shift for that date
     - Shift type and time
     - Optional note
-    - Quick action: Request change (if team-linked shift exists)
 
 ### UX notes
 - This tab is not for editing the official team schedule directly.
@@ -171,7 +170,7 @@ Shared team schedule and collaboration.
   - Team list
   - Swap/change request entry
 - View mode segmented control:
-  - Month / Week / Day
+  - Month / Week
 - Team shared calendar
 - Inline roster panel (workers grouped by shift type) for selected date
 
@@ -181,12 +180,11 @@ Update inline roster panel with:
 - Date header
 - All workers assigned that day
 - Shift types grouped by type
-- CTA: Request swap/change (via menu or request screens)
+- CTA: Request change (via menu or request screens)
 
 #### Change view mode
 - Month = overview
 - Week = better density for team planning
-- Day = detailed roster
 
 ---
 
@@ -207,7 +205,7 @@ Manage all teams the user belongs to.
 ### Gestures and actions
 #### Team row actions
 - Open Team Detail via row trailing button
-- Leave team (optional MVP if business rules allow)
+- Leave team
 - Set as favorite team (action menu/secondary action)
 
 ### Create Team flow
@@ -217,11 +215,13 @@ Fields:
 - Optional description
 
 After creation:
-- Generate invite link/code
+- Generate invite link
 - Route to Team Detail
 
 ### Join Team flow
-- Paste invite link or enter invite code
+- User taps invite deep link and app opens automatically
+- App validates invite token/code and shows team preview
+- User confirms join and is added to the team
 
 ---
 
@@ -241,42 +241,24 @@ Admin and team management hub.
 3. Team settings
    - Minimum staffing by shift
    - Optional max staffing by shift
-   - Team-level preferences
-4. Shift rules
-   - Open Shift Rule Management page
-5. Auto-generate schedule
-   - Open Schedule Generation page
-6. Requests
-   - Open swap/change request list
+   - Shift type definitions (Day / Evening / Night / Off)
+   - Shift start/end time and active/inactive toggle
+   - Worker constraints
+     - Max consecutive work days
+     - Max monthly shifts
+     - Max monthly night shifts
+     - Minimum rest after night shifts
+4. Auto-generate schedule
+   - Tap **Auto-generate schedule** button
+   - Open generation flow with current team settings
+   - Allow additional generation-only rule adjustments in generation step
+   - Generate preview and publish as a new version
+5. Requests
+   - Open change request list
 
 ---
 
-## 7.6 Shift Rule Management Flow
-
-### Purpose
-Configure reusable rules used by schedule generation.
-
-### MVP capabilities
-- Define shift types
-  - Day / Evening / Night / Off, etc.
-  - Start and end time
-  - Active/inactive toggle
-- Define staffing rules
-  - Minimum people per shift type
-- Define worker constraints
-  - Max consecutive work days
-  - Max monthly shifts
-  - Max monthly night shifts
-  - Minimum rest after night shifts
-
-### UX
-- Rule list page
-- Add/edit rule page
-- Preset templates for common hospital schedules if possible
-
----
-
-## 7.7 Schedule Generation Flow
+## 7.6 Schedule Generation Flow
 
 ### Purpose
 Generate team schedules for a selected period.
@@ -286,9 +268,9 @@ Team Detail > Auto-generate schedule
 
 ### Inputs
 - Generation period (start date, end date)
-- Active shift rules
+- Team settings rules from Team Detail
+- Additional generation-only rule adjustments
 - Optional worker preferences / wanted days off (stretch goal inside MVP if simple)
-- Preview mode toggle
 
 ### Output
 - Generated schedule preview
@@ -297,9 +279,11 @@ Team Detail > Auto-generate schedule
   - Understaffed shifts
   - Rule violations
 - Confirm and publish
+- Versioned publish target (v1 for first publish, v2+ for later publishes)
 
 ### Publish behavior
-- Save generated shifts into official team schedule
+- First publish creates the initial official schedule version (v1)
+- Later publishes create a new version while keeping previous versions for history/rollback
 - Notify affected members (if notifications enabled)
 
 ### Important product rule
@@ -307,28 +291,21 @@ Generation is not final until user explicitly confirms publish.
 
 ---
 
-## 7.8 Swap / Change Request Flow
+## 7.7 Change Request Flow
 
 ### Purpose
 Allow controlled changes after the schedule is published.
 
 ### Entry points
 - Teams tab > top-right menu (drawer) > request entry
-- Team calendar selected-date panel > Request swap/change
+- Team calendar selected-date panel > Request change
 - Team Detail > Requests
 
-### Types
-1. **Swap request**
-   - User proposes swapping one shift with another user
-2. **Change request**
-   - User asks to change/remove/adjust an assigned shift
-
 ### MVP fields
-- Request type
-- Original date/shift
-- Target user (for swap)
-- Requested target date/shift (optional for change)
-- Reason
+- Source shift (auto-filled from selected schedule item)
+- Change type (quick options/chips)
+- Requested target date/shift (picker, optional)
+- Reason template (preset options) + optional note
 
 ### Statuses
 - Pending
@@ -337,13 +314,16 @@ Allow controlled changes after the schedule is published.
 - Cancelled
 
 ### UX
-- Create request screen
+- Guided create request flow (selection-first, minimal typing)
+  - Step 1: Source shift is prefilled
+  - Step 2: Select change type and target using pickers
+  - Step 3: Select preset reason and submit
 - Requests list screen
 - Request detail modal/page
 
 ---
 
-## 7.9 Settings Tab Flow
+## 7.8 Settings Tab Flow
 
 ### Sections
 #### App Settings
@@ -424,9 +404,9 @@ Allow controlled changes after the schedule is published.
 ## 9.3 Teams Screen
 ### Required UI
 - Team calendar for selected favorite team
-- Month/Week/Day toggle
+- Month/Week toggle
 - Top-right menu icon and right-side drawer
-- Drawer entries: Team list, swap/change request
+- Drawer entries: Team list, change request, change request list
 - Selected-date roster panel showing workers by shift type
 
 ### States
@@ -450,21 +430,13 @@ Allow controlled changes after the schedule is published.
 - Team summary card
 - Members section
 - Team settings section
-- Rule management entry
 - Schedule generation entry
 - Requests entry
 
 ---
 
-## 9.6 Rule Management Screen
-### Required UI
-- Rule cards/list
-- Add rule button
-- Edit rule flow
 
----
-
-## 9.7 Schedule Generation Screen
+## 9.6 Schedule Generation Screen
 ### Required UI
 - Date range input
 - Rule summary
@@ -474,18 +446,19 @@ Allow controlled changes after the schedule is published.
 
 ---
 
-## 9.8 Requests Screen
+## 9.7 Requests Screen
 ### Required UI
 - Pending / Approved / Rejected tabs or filters
 - Request list
 - Create request CTA
+- Quick request composer with prefilled source shift
+- Preset reason chips and date/shift picker
 
 ---
 
-## 9.9 Settings Screen
+## 9.8 Settings Screen
 ### Required UI
 - Theme controls
-- Font controls
 - Calendar preferences
 - Profile and account section
 - Notification and calendar integration section
@@ -498,7 +471,7 @@ Allow controlled changes after the schedule is published.
 ### Member
 - View personal calendar
 - View team calendar
-- Submit swap/change requests
+- Submit change requests
 
 ### Admin / Manager
 - Manage team members
@@ -516,13 +489,13 @@ Allow controlled changes after the schedule is published.
 - Team creation / joining
 - Favorite one team
 - Personal monthly calendar
-- Team calendar with month/week/day views
+- Team calendar with month/week views
 - Selected-date roster panel with worker list
 - Team detail management
 - Shift rule configuration
 - Schedule generation
-- Swap/change request submission
-- Settings (theme, font size, start day)
+- change request submission
+- Settings (theme, start day)
 
 ## Nice-to-have if simple
 - Invite link deep linking
@@ -535,7 +508,7 @@ Allow controlled changes after the schedule is published.
 ## 12. Non-Functional Requirements
 
 - Mobile-first responsive design
-- Fast calendar rendering for month/week/day views
+- Fast calendar rendering for month/week views
 - Accessible touch targets
 - Clear empty states
 - Clean dark mode support
@@ -604,6 +577,7 @@ Allow controlled changes after the schedule is published.
 - team_id
 - user_id
 - role (member/admin)
+- skill_level
 - joined_at
 - is_favorite
 
@@ -629,6 +603,8 @@ Allow controlled changes after the schedule is published.
 - team_id
 - period_start
 - period_end
+- version_no
+- previous_version_id (nullable)
 - status (draft/published)
 - created_by
 - created_at
@@ -646,10 +622,8 @@ Allow controlled changes after the schedule is published.
 - id
 - team_id
 - requester_user_id
-- request_type (swap/change)
 - source_shift_id
-- target_user_id
-- target_shift_id (nullable)
+- requested_shift_id (nullable)
 - reason
 - status
 - created_at
@@ -680,11 +654,16 @@ Allow controlled changes after the schedule is published.
 
 ## 16. Open Questions for Implementation
 
-1. Will swap requests require admin approval only, or can the counterpart user approve first?
-2. Can one user belong to multiple organizations in MVP, or only multiple teams within one org concept?
+1. Will change requests require admin approval only, or can the counterpart user approve first? 
+- Only admin approval needed
+2. Can one user belong to multiple organizations in MVP, or only multiple teams within one org concept? 
+- one user can belong to one organization 
 3. Should personal calendar edits be allowed only as requests, or as private annotations too?
+- If organization calendar is interaged to personal calendar, it is not writable, only by requests. private annotations could be changed freely.
 4. Is calendar integration in MVP read-only, write-only, or both?
+- Read only on personal calendar if integrated.
 5. Is wanted day-off input included in MVP generation or Phase 2?
+- Yes
 
 ---
 
@@ -734,7 +713,7 @@ Implement in this order:
 - A returning user can access personal calendar immediately on app open.
 - A user can identify who is working on a selected team date without navigating through multiple pages.
 - A team admin can reach schedule generation from team detail in one tap.
-- A swap/change request can be submitted in under one minute.
+- A change request can be submitted in under one minute.
 
 ---
 
