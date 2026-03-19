@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
@@ -10,14 +11,132 @@ class SettingsScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+    final fontScale = ref.watch(fontScaleProvider);
+    final calendarStartDay = ref.watch(calendarStartDayProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('설정'),
       ),
       body: ListView(
         children: [
-          // Account section
+          // 앱 설정
+          _SectionHeader(title: '앱 설정'),
+
+          // 테마 모드
+          ListTile(
+            leading: const Icon(Icons.palette_outlined),
+            title: const Text('테마'),
+            trailing: SegmentedButton<ThemeMode>(
+              segments: const [
+                ButtonSegment(
+                    value: ThemeMode.light,
+                    label: Text('라이트'),
+                    icon: Icon(Icons.light_mode, size: 18)),
+                ButtonSegment(
+                    value: ThemeMode.dark,
+                    label: Text('다크'),
+                    icon: Icon(Icons.dark_mode, size: 18)),
+              ],
+              selected: {themeMode == ThemeMode.system ? ThemeMode.light : themeMode},
+              onSelectionChanged: (modes) {
+                ref
+                    .read(themeModeProvider.notifier)
+                    .setThemeMode(modes.first);
+              },
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+
+          // 글자 크기
+          ListTile(
+            leading: const Icon(Icons.text_fields),
+            title: const Text('글자 크기'),
+            subtitle: Slider(
+              value: fontScale,
+              min: 0.8,
+              max: 1.4,
+              divisions: 6,
+              label: '${(fontScale * 100).round()}%',
+              onChanged: (value) {
+                ref.read(fontScaleProvider.notifier).setFontScale(value);
+              },
+            ),
+            trailing: Text(
+              '${(fontScale * 100).round()}%',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+
+          // 캘린더 시작 요일
+          ListTile(
+            leading: const Icon(Icons.calendar_today),
+            title: const Text('캘린더 시작 요일'),
+            trailing: SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'monday', label: Text('월')),
+                ButtonSegment(value: 'sunday', label: Text('일')),
+              ],
+              selected: {calendarStartDay},
+              onSelectionChanged: (days) {
+                ref
+                    .read(calendarStartDayProvider.notifier)
+                    .setStartDay(days.first);
+              },
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+
+          const Divider(),
+
+          // 알림
+          _SectionHeader(title: '알림'),
+          ListTile(
+            leading: const Icon(Icons.notifications_outlined),
+            title: const Text('푸시 알림'),
+            subtitle: const Text('스케줄 변경, 요청 상태 알림'),
+            trailing: Switch(
+              value: true,
+              onChanged: (_) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('알림 설정은 추후 지원 예정입니다')),
+                );
+              },
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.calendar_month_outlined),
+            title: const Text('캘린더 연동'),
+            subtitle: const Text('기기 캘린더에 근무 일정 연동'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('캘린더 연동은 추후 지원 예정입니다')),
+              );
+            },
+          ),
+
+          const Divider(),
+
+          // 계정
           _SectionHeader(title: '계정'),
+          ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: const Text('프로필'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('프로필 편집은 추후 지원 예정입니다')),
+              );
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.logout),
             title: const Text('로그아웃'),
@@ -64,15 +183,13 @@ class SettingsScreen extends HookConsumerWidget {
           ),
           const Divider(),
 
-          // Info section
+          // 정보
           _SectionHeader(title: '정보'),
           ListTile(
             leading: const Icon(Icons.privacy_tip_outlined),
             title: const Text('개인정보 처리방침'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              // Phase 2: open privacy policy
-            },
+            onTap: () {},
           ),
           ListTile(
             leading: const Icon(Icons.info_outline),
@@ -84,6 +201,7 @@ class SettingsScreen extends HookConsumerWidget {
                   ),
             ),
           ),
+          const SizedBox(height: AppSpacing.xxl),
         ],
       ),
     );

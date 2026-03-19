@@ -7,6 +7,9 @@ import 'package:moniq/presentation/screens/auth/forgot_password_screen.dart';
 import 'package:moniq/presentation/screens/auth/login_screen.dart';
 import 'package:moniq/presentation/screens/auth/signup_screen.dart';
 import 'package:moniq/presentation/screens/home/home_screen.dart';
+import 'package:moniq/presentation/screens/request/request_create_screen.dart';
+import 'package:moniq/presentation/screens/request/request_list_screen.dart';
+import 'package:moniq/presentation/screens/schedule/schedule_generation_screen.dart';
 import 'package:moniq/presentation/screens/settings/settings_screen.dart';
 import 'package:moniq/presentation/screens/team/members_screen.dart';
 import 'package:moniq/presentation/screens/team/rules_screen.dart';
@@ -146,6 +149,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/teams/:teamId/rules',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => RulesScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+
+      // Phase 4: Schedule generation
+      GoRoute(
+        path: '/teams/:teamId/generate',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => ScheduleGenerationScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+
+      // Phase 5: Requests
+      GoRoute(
+        path: '/teams/:teamId/requests',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => RequestListScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/teams/:teamId/requests/create',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => RequestCreateScreen(
           teamId: state.pathParameters['teamId']!,
         ),
       ),
