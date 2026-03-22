@@ -5,6 +5,7 @@ import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
+import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/data/repositories/shift_repository.dart';
 import 'package:moniq/data/repositories/team_repository.dart';
@@ -26,12 +27,20 @@ class TeamCalendarState with _$TeamCalendarState {
   }) = _TeamCalendarState;
 }
 
-final teamCalendarViewModelProvider = AsyncNotifierProvider.family<
-    TeamCalendarViewModel, TeamCalendarState, String>(
-  TeamCalendarViewModel.new,
-);
+final teamCalendarViewModelProvider =
+    AsyncNotifierProvider.family<
+      TeamCalendarViewModel,
+      TeamCalendarState,
+      String
+    >(TeamCalendarViewModel.new);
 
 final favoriteTeamProvider = FutureProvider<TeamModel?>((ref) async {
+  final authState = ref.watch(authStateChangesProvider);
+  final userId = authState.whenOrNull(data: (auth) => auth.session?.user.id);
+  if (userId == null) {
+    return null;
+  }
+
   final teamRepo = ref.watch(teamRepositoryProvider);
   return teamRepo.getFavoriteTeam();
 });
@@ -43,6 +52,12 @@ class TeamCalendarViewModel
 
   @override
   Future<TeamCalendarState> build(String teamId) async {
+    final authState = ref.watch(authStateChangesProvider);
+    final userId = authState.whenOrNull(data: (auth) => auth.session?.user.id);
+    if (userId == null) {
+      throw Exception('Not authenticated');
+    }
+
     _shiftRepository = ref.watch(shiftRepositoryProvider);
     _teamRepository = ref.watch(teamRepositoryProvider);
 
@@ -83,10 +98,9 @@ class TeamCalendarViewModel
       date: dateKey,
     );
 
-    state = AsyncData(current.copyWith(
-      selectedDate: dateKey,
-      selectedDateRoster: roster,
-    ));
+    state = AsyncData(
+      current.copyWith(selectedDate: dateKey, selectedDateRoster: roster),
+    );
   }
 
   Future<void> changeMonth(DateTime month) async {
@@ -104,12 +118,14 @@ class TeamCalendarViewModel
         date: selectedDate,
       );
 
-      state = AsyncData(current.copyWith(
-        focusedMonth: month,
-        selectedDate: selectedDate,
-        monthlyShifts: monthlyShifts,
-        selectedDateRoster: roster,
-      ));
+      state = AsyncData(
+        current.copyWith(
+          focusedMonth: month,
+          selectedDate: selectedDate,
+          monthlyShifts: monthlyShifts,
+          selectedDateRoster: roster,
+        ),
+      );
     } catch (e, st) {
       state = AsyncError(e, st);
     }

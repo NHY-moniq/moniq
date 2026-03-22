@@ -5,16 +5,11 @@ import 'package:moniq/data/repositories/auth_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>(
-  (ref) => AuthRemoteDataSource(
-    auth: ref.watch(goTrueClientProvider),
-    client: ref.watch(supabaseClientProvider),
-  ),
+  (ref) => AuthRemoteDataSource(auth: ref.watch(goTrueClientProvider)),
 );
 
 final authRepositoryProvider = Provider<AuthRepository>(
-  (ref) => AuthRepository(
-    dataSource: ref.watch(authRemoteDataSourceProvider),
-  ),
+  (ref) => AuthRepository(dataSource: ref.watch(authRemoteDataSourceProvider)),
 );
 
 /// Increment to force currentUserProvider to re-read

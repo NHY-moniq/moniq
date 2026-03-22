@@ -1,28 +1,19 @@
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthRemoteDataSource {
-  AuthRemoteDataSource({
-    required GoTrueClient auth,
-    required SupabaseClient client,
-  })  : _auth = auth,
-        _client = client;
+  AuthRemoteDataSource({required GoTrueClient auth}) : _auth = auth;
 
   final GoTrueClient _auth;
-  final SupabaseClient _client;
 
   // Email / Password
   Future<AuthResponse> signInWithEmail({
     required String email,
     required String password,
   }) async {
-    return _auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
+    return _auth.signInWithPassword(email: email, password: password);
   }
 
   Future<AuthResponse> signUpWithEmail({
@@ -43,9 +34,24 @@ class AuthRemoteDataSource {
 
   // Google Sign-In
   Future<AuthResponse> signInWithGoogle() async {
-    final googleSignIn = GoogleSignIn(
-      scopes: ['email', 'profile'],
-    );
+    if (kIsWeb) {
+      final launched = await _auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: '${Uri.base.origin}/login',
+      );
+
+      if (!launched) {
+        throw const AuthException('Google 로그인 페이지를 열 수 없습니다');
+      }
+
+      // 웹 OAuth는 리다이렉트 기반이므로 결과는 authStateChanges에서 반영된다.
+      return AuthResponse(
+        session: _auth.currentSession,
+        user: _auth.currentUser,
+      );
+    }
+
+    final googleSignIn = GoogleSignIn(scopes: ['email', 'profile', 'openid']);
 
     final googleUser = await googleSignIn.signIn();
     if (googleUser == null) {
@@ -88,9 +94,16 @@ class AuthRemoteDataSource {
   }
 
   // Kakao Sign-In (via Edge Function)
-  // TODO: kakao_flutter_sdk_user 호환 버전 나오면 복원
+  // Supabase OAuth 기반. 실제 동작에는 Supabase Dashboard의 Kakao provider 설정이 필요하다.
   Future<void> signInWithKakao() async {
-    throw const AuthException('카카오 로그인은 준비 중입니다');
+    final launched = await _auth.signInWithOAuth(
+      OAuthProvider.kakao,
+      redirectTo: kIsWeb ? '${Uri.base.origin}/login' : null,
+    );
+
+    if (!launched) {
+      throw const AuthException('카카오 로그인 페이지를 열 수 없습니다');
+    }
   }
 
   // Sign Out

@@ -25,23 +25,26 @@ class TeamDetailState with _$TeamDetailState {
   }) = _TeamDetailState;
 }
 
-final teamDetailViewModelProvider = AsyncNotifierProvider.family<
-    TeamDetailViewModel, TeamDetailState, String>(
-  TeamDetailViewModel.new,
-);
+final teamDetailViewModelProvider =
+    AsyncNotifierProvider.family<TeamDetailViewModel, TeamDetailState, String>(
+      TeamDetailViewModel.new,
+    );
 
-class TeamDetailViewModel
-    extends FamilyAsyncNotifier<TeamDetailState, String> {
+class TeamDetailViewModel extends FamilyAsyncNotifier<TeamDetailState, String> {
   late TeamRepository _teamRepository;
   late ShiftRepository _shiftRepository;
 
   @override
   Future<TeamDetailState> build(String teamId) async {
+    final authState = ref.watch(authStateChangesProvider);
+    final currentUserId =
+        authState.whenOrNull(data: (auth) => auth.session?.user.id) ?? '';
+    if (currentUserId.isEmpty) {
+      throw Exception('Not authenticated');
+    }
+
     _teamRepository = ref.watch(teamRepositoryProvider);
     _shiftRepository = ref.watch(shiftRepositoryProvider);
-
-    final currentUserId =
-        ref.watch(supabaseClientProvider).auth.currentUser?.id ?? '';
 
     final results = await Future.wait([
       _teamRepository.getMyTeams(),
@@ -62,8 +65,9 @@ class TeamDetailViewModel
     final members = results[1] as List<TeamMemberWithUser>;
     final shiftTypes = results[2] as List<ShiftTypeModel>;
 
-    final isAdmin =
-        members.any((m) => m.userId == currentUserId && m.role == 'admin');
+    final isAdmin = members.any(
+      (m) => m.userId == currentUserId && m.role == 'admin',
+    );
 
     return TeamDetailState(
       teamId: teamId,
@@ -76,12 +80,20 @@ class TeamDetailViewModel
     );
   }
 
-  Future<void> updateTeam({String? name, String? icon, String? description}) async {
+  Future<void> updateTeam({
+    String? name,
+    String? icon,
+    String? description,
+  }) async {
     final current = state.valueOrNull;
     if (current == null) return;
 
-    await _teamRepository.updateTeam(current.teamId,
-        name: name, icon: icon, description: description);
+    await _teamRepository.updateTeam(
+      current.teamId,
+      name: name,
+      icon: icon,
+      description: description,
+    );
     ref.invalidateSelf();
   }
 
@@ -124,10 +136,22 @@ class TeamDetailViewModel
     ref.invalidateSelf();
   }
 
-  Future<void> updateShiftType(String id,
-      {String? name, String? code, String? startTime, String? endTime, String? color}) async {
-    await _shiftRepository.updateShiftType(id,
-        name: name, code: code, startTime: startTime, endTime: endTime, color: color);
+  Future<void> updateShiftType(
+    String id, {
+    String? name,
+    String? code,
+    String? startTime,
+    String? endTime,
+    String? color,
+  }) async {
+    await _shiftRepository.updateShiftType(
+      id,
+      name: name,
+      code: code,
+      startTime: startTime,
+      endTime: endTime,
+      color: color,
+    );
     ref.invalidateSelf();
   }
 
@@ -136,12 +160,18 @@ class TeamDetailViewModel
     ref.invalidateSelf();
   }
 
-  Future<void> upsertRule(String ruleType, Map<String, dynamic> ruleValue) async {
+  Future<void> upsertRule(
+    String ruleType,
+    Map<String, dynamic> ruleValue,
+  ) async {
     final current = state.valueOrNull;
     if (current == null) return;
 
-    await _shiftRepository.upsertShiftRule(current.teamId,
-        ruleType: ruleType, ruleValue: ruleValue);
+    await _shiftRepository.upsertShiftRule(
+      current.teamId,
+      ruleType: ruleType,
+      ruleValue: ruleValue,
+    );
     ref.invalidateSelf();
   }
 
