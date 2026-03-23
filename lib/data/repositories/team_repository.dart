@@ -17,11 +17,13 @@ class TeamRepository {
     required String name,
     String? icon,
     String? description,
+    String? teamType,
   }) {
     return _dataSource.createTeam(
       name: name,
       icon: icon,
       description: description,
+      teamType: teamType,
     );
   }
 

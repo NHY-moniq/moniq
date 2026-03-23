@@ -19,7 +19,10 @@ import 'package:moniq/presentation/screens/team/shift_types_screen.dart';
 import 'package:moniq/presentation/screens/team/team_create_screen.dart';
 import 'package:moniq/presentation/screens/team/team_detail_screen.dart';
 import 'package:moniq/presentation/screens/team/team_join_screen.dart';
+import 'package:moniq/presentation/screens/team/team_list_screen.dart';
 import 'package:moniq/presentation/screens/team/team_screen.dart';
+import 'package:moniq/presentation/screens/team/team_settings_screen.dart';
+import 'package:moniq/presentation/screens/team/schedule_rules_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _homeNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'home');
@@ -128,6 +131,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // Team management routes (outside shell)
       GoRoute(
+        path: '/teams/list',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const TeamListScreen(),
+      ),
+      GoRoute(
         path: '/teams/create',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const TeamCreateScreen(),
@@ -167,28 +175,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           teamId: state.pathParameters['teamId']!,
         ),
       ),
-
-      // Phase 4: Schedule generation
       GoRoute(
-        path: '/teams/:teamId/generate',
+        path: '/teams/:teamId/settings',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => ScheduleGenerationScreen(
-          teamId: state.pathParameters['teamId']!,
-        ),
-      ),
-
-      // Phase 5: Requests
-      GoRoute(
-        path: '/teams/:teamId/requests',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => RequestListScreen(
+        builder: (context, state) => TeamSettingsScreen(
           teamId: state.pathParameters['teamId']!,
         ),
       ),
       GoRoute(
-        path: '/teams/:teamId/requests/create',
+        path: '/teams/:teamId/schedule-rules',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => RequestCreateScreen(
+        builder: (context, state) => ScheduleRulesScreen(
           teamId: state.pathParameters['teamId']!,
         ),
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/team_providers.dart';
@@ -118,12 +119,9 @@ class _NoFavoriteView extends HookConsumerWidget {
                 itemBuilder: (context, index) {
                   final team = teams[index];
                   return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                      child: Icon(
-                        _teamIcon(team.icon),
-                        color: AppColors.primary,
-                      ),
+                    leading: TeamProfileAvatar(
+                      icon: team.icon,
+                      radius: 20,
                     ),
                     title: Text(team.name),
                     trailing: const Icon(Icons.star_outline),
@@ -250,7 +248,10 @@ class _TeamCalendarView extends HookConsumerWidget {
 
 /// 우측 Drawer — 팀 메뉴
 class _TeamDrawer extends HookConsumerWidget {
-  const _TeamDrawer({required this.teams, required this.currentTeamId});
+  const _TeamDrawer({
+    required this.teams,
+    required this.currentTeamId,
+  });
 
   final List<TeamModel> teams;
   final String currentTeamId;
@@ -258,6 +259,9 @@ class _TeamDrawer extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final currentTeam = teams.firstWhere(
+      (t) => t.id == currentTeamId,
+    );
 
     return Drawer(
       child: SafeArea(
@@ -273,29 +277,37 @@ class _TeamDrawer extends HookConsumerWidget {
             ),
             const Divider(),
 
-            // 팀 전환
+            // 현재 즐겨찾는 팀 -> 팀 설정
             ListTile(
-              leading: const Icon(Icons.swap_horiz),
-              title: const Text('팀 전환'),
+              leading: const Icon(Icons.star, color: Colors.amber),
+              title: const Text('현재 즐겨찾는 팀'),
               subtitle: Text(
-                '현재: ${teams.firstWhere((t) => t.id == currentTeamId).name}',
+                currentTeam.name,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: AppColors.textSecondaryLight,
                 ),
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _showTeamSwitcher(context, ref);
-              },
-            ),
-
-            // 팀 관리
-            ListTile(
-              leading: const Icon(Icons.settings_outlined),
-              title: const Text('팀 관리'),
+              trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.pop(context);
                 context.push('/teams/$currentTeamId/detail');
+              },
+            ),
+
+            // 팀 목록
+            ListTile(
+              leading: const Icon(Icons.groups_outlined),
+              title: const Text('팀 목록'),
+              subtitle: Text(
+                '${teams.length}개 팀',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondaryLight,
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/teams/list');
               },
             ),
 
@@ -315,85 +327,5 @@ class _TeamDrawer extends HookConsumerWidget {
       ),
     );
   }
-
-  void _showTeamSwitcher(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm),
-              child: Text(
-                '팀 전환',
-                style: Theme.of(ctx)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-            ),
-            ...teams.map((team) => ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: team.id == currentTeamId
-                        ? AppColors.primary.withValues(alpha: 0.15)
-                        : AppColors.textSecondaryLight.withValues(alpha: 0.1),
-                    child: Icon(
-                      _teamIcon(team.icon),
-                      color: team.id == currentTeamId
-                          ? AppColors.primary
-                          : AppColors.textSecondaryLight,
-                      size: 20,
-                    ),
-                  ),
-                  title: Text(
-                    team.name,
-                    style: TextStyle(
-                      fontWeight: team.id == currentTeamId
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                  ),
-                  trailing: team.id == currentTeamId
-                      ? const Icon(Icons.check_circle,
-                          color: AppColors.primary)
-                      : null,
-                  onTap: () async {
-                    if (team.id == currentTeamId) {
-                      Navigator.pop(ctx);
-                      return;
-                    }
-                    final teamRepo = ref.read(teamRepositoryProvider);
-                    await teamRepo.setFavoriteTeam(team.id);
-                    ref.invalidate(favoriteTeamProvider);
-                    ref.invalidate(teamViewModelProvider);
-                    if (ctx.mounted) Navigator.pop(ctx);
-                  },
-                )),
-            const SizedBox(height: AppSpacing.md),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-IconData _teamIcon(String? icon) {
-  switch (icon) {
-    case 'local_hospital':
-      return Icons.local_hospital;
-    case 'business':
-      return Icons.business;
-    case 'school':
-      return Icons.school;
-    case 'store':
-      return Icons.store;
-    case 'engineering':
-      return Icons.engineering;
-    case 'groups':
-    default:
-      return Icons.groups;
-  }
-}

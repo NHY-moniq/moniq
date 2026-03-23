@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 
 class TeamJoinScreen extends HookConsumerWidget {
@@ -24,6 +26,17 @@ class TeamJoinScreen extends HookConsumerWidget {
         final result = await ref
             .read(teamViewModelProvider.notifier)
             .joinTeam(codeController.text.trim());
+
+        // 즐겨찾기 팀이 없으면 참여한 팀을 즐겨찾기로 설정
+        final teamId = result['team_id'] as String?;
+        if (teamId != null) {
+          final teamRepo = ref.read(teamRepositoryProvider);
+          final favorite = await teamRepo.getFavoriteTeam();
+          if (favorite == null) {
+            await teamRepo.setFavoriteTeam(teamId);
+            ref.invalidate(favoriteTeamProvider);
+          }
+        }
 
         if (context.mounted) {
           final teamName = result['team_name'] as String? ?? '팀';

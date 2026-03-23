@@ -41,6 +41,7 @@ class TeamRemoteDataSource {
     required String name,
     String? icon,
     String? description,
+    String? teamType,
   }) async {
     final response = await _client.rpc(
       'create_team',
@@ -48,6 +49,7 @@ class TeamRemoteDataSource {
         'p_name': name,
         'p_icon': icon,
         'p_description': description,
+        'p_team_type': teamType ?? 'organizational',
       },
     );
 
