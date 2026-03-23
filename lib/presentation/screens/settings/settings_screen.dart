@@ -98,19 +98,7 @@ class SettingsScreen extends HookConsumerWidget {
 
           // 알림
           _SectionHeader(title: '알림'),
-          ListTile(
-            leading: const Icon(Icons.notifications_outlined),
-            title: const Text('푸시 알림'),
-            subtitle: const Text('스케줄 변경, 요청 상태 알림'),
-            trailing: Switch(
-              value: true,
-              onChanged: (_) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('알림 설정은 추후 지원 예정입니다')),
-                );
-              },
-            ),
-          ),
+          _NotificationTile(),
 
           const Divider(),
 
@@ -188,6 +176,38 @@ class SettingsScreen extends HookConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.xxl),
         ],
+      ),
+    );
+  }
+}
+
+class _NotificationTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isEnabled = ref.watch(notificationEnabledProvider);
+
+    return ListTile(
+      leading: const Icon(Icons.notifications_outlined),
+      title: const Text('푸시 알림'),
+      subtitle: const Text('스케줄 변경 요청 및 일정 알림'),
+      trailing: Switch(
+        value: isEnabled,
+        onChanged: (value) async {
+          if (value) {
+            final granted = await ref
+                .read(notificationEnabledProvider.notifier)
+                .enable();
+            if (!granted && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('알림 권한이 필요합니다. 설정에서 권한을 허용해주세요.'),
+                ),
+              );
+            }
+          } else {
+            await ref.read(notificationEnabledProvider.notifier).disable();
+          }
+        },
       ),
     );
   }

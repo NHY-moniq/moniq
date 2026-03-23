@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/datasources/device_calendar_data_source.dart';
+import 'package:moniq/data/datasources/notification_service.dart';
+import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/datasources/settings_local_data_source.dart';
 import 'package:moniq/data/repositories/settings_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -66,6 +68,85 @@ class FontScaleNotifier extends Notifier<double> {
     final repo = ref.read(settingsRepositoryProvider);
     await repo.setFontScale(scale);
     state = scale;
+  }
+}
+
+/// 푸시 알림 on/off 상태 관리
+final notificationEnabledProvider =
+    NotifierProvider<NotificationEnabledNotifier, bool>(
+        NotificationEnabledNotifier.new);
+
+class NotificationEnabledNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    final repo = ref.watch(settingsRepositoryProvider);
+    return repo.getNotificationsEnabled();
+  }
+
+  Future<bool> enable() async {
+    try {
+      final granted = await NotificationService.instance.requestPermission();
+      if (!granted) return false;
+    } catch (_) {
+      // 시뮬레이터 등 권한 요청 실패 시에도 설정은 저장
+    }
+
+    final repo = ref.read(settingsRepositoryProvider);
+    await repo.setNotificationsEnabled(true);
+
+    try {
+      await _scheduleEventNotifications();
+    } catch (_) {
+      // 알림 예약 실패해도 설정은 유지
+    }
+
+    state = true;
+    return true;
+  }
+
+  Future<void> disable() async {
+    final repo = ref.read(settingsRepositoryProvider);
+    await repo.setNotificationsEnabled(false);
+    await NotificationService.instance.cancelAll();
+    state = false;
+  }
+
+  /// 개인 일정에 대해 알림 예약
+  Future<void> _scheduleEventNotifications() async {
+    final ns = NotificationService.instance;
+    await ns.cancelAll();
+
+    final prefs = ref.read(sharedPreferencesProvider);
+    final eventDs = PersonalEventLocalDataSource(prefs: prefs);
+
+    final now = DateTime.now();
+    int notifId = 100;
+
+    for (int m = 0; m < 2; m++) {
+      final month = DateTime(now.year, now.month + m, 1);
+      final events = eventDs.getMonthlyEvents(month);
+
+      for (final entry in events.entries) {
+        for (final event in entry.value) {
+          if (event.startTime != null && event.startTime!.isNotEmpty) {
+            // 시간 있는 일정 → 10분 전 알림
+            await ns.scheduleEventReminder(
+              id: notifId++,
+              title: event.title,
+              eventDate: event.date,
+              startTime: event.startTime!,
+            );
+          } else {
+            // 종일 일정 → 해당 일 오전 10시 알림
+            await ns.scheduleAllDayReminder(
+              id: notifId++,
+              title: event.title,
+              eventDate: event.date,
+            );
+          }
+        }
+      }
+    }
   }
 }
 

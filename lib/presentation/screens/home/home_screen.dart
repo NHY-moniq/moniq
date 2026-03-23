@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -30,6 +29,9 @@ import 'package:table_calendar/table_calendar.dart';
 
 /// 이벤트/노트 변경 시 증가시켜 모든 관련 provider를 갱신하는 트리거
 final eventRefreshProvider = StateProvider<int>((ref) => 0);
+
+/// 날짜별 접기/펼치기 상태 (기본 펼침)
+final dateExpandedProvider = StateProvider.family<bool, DateTime>((ref, date) => true);
 
 final personalNoteDataSourceProvider = Provider<PersonalNoteLocalDataSource>(
   (ref) => PersonalNoteLocalDataSource(prefs: ref.watch(sharedPreferencesProvider)),
@@ -1061,7 +1063,7 @@ class HomeScreen extends HookConsumerWidget {
 
 // ── 날짜 아이템 통합 패널 (브랜드 감성 UI) ──
 
-class _DateItemsPanel extends HookConsumerWidget {
+class _DateItemsPanel extends ConsumerWidget {
   const _DateItemsPanel({
     required this.date,
     required this.shifts,
@@ -1082,13 +1084,8 @@ class _DateItemsPanel extends HookConsumerWidget {
     final hasItems = shifts.isNotEmpty || events.isNotEmpty || notes.isNotEmpty;
     final weekday = _weekdays[date.weekday - 1];
     final totalItems = shifts.length + events.length + notes.length;
-    final isExpanded = useState(true);
-
-    // 날짜 바뀌면 자동으로 접기/펼치기 초기화
-    useEffect(() {
-      isExpanded.value = true;
-      return null;
-    }, [date]);
+    final dateKey = DateTime(date.year, date.month, date.day);
+    final isExpanded = ref.watch(dateExpandedProvider(dateKey));
 
     return Padding(
       padding: AppSpacing.screenHorizontal,
@@ -1097,7 +1094,7 @@ class _DateItemsPanel extends HookConsumerWidget {
         children: [
           // 날짜 헤더 — 브랜드 스타일 카드 (탭하면 접기/펼치기)
           GestureDetector(
-            onTap: totalItems > 0 ? () => isExpanded.value = !isExpanded.value : null,
+            onTap: totalItems > 0 ? () => ref.read(dateExpandedProvider(dateKey).notifier).state = !isExpanded : null,
             child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(
@@ -1173,7 +1170,7 @@ class _DateItemsPanel extends HookConsumerWidget {
                 if (totalItems > 0) ...[
                   const Spacer(),
                   Icon(
-                    isExpanded.value ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                     color: AppColors.textSecondaryLight,
                   ),
                 ],
@@ -1219,7 +1216,7 @@ class _DateItemsPanel extends HookConsumerWidget {
           ],
 
           // 근무 목록
-          if (shifts.isNotEmpty && isExpanded.value) ...[
+          if (shifts.isNotEmpty && isExpanded) ...[
             const SizedBox(height: AppSpacing.md),
             ...shifts.map((s) {
               final shiftColor = parseHexColor(s.shiftType.color);
@@ -1307,7 +1304,7 @@ class _DateItemsPanel extends HookConsumerWidget {
           ],
 
           // 일정 목록 (근무가 없을 때 전체 표시)
-          if (events.isNotEmpty && shifts.isEmpty && isExpanded.value) ...[
+          if (events.isNotEmpty && shifts.isEmpty && isExpanded) ...[
             const SizedBox(height: AppSpacing.md),
             ...events.asMap().entries.map((entry) {
               final index = entry.key;
@@ -1319,7 +1316,7 @@ class _DateItemsPanel extends HookConsumerWidget {
           ],
 
           // 근무가 있을 때 나머지 일정 (2번째부터)
-          if (events.length > 1 && shifts.isNotEmpty && isExpanded.value) ...[
+          if (events.length > 1 && shifts.isNotEmpty && isExpanded) ...[
             const SizedBox(height: AppSpacing.md),
             ...events.asMap().entries.where((e) => e.key > 0).map((entry) {
               final index = entry.key;
@@ -1332,7 +1329,7 @@ class _DateItemsPanel extends HookConsumerWidget {
           ],
 
           // 메모 목록
-          if (notes.isNotEmpty && isExpanded.value) ...[
+          if (notes.isNotEmpty && isExpanded) ...[
             if (events.isNotEmpty || shifts.isNotEmpty) const SizedBox(height: AppSpacing.xs),
             ...notes.asMap().entries.map((entry) {
               final index = entry.key;
