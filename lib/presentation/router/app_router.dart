@@ -10,6 +10,7 @@ import 'package:moniq/presentation/screens/home/home_screen.dart';
 import 'package:moniq/presentation/screens/request/request_create_screen.dart';
 import 'package:moniq/presentation/screens/request/request_list_screen.dart';
 import 'package:moniq/presentation/screens/schedule/schedule_generation_screen.dart';
+import 'package:moniq/presentation/screens/settings/profile_edit_screen.dart';
 import 'package:moniq/presentation/screens/settings/settings_screen.dart';
 import 'package:moniq/presentation/screens/team/members_screen.dart';
 import 'package:moniq/presentation/screens/team/rules_screen.dart';
@@ -105,6 +106,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/settings',
                 builder: (context, state) => const SettingsScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'profile',
+                    builder: (context, state) => const ProfileEditScreen(),
+                  ),
+                ],
               ),
             ],
           ),

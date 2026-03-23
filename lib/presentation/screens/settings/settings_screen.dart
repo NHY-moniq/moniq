@@ -111,17 +111,6 @@ class SettingsScreen extends HookConsumerWidget {
               },
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.calendar_month_outlined),
-            title: const Text('캘린더 연동'),
-            subtitle: const Text('기기 캘린더에 근무 일정 연동'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('캘린더 연동은 추후 지원 예정입니다')),
-              );
-            },
-          ),
 
           const Divider(),
 
@@ -131,11 +120,7 @@ class SettingsScreen extends HookConsumerWidget {
             leading: const Icon(Icons.person_outline),
             title: const Text('프로필'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('프로필 편집은 추후 지원 예정입니다')),
-              );
-            },
+            onTap: () => context.go('/settings/profile'),
           ),
           ListTile(
             leading: const Icon(Icons.logout),
@@ -231,3 +216,4 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
+

@@ -58,15 +58,12 @@ class MoniqCalendar extends StatelessWidget {
       },
       eventLoader: eventLoader,
       startingDayOfWeek: startingDayOfWeek,
-      headerStyle: HeaderStyle(
+      headerStyle: const HeaderStyle(
         formatButtonVisible: false,
         titleCentered: true,
-        titleTextStyle: Theme.of(context).textTheme.titleMedium!.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-        leftChevronIcon: const Icon(Icons.chevron_left, size: 28),
-        rightChevronIcon: const Icon(Icons.chevron_right, size: 28),
-        headerPadding: const EdgeInsets.symmetric(vertical: 8),
+        leftChevronIcon: Icon(Icons.chevron_left, size: 28),
+        rightChevronIcon: Icon(Icons.chevron_right, size: 28),
+        headerPadding: EdgeInsets.symmetric(vertical: 8),
       ),
       daysOfWeekHeight: 20,
       daysOfWeekStyle: DaysOfWeekStyle(
@@ -85,6 +82,7 @@ class MoniqCalendar extends StatelessWidget {
         markersMaxCount: 0,
       ),
       calendarBuilders: CalendarBuilders<dynamic>(
+        headerTitleBuilder: (context, day) => _buildHeaderTitle(context, day),
         dowBuilder: (context, day) {
           final text = _dowLabel(day.weekday);
           Color color;
@@ -199,6 +197,112 @@ class MoniqCalendar extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildHeaderTitle(BuildContext context, DateTime day) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w600);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // 연도 드롭다운
+        GestureDetector(
+          onTap: () async {
+            final year = await showDialog<int>(
+              context: context,
+              builder: (ctx) => Dialog(
+                child: SizedBox(
+                  height: 250,
+                  width: 200,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text('연도 선택', style: style),
+                      ),
+                      const Divider(height: 1),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: 11,
+                          itemBuilder: (_, i) {
+                            final y = 2020 + i;
+                            return ListTile(
+                              title: Text(
+                                '$y년',
+                                style: y == day.year
+                                    ? style.copyWith(color: AppColors.primary)
+                                    : style,
+                                textAlign: TextAlign.center,
+                              ),
+                              onTap: () => Navigator.pop(ctx, y),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+            if (year != null && year != day.year) {
+              final newDate = DateTime(year, day.month, 1);
+              onPageChanged(newDate);
+              onDaySelected(newDate, newDate);
+            }
+          },
+          child: Text('${day.year}년 ', style: style),
+        ),
+        // 월 드롭다운
+        GestureDetector(
+          onTap: () async {
+            final month = await showDialog<int>(
+              context: context,
+              builder: (ctx) => Dialog(
+                child: SizedBox(
+                  height: 250,
+                  width: 200,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text('월 선택', style: style),
+                      ),
+                      const Divider(height: 1),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: 12,
+                          itemBuilder: (_, i) {
+                            final m = i + 1;
+                            return ListTile(
+                              title: Text(
+                                '$m월',
+                                style: m == day.month
+                                    ? style.copyWith(color: AppColors.primary)
+                                    : style,
+                                textAlign: TextAlign.center,
+                              ),
+                              onTap: () => Navigator.pop(ctx, m),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+            if (month != null && month != day.month) {
+              final newDate = DateTime(day.year, month, 1);
+              onPageChanged(newDate);
+              onDaySelected(newDate, newDate);
+            }
+          },
+          child: Text('${day.month}월', style: style),
+        ),
+      ],
     );
   }
 

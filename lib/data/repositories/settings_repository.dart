@@ -19,4 +19,8 @@ class SettingsRepository {
   bool getNotificationsEnabled() => _dataSource.getNotificationsEnabled();
   Future<void> setNotificationsEnabled(bool enabled) =>
       _dataSource.setNotificationsEnabled(enabled);
+
+  bool getCalendarSyncEnabled() => _dataSource.getCalendarSyncEnabled();
+  Future<void> setCalendarSyncEnabled(bool enabled) =>
+      _dataSource.setCalendarSyncEnabled(enabled);
 }

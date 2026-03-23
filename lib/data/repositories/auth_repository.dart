@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moniq/data/datasources/auth_remote_data_source.dart';
@@ -48,6 +50,24 @@ class AuthRepository {
 
   Future<void> signOut() {
     return _dataSource.signOut();
+  }
+
+  Future<UserResponse> updateProfile({
+    String? displayName,
+    String? avatarUrl,
+  }) {
+    return _dataSource.updateProfile(
+      displayName: displayName,
+      avatarUrl: avatarUrl,
+    );
+  }
+
+  Future<bool> checkNicknameDuplicate(String nickname) {
+    return _dataSource.checkNicknameDuplicate(nickname);
+  }
+
+  Future<String> uploadAvatar(Uint8List bytes, String fileName) {
+    return _dataSource.uploadAvatar(bytes, fileName);
   }
 
   User? get currentUser => _dataSource.currentUser;

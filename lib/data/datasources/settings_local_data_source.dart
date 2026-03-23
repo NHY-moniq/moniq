@@ -9,6 +9,7 @@ class SettingsLocalDataSource {
   static const _keyFontScale = 'settings_font_scale';
   static const _keyCalendarStartDay = 'settings_calendar_start_day';
   static const _keyNotificationsEnabled = 'settings_notifications_enabled';
+  static const _keyCalendarSyncEnabled = 'settings_calendar_sync_enabled';
 
   String getThemeMode() => _prefs.getString(_keyThemeMode) ?? 'light';
   Future<void> setThemeMode(String mode) => _prefs.setString(_keyThemeMode, mode);
@@ -25,4 +26,9 @@ class SettingsLocalDataSource {
       _prefs.getBool(_keyNotificationsEnabled) ?? true;
   Future<void> setNotificationsEnabled(bool enabled) =>
       _prefs.setBool(_keyNotificationsEnabled, enabled);
+
+  bool getCalendarSyncEnabled() =>
+      _prefs.getBool(_keyCalendarSyncEnabled) ?? false;
+  Future<void> setCalendarSyncEnabled(bool enabled) =>
+      _prefs.setBool(_keyCalendarSyncEnabled, enabled);
 }

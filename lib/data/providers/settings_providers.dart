@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/data/datasources/device_calendar_data_source.dart';
 import 'package:moniq/data/datasources/settings_local_data_source.dart';
 import 'package:moniq/data/repositories/settings_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -67,6 +68,11 @@ class FontScaleNotifier extends Notifier<double> {
     state = scale;
   }
 }
+
+/// 기기 캘린더 데이터소스
+final deviceCalendarDataSourceProvider = Provider<DeviceCalendarDataSource>(
+  (ref) => DeviceCalendarDataSource(),
+);
 
 /// 캘린더 시작 요일 상태 관리
 final calendarStartDayProvider =

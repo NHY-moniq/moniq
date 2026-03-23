@@ -1,10 +1,20 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/data/datasources/device_calendar_data_source.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_note_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
+import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
@@ -17,6 +27,9 @@ import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 // ── Providers ──
+
+/// 이벤트/노트 변경 시 증가시켜 모든 관련 provider를 갱신하는 트리거
+final eventRefreshProvider = StateProvider<int>((ref) => 0);
 
 final personalNoteDataSourceProvider = Provider<PersonalNoteLocalDataSource>(
   (ref) => PersonalNoteLocalDataSource(prefs: ref.watch(sharedPreferencesProvider)),
@@ -37,22 +50,34 @@ final personalShiftTypesProvider = Provider<List<PersonalShiftType>>(
 
 final monthlyNotesProvider =
     Provider.family<Map<DateTime, List<PersonalNote>>, DateTime>(
-  (ref, month) => ref.watch(personalNoteDataSourceProvider).getMonthlyNotes(month),
+  (ref, month) {
+    ref.watch(eventRefreshProvider);
+    return ref.watch(personalNoteDataSourceProvider).getMonthlyNotes(month);
+  },
 );
 
 final dateNotesProvider =
     Provider.family<List<PersonalNote>, DateTime>(
-  (ref, date) => ref.watch(personalNoteDataSourceProvider).getNotes(date),
+  (ref, date) {
+    ref.watch(eventRefreshProvider);
+    return ref.watch(personalNoteDataSourceProvider).getNotes(date);
+  },
 );
 
 final monthlyEventsProvider =
     Provider.family<Map<DateTime, List<PersonalEvent>>, DateTime>(
-  (ref, month) => ref.watch(personalEventDataSourceProvider).getMonthlyEvents(month),
+  (ref, month) {
+    ref.watch(eventRefreshProvider);
+    return ref.watch(personalEventDataSourceProvider).getMonthlyEvents(month);
+  },
 );
 
 final dateEventsProvider =
     Provider.family<List<PersonalEvent>, DateTime>(
-  (ref, date) => ref.watch(personalEventDataSourceProvider).getEvents(date),
+  (ref, date) {
+    ref.watch(eventRefreshProvider);
+    return ref.watch(personalEventDataSourceProvider).getEvents(date);
+  },
 );
 
 // ── Screen ──
@@ -68,13 +93,62 @@ class HomeScreen extends HookConsumerWidget {
         ? StartingDayOfWeek.sunday
         : StartingDayOfWeek.monday;
 
+    final currentUser = ref.watch(authRepositoryProvider).currentUser;
+    final userMeta = currentUser?.userMetadata;
+    final displayName = userMeta?['display_name'] as String?;
+    final avatarUrl = userMeta?['avatar_url'] as String?;
+
+    Widget buildAppBarTitle() {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: (avatarUrl != null && avatarUrl.isNotEmpty)
+                ? () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => Dialog(
+                        backgroundColor: Colors.transparent,
+                        child: GestureDetector(
+                          onTap: () => Navigator.pop(ctx),
+                          child: CircleAvatar(
+                            radius: 100,
+                            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            backgroundImage: CachedNetworkImageProvider(avatarUrl),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                : null,
+            child: CircleAvatar(
+              radius: 16,
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                  ? CachedNetworkImageProvider(avatarUrl)
+                  : null,
+              child: avatarUrl == null || avatarUrl.isEmpty
+                  ? Icon(Icons.person, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant)
+                  : null,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            displayName != null && displayName.isNotEmpty
+                ? '$displayName 님의 일정'
+                : '내 일정',
+          ),
+        ],
+      );
+    }
+
     return calendarAsync.when(
       loading: () => Scaffold(
-        appBar: AppBar(title: const Text('내 일정')),
+        appBar: AppBar(title: buildAppBarTitle()),
         body: const MoniqLoadingView(),
       ),
       error: (e, _) => Scaffold(
-        appBar: AppBar(title: const Text('내 일정')),
+        appBar: AppBar(title: buildAppBarTitle()),
         body: MoniqErrorView(
           message: '일정을 불러올 수 없습니다',
           onRetry: () => ref.read(homeViewModelProvider.notifier).refresh(),
@@ -96,9 +170,10 @@ class HomeScreen extends HookConsumerWidget {
         final dateEvents =
             ref.watch(dateEventsProvider(state.selectedDate));
 
+
         return Scaffold(
           appBar: AppBar(
-            title: const Text('내 일정'),
+            title: buildAppBarTitle(),
             actions: [
               Builder(
                 builder: (ctx) => IconButton(
@@ -108,7 +183,10 @@ class HomeScreen extends HookConsumerWidget {
               ),
             ],
           ),
-          endDrawer: const _HomeDrawer(),
+          endDrawer: _HomeDrawer(
+            onImportCalendar: () => _importDeviceCalendar(context, ref),
+            onExportCalendar: () => _exportCalendar(context, ref, state),
+          ),
           floatingActionButton: FloatingActionButton(
             onPressed: () => _showAddMenu(context, ref, state.selectedDate),
             backgroundColor: AppColors.primary,
@@ -153,7 +231,7 @@ class HomeScreen extends HookConsumerWidget {
                     }
                     return Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: markers.take(3).toList(),
+                      children: markers.take(4).toList(),
                     );
                   },
                   previewBuilder: (day) {
@@ -212,6 +290,27 @@ class HomeScreen extends HookConsumerWidget {
                   notes: dateNotes,
                 ),
 
+                const SizedBox(height: AppSpacing.lg),
+                Padding(
+                  padding: AppSpacing.screenHorizontal,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        final today = DateTime.now();
+                        final todayDate = DateTime(today.year, today.month, today.day);
+                        ref.read(homeViewModelProvider.notifier).changeMonth(todayDate);
+                        ref.read(homeViewModelProvider.notifier).selectDate(todayDate);
+                      },
+                      icon: const Icon(Icons.today, size: 18),
+                      label: const Text('오늘로 이동'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+
                 const SizedBox(height: AppSpacing.huge),
               ],
             ),
@@ -219,6 +318,276 @@ class HomeScreen extends HookConsumerWidget {
         );
       },
     );
+  }
+
+  Future<File> _generateCalendarImage(HomeCalendarState state, WidgetRef ref) async {
+    final focusedMonth = state.focusedMonth;
+    final eventDs = ref.read(personalEventDataSourceProvider);
+    final daysInMonth = DateTime(focusedMonth.year, focusedMonth.month + 1, 0).day;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final paint = Paint()..color = Colors.white;
+
+    const width = 800.0;
+    const headerH = 60.0;
+    const dayH = 24.0;
+    const rowH = 50.0;
+    final rows = ((daysInMonth + DateTime(focusedMonth.year, focusedMonth.month, 1).weekday - 1) / 7).ceil();
+    final height = headerH + dayH + (rows * rowH) + 20;
+
+    canvas.drawRect(Rect.fromLTWH(0, 0, width, height), paint);
+
+    final headerPaint = TextPainter(
+      text: TextSpan(
+        text: '${focusedMonth.year}년 ${focusedMonth.month}월',
+        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    headerPaint.paint(canvas, Offset((width - headerPaint.width) / 2, 16));
+
+    const days = ['월', '화', '수', '목', '금', '토', '일'];
+    const cellW = width / 7;
+    for (int i = 0; i < 7; i++) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: days[i],
+          style: TextStyle(
+            fontSize: 14, fontWeight: FontWeight.w600,
+            color: i == 6 ? Colors.red : (i == 5 ? Colors.blue : Colors.grey),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(cellW * i + (cellW - tp.width) / 2, headerH));
+    }
+
+    final firstWeekday = DateTime(focusedMonth.year, focusedMonth.month, 1).weekday - 1;
+    for (int d = 1; d <= daysInMonth; d++) {
+      final date = DateTime(focusedMonth.year, focusedMonth.month, d);
+      final col = (firstWeekday + d - 1) % 7;
+      final row = (firstWeekday + d - 1) ~/ 7;
+      final x = cellW * col;
+      final y = headerH + dayH + row * rowH;
+
+      final dayPainter = TextPainter(
+        text: TextSpan(
+          text: '$d',
+          style: TextStyle(
+            fontSize: 13,
+            color: col == 6 ? Colors.red : (col == 5 ? Colors.blue : Colors.black87),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      dayPainter.paint(canvas, Offset(x + 4, y + 2));
+
+      final events = eventDs.getEvents(date);
+      final shifts = state.monthlyShifts[date];
+      if (shifts != null && shifts.isNotEmpty) {
+        final sp = TextPainter(
+          text: TextSpan(
+            text: shifts.first.shiftType.name,
+            style: const TextStyle(fontSize: 9, color: Colors.deepOrange),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        sp.paint(canvas, Offset(x + 4, y + 18));
+      } else if (events.isNotEmpty) {
+        final ep = TextPainter(
+          text: TextSpan(
+            text: events.first.title,
+            style: const TextStyle(fontSize: 9, color: Colors.green),
+          ),
+          textDirection: TextDirection.ltr,
+          maxLines: 1, ellipsis: '..',
+        )..layout(maxWidth: cellW - 8);
+        ep.paint(canvas, Offset(x + 4, y + 18));
+      }
+    }
+
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(width.toInt(), height.toInt());
+    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+    final bytes = byteData!.buffer.asUint8List();
+
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/moniq_${focusedMonth.year}_${focusedMonth.month}.png');
+    await file.writeAsBytes(bytes);
+    return file;
+  }
+
+  Future<void> _exportCalendar(BuildContext context, WidgetRef ref, HomeCalendarState state) async {
+    final format = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('내보내기 형식 선택'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, 'album'),
+            child: const ListTile(
+              leading: Icon(Icons.photo_album_outlined, color: AppColors.primary),
+              title: Text('앨범에 저장'),
+              subtitle: Text('캘린더 이미지를 사진 앨범에 저장'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, 'share'),
+            child: const ListTile(
+              leading: Icon(Icons.share_outlined, color: AppColors.tertiary),
+              title: Text('이미지 공유하기'),
+              subtitle: Text('카카오톡, 메시지 등으로 캘린더 이미지 공유'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (format == null || !context.mounted) return;
+
+    try {
+      final file = await _generateCalendarImage(state, ref);
+      final focusedMonth = state.focusedMonth;
+
+      if (format == 'album') {
+        final result = await ImageGallerySaverPlus.saveFile(file.path);
+        if (context.mounted) {
+          final success = result['isSuccess'] == true;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(success ? '앨범에 저장되었습니다' : '저장에 실패했습니다')),
+          );
+        }
+      } else if (format == 'share') {
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(file.path)],
+            subject: 'Moniq ${focusedMonth.year}년 ${focusedMonth.month}월 일정',
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('내보내기 실패: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _importDeviceCalendar(BuildContext context, WidgetRef ref) async {
+    // 캘린더 소스 선택 다이얼로그
+    final source = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('가져올 캘린더 선택'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, 'device'),
+            child: const ListTile(
+              leading: Icon(Icons.calendar_month, color: AppColors.primary),
+              title: Text('기본 캘린더'),
+              subtitle: Text('iPhone 기본 캘린더에서 가져오기'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          SimpleDialogOption(
+            child: ListTile(
+              leading: Icon(Icons.event, color: Colors.grey),
+              title: Text('Google 캘린더', style: TextStyle(color: Colors.grey)),
+              subtitle: const Text('추후 지원 예정'),
+              contentPadding: EdgeInsets.zero,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Google 캘린더 연동은 추후 지원 예정입니다')),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+
+    if (source != 'device' || !context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('캘린더에서 일정을 가져오는 중...'), duration: Duration(seconds: 1)),
+    );
+
+    try {
+      final ds = ref.read(deviceCalendarDataSourceProvider);
+      final granted = await ds.requestPermission();
+      if (!granted) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('캘린더 접근 권한이 필요합니다. 설정에서 권한을 허용해주세요.')),
+          );
+        }
+        return;
+      }
+
+      // 1년치 이벤트 가져오기
+      final now = DateTime.now();
+      final allEvents = <DeviceCalendarEvent>[];
+      for (int i = 0; i < 12; i++) {
+        final month = DateTime(now.year, now.month + i, 1);
+        final monthEvents = await ds.getEventsForMonth(month);
+        allEvents.addAll(monthEvents);
+      }
+
+      if (allEvents.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('신규로 추가할 일정이 없습니다')),
+          );
+        }
+        return;
+      }
+
+      final events = allEvents;
+
+      final eventDs = ref.read(personalEventDataSourceProvider);
+      int imported = 0;
+
+      for (final event in events) {
+        final existing = eventDs.getEvents(event.date);
+        final isDuplicate = existing.any((e) => e.title == event.title);
+
+        if (!isDuplicate) {
+          await eventDs.addEvent(PersonalEvent(
+            date: event.date,
+            title: event.title,
+            startTime: event.startTime,
+            endTime: event.endTime,
+            description: event.calendarName,
+            color: event.color ?? '#5A8BB5',
+            createdAt: DateTime.now(),
+          ));
+          imported++;
+        }
+      }
+
+      _refreshAll(ref, DateTime.now());
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(imported > 0
+                ? '$imported건의 일정을 가져왔습니다'
+                : '신규로 추가할 일정이 없습니다 (이미 등록됨)'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('오류가 발생했습니다: $e')),
+        );
+      }
+    }
   }
 
   void _showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
@@ -315,7 +684,7 @@ class HomeScreen extends HookConsumerWidget {
   }
 
   /// 근무 유형으로 빠르게 일정 추가
-  void _addShiftEvent(WidgetRef ref, DateTime date, PersonalShiftType st) {
+  Future<void> _addShiftEvent(WidgetRef ref, DateTime date, PersonalShiftType st) async {
     final event = PersonalEvent(
       date: DateTime(date.year, date.month, date.day),
       title: st.name,
@@ -325,7 +694,7 @@ class HomeScreen extends HookConsumerWidget {
       createdAt: DateTime.now(),
     );
     final ds = ref.read(personalEventDataSourceProvider);
-    ds.addEvent(event);
+    await ds.addEvent(event);
     _refreshAll(ref, date);
   }
 
@@ -493,6 +862,10 @@ class HomeScreen extends HookConsumerWidget {
   static void _showNoteForm(BuildContext context, WidgetRef ref,
       DateTime date, int? index, String? currentContent) {
     final controller = TextEditingController(text: currentContent ?? '');
+    final hasText = ValueNotifier<bool>((currentContent ?? '').trim().isNotEmpty);
+    controller.addListener(() {
+      hasText.value = controller.text.trim().isNotEmpty;
+    });
 
     showModalBottomSheet(
       context: context,
@@ -532,10 +905,26 @@ class HomeScreen extends HookConsumerWidget {
               textInputAction: TextInputAction.done,
             ),
             const SizedBox(height: AppSpacing.lg),
-            ElevatedButton(
+            ValueListenableBuilder<bool>(
+              valueListenable: hasText,
+              builder: (ctx, hasValue, _) => ElevatedButton(
               onPressed: () async {
                 final text = controller.text.trim();
-                if (text.isEmpty) return;
+                if (text.isEmpty) {
+                  showDialog(
+                    context: ctx,
+                    builder: (dCtx) => AlertDialog(
+                      content: const Text('추가하실 메모를 입력해주세요.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dCtx),
+                          child: const Text('확인'),
+                        ),
+                      ],
+                    ),
+                  );
+                  return;
+                }
                 final ds = ref.read(personalNoteDataSourceProvider);
                 if (index == null) {
                   await ds.addNote(date, text);
@@ -545,7 +934,13 @@ class HomeScreen extends HookConsumerWidget {
                 _refreshAll(ref, date);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
+              style: ElevatedButton.styleFrom(
+                foregroundColor: hasValue
+                    ? Colors.white
+                    : Theme.of(ctx).colorScheme.onPrimary.withValues(alpha: 0.3),
+              ),
               child: Text(index == null ? '추가' : '저장'),
+            ),
             ),
           ],
         ),
@@ -554,10 +949,8 @@ class HomeScreen extends HookConsumerWidget {
   }
 
   static void _refreshAll(WidgetRef ref, DateTime date) {
-    ref.invalidate(dateEventsProvider(date));
-    ref.invalidate(dateNotesProvider(date));
-    ref.invalidate(monthlyEventsProvider(DateTime(date.year, date.month, 1)));
-    ref.invalidate(monthlyNotesProvider(DateTime(date.year, date.month, 1)));
+    // 모든 이벤트/노트 provider 캐시를 한번에 갱신
+    ref.read(eventRefreshProvider.notifier).state++;
   }
 
   static TimeOfDay _parseTime(String time) {
@@ -688,14 +1081,24 @@ class _DateItemsPanel extends HookConsumerWidget {
     final theme = Theme.of(context);
     final hasItems = shifts.isNotEmpty || events.isNotEmpty || notes.isNotEmpty;
     final weekday = _weekdays[date.weekday - 1];
+    final totalItems = shifts.length + events.length + notes.length;
+    final isExpanded = useState(true);
+
+    // 날짜 바뀌면 자동으로 접기/펼치기 초기화
+    useEffect(() {
+      isExpanded.value = true;
+      return null;
+    }, [date]);
 
     return Padding(
       padding: AppSpacing.screenHorizontal,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 날짜 헤더 — 브랜드 스타일 카드
-          Container(
+          // 날짜 헤더 — 브랜드 스타일 카드 (탭하면 접기/펼치기)
+          GestureDetector(
+            onTap: totalItems > 0 ? () => isExpanded.value = !isExpanded.value : null,
+            child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.lg,
@@ -767,8 +1170,16 @@ class _DateItemsPanel extends HookConsumerWidget {
                     ),
                   ],
                 ),
+                if (totalItems > 0) ...[
+                  const Spacer(),
+                  Icon(
+                    isExpanded.value ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ],
               ],
             ),
+          ),
           ),
 
           if (!hasItems) ...[
@@ -808,7 +1219,7 @@ class _DateItemsPanel extends HookConsumerWidget {
           ],
 
           // 근무 목록
-          if (shifts.isNotEmpty) ...[
+          if (shifts.isNotEmpty && isExpanded.value) ...[
             const SizedBox(height: AppSpacing.md),
             ...shifts.map((s) {
               final shiftColor = parseHexColor(s.shiftType.color);
@@ -896,7 +1307,7 @@ class _DateItemsPanel extends HookConsumerWidget {
           ],
 
           // 일정 목록 (근무가 없을 때 전체 표시)
-          if (events.isNotEmpty && shifts.isEmpty) ...[
+          if (events.isNotEmpty && shifts.isEmpty && isExpanded.value) ...[
             const SizedBox(height: AppSpacing.md),
             ...events.asMap().entries.map((entry) {
               final index = entry.key;
@@ -908,7 +1319,7 @@ class _DateItemsPanel extends HookConsumerWidget {
           ],
 
           // 근무가 있을 때 나머지 일정 (2번째부터)
-          if (events.length > 1 && shifts.isNotEmpty) ...[
+          if (events.length > 1 && shifts.isNotEmpty && isExpanded.value) ...[
             const SizedBox(height: AppSpacing.md),
             ...events.asMap().entries.where((e) => e.key > 0).map((entry) {
               final index = entry.key;
@@ -921,7 +1332,7 @@ class _DateItemsPanel extends HookConsumerWidget {
           ],
 
           // 메모 목록
-          if (notes.isNotEmpty) ...[
+          if (notes.isNotEmpty && isExpanded.value) ...[
             if (events.isNotEmpty || shifts.isNotEmpty) const SizedBox(height: AppSpacing.xs),
             ...notes.asMap().entries.map((entry) {
               final index = entry.key;
@@ -1159,13 +1570,18 @@ class _DateItemsPanel extends HookConsumerWidget {
 // ── 홈 드로어 ──
 
 class _HomeDrawer extends HookConsumerWidget {
-  const _HomeDrawer();
+  const _HomeDrawer({
+    required this.onImportCalendar,
+    required this.onExportCalendar,
+  });
+
+  final VoidCallback onImportCalendar;
+  final VoidCallback onExportCalendar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final shiftTypes = ref.watch(personalShiftTypesProvider);
-
     return Drawer(
       child: SafeArea(
         child: Column(
@@ -1184,6 +1600,26 @@ class _HomeDrawer extends HookConsumerWidget {
               onTap: () {
                 Navigator.pop(context);
                 _showPersonalShiftTypeManager(context, ref);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.calendar_month_outlined),
+              title: const Text('외부 캘린더 일정 가져오기'),
+              subtitle: const Text('외부 캘린더 설정'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.pop(context);
+                onImportCalendar();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.ios_share_outlined),
+              title: const Text('캘린더 내보내기'),
+              subtitle: const Text('이미지 또는 스프레드시트로 내보내기'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.pop(context);
+                onExportCalendar();
               },
             ),
           ],
@@ -1424,7 +1860,22 @@ class _PersonalShiftTypeSheet extends HookConsumerWidget {
               onPressed: () {
                 final name = nameController.text.trim();
                 final code = codeController.text.trim();
-                if (name.isEmpty || code.isEmpty) return;
+                if (name.isEmpty || code.isEmpty) {
+                  showDialog(
+                    context: ctx,
+                    builder: (dialogCtx) => AlertDialog(
+                      title: const Text('입력 오류'),
+                      content: const Text('필수 항목을 입력해주세요.\n이름과 코드는 반드시 입력해야 합니다.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogCtx),
+                          child: const Text('확인'),
+                        ),
+                      ],
+                    ),
+                  );
+                  return;
+                }
 
                 final ds = ref.read(personalShiftTypeDataSourceProvider);
                 final st = PersonalShiftType(
