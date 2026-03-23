@@ -5,6 +5,7 @@ import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SettingsScreen extends HookConsumerWidget {
   const SettingsScreen({super.key});
@@ -16,9 +17,7 @@ class SettingsScreen extends HookConsumerWidget {
     final calendarStartDay = ref.watch(calendarStartDayProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('설정'),
-      ),
+      appBar: AppBar(title: const Text('설정')),
       body: ListView(
         children: [
           // 앱 설정
@@ -142,16 +141,65 @@ class SettingsScreen extends HookConsumerWidget {
           ),
           ListTile(
             leading: Icon(Icons.delete_forever, color: AppColors.error),
-            title: Text(
-              '계정 삭제',
-              style: TextStyle(color: AppColors.error),
-            ),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('계정 삭제 기능은 추후 구현 예정입니다'),
+            title: Text('계정 삭제', style: TextStyle(color: AppColors.error)),
+            onTap: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('계정 삭제'),
+                  content: const Text(
+                    '계정을 삭제하면 되돌릴 수 없습니다.\n'
+                    '계정이 유일한 관리자인 팀에 속해 있다면 삭제할 수 없습니다.\n'
+                    '정말 삭제하시겠습니까?',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('취소'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: Text(
+                        '삭제',
+                        style: TextStyle(color: AppColors.error),
+                      ),
+                    ),
+                  ],
                 ),
               );
+
+              if (confirm != true) return;
+
+              try {
+                await ref.read(authViewModelProvider.notifier).deleteAccount();
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('계정이 삭제되었습니다')));
+                context.go('/login');
+              } catch (error) {
+                if (!context.mounted) return;
+
+                final message = switch (error) {
+                  AuthException() => error.message,
+                  PostgrestException() => error.message,
+                  _ => '계정 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.',
+                };
+
+                await showDialog<void>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('계정 삭제 실패'),
+                    content: Text(message),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('확인'),
+                      ),
+                    ],
+                  ),
+                );
+              }
             },
           ),
           const Divider(),
@@ -170,8 +218,8 @@ class SettingsScreen extends HookConsumerWidget {
             trailing: Text(
               '1.0.0',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondaryLight,
-                  ),
+                color: AppColors.textSecondaryLight,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.xxl),
@@ -229,9 +277,9 @@ class _SectionHeader extends StatelessWidget {
       ),
       child: Text(
         title,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: AppColors.textSecondaryLight,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.labelLarge?.copyWith(color: AppColors.textSecondaryLight),
       ),
     );
   }

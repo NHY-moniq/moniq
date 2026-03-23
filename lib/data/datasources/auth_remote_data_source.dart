@@ -4,9 +4,14 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthRemoteDataSource {
-  AuthRemoteDataSource({required GoTrueClient auth}) : _auth = auth;
+  AuthRemoteDataSource({
+    required GoTrueClient auth,
+    required SupabaseClient client,
+  }) : _auth = auth,
+       _client = client;
 
   final GoTrueClient _auth;
+  final SupabaseClient _client;
 
   // Email / Password
   Future<AuthResponse> signInWithEmail({
@@ -103,6 +108,16 @@ class AuthRemoteDataSource {
 
     if (!launched) {
       throw const AuthException('카카오 로그인 페이지를 열 수 없습니다');
+    }
+  }
+
+  // Account deletion
+  Future<void> deleteAccount() async {
+    await _client.rpc('delete_my_account');
+    try {
+      await _auth.signOut();
+    } catch (_) {
+      // Session may already be invalidated after user deletion.
     }
   }
 

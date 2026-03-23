@@ -6,7 +6,7 @@ import 'package:moniq/data/datasources/auth_remote_data_source.dart';
 
 class AuthRepository {
   AuthRepository({required AuthRemoteDataSource dataSource})
-      : _dataSource = dataSource;
+    : _dataSource = dataSource;
 
   final AuthRemoteDataSource _dataSource;
 
@@ -14,10 +14,7 @@ class AuthRepository {
     required String email,
     required String password,
   }) {
-    return _dataSource.signInWithEmail(
-      email: email,
-      password: password,
-    );
+    return _dataSource.signInWithEmail(email: email, password: password);
   }
 
   Future<AuthResponse> signUpWithEmail({
@@ -68,6 +65,10 @@ class AuthRepository {
 
   Future<String> uploadAvatar(Uint8List bytes, String fileName) {
     return _dataSource.uploadAvatar(bytes, fileName);
+  }
+
+  Future<void> deleteAccount() {
+    return _dataSource.deleteAccount();
   }
 
   User? get currentUser => _dataSource.currentUser;

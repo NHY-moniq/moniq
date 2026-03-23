@@ -5,7 +5,10 @@ import 'package:moniq/data/repositories/auth_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>(
-  (ref) => AuthRemoteDataSource(auth: ref.watch(goTrueClientProvider)),
+  (ref) => AuthRemoteDataSource(
+    auth: ref.watch(goTrueClientProvider),
+    client: ref.watch(supabaseClientProvider),
+  ),
 );
 
 final authRepositoryProvider = Provider<AuthRepository>(
