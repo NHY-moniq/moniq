@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moniq/data/providers/auth_providers.dart';
+import 'package:moniq/data/providers/auth_providers.dart' show authRepositoryProvider, userProfileVersionProvider;
 import 'package:moniq/data/repositories/auth_repository.dart';
 
 // Profile state
@@ -105,6 +105,8 @@ class ProfileViewModel extends AutoDisposeNotifier<ProfileState> {
     try {
       final url = await _repository.uploadAvatar(bytes, fileName);
       final response = await _repository.updateProfile(avatarUrl: url);
+      // Bump version so currentUserProvider re-reads the updated user
+      ref.read(userProfileVersionProvider.notifier).state++;
       state = state.copyWith(
         isLoading: false,
         avatarUrl: response.user?.userMetadata?['avatar_url'] as String? ?? url,
@@ -121,6 +123,8 @@ class ProfileViewModel extends AutoDisposeNotifier<ProfileState> {
     state = state.copyWith(isSaving: true, clearError: true, savedSuccessfully: false);
     try {
       await _repository.updateProfile(displayName: displayName);
+      // Bump version so currentUserProvider re-reads the updated user
+      ref.read(userProfileVersionProvider.notifier).state++;
       state = state.copyWith(
         isSaving: false,
         displayName: displayName,

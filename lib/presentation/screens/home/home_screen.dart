@@ -95,7 +95,7 @@ class HomeScreen extends HookConsumerWidget {
         ? StartingDayOfWeek.sunday
         : StartingDayOfWeek.monday;
 
-    final currentUser = ref.watch(authRepositoryProvider).currentUser;
+    final currentUser = ref.watch(currentUserProvider);
     final userMeta = currentUser?.userMetadata;
     final displayName = userMeta?['display_name'] as String?;
     final avatarUrl = userMeta?['avatar_url'] as String?;

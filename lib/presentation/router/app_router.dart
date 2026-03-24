@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moniq/presentation/router/app_shell.dart';
 import 'package:moniq/presentation/screens/auth/forgot_password_screen.dart';
 import 'package:moniq/presentation/screens/auth/login_screen.dart';
@@ -27,13 +28,20 @@ final _settingsNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'settings');
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateChangesProvider);
+  final authNotifier = ValueNotifier<AsyncValue<AuthState>>(
+    ref.read(authStateChangesProvider),
+  );
+  ref.listen<AsyncValue<AuthState>>(authStateChangesProvider, (_, next) {
+    authNotifier.value = next;
+  });
+  ref.onDispose(() => authNotifier.dispose());
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/login',
+    refreshListenable: authNotifier,
     redirect: (context, state) {
-      final isLoggedIn = authState.whenOrNull(
+      final isLoggedIn = authNotifier.value.whenOrNull(
             data: (auth) => auth.session != null,
           ) ??
           false;
