@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -94,6 +96,38 @@ class AuthRemoteDataSource {
   // Sign Out
   Future<void> signOut() async {
     await _auth.signOut();
+  }
+
+  // Profile
+  Future<UserResponse> updateProfile({
+    String? displayName,
+    String? avatarUrl,
+  }) async {
+    final data = <String, dynamic>{};
+    if (displayName != null) data['display_name'] = displayName;
+    if (avatarUrl != null) data['avatar_url'] = avatarUrl;
+
+    return _auth.updateUser(UserAttributes(data: data));
+  }
+
+  Future<bool> checkNicknameDuplicate(String nickname) async {
+    final result = await _client.rpc('check_nickname_duplicate', params: {
+      'p_nickname': nickname,
+    });
+    return result as bool;
+  }
+
+  Future<String> uploadAvatar(Uint8List bytes, String fileName) async {
+    final userId = _auth.currentUser!.id;
+    final path = '$userId/$fileName';
+
+    await _client.storage.from('avatars').uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+
+    return _client.storage.from('avatars').getPublicUrl(path);
   }
 
   // Current user

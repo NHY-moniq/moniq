@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+/// 캘린더 미리보기 데이터
+class CalendarPreview {
+  const CalendarPreview({required this.text, this.color});
+  final String text;
+  final Color? color;
+}
+
 class MoniqCalendar extends StatelessWidget {
   const MoniqCalendar({
     super.key,
@@ -13,6 +20,9 @@ class MoniqCalendar extends StatelessWidget {
     this.calendarFormat = CalendarFormat.month,
     this.onFormatChanged,
     this.markerBuilder,
+    this.startingDayOfWeek = StartingDayOfWeek.monday,
+    this.previewBuilder,
+    this.rowHeight = 52,
   });
 
   final DateTime focusedDay;
@@ -23,6 +33,10 @@ class MoniqCalendar extends StatelessWidget {
   final CalendarFormat calendarFormat;
   final void Function(CalendarFormat)? onFormatChanged;
   final Widget? Function(BuildContext, DateTime, List<dynamic>)? markerBuilder;
+  final StartingDayOfWeek startingDayOfWeek;
+  /// 날짜별 미리보기 리스트를 반환 (최대 2개 표시)
+  final List<CalendarPreview> Function(DateTime day)? previewBuilder;
+  final double rowHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -37,22 +51,21 @@ class MoniqCalendar extends StatelessWidget {
       calendarFormat: calendarFormat,
       availableGestures: AvailableGestures.horizontalSwipe,
       onFormatChanged: onFormatChanged,
+      rowHeight: rowHeight,
       availableCalendarFormats: const {
         CalendarFormat.month: '월',
         CalendarFormat.week: '주',
       },
       eventLoader: eventLoader,
-      startingDayOfWeek: StartingDayOfWeek.monday,
-      headerStyle: HeaderStyle(
+      startingDayOfWeek: startingDayOfWeek,
+      headerStyle: const HeaderStyle(
         formatButtonVisible: false,
         titleCentered: true,
-        titleTextStyle: Theme.of(context).textTheme.titleMedium!.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-        leftChevronIcon: const Icon(Icons.chevron_left, size: 28),
-        rightChevronIcon: const Icon(Icons.chevron_right, size: 28),
-        headerPadding: const EdgeInsets.symmetric(vertical: 8),
+        leftChevronIcon: Icon(Icons.chevron_left, size: 28),
+        rightChevronIcon: Icon(Icons.chevron_right, size: 28),
+        headerPadding: EdgeInsets.symmetric(vertical: 8),
       ),
+      daysOfWeekHeight: 20,
       daysOfWeekStyle: DaysOfWeekStyle(
         weekdayStyle: Theme.of(context).textTheme.bodySmall!.copyWith(
               color: AppColors.textSecondaryLight,
@@ -65,32 +78,244 @@ class MoniqCalendar extends StatelessWidget {
       ),
       calendarStyle: CalendarStyle(
         outsideDaysVisible: false,
-        todayDecoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.2),
-          shape: BoxShape.circle,
-        ),
-        todayTextStyle: TextStyle(
-          color: AppColors.primary,
-          fontWeight: FontWeight.w600,
-        ),
-        selectedDecoration: const BoxDecoration(
-          color: AppColors.primary,
-          shape: BoxShape.circle,
-        ),
-        selectedTextStyle: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-        ),
-        weekendTextStyle: TextStyle(
-          color: AppColors.error.withValues(alpha: 0.7),
-        ),
-        markersMaxCount: 3,
-        markersAlignment: Alignment.bottomCenter,
-        markerMargin: const EdgeInsets.symmetric(horizontal: 0.5),
+        cellMargin: const EdgeInsets.all(1),
+        markersMaxCount: 0,
       ),
       calendarBuilders: CalendarBuilders<dynamic>(
-        markerBuilder: markerBuilder,
+        headerTitleBuilder: (context, day) => _buildHeaderTitle(context, day),
+        dowBuilder: (context, day) {
+          final text = _dowLabel(day.weekday);
+          Color color;
+          if (day.weekday == DateTime.sunday) {
+            color = AppColors.error.withValues(alpha: 0.7);
+          } else if (day.weekday == DateTime.saturday) {
+            color = AppColors.brandBlue;
+          } else {
+            color = AppColors.textSecondaryLight;
+          }
+          return Center(
+            child: Text(text,
+                style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                      color: color, fontWeight: FontWeight.w500)),
+          );
+        },
+        defaultBuilder: (context, day, focusedDay) =>
+            _buildCell(context, day, false, false),
+        todayBuilder: (context, day, focusedDay) =>
+            _buildCell(context, day, true, false),
+        selectedBuilder: (context, day, focusedDay) =>
+            _buildCell(context, day, false, true),
       ),
     );
+  }
+
+  Widget _buildCell(
+      BuildContext context, DateTime day, bool isToday, bool isSelected) {
+    final theme = Theme.of(context);
+    final events = eventLoader?.call(day) ?? [];
+    final previews = previewBuilder?.call(day) ?? [];
+    final hasEvents = events.isNotEmpty;
+
+    Color textColor;
+    if (isSelected) {
+      textColor = Colors.white;
+    } else if (isToday) {
+      textColor = AppColors.primary;
+    } else if (day.weekday == DateTime.sunday) {
+      textColor = AppColors.error.withValues(alpha: 0.7);
+    } else if (day.weekday == DateTime.saturday) {
+      textColor = AppColors.brandBlue;
+    } else {
+      textColor = theme.textTheme.bodyMedium?.color ?? Colors.black;
+    }
+
+    Widget? markers;
+    if (hasEvents && markerBuilder != null && previews.isEmpty) {
+      markers = markerBuilder!(context, day, events);
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppColors.primary
+                  : isToday
+                      ? AppColors.primary.withValues(alpha: 0.2)
+                      : null,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '${day.day}',
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight:
+                      (isToday || isSelected) ? FontWeight.w600 : FontWeight.normal,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+          // 미리보기 태그들 (최대 2개)
+          if (previews.isNotEmpty)
+            ...previews.take(2).map((preview) => Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 48),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 2, vertical: 0.5),
+                    decoration: BoxDecoration(
+                      color: preview.color?.withValues(alpha: 0.2) ??
+                          AppColors.textSecondaryLight.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      preview.text,
+                      style: TextStyle(
+                        fontSize: 7,
+                        color: preview.color ?? AppColors.textSecondaryLight,
+                        fontWeight: FontWeight.w600,
+                        height: 1.1,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ))
+          else if (markers != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: markers,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderTitle(BuildContext context, DateTime day) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w600);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // 연도 드롭다운
+        GestureDetector(
+          onTap: () async {
+            final year = await showDialog<int>(
+              context: context,
+              builder: (ctx) => Dialog(
+                child: SizedBox(
+                  height: 250,
+                  width: 200,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text('연도 선택', style: style),
+                      ),
+                      const Divider(height: 1),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: 11,
+                          itemBuilder: (_, i) {
+                            final y = 2020 + i;
+                            return ListTile(
+                              title: Text(
+                                '$y년',
+                                style: y == day.year
+                                    ? style.copyWith(color: AppColors.primary)
+                                    : style,
+                                textAlign: TextAlign.center,
+                              ),
+                              onTap: () => Navigator.pop(ctx, y),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+            if (year != null && year != day.year) {
+              final newDate = DateTime(year, day.month, 1);
+              onPageChanged(newDate);
+              onDaySelected(newDate, newDate);
+            }
+          },
+          child: Text('${day.year}년 ', style: style),
+        ),
+        // 월 드롭다운
+        GestureDetector(
+          onTap: () async {
+            final month = await showDialog<int>(
+              context: context,
+              builder: (ctx) => Dialog(
+                child: SizedBox(
+                  height: 250,
+                  width: 200,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text('월 선택', style: style),
+                      ),
+                      const Divider(height: 1),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: 12,
+                          itemBuilder: (_, i) {
+                            final m = i + 1;
+                            return ListTile(
+                              title: Text(
+                                '$m월',
+                                style: m == day.month
+                                    ? style.copyWith(color: AppColors.primary)
+                                    : style,
+                                textAlign: TextAlign.center,
+                              ),
+                              onTap: () => Navigator.pop(ctx, m),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+            if (month != null && month != day.month) {
+              final newDate = DateTime(day.year, month, 1);
+              onPageChanged(newDate);
+              onDaySelected(newDate, newDate);
+            }
+          },
+          child: Text('${day.month}월', style: style),
+        ),
+      ],
+    );
+  }
+
+  static String _dowLabel(int weekday) {
+    const labels = {
+      DateTime.monday: '월',
+      DateTime.tuesday: '화',
+      DateTime.wednesday: '수',
+      DateTime.thursday: '목',
+      DateTime.friday: '금',
+      DateTime.saturday: '토',
+      DateTime.sunday: '일',
+    };
+    return labels[weekday] ?? '';
   }
 }

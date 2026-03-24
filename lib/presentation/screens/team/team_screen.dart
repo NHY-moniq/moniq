@@ -13,6 +13,7 @@ import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
 import 'package:moniq/presentation/widgets/calendar/roster_panel.dart';
 import 'package:moniq/presentation/widgets/calendar/shift_marker.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
+import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
@@ -153,6 +154,10 @@ class _TeamCalendarView extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final calendarAsync = ref.watch(teamCalendarViewModelProvider(team.id));
+    final calendarStartDay = ref.watch(calendarStartDayProvider);
+    final startingDay = calendarStartDay == 'sunday'
+        ? StartingDayOfWeek.sunday
+        : StartingDayOfWeek.monday;
 
     return Scaffold(
       appBar: AppBar(
@@ -192,6 +197,7 @@ class _TeamCalendarView extends HookConsumerWidget {
               MoniqCalendar(
                 focusedDay: state.focusedMonth,
                 selectedDay: state.selectedDate,
+                startingDayOfWeek: startingDay,
                 calendarFormat: state.viewMode == CalendarViewMode.month
                     ? CalendarFormat.month
                     : CalendarFormat.week,
@@ -295,12 +301,14 @@ class _TeamDrawer extends HookConsumerWidget {
 
             const Divider(),
 
-            // 변경 요청 (Phase 5)
+            // 변경 요청
             ListTile(
               leading: const Icon(Icons.swap_horiz),
               title: const Text('변경 요청'),
-              enabled: false,
-              onTap: () {},
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/teams/$currentTeamId/requests');
+              },
             ),
           ],
         ),

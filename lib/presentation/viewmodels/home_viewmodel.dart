@@ -29,12 +29,13 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
     _shiftRepository = ref.watch(shiftRepositoryProvider);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+    final monthStart = DateTime(now.year, now.month, 1);
 
     final monthlyShifts =
         await _shiftRepository.getMyMonthlyShifts(month: now);
 
     return HomeCalendarState(
-      focusedMonth: now,
+      focusedMonth: monthStart,
       selectedDate: today,
       monthlyShifts: monthlyShifts,
       selectedDateShifts: monthlyShifts[today],
@@ -56,6 +57,7 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
     final current = state.valueOrNull;
     if (current == null) return;
 
+    final monthStart = DateTime(month.year, month.month, 1);
     final today = DateTime.now();
     final selectedDate = DateTime(
       month.year,
@@ -65,7 +67,7 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
 
     // focusedMonth를 즉시 업데이트 (스냅백 방지)
     state = AsyncData(current.copyWith(
-      focusedMonth: month,
+      focusedMonth: monthStart,
       selectedDate: selectedDate,
       selectedDateShifts: null,
     ));
@@ -75,7 +77,7 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
           await _shiftRepository.getMyMonthlyShifts(month: month);
 
       state = AsyncData(current.copyWith(
-        focusedMonth: month,
+        focusedMonth: monthStart,
         selectedDate: selectedDate,
         monthlyShifts: monthlyShifts,
         selectedDateShifts: monthlyShifts[selectedDate],

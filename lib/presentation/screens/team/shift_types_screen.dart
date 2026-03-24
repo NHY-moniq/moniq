@@ -182,7 +182,22 @@ class ShiftTypesScreen extends HookConsumerWidget {
                 onPressed: () async {
                   final name = nameC.text.trim();
                   final code = codeC.text.trim();
-                  if (name.isEmpty || code.isEmpty) return;
+                  if (name.isEmpty || code.isEmpty) {
+                    showDialog(
+                      context: ctx,
+                      builder: (dialogCtx) => AlertDialog(
+                        title: const Text('입력 오류'),
+                        content: const Text('필수 항목을 입력해주세요.\n이름과 코드는 반드시 입력해야 합니다.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogCtx),
+                            child: const Text('확인'),
+                          ),
+                        ],
+                      ),
+                    );
+                    return;
+                  }
 
                   final startTime =
                       startC.text.trim().isNotEmpty ? '${startC.text.trim()}:00' : null;

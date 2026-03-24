@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moniq/presentation/router/app_shell.dart';
 import 'package:moniq/presentation/screens/auth/forgot_password_screen.dart';
 import 'package:moniq/presentation/screens/auth/login_screen.dart';
 import 'package:moniq/presentation/screens/auth/signup_screen.dart';
 import 'package:moniq/presentation/screens/home/home_screen.dart';
+import 'package:moniq/presentation/screens/request/request_create_screen.dart';
+import 'package:moniq/presentation/screens/request/request_list_screen.dart';
+import 'package:moniq/presentation/screens/schedule/schedule_generation_screen.dart';
+import 'package:moniq/presentation/screens/settings/profile_edit_screen.dart';
 import 'package:moniq/presentation/screens/settings/settings_screen.dart';
 import 'package:moniq/presentation/screens/team/members_screen.dart';
 import 'package:moniq/presentation/screens/team/rules_screen.dart';
@@ -23,13 +28,20 @@ final _settingsNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'settings');
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateChangesProvider);
+  final authNotifier = ValueNotifier<AsyncValue<AuthState>>(
+    ref.read(authStateChangesProvider),
+  );
+  ref.listen<AsyncValue<AuthState>>(authStateChangesProvider, (_, next) {
+    authNotifier.value = next;
+  });
+  ref.onDispose(() => authNotifier.dispose());
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/login',
+    refreshListenable: authNotifier,
     redirect: (context, state) {
-      final isLoggedIn = authState.whenOrNull(
+      final isLoggedIn = authNotifier.value.whenOrNull(
             data: (auth) => auth.session != null,
           ) ??
           false;
@@ -102,6 +114,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/settings',
                 builder: (context, state) => const SettingsScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'profile',
+                    builder: (context, state) => const ProfileEditScreen(),
+                  ),
+                ],
               ),
             ],
           ),
@@ -146,6 +164,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/teams/:teamId/rules',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => RulesScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+
+      // Phase 4: Schedule generation
+      GoRoute(
+        path: '/teams/:teamId/generate',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => ScheduleGenerationScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+
+      // Phase 5: Requests
+      GoRoute(
+        path: '/teams/:teamId/requests',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => RequestListScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/teams/:teamId/requests/create',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => RequestCreateScreen(
           teamId: state.pathParameters['teamId']!,
         ),
       ),
