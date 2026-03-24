@@ -12,9 +12,7 @@ final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>(
 );
 
 final authRepositoryProvider = Provider<AuthRepository>(
-  (ref) => AuthRepository(
-    dataSource: ref.watch(authRemoteDataSourceProvider),
-  ),
+  (ref) => AuthRepository(dataSource: ref.watch(authRemoteDataSourceProvider)),
 );
 
 /// Increment to force currentUserProvider to re-read

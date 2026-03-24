@@ -1,6 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moniq/data/models/team_model.dart';
+import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/data/repositories/team_repository.dart';
 
@@ -12,6 +13,12 @@ class TeamViewModel extends AsyncNotifier<List<TeamModel>> {
 
   @override
   Future<List<TeamModel>> build() async {
+    final authState = ref.watch(authStateChangesProvider);
+    final userId = authState.whenOrNull(data: (auth) => auth.session?.user.id);
+    if (userId == null) {
+      return [];
+    }
+
     _repository = ref.watch(teamRepositoryProvider);
     return _repository.getMyTeams();
   }
