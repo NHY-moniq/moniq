@@ -73,17 +73,8 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
     );
 
     // focusedMonth를 즉시 업데이트 (스냅백 방지)
-    state = AsyncData(current.copyWith(
-      focusedMonth: monthStart,
-      selectedDate: selectedDate,
-      selectedDateShifts: null,
-    ));
-
-    try {
-      final monthlyShifts =
-          await _shiftRepository.getMyMonthlyShifts(month: month);
-
-      state = AsyncData(current.copyWith(
+    state = AsyncData(
+      current.copyWith(
         focusedMonth: monthStart,
         selectedDate: selectedDate,
         selectedDateShifts: null,
@@ -97,7 +88,7 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
 
       state = AsyncData(
         current.copyWith(
-          focusedMonth: month,
+          focusedMonth: monthStart,
           selectedDate: selectedDate,
           monthlyShifts: monthlyShifts,
           selectedDateShifts: monthlyShifts[selectedDate],
