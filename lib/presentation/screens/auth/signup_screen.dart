@@ -37,7 +37,9 @@ class SignupScreen extends HookConsumerWidget {
       errorMessage.value = null;
       isLoading.value = true;
       try {
-        await ref.read(authViewModelProvider.notifier).signUpWithEmail(
+        await ref
+            .read(authViewModelProvider.notifier)
+            .signUpWithEmail(
               email: emailController.text.trim(),
               password: passwordController.text,
               displayName: nameController.text.trim(),
@@ -50,9 +52,7 @@ class SignupScreen extends HookConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('회원가입'),
-      ),
+      appBar: AppBar(title: const Text('회원가입')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: AppSpacing.screenAll,
@@ -176,8 +176,8 @@ class SignupScreen extends HookConsumerWidget {
                 Text(
                   '회원가입 시 개인정보 처리방침에 동의합니다.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondaryLight,
-                      ),
+                    color: AppColors.textSecondaryLight,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpacing.xxl),

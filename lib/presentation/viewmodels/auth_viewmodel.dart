@@ -4,8 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/repositories/auth_repository.dart';
 
-final authViewModelProvider =
-    AsyncNotifierProvider<AuthViewModel, User?>(AuthViewModel.new);
+final authViewModelProvider = AsyncNotifierProvider<AuthViewModel, User?>(
+  AuthViewModel.new,
+);
 
 class AuthViewModel extends AsyncNotifier<User?> {
   late AuthRepository _repository;
@@ -84,5 +85,16 @@ class AuthViewModel extends AsyncNotifier<User?> {
       await _repository.signOut();
       return null;
     });
+  }
+
+  Future<void> deleteAccount() async {
+    state = const AsyncLoading();
+    try {
+      await _repository.deleteAccount();
+      state = const AsyncData(null);
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      rethrow;
+    }
   }
 }

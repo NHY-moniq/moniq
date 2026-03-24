@@ -20,8 +20,9 @@ class TeamRemoteDataSource {
         .eq('user_id', userId)
         .eq('is_deleted', false);
 
-    final teamIds =
-        (memberRows as List).map((r) => r['team_id'] as String).toList();
+    final teamIds = (memberRows as List)
+        .map((r) => r['team_id'] as String)
+        .toList();
 
     if (teamIds.isEmpty) return [];
 
@@ -41,6 +42,7 @@ class TeamRemoteDataSource {
     required String name,
     String? icon,
     String? description,
+    String? teamType,
   }) async {
     final response = await _client.rpc(
       'create_team',
@@ -48,6 +50,7 @@ class TeamRemoteDataSource {
         'p_name': name,
         'p_icon': icon,
         'p_description': description,
+        'p_team_type': teamType ?? 'organizational',
       },
     );
 
@@ -136,7 +139,8 @@ class TeamRemoteDataSource {
 
   /// 멤버 + 유저 정보 조인
   Future<List<TeamMemberWithUser>> getTeamMembersWithUsers(
-      String teamId) async {
+    String teamId,
+  ) async {
     final members = await _client
         .from('team_members')
         .select()
@@ -163,15 +167,18 @@ class TeamRemoteDataSource {
       userMap[user.id] = user;
     }
 
-    return memberModels
-        .where((m) => userMap.containsKey(m.userId))
-        .map((m) => TeamMemberWithUser(member: m, user: userMap[m.userId]!))
-        .toList();
+    return memberModels.map((m) {
+      final user = userMap[m.userId] ?? _buildMissingUser(m.userId);
+      return TeamMemberWithUser(member: m, user: user);
+    }).toList();
   }
 
   /// 멤버 역할 변경
   Future<void> updateMemberRole(
-      String teamId, String userId, String role) async {
+    String teamId,
+    String userId,
+    String role,
+  ) async {
     await _client
         .from('team_members')
         .update({'role': role})
@@ -186,5 +193,14 @@ class TeamRemoteDataSource {
         .update({'is_deleted': true})
         .eq('team_id', teamId)
         .eq('user_id', userId);
+  }
+
+  UserModel _buildMissingUser(String userId) {
+    final shortId = userId.length >= 8 ? userId.substring(0, 8) : userId;
+    return UserModel(
+      id: userId,
+      email: 'missing-user-$shortId',
+      displayName: '사용자($shortId)',
+    );
   }
 }
