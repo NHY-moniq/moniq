@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
@@ -18,7 +19,16 @@ class TeamDetailScreen extends HookConsumerWidget {
     final detailAsync = ref.watch(teamDetailViewModelProvider(teamId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('팀 관리')),
+      appBar: AppBar(
+        title: const Text('팀 관리'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.list_outlined),
+            tooltip: '팀 목록',
+            onPressed: () => context.push('/teams/list'),
+          ),
+        ],
+      ),
       body: detailAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
@@ -50,29 +60,18 @@ class TeamDetailScreen extends HookConsumerWidget {
                 onTap: () => context.push('/teams/$teamId/members'),
               ),
               _MenuTile(
-                icon: Icons.schedule_outlined,
-                title: '근무 유형',
-                subtitle: '${state.shiftTypes.where((t) => t.isActive).length}개 활성',
-                onTap: () => context.push('/teams/$teamId/shift-types'),
+                icon: Icons.settings_outlined,
+                title: '팀 상세 설정',
+                subtitle: '근무 유형 · 고정 규칙',
+                onTap: () =>
+                    context.push('/teams/$teamId/settings'),
               ),
-              _MenuTile(
-                icon: Icons.rule_outlined,
-                title: '규칙 설정',
-                subtitle: '${state.rules.length}개 규칙',
-                onTap: () => context.push('/teams/$teamId/rules'),
-              ),
-              const Divider(height: AppSpacing.xxl),
               _MenuTile(
                 icon: Icons.auto_awesome_outlined,
                 title: '스케줄 생성',
-                subtitle: '자동 스케줄 생성',
-                onTap: () => context.push('/teams/$teamId/generate'),
-              ),
-              _MenuTile(
-                icon: Icons.swap_horiz,
-                title: '변경 요청',
-                subtitle: '요청 관리',
-                onTap: () => context.push('/teams/$teamId/requests'),
+                subtitle: '생성 규칙 설정',
+                onTap: () => context.push(
+                    '/teams/$teamId/schedule-rules'),
               ),
             ],
           ),
@@ -165,12 +164,7 @@ class _TeamProfileCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                  child: Icon(_teamIcon(icon),
-                      color: AppColors.primary, size: 28),
-                ),
+                TeamProfileAvatar(icon: icon, radius: 28),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
@@ -253,20 +247,3 @@ class _MenuTile extends StatelessWidget {
   }
 }
 
-IconData _teamIcon(String? icon) {
-  switch (icon) {
-    case 'local_hospital':
-      return Icons.local_hospital;
-    case 'business':
-      return Icons.business;
-    case 'school':
-      return Icons.school;
-    case 'store':
-      return Icons.store;
-    case 'engineering':
-      return Icons.engineering;
-    case 'groups':
-    default:
-      return Icons.groups;
-  }
-}

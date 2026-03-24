@@ -48,6 +48,7 @@ dependencies:
   image_gallery_saver_plus: ^4.0.1
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
+  flutter_slidable: ^4.0.3
 
 dev_dependencies:
   flutter_test:

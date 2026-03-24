@@ -20,11 +20,13 @@ class TeamViewModel extends AsyncNotifier<List<TeamModel>> {
     required String name,
     String? icon,
     String? description,
+    String? teamType,
   }) async {
     final team = await _repository.createTeam(
       name: name,
       icon: icon,
       description: description,
+      teamType: teamType,
     );
 
     // Refresh the team list
