@@ -143,18 +143,105 @@ class TeamListScreen extends HookConsumerWidget {
     );
   }
 
-  void _confirmLeave(
+  Future<void> _confirmLeave(
     BuildContext context,
     WidgetRef ref,
     TeamModel team,
-  ) {
+  ) async {
+    final userId = ref
+        .read(supabaseClientProvider)
+        .auth
+        .currentUser
+        ?.id;
+    if (userId == null) return;
+
+    final teamRepo = ref.read(teamRepositoryProvider);
+    final members = await teamRepo.getTeamMembers(team.id);
+
+    // 1) 나 혼자 → 팀 삭제
+    if (members.length == 1) {
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('팀 나가기'),
+          content: Text(
+            '${team.name} 팀의 마지막 멤버입니다.\n'
+            '나가면 팀이 자동으로 삭제됩니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                try {
+                  await teamRepo.deleteTeam(team.id);
+                  ref.invalidate(teamViewModelProvider);
+                  ref.invalidate(favoriteTeamProvider);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('실패: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text(
+                '나가기 (팀 삭제)',
+                style: TextStyle(color: AppColors.error),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // 2) 내가 유일한 관리자 → 위임 안내
+    final myMember = members.where((m) => m.userId == userId).firstOrNull;
+    if (myMember != null && myMember.role == 'admin') {
+      final otherAdmins = members.where(
+        (m) => m.userId != userId && m.role == 'admin',
+      );
+      if (otherAdmins.isEmpty) {
+        if (!context.mounted) return;
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('관리자 위임 필요'),
+            content: const Text(
+              '팀에 관리자가 최소 1명 필요합니다.\n'
+              '다른 멤버를 관리자로 지정한 후 나갈 수 있습니다.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('닫기'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.push('/teams/${team.id}/members');
+                },
+                child: const Text('멤버 관리로 이동'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    }
+
+    // 3) 일반 나가기
+    if (!context.mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('팀 나가기'),
-        content: Text(
-          '${team.name} 팀에서 나가시겠습니까?',
-        ),
+        content: Text('${team.name} 팀에서 나가시겠습니까?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -163,18 +250,17 @@ class TeamListScreen extends HookConsumerWidget {
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final userId = ref
-                  .read(supabaseClientProvider)
-                  .auth
-                  .currentUser
-                  ?.id;
-              if (userId == null) return;
-
-              await ref
-                  .read(teamRepositoryProvider)
-                  .removeMember(team.id, userId);
-              ref.invalidate(teamViewModelProvider);
-              ref.invalidate(favoriteTeamProvider);
+              try {
+                await teamRepo.removeMember(team.id, userId);
+                ref.invalidate(teamViewModelProvider);
+                ref.invalidate(favoriteTeamProvider);
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('팀 나가기에 실패했습니다: $e')),
+                  );
+                }
+              }
             },
             child: const Text(
               '나가기',
