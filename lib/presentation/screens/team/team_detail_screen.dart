@@ -3,9 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/team_icon_utils.dart';
+import 'package:moniq/data/providers/supabase_providers.dart';
+import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
@@ -83,9 +87,110 @@ class TeamDetailScreen extends HookConsumerWidget {
                 onTap: () => context.push(
                     '/teams/$teamId/schedule-rules'),
               ),
+
+              const SizedBox(height: AppSpacing.xxl),
+              const Divider(),
+              const SizedBox(height: AppSpacing.md),
+
+              // 팀 나가기 (모든 멤버)
+              _MenuTile(
+                icon: Icons.exit_to_app,
+                title: '팀 나가기',
+                color: AppColors.textSecondaryLight,
+                onTap: () => _confirmLeave(context, ref, state),
+              ),
+
+              // 팀 삭제 (관리자 전용)
+              if (state.isAdmin)
+                _MenuTile(
+                  icon: Icons.delete_outline,
+                  title: '팀 삭제',
+                  color: AppColors.error,
+                  onTap: () => _confirmDelete(context, ref, state),
+                ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _confirmLeave(
+    BuildContext context,
+    WidgetRef ref,
+    TeamDetailState state,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('팀 나가기'),
+        content: Text('${state.team.name} 팀에서 나가시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final userId = ref
+                  .read(supabaseClientProvider)
+                  .auth
+                  .currentUser
+                  ?.id;
+              if (userId == null) return;
+
+              await ref
+                  .read(teamRepositoryProvider)
+                  .removeMember(state.teamId, userId);
+              ref.invalidate(teamViewModelProvider);
+              ref.invalidate(favoriteTeamProvider);
+              if (context.mounted) context.go('/teams');
+            },
+            child: const Text(
+              '나가기',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    TeamDetailState state,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('팀 삭제'),
+        content: Text(
+          '${state.team.name} 팀을 삭제하시겠습니까?\n'
+          '모든 멤버가 더 이상 이 팀에 접근할 수 없습니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref
+                  .read(teamDetailViewModelProvider(teamId).notifier)
+                  .deleteTeam();
+              ref.invalidate(teamViewModelProvider);
+              ref.invalidate(favoriteTeamProvider);
+              if (context.mounted) context.go('/teams');
+            },
+            child: const Text(
+              '삭제',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -233,6 +338,7 @@ class _MenuTile extends StatelessWidget {
     this.subtitle,
     required this.onTap,
     this.enabled = true,
+    this.color,
   });
 
   final IconData icon;
@@ -240,15 +346,17 @@ class _MenuTile extends StatelessWidget {
   final String? subtitle;
   final VoidCallback onTap;
   final bool enabled;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final tileColor = color ??
+        (enabled ? null : AppColors.textSecondaryLight);
+
     return ListTile(
-      leading: Icon(icon,
-          color: enabled ? null : AppColors.textSecondaryLight),
+      leading: Icon(icon, color: tileColor),
       title: Text(title,
-          style: TextStyle(
-              color: enabled ? null : AppColors.textSecondaryLight)),
+          style: TextStyle(color: tileColor)),
       subtitle: subtitle != null ? Text(subtitle!) : null,
       trailing: const Icon(Icons.chevron_right),
       enabled: enabled,

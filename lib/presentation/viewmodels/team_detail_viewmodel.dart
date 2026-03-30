@@ -175,6 +175,13 @@ class TeamDetailViewModel extends FamilyAsyncNotifier<TeamDetailState, String> {
     ref.invalidateSelf();
   }
 
+  Future<void> deleteTeam() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    await _teamRepository.deleteTeam(current.teamId);
+  }
+
   Future<void> refresh() async {
     ref.invalidateSelf();
   }
