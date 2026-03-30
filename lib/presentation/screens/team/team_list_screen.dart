@@ -9,6 +9,7 @@ import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/character_blob.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
@@ -46,16 +47,17 @@ class TeamListScreen extends HookConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.groups_outlined,
-                      size: 64,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.3),
+                    const Opacity(
+                      opacity: 0.5,
+                      child: CharacterGroup(size: 48),
                     ),
-                    const SizedBox(height: AppSpacing.lg),
-                    const Text('참여한 팀이 없습니다'),
+                    const SizedBox(height: AppSpacing.xxl),
+                    Text(
+                      '참여한 팀이 없습니다',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
                   ],
                 ),
               ),

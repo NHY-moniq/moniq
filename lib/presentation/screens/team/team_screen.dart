@@ -15,6 +15,7 @@ import 'package:moniq/presentation/widgets/calendar/roster_panel.dart';
 import 'package:moniq/presentation/widgets/calendar/shift_marker.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
+import 'package:moniq/presentation/widgets/common/character_blob.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
@@ -45,6 +46,7 @@ class TeamScreen extends HookConsumerWidget {
             appBar: AppBar(title: const Text('팀')),
             body: MoniqEmptyState(
               icon: Icons.groups_outlined,
+              character: CharacterType.orange,
               message: '아직 참여한 팀이 없어요',
               description: '팀을 만들거나 초대 코드로 참여해보세요',
               actionLabel: '팀 만들기',
@@ -159,7 +161,25 @@ class _TeamCalendarView extends HookConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(team.name),
+        title: Row(
+          children: [
+            TeamProfileAvatar(icon: team.icon, radius: 16),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    team.name,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
           Builder(
             builder: (ctx) => IconButton(
