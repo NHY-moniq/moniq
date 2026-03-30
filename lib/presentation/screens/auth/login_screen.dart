@@ -340,10 +340,10 @@ class _BrandSection extends StatelessWidget {
       children: [
         // Logo
         Image.asset(
-          'assets/images/logo.png',
-          height: 140,
+          'assets/images/app_logo.png',
+          height: 160,
         ),
-        const SizedBox(height: AppSpacing.xxl),
+        const SizedBox(height: AppSpacing.lg),
         Text(
           '간호사를 위한 근무표 관리',
           style: theme.textTheme.bodyMedium?.copyWith(
