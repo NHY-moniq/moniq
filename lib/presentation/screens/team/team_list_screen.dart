@@ -254,13 +254,12 @@ class _TeamSlidableTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               )
             : null,
-        trailing: isFavorite
-            ? const Icon(
-                Icons.star,
-                color: Colors.amber,
-                size: 20,
-              )
-            : null,
+        trailing: Icon(
+          isFavorite ? Icons.star : Icons.star_border,
+          color: isFavorite ? Colors.amber : Colors.grey.shade400,
+          size: 20,
+        ),
+        onTap: onDetail,
       ),
     );
   }
