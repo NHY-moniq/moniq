@@ -70,6 +70,7 @@ class TeamListScreen extends HookConsumerWidget {
                 vertical: AppSpacing.sm,
               ),
               itemCount: teams.length,
+              buildDefaultDragHandles: false,
               onReorder: (oldIndex, newIndex) {
                 ref
                     .read(teamViewModelProvider.notifier)
@@ -93,6 +94,7 @@ class TeamListScreen extends HookConsumerWidget {
 
                 return _TeamSlidableTile(
                   key: ValueKey(team.id),
+                  index: index,
                   team: team,
                   isFavorite: isFavorite,
                   onDetail: () => context.push(
@@ -188,12 +190,14 @@ class TeamListScreen extends HookConsumerWidget {
 class _TeamSlidableTile extends StatelessWidget {
   const _TeamSlidableTile({
     super.key,
+    required this.index,
     required this.team,
     required this.isFavorite,
     required this.onDetail,
     required this.onLeave,
   });
 
+  final int index;
   final TeamModel team;
   final bool isFavorite;
   final VoidCallback onDetail;
@@ -245,10 +249,13 @@ class _TeamSlidableTile extends StatelessWidget {
               size: 20,
             ),
             const SizedBox(width: 8),
-            Icon(
-              Icons.reorder,
-              color: Colors.grey.shade400,
-              size: 20,
+            ReorderableDragStartListener(
+              index: index,
+              child: Icon(
+                Icons.reorder,
+                color: Colors.grey.shade400,
+                size: 20,
+              ),
             ),
           ],
         ),
