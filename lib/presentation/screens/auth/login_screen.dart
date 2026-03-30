@@ -246,7 +246,7 @@ class LoginScreen extends HookConsumerWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Moniq이 처음이신가요?',
+                            'OnorOff가 처음이신가요?',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: AppColors.onSurface.withValues(alpha: 0.6),
                               fontWeight: FontWeight.w500,
@@ -344,14 +344,6 @@ class _BrandSection extends StatelessWidget {
           height: 140,
         ),
         const SizedBox(height: AppSpacing.xxl),
-        Text(
-          'Moniq',
-          style: theme.textTheme.displayLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1.5,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
         Text(
           '간호사를 위한 근무표 관리',
           style: theme.textTheme.bodyMedium?.copyWith(
