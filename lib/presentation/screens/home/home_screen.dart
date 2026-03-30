@@ -241,15 +241,17 @@ class HomeScreen extends HookConsumerWidget {
                   previewBuilder: (day) {
                     final key = DateTime(day.year, day.month, day.day);
                     final result = <CalendarPreview>[];
-                    // 서버 근무 일정 최우선
+                    // 서버 근무 일정
                     final dayShifts = state.monthlyShifts[key];
                     if (dayShifts != null && dayShifts.isNotEmpty) {
-                      final s = dayShifts.first;
-                      result.add(CalendarPreview(
-                        text: s.shiftType.name,
-                        color: parseHexColor(s.shiftType.color),
-                        isWork: true,
-                      ));
+                      for (final s in dayShifts) {
+                        if (result.length >= 3) break;
+                        result.add(CalendarPreview(
+                          text: s.shiftType.name,
+                          color: parseHexColor(s.shiftType.color),
+                          isWork: true,
+                        ));
+                      }
                     }
                     // 개인 일정 — 근무 유형 이름과 일치하면 근무로 분류
                     final evts = monthlyEvents[key];
@@ -265,7 +267,7 @@ class HomeScreen extends HookConsumerWidget {
                         return 0;
                       });
                       for (final e in sorted) {
-                        if (result.length >= 2) break;
+                        if (result.length >= 3) break;
                         final eIsWork = shiftTypeNames.contains(e.title);
                         result.add(CalendarPreview(
                           text: e.title,
@@ -434,25 +436,30 @@ class HomeScreen extends HookConsumerWidget {
       )..layout();
       dayPainter.paint(canvas, Offset(x + (cellW - dayPainter.width) / 2, dayTextY));
 
-      // 미리보기 태그들 (근무 우선, 최대 2개)
+      // 미리보기 태그들 (근무 우선, 최대 3개)
       double tagY = dayTextY + 20;
       int tagCount = 0;
 
       // 근무 일정 태그
-      if (shifts != null && shifts.isNotEmpty && tagCount < 2) {
-        final s = shifts.first;
-        final shiftColor = parseHexColor(s.shiftType.color);
-        _drawPreviewTag(canvas, x, tagY, cellW, s.shiftType.name, shiftColor, isWork: true);
-        tagY += 16;
-        tagCount++;
+      if (shifts != null && shifts.isNotEmpty) {
+        for (final s in shifts) {
+          if (tagCount >= 3) break;
+          final shiftColor = parseHexColor(s.shiftType.color);
+          _drawPreviewTag(canvas, x, tagY, cellW, s.shiftType.name, shiftColor, isWork: true);
+          tagY += 16;
+          tagCount++;
+        }
       }
 
       // 개인 일정 태그
-      if (events.isNotEmpty && tagCount < 2) {
-        final e = events.first;
-        final eventColor = e.color != null ? parseHexColor(e.color!) : const Color(0xFF38A169);
-        _drawPreviewTag(canvas, x, tagY, cellW, e.title, eventColor, isWork: false);
-        tagCount++;
+      if (events.isNotEmpty) {
+        for (final e in events) {
+          if (tagCount >= 3) break;
+          final eventColor = e.color != null ? parseHexColor(e.color!) : const Color(0xFF38A169);
+          _drawPreviewTag(canvas, x, tagY, cellW, e.title, eventColor, isWork: false);
+          tagY += 16;
+          tagCount++;
+        }
       }
     }
 

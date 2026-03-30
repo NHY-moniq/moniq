@@ -223,7 +223,7 @@ class MoniqCalendar extends StatelessWidget {
               right: 0,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: previews.take(2).map((p) => Padding(
+                children: previews.take(3).map((p) => Padding(
                   padding: const EdgeInsets.only(bottom: 1),
                   child: buildTag(p),
                 )).toList(),
