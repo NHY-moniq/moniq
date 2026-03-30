@@ -20,6 +20,16 @@ class TeamDetailScreen extends HookConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              context.pop();
+            } else {
+              context.go('/teams');
+            }
+          },
+        ),
         title: const Text('팀 관리'),
         actions: [
           IconButton(
