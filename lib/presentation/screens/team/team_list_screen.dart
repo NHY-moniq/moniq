@@ -239,16 +239,15 @@ class _TeamSlidableTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isFavorite)
-              const Icon(
-                Icons.star,
-                color: Colors.amber,
-                size: 18,
-              ),
-            const SizedBox(width: 4),
             Icon(
-              Icons.drag_handle,
-              color: AppColors.onSurfaceVariant.withValues(alpha: 0.3),
+              isFavorite ? Icons.star : Icons.star_border,
+              color: isFavorite ? Colors.amber : Colors.grey.shade400,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.reorder,
+              color: Colors.grey.shade400,
               size: 20,
             ),
           ],
