@@ -3,8 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/team_icon_utils.dart';
-import 'package:moniq/data/providers/supabase_providers.dart';
-import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
@@ -133,19 +131,20 @@ class TeamDetailScreen extends HookConsumerWidget {
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final userId = ref
-                  .read(supabaseClientProvider)
-                  .auth
-                  .currentUser
-                  ?.id;
-              if (userId == null) return;
-
-              await ref
-                  .read(teamRepositoryProvider)
-                  .removeMember(state.teamId, userId);
-              ref.invalidate(teamViewModelProvider);
-              ref.invalidate(favoriteTeamProvider);
-              if (context.mounted) context.go('/teams');
+              try {
+                await ref
+                    .read(teamDetailViewModelProvider(teamId).notifier)
+                    .leaveTeam();
+                ref.invalidate(teamViewModelProvider);
+                ref.invalidate(favoriteTeamProvider);
+                if (context.mounted) context.go('/teams');
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('팀 나가기에 실패했습니다: $e')),
+                  );
+                }
+              }
             },
             child: const Text(
               '나가기',
@@ -178,12 +177,20 @@ class TeamDetailScreen extends HookConsumerWidget {
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await ref
-                  .read(teamDetailViewModelProvider(teamId).notifier)
-                  .deleteTeam();
-              ref.invalidate(teamViewModelProvider);
-              ref.invalidate(favoriteTeamProvider);
-              if (context.mounted) context.go('/teams');
+              try {
+                await ref
+                    .read(teamDetailViewModelProvider(teamId).notifier)
+                    .deleteTeam();
+                ref.invalidate(teamViewModelProvider);
+                ref.invalidate(favoriteTeamProvider);
+                if (context.mounted) context.go('/teams');
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('팀 삭제에 실패했습니다: $e')),
+                  );
+                }
+              }
             },
             child: const Text(
               '삭제',

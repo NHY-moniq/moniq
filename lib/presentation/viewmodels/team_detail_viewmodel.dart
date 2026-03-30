@@ -175,9 +175,22 @@ class TeamDetailViewModel extends FamilyAsyncNotifier<TeamDetailState, String> {
     ref.invalidateSelf();
   }
 
+  Future<void> leaveTeam() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    await _teamRepository.removeMember(
+      current.teamId,
+      current.currentUserId,
+    );
+  }
+
   Future<void> deleteTeam() async {
     final current = state.valueOrNull;
     if (current == null) return;
+    if (!current.isAdmin) {
+      throw Exception('관리자만 팀을 삭제할 수 있습니다');
+    }
 
     await _teamRepository.deleteTeam(current.teamId);
   }
