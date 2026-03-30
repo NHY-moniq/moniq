@@ -99,6 +99,11 @@ class TeamListScreen extends HookConsumerWidget {
                   index: index,
                   team: team,
                   isFavorite: isFavorite,
+                  onFavorite: () => _toggleFavorite(
+                    ref,
+                    team,
+                    isFavorite,
+                  ),
                   onDetail: () => context.push(
                     '/teams/${team.id}/detail',
                   ),
@@ -114,6 +119,21 @@ class TeamListScreen extends HookConsumerWidget {
         },
       ),
     );
+  }
+
+  Future<void> _toggleFavorite(
+    WidgetRef ref,
+    TeamModel team,
+    bool isFavorite,
+  ) async {
+    final teamRepo = ref.read(teamRepositoryProvider);
+    if (isFavorite) {
+      await teamRepo.clearFavoriteTeam();
+    } else {
+      await teamRepo.setFavoriteTeam(team.id);
+    }
+    ref.invalidate(favoriteTeamProvider);
+    ref.invalidate(teamViewModelProvider);
   }
 
   void _showAddOptions(BuildContext context) {
@@ -281,6 +301,7 @@ class _TeamSlidableTile extends StatelessWidget {
     required this.index,
     required this.team,
     required this.isFavorite,
+    required this.onFavorite,
     required this.onDetail,
     required this.onLeave,
   });
@@ -288,6 +309,7 @@ class _TeamSlidableTile extends StatelessWidget {
   final int index;
   final TeamModel team;
   final bool isFavorite;
+  final VoidCallback onFavorite;
   final VoidCallback onDetail;
   final VoidCallback onLeave;
 
@@ -331,10 +353,13 @@ class _TeamSlidableTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isFavorite ? Icons.star : Icons.star_border,
-              color: isFavorite ? Colors.amber : Colors.grey.shade400,
-              size: 20,
+            GestureDetector(
+              onTap: onFavorite,
+              child: Icon(
+                isFavorite ? Icons.star : Icons.star_border,
+                color: isFavorite ? Colors.amber : Colors.grey.shade400,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 8),
             ReorderableDragStartListener(
