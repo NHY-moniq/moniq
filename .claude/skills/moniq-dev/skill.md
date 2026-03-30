@@ -11,10 +11,13 @@ Moniq 프로젝트의 개발 팀을 조율하는 오케스트레이터 스킬.
 
 | 에이전트 | 역할 | 스킬 |
 |---------|------|------|
+| moniq-pm | 앱 방향성 검증, UX 일관성 감독, 스펙 정합성 | - |
 | moniq-designer | UI/UX 디자인, 디자인 시스템 | moniq-design-system |
 | moniq-backend | Supabase 백엔드, Data 레이어 | moniq-schema |
 | moniq-ui | Flutter Presentation 레이어 | moniq-screen |
 | moniq-scheduler | 근무표 생성 알고리즘 | moniq-schedule-gen |
+| moniq-reviewer | 기능 정합성, 컨벤션 준수 코드 리뷰 | - |
+| moniq-guardian | 코드 품질 감독, 파일 분리, 비효율 탐지 | - |
 
 ## Phase별 워크플로우
 
@@ -82,6 +85,21 @@ moniq-ui (ViewModel → Provider 참조 + 디자인 시스템 적용)
 moniq-scheduler (UseCase → Repository 인터페이스)
 ```
 
+## 작업 프로세스
+
+### 작업 시작 전
+1. **moniq-pm**: 요구사항 정리, 방향성 확인, 우선순위 결정
+2. main 브랜치에서 feature 브랜치 생성 (`fix/xxx` 또는 `feat/xxx`)
+
+### 작업 중
+3. **moniq-ui / moniq-backend**: 구현 (병렬 가능한 건 병렬)
+4. 논리적 기능 단위로 커밋 분리
+
+### 작업 후
+5. **moniq-reviewer**: 기능 정합성, 컨벤션 준수 리뷰
+6. **moniq-guardian**: 코드 품질, 파일 크기, 비효율 탐지 리뷰
+7. **moniq-pm**: 전체 동선 및 방향성 최종 검증
+
 ## 통합 검증 체크리스트
 
 Phase 완료 시 확인:
@@ -91,6 +109,8 @@ Phase 완료 시 확인:
 - [ ] 빈 상태/로딩/오류 상태 모두 처리
 - [ ] 관리자/멤버 역할별 UI 분기 정상
 - [ ] 다크 모드 정상 렌더링
+- [ ] 코드 품질 리포트 통과 (moniq-guardian)
+- [ ] PM 방향성 검증 통과 (moniq-pm)
 
 ## 참고
 
