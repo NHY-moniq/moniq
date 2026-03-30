@@ -62,30 +62,39 @@ class TeamListScreen extends HookConsumerWidget {
             );
           }
 
-          final favoriteTeamId =
-              favoriteAsync.valueOrNull?.id;
+          final favoriteTeamId = favoriteAsync.valueOrNull?.id;
 
           return SlidableAutoCloseBehavior(
-            child: ListView.separated(
+            child: ReorderableListView.builder(
               padding: const EdgeInsets.symmetric(
                 vertical: AppSpacing.sm,
               ),
               itemCount: teams.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1),
+              onReorder: (oldIndex, newIndex) {
+                ref
+                    .read(teamViewModelProvider.notifier)
+                    .reorder(oldIndex, newIndex);
+              },
+              proxyDecorator: (child, index, animation) {
+                return AnimatedBuilder(
+                  animation: animation,
+                  builder: (context, child) => Material(
+                    elevation: 4,
+                    shadowColor: AppColors.primary.withValues(alpha: 0.3),
+                    borderRadius: AppRadius.borderRadiusLg,
+                    child: child,
+                  ),
+                  child: child,
+                );
+              },
               itemBuilder: (context, index) {
                 final team = teams[index];
-                final isFavorite =
-                    team.id == favoriteTeamId;
+                final isFavorite = team.id == favoriteTeamId;
 
                 return _TeamSlidableTile(
+                  key: ValueKey(team.id),
                   team: team,
                   isFavorite: isFavorite,
-                  onFavorite: () => _toggleFavorite(
-                    ref,
-                    team,
-                    isFavorite,
-                  ),
                   onDetail: () => context.push(
                     '/teams/${team.id}/detail',
                   ),
@@ -130,21 +139,6 @@ class TeamListScreen extends HookConsumerWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _toggleFavorite(
-    WidgetRef ref,
-    TeamModel team,
-    bool isFavorite,
-  ) async {
-    final teamRepo = ref.read(teamRepositoryProvider);
-    if (isFavorite) {
-      await teamRepo.clearFavoriteTeam();
-    } else {
-      await teamRepo.setFavoriteTeam(team.id);
-    }
-    ref.invalidate(favoriteTeamProvider);
-    ref.invalidate(teamViewModelProvider);
   }
 
   void _confirmLeave(
@@ -193,16 +187,15 @@ class TeamListScreen extends HookConsumerWidget {
 
 class _TeamSlidableTile extends StatelessWidget {
   const _TeamSlidableTile({
+    super.key,
     required this.team,
     required this.isFavorite,
-    required this.onFavorite,
     required this.onDetail,
     required this.onLeave,
   });
 
   final TeamModel team;
   final bool isFavorite;
-  final VoidCallback onFavorite;
   final VoidCallback onDetail;
   final VoidCallback onLeave;
 
@@ -211,23 +204,12 @@ class _TeamSlidableTile extends StatelessWidget {
     return Slidable(
       endActionPane: ActionPane(
         motion: const BehindMotion(),
-        extentRatio: 0.6,
+        extentRatio: 0.4,
         children: [
-          SlidableAction(
-            onPressed: (_) => onFavorite(),
-            backgroundColor: isFavorite
-                ? AppColors.textSecondaryLight
-                : Colors.amber,
-            foregroundColor: Colors.white,
-            icon: isFavorite
-                ? Icons.star_outline
-                : Icons.star,
-            label: isFavorite ? '해제' : '즐겨찾기',
-          ),
           SlidableAction(
             onPressed: (_) => onDetail(),
             backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
+            foregroundColor: AppColors.onPrimary,
             icon: Icons.settings_outlined,
             label: '설정',
           ),
@@ -254,14 +236,25 @@ class _TeamSlidableTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               )
             : null,
-        trailing: Icon(
-          isFavorite ? Icons.star : Icons.star_border,
-          color: isFavorite ? Colors.amber : Colors.grey.shade400,
-          size: 20,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isFavorite)
+              const Icon(
+                Icons.star,
+                color: Colors.amber,
+                size: 18,
+              ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.drag_handle,
+              color: AppColors.onSurfaceVariant.withValues(alpha: 0.3),
+              size: 20,
+            ),
+          ],
         ),
         onTap: onDetail,
       ),
     );
   }
 }
-
