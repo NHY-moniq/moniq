@@ -344,7 +344,6 @@ class _MenuTile extends StatelessWidget {
     required this.title,
     this.subtitle,
     required this.onTap,
-    this.enabled = true,
     this.color,
   });
 
@@ -352,21 +351,16 @@ class _MenuTile extends StatelessWidget {
   final String title;
   final String? subtitle;
   final VoidCallback onTap;
-  final bool enabled;
   final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    final tileColor = color ??
-        (enabled ? null : AppColors.textSecondaryLight);
-
     return ListTile(
-      leading: Icon(icon, color: tileColor),
+      leading: Icon(icon, color: color),
       title: Text(title,
-          style: TextStyle(color: tileColor)),
+          style: TextStyle(color: color)),
       subtitle: subtitle != null ? Text(subtitle!) : null,
       trailing: const Icon(Icons.chevron_right),
-      enabled: enabled,
       onTap: onTap,
     );
   }
