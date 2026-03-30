@@ -2,7 +2,9 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -204,7 +206,7 @@ class HomeScreen extends HookConsumerWidget {
                   focusedDay: state.focusedMonth,
                   selectedDay: state.selectedDate,
                   startingDayOfWeek: startingDay,
-                  rowHeight: 68,
+                  rowHeight: 80,
                   onDaySelected: (selected, focused) {
                     ref.read(homeViewModelProvider.notifier).selectDate(selected);
                   },
@@ -239,31 +241,38 @@ class HomeScreen extends HookConsumerWidget {
                   previewBuilder: (day) {
                     final key = DateTime(day.year, day.month, day.day);
                     final result = <CalendarPreview>[];
-                    // 근무 최우선
+                    // 서버 근무 일정 최우선
                     final dayShifts = state.monthlyShifts[key];
                     if (dayShifts != null && dayShifts.isNotEmpty) {
                       final s = dayShifts.first;
                       result.add(CalendarPreview(
                         text: s.shiftType.name,
                         color: parseHexColor(s.shiftType.color),
+                        isWork: true,
                       ));
                     }
-                    // 개인 일정
+                    // 개인 일정 — 근무 유형 이름과 일치하면 근무로 분류
                     final evts = monthlyEvents[key];
                     if (evts != null && evts.isNotEmpty) {
-                      final e = evts.first;
-                      result.add(CalendarPreview(
-                        text: e.title,
-                        color: e.color != null ? parseHexColor(e.color!) : null,
-                      ));
-                    }
-                    // 개인 일정이 2개 이상이면 2번째도 표시
-                    if (result.length < 2 && evts != null && evts.length > 1) {
-                      final e2 = evts[1];
-                      result.add(CalendarPreview(
-                        text: e2.title,
-                        color: e2.color != null ? parseHexColor(e2.color!) : null,
-                      ));
+                      final shiftTypeNames = ref.read(personalShiftTypesProvider)
+                          .map((st) => st.name).toSet();
+                      // 근무 유형 일치 항목을 먼저, 나머지는 뒤로 정렬
+                      final sorted = [...evts]..sort((a, b) {
+                        final aIsWork = shiftTypeNames.contains(a.title);
+                        final bIsWork = shiftTypeNames.contains(b.title);
+                        if (aIsWork && !bIsWork) return -1;
+                        if (!aIsWork && bIsWork) return 1;
+                        return 0;
+                      });
+                      for (final e in sorted) {
+                        if (result.length >= 2) break;
+                        final eIsWork = shiftTypeNames.contains(e.title);
+                        result.add(CalendarPreview(
+                          text: e.title,
+                          color: e.color != null ? parseHexColor(e.color!) : null,
+                          isWork: eIsWork,
+                        ));
+                      }
                     }
                     return result;
                   },
@@ -329,83 +338,121 @@ class HomeScreen extends HookConsumerWidget {
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    final paint = Paint()..color = Colors.white;
 
     const width = 800.0;
-    const headerH = 60.0;
-    const dayH = 24.0;
-    const rowH = 50.0;
-    final rows = ((daysInMonth + DateTime(focusedMonth.year, focusedMonth.month, 1).weekday - 1) / 7).ceil();
-    final height = headerH + dayH + (rows * rowH) + 20;
+    const headerH = 70.0;
+    const dowH = 32.0;
+    const rowH = 90.0;
+    const cellW = width / 7;
+    final firstWeekday = DateTime(focusedMonth.year, focusedMonth.month, 1).weekday - 1;
+    final rows = ((daysInMonth + firstWeekday) / 7).ceil();
+    final height = headerH + dowH + (rows * rowH) + 24;
 
-    canvas.drawRect(Rect.fromLTWH(0, 0, width, height), paint);
+    // 배경
+    final bgPaint = Paint()..color = Colors.white;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, width, height), const Radius.circular(16)),
+      bgPaint,
+    );
 
-    final headerPaint = TextPainter(
+    // 헤더 타이틀
+    final headerPainter = TextPainter(
       text: TextSpan(
         text: '${focusedMonth.year}년 ${focusedMonth.month}월',
-        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black),
+        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.black87),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    headerPaint.paint(canvas, Offset((width - headerPaint.width) / 2, 16));
+    headerPainter.paint(canvas, Offset((width - headerPainter.width) / 2, 22));
 
+    // 요일 헤더
     const days = ['월', '화', '수', '목', '금', '토', '일'];
-    const cellW = width / 7;
     for (int i = 0; i < 7; i++) {
+      Color dowColor;
+      if (i == 6) {
+        dowColor = const Color(0xCCE53E3E); // 일요일
+      } else if (i == 5) {
+        dowColor = const Color(0xFF5A8BB5); // 토요일
+      } else {
+        dowColor = const Color(0xFF9CA3AF);
+      }
       final tp = TextPainter(
         text: TextSpan(
           text: days[i],
-          style: TextStyle(
-            fontSize: 14, fontWeight: FontWeight.w600,
-            color: i == 6 ? Colors.red : (i == 5 ? Colors.blue : Colors.grey),
-          ),
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: dowColor),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(canvas, Offset(cellW * i + (cellW - tp.width) / 2, headerH));
+      tp.paint(canvas, Offset(cellW * i + (cellW - tp.width) / 2, headerH + 6));
     }
 
-    final firstWeekday = DateTime(focusedMonth.year, focusedMonth.month, 1).weekday - 1;
+    // 셀 그리기
+    final today = DateTime.now();
+    final todayKey = DateTime(today.year, today.month, today.day);
+
     for (int d = 1; d <= daysInMonth; d++) {
       final date = DateTime(focusedMonth.year, focusedMonth.month, d);
       final col = (firstWeekday + d - 1) % 7;
       final row = (firstWeekday + d - 1) ~/ 7;
       final x = cellW * col;
-      final y = headerH + dayH + row * rowH;
+      final y = headerH + dowH + row * rowH;
 
+      final isToday = date == todayKey;
+      final shifts = state.monthlyShifts[date];
+      final events = eventDs.getEvents(date);
+      final hasContent = (shifts != null && shifts.isNotEmpty) || events.isNotEmpty;
+
+      // 날짜 숫자 색상
+      Color dayColor;
+      if (col == 6) {
+        dayColor = const Color(0xCCE53E3E);
+      } else if (col == 5) {
+        dayColor = const Color(0xFF5A8BB5);
+      } else {
+        dayColor = Colors.black87;
+      }
+
+      // 오늘 날짜 배경 원
+      if (isToday) {
+        final circlePaint = Paint()..color = const Color(0x33E8923A);
+        canvas.drawCircle(Offset(x + cellW / 2, y + 16), 14, circlePaint);
+        dayColor = const Color(0xFFE8923A);
+      }
+
+      // 날짜 숫자 — 일정이 있으면 상단, 없으면 중앙
+      final dayTextY = hasContent ? y + 4 : y + 10;
       final dayPainter = TextPainter(
         text: TextSpan(
           text: '$d',
           style: TextStyle(
             fontSize: 13,
-            color: col == 6 ? Colors.red : (col == 5 ? Colors.blue : Colors.black87),
+            fontWeight: (isToday) ? FontWeight.w700 : FontWeight.normal,
+            color: dayColor,
           ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      dayPainter.paint(canvas, Offset(x + 4, y + 2));
+      dayPainter.paint(canvas, Offset(x + (cellW - dayPainter.width) / 2, dayTextY));
 
-      final events = eventDs.getEvents(date);
-      final shifts = state.monthlyShifts[date];
-      if (shifts != null && shifts.isNotEmpty) {
-        final sp = TextPainter(
-          text: TextSpan(
-            text: shifts.first.shiftType.name,
-            style: const TextStyle(fontSize: 9, color: Colors.deepOrange),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        sp.paint(canvas, Offset(x + 4, y + 18));
-      } else if (events.isNotEmpty) {
-        final ep = TextPainter(
-          text: TextSpan(
-            text: events.first.title,
-            style: const TextStyle(fontSize: 9, color: Colors.green),
-          ),
-          textDirection: TextDirection.ltr,
-          maxLines: 1, ellipsis: '..',
-        )..layout(maxWidth: cellW - 8);
-        ep.paint(canvas, Offset(x + 4, y + 18));
+      // 미리보기 태그들 (근무 우선, 최대 2개)
+      double tagY = dayTextY + 20;
+      int tagCount = 0;
+
+      // 근무 일정 태그
+      if (shifts != null && shifts.isNotEmpty && tagCount < 2) {
+        final s = shifts.first;
+        final shiftColor = parseHexColor(s.shiftType.color);
+        _drawPreviewTag(canvas, x, tagY, cellW, s.shiftType.name, shiftColor, isWork: true);
+        tagY += 16;
+        tagCount++;
+      }
+
+      // 개인 일정 태그
+      if (events.isNotEmpty && tagCount < 2) {
+        final e = events.first;
+        final eventColor = e.color != null ? parseHexColor(e.color!) : const Color(0xFF38A169);
+        _drawPreviewTag(canvas, x, tagY, cellW, e.title, eventColor, isWork: false);
+        tagCount++;
       }
     }
 
@@ -418,6 +465,48 @@ class HomeScreen extends HookConsumerWidget {
     final file = File('${dir.path}/moniq_${focusedMonth.year}_${focusedMonth.month}.png');
     await file.writeAsBytes(bytes);
     return file;
+  }
+
+  /// 내보내기 이미지용 미리보기 태그 그리기
+  void _drawPreviewTag(Canvas canvas, double x, double y, double cellW,
+      String text, Color color, {required bool isWork}) {
+    const tagH = 14.0;
+    const hPad = 4.0;
+    final tagW = cellW - 8;
+    final tagX = x + 4;
+
+    // 배경 라운드 사각형
+    final bgPaint = Paint()..color = color.withValues(alpha: isWork ? 0.25 : 0.15);
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(tagX, y, tagW, tagH),
+      const Radius.circular(3),
+    );
+    canvas.drawRRect(rrect, bgPaint);
+
+    // 근무 일정은 테두리 추가
+    if (isWork) {
+      final borderPaint = Paint()
+        ..color = color.withValues(alpha: 0.4)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5;
+      canvas.drawRRect(rrect, borderPaint);
+    }
+
+    // 텍스트
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: 9,
+          color: color,
+          fontWeight: isWork ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '..',
+    )..layout(maxWidth: tagW - hPad * 2);
+    tp.paint(canvas, Offset(tagX + (tagW - tp.width) / 2, y + (tagH - tp.height) / 2));
   }
 
   Future<void> _exportCalendar(BuildContext context, WidgetRef ref, HomeCalendarState state) async {
@@ -749,6 +838,9 @@ class HomeScreen extends HookConsumerWidget {
                 TextField(
                   controller: titleController,
                   autofocus: true,
+                  maxLength: 30,
+                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                  inputFormatters: [LengthLimitingTextInputFormatter(30)],
                   decoration: const InputDecoration(hintText: '일정 제목', prefixIcon: Icon(Icons.event)),
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -756,12 +848,15 @@ class HomeScreen extends HookConsumerWidget {
                   children: [
                     Expanded(
                       child: InkWell(
-                        onTap: () async {
-                          final picked = await showTimePicker(
+                        onTap: () {
+                          _showCupertinoTimePicker(
                             context: ctx,
-                            initialTime: startTime ?? const TimeOfDay(hour: 9, minute: 0),
+                            initialHour: startTime?.hour ?? 9,
+                            initialMinute: startTime?.minute ?? 0,
+                            onChanged: (h, m) {
+                              setSheetState(() => startTime = TimeOfDay(hour: h, minute: m));
+                            },
                           );
-                          if (picked != null) setSheetState(() => startTime = picked);
                         },
                         child: InputDecorator(
                           decoration: const InputDecoration(
@@ -776,12 +871,15 @@ class HomeScreen extends HookConsumerWidget {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: InkWell(
-                        onTap: () async {
-                          final picked = await showTimePicker(
+                        onTap: () {
+                          _showCupertinoTimePicker(
                             context: ctx,
-                            initialTime: endTime ?? TimeOfDay(hour: (startTime?.hour ?? 9) + 1, minute: startTime?.minute ?? 0),
+                            initialHour: endTime?.hour ?? (startTime?.hour ?? 9) + 1,
+                            initialMinute: endTime?.minute ?? startTime?.minute ?? 0,
+                            onChanged: (h, m) {
+                              setSheetState(() => endTime = TimeOfDay(hour: h, minute: m));
+                            },
                           );
-                          if (picked != null) setSheetState(() => endTime = picked);
                         },
                         child: InputDecorator(
                           decoration: const InputDecoration(
@@ -962,6 +1060,58 @@ class HomeScreen extends HookConsumerWidget {
 
   static String _formatTime(TimeOfDay time) =>
       '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
+  static void _showCupertinoTimePicker({
+    required BuildContext context,
+    required int initialHour,
+    required int initialMinute,
+    required void Function(int hour, int minute) onChanged,
+  }) {
+    int selectedHour = initialHour;
+    int selectedMinute = initialMinute;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SizedBox(
+        height: 280,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('취소'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      onChanged(selectedHour, selectedMinute);
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text('확인'),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.time,
+                use24hFormat: false,
+                initialDateTime: DateTime(2000, 1, 1, selectedHour, selectedMinute),
+                onDateTimeChanged: (dateTime) {
+                  selectedHour = dateTime.hour;
+                  selectedMinute = dateTime.minute;
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   /// 수정 시 근무 유형 선택 가능한 편집 폼
   static void _showEventEditWithShiftTypes(BuildContext context, WidgetRef ref,
@@ -1746,8 +1896,12 @@ class _PersonalShiftTypeSheet extends HookConsumerWidget {
       BuildContext context, WidgetRef ref, PersonalShiftType? existing) {
     final nameController = TextEditingController(text: existing?.name ?? '');
     final codeController = TextEditingController(text: existing?.code ?? '');
-    String? startTime = existing?.startTime;
-    String? endTime = existing?.endTime;
+    int startHour = existing?.startTime != null ? int.parse(existing!.startTime!.split(':')[0]) : 7;
+    int startMinute = existing?.startTime != null ? int.parse(existing!.startTime!.split(':')[1]) : 0;
+    int endHour = existing?.endTime != null ? int.parse(existing!.endTime!.split(':')[0]) : 15;
+    int endMinute = existing?.endTime != null ? int.parse(existing!.endTime!.split(':')[1]) : 0;
+    bool hasStartTime = existing?.startTime != null;
+    bool hasEndTime = existing?.endTime != null;
     String selectedColor = existing?.color ?? '#E8923A';
 
     const colorOptions = [
@@ -1778,16 +1932,19 @@ class _PersonalShiftTypeSheet extends HookConsumerWidget {
                   children: [
                     Expanded(
                       child: InkWell(
-                        onTap: () async {
-                          final picked = await showTimePicker(
+                        onTap: () {
+                          _showCupertinoTimePicker(
                             context: ctx,
-                            initialTime: startTime != null
-                                ? _parseTime(startTime!)
-                                : const TimeOfDay(hour: 7, minute: 0),
+                            initialHour: startHour,
+                            initialMinute: startMinute,
+                            onChanged: (h, m) {
+                              setDialogState(() {
+                                startHour = h;
+                                startMinute = m;
+                                hasStartTime = true;
+                              });
+                            },
                           );
-                          if (picked != null) {
-                            setDialogState(() => startTime = _formatTime(picked));
-                          }
                         },
                         child: InputDecorator(
                           decoration: const InputDecoration(
@@ -1795,23 +1952,30 @@ class _PersonalShiftTypeSheet extends HookConsumerWidget {
                             contentPadding: EdgeInsets.symmetric(
                                 horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
                           ),
-                          child: Text(startTime ?? '없음'),
+                          child: Text(
+                            hasStartTime
+                                ? '${startHour.toString().padLeft(2, '0')}:${startMinute.toString().padLeft(2, '0')}'
+                                : '없음',
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: InkWell(
-                        onTap: () async {
-                          final picked = await showTimePicker(
+                        onTap: () {
+                          _showCupertinoTimePicker(
                             context: ctx,
-                            initialTime: endTime != null
-                                ? _parseTime(endTime!)
-                                : const TimeOfDay(hour: 15, minute: 0),
+                            initialHour: endHour,
+                            initialMinute: endMinute,
+                            onChanged: (h, m) {
+                              setDialogState(() {
+                                endHour = h;
+                                endMinute = m;
+                                hasEndTime = true;
+                              });
+                            },
                           );
-                          if (picked != null) {
-                            setDialogState(() => endTime = _formatTime(picked));
-                          }
                         },
                         child: InputDecorator(
                           decoration: const InputDecoration(
@@ -1819,7 +1983,11 @@ class _PersonalShiftTypeSheet extends HookConsumerWidget {
                             contentPadding: EdgeInsets.symmetric(
                                 horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
                           ),
-                          child: Text(endTime ?? '없음'),
+                          child: Text(
+                            hasEndTime
+                                ? '${endHour.toString().padLeft(2, '0')}:${endMinute.toString().padLeft(2, '0')}'
+                                : '없음',
+                          ),
                         ),
                       ),
                     ),
@@ -1880,8 +2048,12 @@ class _PersonalShiftTypeSheet extends HookConsumerWidget {
                       DateTime.now().millisecondsSinceEpoch.toString(),
                   name: name,
                   code: code,
-                  startTime: startTime,
-                  endTime: endTime,
+                  startTime: hasStartTime
+                      ? '${startHour.toString().padLeft(2, '0')}:${startMinute.toString().padLeft(2, '0')}'
+                      : null,
+                  endTime: hasEndTime
+                      ? '${endHour.toString().padLeft(2, '0')}:${endMinute.toString().padLeft(2, '0')}'
+                      : null,
                   color: selectedColor,
                 );
 
@@ -1901,11 +2073,55 @@ class _PersonalShiftTypeSheet extends HookConsumerWidget {
     );
   }
 
-  static TimeOfDay _parseTime(String time) {
-    final parts = time.split(':');
-    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
-  }
+  void _showCupertinoTimePicker({
+    required BuildContext context,
+    required int initialHour,
+    required int initialMinute,
+    required void Function(int hour, int minute) onChanged,
+  }) {
+    int selectedHour = initialHour;
+    int selectedMinute = initialMinute;
 
-  static String _formatTime(TimeOfDay time) =>
-      '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SizedBox(
+        height: 280,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('취소'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      onChanged(selectedHour, selectedMinute);
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text('확인'),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.time,
+                use24hFormat: false,
+                initialDateTime: DateTime(2000, 1, 1, selectedHour, selectedMinute),
+                onDateTimeChanged: (dateTime) {
+                  selectedHour = dateTime.hour;
+                  selectedMinute = dateTime.minute;
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
