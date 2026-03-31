@@ -115,7 +115,7 @@ class HomeScreen extends HookConsumerWidget {
                           onTap: () => Navigator.pop(ctx),
                           child: CircleAvatar(
                             radius: 100,
-                            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            backgroundColor: AppColors.primaryContainer,
                             backgroundImage: CachedNetworkImageProvider(avatarUrl),
                           ),
                         ),
@@ -123,22 +123,56 @@ class HomeScreen extends HookConsumerWidget {
                     );
                   }
                 : null,
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                  ? CachedNetworkImageProvider(avatarUrl)
-                  : null,
-              child: avatarUrl == null || avatarUrl.isEmpty
-                  ? Icon(Icons.person, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant)
-                  : null,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.primaryContainer,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: avatarUrl != null && avatarUrl.isNotEmpty
+                  ? ClipOval(
+                      child: CachedNetworkImage(
+                        imageUrl: avatarUrl,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => const Icon(
+                          Icons.person,
+                          size: 20,
+                          color: AppColors.onPrimaryContainer,
+                        ),
+                      ),
+                    )
+                  : const Icon(
+                      Icons.person,
+                      size: 20,
+                      color: AppColors.onPrimaryContainer,
+                    ),
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            displayName != null && displayName.isNotEmpty
-                ? '$displayName 님의 일정'
-                : '내 일정',
+          const SizedBox(width: AppSpacing.md),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'ONOROFF',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2.0,
+                  color: AppColors.secondary,
+                ),
+              ),
+              Text(
+                displayName != null && displayName.isNotEmpty
+                    ? '$displayName 님의 일정'
+                    : '내 일정',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+            ],
           ),
         ],
       );

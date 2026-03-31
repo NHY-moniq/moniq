@@ -520,7 +520,7 @@ class _SuccessView extends StatelessWidget {
                 onPressed: () => context.go(
                   '/teams/${team.id}/detail',
                 ),
-                child: const Text('팀 설정으로 이동'),
+                child: const Text('팀 설정하기'),
               ),
               const SizedBox(height: AppSpacing.sm),
               OutlinedButton(

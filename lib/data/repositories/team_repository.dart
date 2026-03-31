@@ -64,4 +64,8 @@ class TeamRepository {
   Future<void> removeMember(String teamId, String userId) {
     return _dataSource.removeMember(teamId, userId);
   }
+
+  Future<void> deleteTeam(String teamId) {
+    return _dataSource.deleteTeam(teamId);
+  }
 }

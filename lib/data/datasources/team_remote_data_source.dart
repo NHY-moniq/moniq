@@ -195,6 +195,11 @@ class TeamRemoteDataSource {
         .eq('user_id', userId);
   }
 
+  /// 팀 삭제 (soft delete) — 관리자 전용, DB에서 admin 권한 검증
+  Future<void> deleteTeam(String teamId) async {
+    await _client.rpc('delete_team', params: {'p_team_id': teamId});
+  }
+
   UserModel _buildMissingUser(String userId) {
     final shortId = userId.length >= 8 ? userId.substring(0, 8) : userId;
     return UserModel(

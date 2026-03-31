@@ -175,7 +175,74 @@ class TeamDetailViewModel extends FamilyAsyncNotifier<TeamDetailState, String> {
     ref.invalidateSelf();
   }
 
+  /// 팀 나가기 전 상태를 분석하여 결과를 반환한다.
+  /// - [LeaveResult.onlyMember]: 나 혼자 → 팀 삭제 필요
+  /// - [LeaveResult.lastAdmin]: 내가 유일한 관리자 → 관리자 위임 필요
+  /// - [LeaveResult.canLeave]: 바로 나가기 가능
+  LeaveResult checkLeaveCondition() {
+    final current = state.valueOrNull;
+    if (current == null) return LeaveResult.canLeave;
+
+    // 1) 나 혼자인 팀이면 → 팀 삭제
+    if (current.members.length == 1) {
+      return LeaveResult.onlyMember;
+    }
+
+    // 2) 내가 관리자인데 다른 관리자가 없으면 → 위임 필요
+    if (current.isAdmin) {
+      final otherAdmins = current.members.where(
+        (m) =>
+            m.userId != current.currentUserId &&
+            m.role == 'admin',
+      );
+      if (otherAdmins.isEmpty) {
+        return LeaveResult.lastAdmin;
+      }
+    }
+
+    return LeaveResult.canLeave;
+  }
+
+  Future<void> leaveTeam() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    await _teamRepository.removeMember(
+      current.teamId,
+      current.currentUserId,
+    );
+  }
+
+  /// 나 혼자 남은 팀에서 나가기 → 팀 삭제까지 수행
+  Future<void> leaveAndDeleteTeam() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    await _teamRepository.deleteTeam(current.teamId);
+  }
+
+  Future<void> deleteTeam() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    if (!current.isAdmin) {
+      throw Exception('관리자만 팀을 삭제할 수 있습니다');
+    }
+
+    await _teamRepository.deleteTeam(current.teamId);
+  }
+
   Future<void> refresh() async {
     ref.invalidateSelf();
   }
+}
+
+enum LeaveResult {
+  /// 바로 나가기 가능
+  canLeave,
+
+  /// 나 혼자 남은 팀 → 나가면 팀 삭제됨
+  onlyMember,
+
+  /// 내가 유일한 관리자 → 다른 멤버에게 관리자 위임 필요
+  lastAdmin,
 }

@@ -1,42 +1,51 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  // Brand colors (from ONOROFF logo)
-  static const brandYellow = Color(0xFFF0C040);
-  static const brandOrange = Color(0xFFE8923A);
-  static const brandBlue = Color(0xFF5A8BB5);
+  // Brand colors (Moniq warm palette)
+  static const brandYellow = Color(0xFFFFC107);
+  static const brandOrange = Color(0xFFFF8F00);
+  static const brandBlue = Color(0xFF2196F3);
 
-  // Primary - Orange (center character)
-  static const primary = Color(0xFFE8923A);
-  static const primaryLight = Color(0xFFF0AD6B);
-  static const primaryDark = Color(0xFFD07520);
-  static const onPrimary = Colors.white;
+  // Primary - Amber Gold
+  static const primary = Color(0xFFFFC107);
+  static const primaryContainer = Color(0xFFFFECB3);
+  static const onPrimary = Color(0xFF453900);
+  static const onPrimaryContainer = Color(0xFF5B4B00);
 
-  // Secondary - Yellow (left character)
-  static const secondary = Color(0xFFF0C040);
-  static const secondaryLight = Color(0xFFF5D470);
-  static const secondaryDark = Color(0xFFD4A520);
-  static const onSecondary = Color(0xFF1A1A1A);
+  // Secondary - Deep Orange
+  static const secondary = Color(0xFFFF8F00);
+  static const secondaryContainer = Color(0xFFFFE0B2);
+  static const onSecondary = Colors.white;
 
-  // Tertiary - Blue (right character)
-  static const tertiary = Color(0xFF5A8BB5);
-  static const tertiaryLight = Color(0xFF7EADD0);
-  static const tertiaryDark = Color(0xFF3D6E96);
+  // Tertiary - Sky Blue
+  static const tertiary = Color(0xFF2196F3);
+  static const tertiaryContainer = Color(0xFFB3E5FC);
+
+  // Surface - Warm Cream
+  static const surface = Color(0xFFFFFDF7);
+  static const surfaceContainer = Color(0xFFF9F6E5);
+  static const surfaceContainerLow = Color(0xFFFFF8E1);
+  static const surfaceContainerHigh = Color(0xFFF2ECD9);
+  static const onSurface = Color(0xFF373830);
+  static const onSurfaceVariant = Color(0xFF64655C);
 
   // Background
-  static const backgroundLight = Color(0xFFF8F9FA);
-  static const backgroundDark = Color(0xFF121212);
-  static const surfaceLight = Colors.white;
-  static const surfaceDark = Color(0xFF1E1E1E);
+  static const backgroundLight = Color(0xFFFFFDF7);
+  static const backgroundDark = Color(0xFF1A1500);
+  static const surfaceDark = Color(0xFF2A2400);
 
   // Text
-  static const textPrimaryLight = Color(0xFF1A1A1A);
-  static const textSecondaryLight = Color(0xFF6B7280);
-  static const textPrimaryDark = Color(0xFFF0F0F0);
-  static const textSecondaryDark = Color(0xFF9CA3AF);
+  static const textPrimaryLight = Color(0xFF373830);
+  static const textSecondaryLight = Color(0xFF818177);
+  static const textPrimaryDark = Color(0xFFF0EDE0);
+  static const textSecondaryDark = Color(0xFF9CA38F);
+
+  // Outline
+  static const outline = Color(0xFF818177);
+  static const outlineVariant = Color(0xFFDEDBC0);
 
   // Error
-  static const error = Color(0xFFE53E3E);
+  static const error = Color(0xFFFF5252);
   static const errorLight = Color(0xFFFEE2E2);
   static const onError = Colors.white;
 
@@ -45,16 +54,16 @@ abstract final class AppColors {
   static const successLight = Color(0xFFC6F6D5);
 
   // Shift type colors (mapped to brand characters)
-  static const shiftDay = Color(0xFFF0C040);       // Yellow character
-  static const shiftEvening = Color(0xFFE8923A);    // Orange character
-  static const shiftNight = Color(0xFF5A8BB5);      // Blue character
+  static const shiftDay = Color(0xFFFFC107);
+  static const shiftEvening = Color(0xFFFF8F00);
+  static const shiftNight = Color(0xFF2196F3);
   static const shiftOff = Color(0xFFA0AEC0);
 
   // Border
-  static const borderLight = Color(0xFFE2E8F0);
-  static const borderDark = Color(0xFF374151);
+  static const borderLight = Color(0xFFE8E2D2);
+  static const borderDark = Color(0xFF4A4530);
 
   // Divider
-  static const dividerLight = Color(0xFFEDF2F7);
-  static const dividerDark = Color(0xFF2D3748);
+  static const dividerLight = Color(0xFFE8E2D2);
+  static const dividerDark = Color(0xFF3D3820);
 }
