@@ -5,7 +5,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
@@ -20,6 +22,29 @@ class TeamDetailScreen extends HookConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: Padding(
+          padding: const EdgeInsets.all(8),
+          child: GestureDetector(
+            onTap: () {
+              if (Navigator.of(context).canPop()) {
+                context.pop();
+              } else {
+                context.go('/teams');
+              }
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerHigh,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.arrow_back,
+                color: AppColors.onSurface.withValues(alpha: 0.6),
+                size: 20,
+              ),
+            ),
+          ),
+        ),
         title: const Text('팀 관리'),
         actions: [
           IconButton(
@@ -40,8 +65,8 @@ class TeamDetailScreen extends HookConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 팀 프로필 카드
-              _TeamProfileCard(
+              // Hero profile section
+              _TeamHeroSection(
                 name: state.team.name,
                 description: state.team.description,
                 icon: state.team.icon,
@@ -50,32 +75,240 @@ class TeamDetailScreen extends HookConsumerWidget {
                 onEdit: () => _showEditSheet(context, ref, state),
               ),
 
-              const SizedBox(height: AppSpacing.xxl),
+              const SizedBox(height: AppSpacing.xxxl),
 
-              // 메뉴 리스트
-              _MenuTile(
+              // Section header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                child: Text(
+                  '팀 관리',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2.0,
+                    color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              // Management menu cards
+              _BubbleMenuCard(
                 icon: Icons.people_outline,
+                iconColor: AppColors.tertiary,
                 title: '멤버 관리',
-                subtitle: '${state.members.length}명',
+                subtitle: '${state.members.length}명 등록됨',
                 onTap: () => context.push('/teams/$teamId/members'),
               ),
-              _MenuTile(
+              const SizedBox(height: AppSpacing.md),
+              _BubbleMenuCard(
                 icon: Icons.settings_outlined,
+                iconColor: AppColors.secondary,
                 title: '팀 상세 설정',
                 subtitle: '근무 유형 · 고정 규칙',
-                onTap: () =>
-                    context.push('/teams/$teamId/settings'),
+                onTap: () => context.push('/teams/$teamId/settings'),
               ),
-              _MenuTile(
+              const SizedBox(height: AppSpacing.md),
+              _BubbleMenuCard(
                 icon: Icons.auto_awesome_outlined,
+                iconColor: AppColors.primary,
                 title: '스케줄 생성',
                 subtitle: '생성 규칙 설정',
-                onTap: () => context.push(
-                    '/teams/$teamId/schedule-rules'),
+                onTap: () =>
+                    context.push('/teams/$teamId/schedule-rules'),
               ),
+
+              const SizedBox(height: AppSpacing.xxxl),
+              const Divider(),
+              const SizedBox(height: AppSpacing.lg),
+
+              // Leave / Delete
+              _BubbleMenuCard(
+                icon: Icons.exit_to_app,
+                iconColor: AppColors.onSurfaceVariant,
+                title: '팀 나가기',
+                onTap: () => _confirmLeave(context, ref, state),
+              ),
+              if (state.isAdmin) ...[
+                const SizedBox(height: AppSpacing.md),
+                _BubbleMenuCard(
+                  icon: Icons.delete_outline,
+                  iconColor: AppColors.error,
+                  title: '팀 삭제',
+                  titleColor: AppColors.error,
+                  onTap: () => _confirmDelete(context, ref, state),
+                ),
+              ],
+
+              // Bottom padding for floating nav
+              const SizedBox(height: 100),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _confirmLeave(
+    BuildContext context,
+    WidgetRef ref,
+    TeamDetailState state,
+  ) {
+    final notifier = ref.read(teamDetailViewModelProvider(teamId).notifier);
+    final result = notifier.checkLeaveCondition();
+
+    switch (result) {
+      case LeaveResult.lastAdmin:
+        // 유일한 관리자 → 위임 안내
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('관리자 위임 필요'),
+            content: const Text(
+              '팀에 관리자가 최소 1명 필요합니다.\n'
+              '다른 멤버를 관리자로 지정한 후 나갈 수 있습니다.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('닫기'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.push('/teams/$teamId/members');
+                },
+                child: const Text('멤버 관리로 이동'),
+              ),
+            ],
+          ),
+        );
+
+      case LeaveResult.onlyMember:
+        // 혼자 남은 팀 → 나가면 팀 삭제
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('팀 나가기'),
+            content: Text(
+              '${state.team.name} 팀의 마지막 멤버입니다.\n'
+              '나가면 팀이 자동으로 삭제됩니다.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    await notifier.leaveAndDeleteTeam();
+                    ref.invalidate(teamViewModelProvider);
+                    ref.invalidate(favoriteTeamProvider);
+                    if (context.mounted) context.go('/teams');
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('팀 나가기에 실패했습니다: $e'),
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: const Text(
+                  '나가기 (팀 삭제)',
+                  style: TextStyle(color: AppColors.error),
+                ),
+              ),
+            ],
+          ),
+        );
+
+      case LeaveResult.canLeave:
+        // 일반 나가기
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('팀 나가기'),
+            content: Text('${state.team.name} 팀에서 나가시겠습니까?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    await notifier.leaveTeam();
+                    ref.invalidate(teamViewModelProvider);
+                    ref.invalidate(favoriteTeamProvider);
+                    if (context.mounted) context.go('/teams');
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('팀 나가기에 실패했습니다: $e'),
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: const Text(
+                  '나가기',
+                  style: TextStyle(color: AppColors.error),
+                ),
+              ),
+            ],
+          ),
+        );
+    }
+  }
+
+  void _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    TeamDetailState state,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('팀 삭제'),
+        content: Text(
+          '${state.team.name} 팀을 삭제하시겠습니까?\n'
+          '모든 멤버가 더 이상 이 팀에 접근할 수 없습니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ref
+                    .read(teamDetailViewModelProvider(teamId).notifier)
+                    .deleteTeam();
+                ref.invalidate(teamViewModelProvider);
+                ref.invalidate(favoriteTeamProvider);
+                if (context.mounted) context.go('/teams');
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('팀 삭제에 실패했습니다: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text(
+              '삭제',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -91,10 +324,10 @@ class TeamDetailScreen extends HookConsumerWidget {
       isScrollControlled: true,
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
-          left: AppSpacing.lg,
-          right: AppSpacing.lg,
-          top: AppSpacing.lg,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg,
+          left: AppSpacing.xxl,
+          right: AppSpacing.xxl,
+          top: AppSpacing.xxl,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xxl,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -102,20 +335,20 @@ class TeamDetailScreen extends HookConsumerWidget {
           children: [
             Text('팀 정보 수정',
                 style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     )),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.xxl),
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(labelText: '팀 이름'),
+              decoration: const InputDecoration(hintText: '팀 이름'),
             ),
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: descController,
-              decoration: const InputDecoration(labelText: '설명 (선택)'),
+              decoration: const InputDecoration(hintText: '설명 (선택)'),
               maxLines: 2,
             ),
-            const SizedBox(height: AppSpacing.xl),
+            const SizedBox(height: AppSpacing.xxl),
             ElevatedButton(
               onPressed: () async {
                 await ref
@@ -135,8 +368,9 @@ class TeamDetailScreen extends HookConsumerWidget {
   }
 }
 
-class _TeamProfileCard extends StatelessWidget {
-  const _TeamProfileCard({
+/// Hero-style team profile section matching design HTML
+class _TeamHeroSection extends StatelessWidget {
+  const _TeamHeroSection({
     required this.name,
     this.description,
     this.icon,
@@ -156,94 +390,222 @@ class _TeamProfileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                TeamProfileAvatar(icon: icon, radius: 28),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name,
-                          style: theme.textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w600)),
-                      if (description != null && description!.isNotEmpty)
-                        Text(description!,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textSecondaryLight)),
-                    ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.huge,
+        horizontal: AppSpacing.xxl,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.primaryContainer.withValues(alpha: 0.3),
+        borderRadius: AppRadius.borderRadiusXl,
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: Column(
+        children: [
+          // Avatar with gradient ring
+          Stack(
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.primary, AppColors.secondary],
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.2),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                  border: Border.all(color: Colors.white, width: 4),
+                ),
+                child: ClipOval(
+                  child: TeamProfileAvatar(icon: icon, radius: 46),
+                ),
+              ),
+              if (isAdmin)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: GestureDetector(
+                    onTap: onEdit,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.edit,
+                        size: 16,
+                        color: AppColors.secondary,
+                      ),
+                    ),
                   ),
                 ),
-                if (isAdmin)
-                  IconButton(
-                      icon: const Icon(Icons.edit_outlined), onPressed: onEdit),
-              ],
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xxl),
+
+          // Team name
+          Text(
+            name,
+            style: theme.textTheme.headlineLarge,
+            textAlign: TextAlign.center,
+          ),
+          if (description != null && description!.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              description!,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
             ),
-            if (inviteCode != null) ...[
-              const SizedBox(height: AppSpacing.md),
-              const Divider(),
-              const SizedBox(height: AppSpacing.sm),
-              InkWell(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: inviteCode!));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('초대 코드가 복사되었습니다')),
-                  );
-                },
+          ],
+
+          // Invite code pill
+          if (inviteCode != null) ...[
+            const SizedBox(height: AppSpacing.xxl),
+            GestureDetector(
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: inviteCode!));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('초대 코드가 복사되었습니다')),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xxl,
+                  vertical: AppSpacing.md,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  borderRadius: AppRadius.borderRadiusFull,
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                  ),
+                ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.link, size: 18, color: AppColors.primary),
+                    Icon(Icons.link,
+                        size: 16, color: AppColors.primary),
                     const SizedBox(width: AppSpacing.sm),
-                    Text('초대 코드: $inviteCode',
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: AppColors.primary)),
-                    const SizedBox(width: AppSpacing.xs),
-                    const Icon(Icons.copy, size: 14, color: AppColors.primary),
+                    Text(
+                      inviteCode!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.5,
+                        color: AppColors.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Icon(Icons.copy,
+                        size: 14, color: AppColors.primary),
                   ],
                 ),
               ),
-            ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Bubbly menu card matching design HTML
+class _BubbleMenuCard extends StatelessWidget {
+  const _BubbleMenuCard({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    this.subtitle,
+    required this.onTap,
+    this.titleColor,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+  final Color? titleColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: AppRadius.borderRadiusLg,
+          border: Border.all(color: Colors.transparent, width: 2),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(width: AppSpacing.lg),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: titleColor,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.chevron_right,
+                color: iconColor.withValues(alpha: 0.6),
+                size: 20,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
-
-class _MenuTile extends StatelessWidget {
-  const _MenuTile({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    required this.onTap,
-    this.enabled = true,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final VoidCallback onTap;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon,
-          color: enabled ? null : AppColors.textSecondaryLight),
-      title: Text(title,
-          style: TextStyle(
-              color: enabled ? null : AppColors.textSecondaryLight)),
-      subtitle: subtitle != null ? Text(subtitle!) : null,
-      trailing: const Icon(Icons.chevron_right),
-      enabled: enabled,
-      onTap: onTap,
-    );
-  }
-}
-

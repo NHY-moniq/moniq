@@ -270,16 +270,19 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
         AppSpacing.xxl,
-        AppSpacing.lg,
+        AppSpacing.xxl,
+        AppSpacing.xxl,
         AppSpacing.sm,
       ),
       child: Text(
-        title,
-        style: Theme.of(
-          context,
-        ).textTheme.labelLarge?.copyWith(color: AppColors.textSecondaryLight),
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 2.0,
+          color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+        ),
       ),
     );
   }

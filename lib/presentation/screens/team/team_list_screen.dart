@@ -9,6 +9,7 @@ import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/character_blob.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
@@ -46,39 +47,56 @@ class TeamListScreen extends HookConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.groups_outlined,
-                      size: 64,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.3),
+                    const Opacity(
+                      opacity: 0.5,
+                      child: CharacterGroup(size: 48),
                     ),
-                    const SizedBox(height: AppSpacing.lg),
-                    const Text('참여한 팀이 없습니다'),
+                    const SizedBox(height: AppSpacing.xxl),
+                    Text(
+                      '참여한 팀이 없습니다',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
                   ],
                 ),
               ),
             );
           }
 
-          final favoriteTeamId =
-              favoriteAsync.valueOrNull?.id;
+          final favoriteTeamId = favoriteAsync.valueOrNull?.id;
 
           return SlidableAutoCloseBehavior(
-            child: ListView.separated(
+            child: ReorderableListView.builder(
               padding: const EdgeInsets.symmetric(
                 vertical: AppSpacing.sm,
               ),
               itemCount: teams.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1),
+              buildDefaultDragHandles: false,
+              onReorder: (oldIndex, newIndex) {
+                ref
+                    .read(teamViewModelProvider.notifier)
+                    .reorder(oldIndex, newIndex);
+              },
+              proxyDecorator: (child, index, animation) {
+                return AnimatedBuilder(
+                  animation: animation,
+                  builder: (context, child) => Material(
+                    elevation: 4,
+                    shadowColor: AppColors.primary.withValues(alpha: 0.3),
+                    borderRadius: AppRadius.borderRadiusLg,
+                    child: child,
+                  ),
+                  child: child,
+                );
+              },
               itemBuilder: (context, index) {
                 final team = teams[index];
-                final isFavorite =
-                    team.id == favoriteTeamId;
+                final isFavorite = team.id == favoriteTeamId;
 
                 return _TeamSlidableTile(
+                  key: ValueKey(team.id),
+                  index: index,
                   team: team,
                   isFavorite: isFavorite,
                   onFavorite: () => _toggleFavorite(
@@ -101,6 +119,21 @@ class TeamListScreen extends HookConsumerWidget {
         },
       ),
     );
+  }
+
+  Future<void> _toggleFavorite(
+    WidgetRef ref,
+    TeamModel team,
+    bool isFavorite,
+  ) async {
+    final teamRepo = ref.read(teamRepositoryProvider);
+    if (isFavorite) {
+      await teamRepo.clearFavoriteTeam();
+    } else {
+      await teamRepo.setFavoriteTeam(team.id);
+    }
+    ref.invalidate(favoriteTeamProvider);
+    ref.invalidate(teamViewModelProvider);
   }
 
   void _showAddOptions(BuildContext context) {
@@ -132,33 +165,105 @@ class TeamListScreen extends HookConsumerWidget {
     );
   }
 
-  Future<void> _toggleFavorite(
-    WidgetRef ref,
-    TeamModel team,
-    bool isFavorite,
-  ) async {
-    final teamRepo = ref.read(teamRepositoryProvider);
-    if (isFavorite) {
-      await teamRepo.clearFavoriteTeam();
-    } else {
-      await teamRepo.setFavoriteTeam(team.id);
-    }
-    ref.invalidate(favoriteTeamProvider);
-    ref.invalidate(teamViewModelProvider);
-  }
-
-  void _confirmLeave(
+  Future<void> _confirmLeave(
     BuildContext context,
     WidgetRef ref,
     TeamModel team,
-  ) {
+  ) async {
+    final userId = ref
+        .read(supabaseClientProvider)
+        .auth
+        .currentUser
+        ?.id;
+    if (userId == null) return;
+
+    final teamRepo = ref.read(teamRepositoryProvider);
+    final members = await teamRepo.getTeamMembers(team.id);
+
+    // 1) 나 혼자 → 팀 삭제
+    if (members.length == 1) {
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('팀 나가기'),
+          content: Text(
+            '${team.name} 팀의 마지막 멤버입니다.\n'
+            '나가면 팀이 자동으로 삭제됩니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                try {
+                  await teamRepo.deleteTeam(team.id);
+                  ref.invalidate(teamViewModelProvider);
+                  ref.invalidate(favoriteTeamProvider);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('실패: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text(
+                '나가기 (팀 삭제)',
+                style: TextStyle(color: AppColors.error),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // 2) 내가 유일한 관리자 → 위임 안내
+    final myMember = members.where((m) => m.userId == userId).firstOrNull;
+    if (myMember != null && myMember.role == 'admin') {
+      final otherAdmins = members.where(
+        (m) => m.userId != userId && m.role == 'admin',
+      );
+      if (otherAdmins.isEmpty) {
+        if (!context.mounted) return;
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('관리자 위임 필요'),
+            content: const Text(
+              '팀에 관리자가 최소 1명 필요합니다.\n'
+              '다른 멤버를 관리자로 지정한 후 나갈 수 있습니다.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('닫기'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.push('/teams/${team.id}/members');
+                },
+                child: const Text('멤버 관리로 이동'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    }
+
+    // 3) 일반 나가기
+    if (!context.mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('팀 나가기'),
-        content: Text(
-          '${team.name} 팀에서 나가시겠습니까?',
-        ),
+        content: Text('${team.name} 팀에서 나가시겠습니까?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -167,18 +272,17 @@ class TeamListScreen extends HookConsumerWidget {
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final userId = ref
-                  .read(supabaseClientProvider)
-                  .auth
-                  .currentUser
-                  ?.id;
-              if (userId == null) return;
-
-              await ref
-                  .read(teamRepositoryProvider)
-                  .removeMember(team.id, userId);
-              ref.invalidate(teamViewModelProvider);
-              ref.invalidate(favoriteTeamProvider);
+              try {
+                await teamRepo.removeMember(team.id, userId);
+                ref.invalidate(teamViewModelProvider);
+                ref.invalidate(favoriteTeamProvider);
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('팀 나가기에 실패했습니다: $e')),
+                  );
+                }
+              }
             },
             child: const Text(
               '나가기',
@@ -193,6 +297,8 @@ class TeamListScreen extends HookConsumerWidget {
 
 class _TeamSlidableTile extends StatelessWidget {
   const _TeamSlidableTile({
+    super.key,
+    required this.index,
     required this.team,
     required this.isFavorite,
     required this.onFavorite,
@@ -200,6 +306,7 @@ class _TeamSlidableTile extends StatelessWidget {
     required this.onLeave,
   });
 
+  final int index;
   final TeamModel team;
   final bool isFavorite;
   final VoidCallback onFavorite;
@@ -211,23 +318,12 @@ class _TeamSlidableTile extends StatelessWidget {
     return Slidable(
       endActionPane: ActionPane(
         motion: const BehindMotion(),
-        extentRatio: 0.6,
+        extentRatio: 0.4,
         children: [
-          SlidableAction(
-            onPressed: (_) => onFavorite(),
-            backgroundColor: isFavorite
-                ? AppColors.textSecondaryLight
-                : Colors.amber,
-            foregroundColor: Colors.white,
-            icon: isFavorite
-                ? Icons.star_outline
-                : Icons.star,
-            label: isFavorite ? '해제' : '즐겨찾기',
-          ),
           SlidableAction(
             onPressed: (_) => onDetail(),
             backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
+            foregroundColor: AppColors.onPrimary,
             icon: Icons.settings_outlined,
             label: '설정',
           ),
@@ -254,15 +350,30 @@ class _TeamSlidableTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               )
             : null,
-        trailing: isFavorite
-            ? const Icon(
-                Icons.star,
-                color: Colors.amber,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: onFavorite,
+              child: Icon(
+                isFavorite ? Icons.star : Icons.star_border,
+                color: isFavorite ? Colors.amber : Colors.grey.shade400,
                 size: 20,
-              )
-            : null,
+              ),
+            ),
+            const SizedBox(width: 8),
+            ReorderableDragStartListener(
+              index: index,
+              child: Icon(
+                Icons.reorder,
+                color: Colors.grey.shade400,
+                size: 20,
+              ),
+            ),
+          ],
+        ),
+        onTap: onDetail,
       ),
     );
   }
 }
-
