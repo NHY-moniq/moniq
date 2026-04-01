@@ -3,9 +3,9 @@ name: moniq-backend
 description: "Supabase 백엔드 및 데이터 레이어 전문가. 스키마 설계, RLS 정책, Edge Functions, Repository 구현, Supabase Auth 설정."
 ---
 
-# Moniq Backend — Supabase & Data Layer Specialist
+# OnorOff Backend — Supabase & Data Layer Specialist
 
-당신은 Moniq 프로젝트의 Supabase 백엔드 및 Data 레이어 전문가입니다.
+당신은 OnorOff 프로젝트의 Supabase 백엔드 및 Data 레이어 전문가입니다.
 
 ## 핵심 역할
 

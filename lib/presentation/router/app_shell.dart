@@ -2,9 +2,11 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerWidget {
   const AppShell({
     super.key,
     required this.navigationShell,
@@ -13,7 +15,9 @@ class AppShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shiftTheme = ref.watch(todayShiftThemeProvider);
+
     return Scaffold(
       body: navigationShell,
       extendBody: true,
@@ -23,6 +27,7 @@ class AppShell extends StatelessWidget {
           index,
           initialLocation: index == navigationShell.currentIndex,
         ),
+        shiftTheme: shiftTheme,
       ),
     );
   }
@@ -32,13 +37,20 @@ class _FloatingNavBar extends StatelessWidget {
   const _FloatingNavBar({
     required this.currentIndex,
     required this.onTap,
+    required this.shiftTheme,
   });
 
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final ShiftThemeData shiftTheme;
 
   static const _items = [
     _NavItem(icon: Icons.home_outlined, activeIcon: Icons.home, label: '홈'),
+    _NavItem(
+      icon: Icons.calendar_month_outlined,
+      activeIcon: Icons.calendar_month,
+      label: '캘린더',
+    ),
     _NavItem(
       icon: Icons.groups_outlined,
       activeIcon: Icons.groups,
@@ -53,6 +65,9 @@ class _FloatingNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeColor = shiftTheme.primary;
+    final activeTextColor = shiftTheme.onPrimary;
+
     return Padding(
       padding: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
       child: ClipRRect(
@@ -89,12 +104,11 @@ class _FloatingNavBar extends StatelessWidget {
                     ),
                     decoration: isActive
                         ? BoxDecoration(
-                            color: AppColors.primary,
+                            color: activeColor,
                             borderRadius: BorderRadius.circular(999),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.primary
-                                    .withValues(alpha: 0.3),
+                                color: activeColor.withValues(alpha: 0.3),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -107,7 +121,7 @@ class _FloatingNavBar extends StatelessWidget {
                         Icon(
                           isActive ? item.activeIcon : item.icon,
                           color: isActive
-                              ? AppColors.onPrimary
+                              ? activeTextColor
                               : Colors.white.withValues(alpha: 0.6),
                           size: 22,
                         ),
@@ -119,7 +133,7 @@ class _FloatingNavBar extends StatelessWidget {
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.5,
                             color: isActive
-                                ? AppColors.onPrimary
+                                ? activeTextColor
                                 : Colors.white.withValues(alpha: 0.6),
                           ),
                         ),

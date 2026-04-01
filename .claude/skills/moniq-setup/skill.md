@@ -1,9 +1,9 @@
 ---
 name: moniq-setup
-description: "Moniq 프로젝트 초기 설정. Flutter 프로젝트 생성, 패키지 설치, 디렉토리 구조, Supabase 설정. '프로젝트 초기화', '세팅' 시 사용."
+description: "OnorOff 프로젝트 초기 설정. Flutter 프로젝트 생성, 패키지 설치, 디렉토리 구조, Supabase 설정. '프로젝트 초기화', '세팅' 시 사용."
 ---
 
-# Moniq Setup — 프로젝트 초기화
+# OnorOff Setup — 프로젝트 초기화
 
 ## 워크플로우
 

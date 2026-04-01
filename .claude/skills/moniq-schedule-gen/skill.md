@@ -3,7 +3,7 @@ name: moniq-schedule-gen
 description: "근무표 자동 생성 알고리즘. 제약 조건 기반 스케줄링, 백트래킹, 공정성 최적화. '근무표 생성', '스케줄 알고리즘' 시 사용."
 ---
 
-# Moniq Schedule Gen — 근무표 생성 알고리즘
+# OnorOff Schedule Gen — 근무표 생성 알고리즘
 
 ## 알고리즘 개요
 
