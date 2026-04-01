@@ -1,11 +1,11 @@
 ---
 name: moniq-dev
-description: "Moniq 개발 오케스트레이터. 에이전트 팀 조율, Phase별 구현 관리, 통합 검증. 'moniq 개발', '다음 phase', '구현 시작' 시 사용."
+description: "OnorOff 개발 오케스트레이터. 에이전트 팀 조율, Phase별 구현 관리, 통합 검증. 'moniq 개발', '다음 phase', '구현 시작' 시 사용."
 ---
 
-# Moniq Dev — 개발 오케스트레이터
+# OnorOff Dev — 개발 오케스트레이터
 
-Moniq 프로젝트의 개발 팀을 조율하는 오케스트레이터 스킬.
+OnorOff 프로젝트의 개발 팀을 조율하는 오케스트레이터 스킬.
 
 ## 에이전트 팀
 

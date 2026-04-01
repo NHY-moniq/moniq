@@ -3,7 +3,7 @@ name: moniq-screen
 description: "Flutter 화면 및 위젯 생성 패턴. Screen, ViewModel, Bottom Sheet, Empty State 템플릿. '화면 생성', '스크린', '위젯' 시 사용."
 ---
 
-# Moniq Screen — 화면/위젯 생성 패턴
+# OnorOff Screen — 화면/위젯 생성 패턴
 
 ## Screen 템플릿
 

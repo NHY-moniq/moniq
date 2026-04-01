@@ -1,9 +1,9 @@
 ---
 name: moniq-design-system
-description: "Moniq 디자인 시스템 관리. 테마, 컬러, 타이포그래피, 컴포넌트 스펙, 아이콘, 다크 모드. '디자인 시스템', '테마', '컬러 팔레트' 시 사용."
+description: "OnorOff 디자인 시스템 관리. 테마, 컬러, 타이포그래피, 컴포넌트 스펙, 아이콘, 다크 모드. '디자인 시스템', '테마', '컬러 팔레트' 시 사용."
 ---
 
-# Moniq Design System — 디자인 시스템 관리
+# OnorOff Design System — 디자인 시스템 관리
 
 ## 디자인 토큰
 

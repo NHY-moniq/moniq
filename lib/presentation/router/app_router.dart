@@ -7,6 +7,7 @@ import 'package:moniq/presentation/router/app_shell.dart';
 import 'package:moniq/presentation/screens/auth/forgot_password_screen.dart';
 import 'package:moniq/presentation/screens/auth/login_screen.dart';
 import 'package:moniq/presentation/screens/auth/signup_screen.dart';
+import 'package:moniq/presentation/screens/calendar/calendar_screen.dart';
 import 'package:moniq/presentation/screens/home/home_screen.dart';
 import 'package:moniq/presentation/screens/request/request_create_screen.dart';
 import 'package:moniq/presentation/screens/request/request_list_screen.dart';
@@ -26,6 +27,7 @@ import 'package:moniq/presentation/screens/team/schedule_rules_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _homeNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'home');
+final _calendarNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'calendar');
 final _teamNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'team');
 final _settingsNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'settings');
@@ -95,6 +97,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/home',
                 builder: (context, state) => const HomeScreen(),
+              ),
+            ],
+          ),
+
+          // Calendar tab
+          StatefulShellBranch(
+            navigatorKey: _calendarNavigatorKey,
+            routes: [
+              GoRoute(
+                path: '/calendar',
+                builder: (context, state) => const CalendarScreen(),
               ),
             ],
           ),

@@ -3,9 +3,9 @@ name: moniq-ui
 description: "Flutter Presentation 레이어 전문가. 화면, 위젯, ViewModel, go_router 네비게이션, 캘린더 UI, Bottom Sheet, 반응형 디자인."
 ---
 
-# Moniq UI — Flutter Presentation Layer Specialist
+# OnorOff UI — Flutter Presentation Layer Specialist
 
-당신은 Moniq 프로젝트의 Flutter Presentation 레이어 전문가입니다.
+당신은 OnorOff 프로젝트의 Flutter Presentation 레이어 전문가입니다.
 
 ## 핵심 역할
 

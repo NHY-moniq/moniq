@@ -3,14 +3,17 @@ import 'package:moniq/presentation/theme/app_colors.dart';
 
 /// OnorOff 캐릭터 타입
 enum CharacterType {
-  /// 노랑이 — Day 근무, 즐겨찾기, 휴식
+  /// 노랑이 — Day 근무
   yellow,
 
-  /// 주황이 — Evening 근무, 활동 중
+  /// 주황이 — Evening 근무
   orange,
 
-  /// 파랑이 — Night 근무, 탐험
+  /// 파랑이 — Night 근무
   blue,
+
+  /// 회색 — Off / 휴무
+  grey,
 }
 
 /// OnorOff 캐릭터 blob 위젯.
@@ -21,22 +24,26 @@ class CharacterBlob extends StatelessWidget {
     required this.type,
     this.size = 44,
     this.showEyes = true,
+    this.sleeping = false,
   });
 
   final CharacterType type;
   final double size;
   final bool showEyes;
+  final bool sleeping;
 
   Color get _color => switch (type) {
         CharacterType.yellow => AppColors.brandYellow,
         CharacterType.orange => AppColors.brandOrange,
         CharacterType.blue => AppColors.brandBlue,
+        CharacterType.grey => AppColors.shiftOff,
       };
 
   Color get _shadowColor => switch (type) {
         CharacterType.yellow => AppColors.primary,
         CharacterType.orange => AppColors.secondary,
         CharacterType.blue => AppColors.tertiary,
+        CharacterType.grey => AppColors.outline,
       };
 
   @override
@@ -64,7 +71,9 @@ class CharacterBlob extends StatelessWidget {
       ),
       child: showEyes
           ? CustomPaint(
-              painter: _EyesPainter(size: size),
+              painter: sleeping
+                  ? _SleepingEyesPainter(size: size)
+                  : _EyesPainter(size: size),
             )
           : null,
     );
@@ -97,6 +106,43 @@ class _EyesPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(centerX + eyeSpacing, eyeY),
       eyeRadius,
+      eyePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// 잠자는 눈 (─ ─) 스타일
+class _SleepingEyesPainter extends CustomPainter {
+  _SleepingEyesPainter({required this.size});
+
+  final double size;
+
+  @override
+  void paint(Canvas canvas, Size canvasSize) {
+    final eyePaint = Paint()
+      ..color = const Color(0xFF2A2A2A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size * 0.03
+      ..strokeCap = StrokeCap.round;
+
+    final eyeY = size * 0.44;
+    final eyeSpacing = size * 0.12;
+    final eyeWidth = size * 0.06;
+    final centerX = size / 2;
+
+    // Left eye (─)
+    canvas.drawLine(
+      Offset(centerX - eyeSpacing - eyeWidth, eyeY),
+      Offset(centerX - eyeSpacing + eyeWidth, eyeY),
+      eyePaint,
+    );
+    // Right eye (─)
+    canvas.drawLine(
+      Offset(centerX + eyeSpacing - eyeWidth, eyeY),
+      Offset(centerX + eyeSpacing + eyeWidth, eyeY),
       eyePaint,
     );
   }
@@ -147,6 +193,40 @@ class CharacterGroup extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 근무 컬러 → 캐릭터 타입 매핑.
+/// Day 계열(노란/amber) → yellow, Evening 계열(주황/orange) → orange,
+/// Night 계열(파랑/blue) → blue, 나머지(off/grey) → grey.
+CharacterType characterTypeFromColor(Color color) {
+  final hue = HSLColor.fromColor(color).hue;
+  final saturation = HSLColor.fromColor(color).saturation;
+
+  // 무채색(off)
+  if (saturation < 0.15) return CharacterType.grey;
+
+  // 브랜드 컬러 직접 비교 (최우선)
+  final argb = color.toARGB32();
+  if (argb == AppColors.shiftDay.toARGB32() ||
+      argb == AppColors.brandYellow.toARGB32()) {
+    return CharacterType.yellow;
+  }
+  if (argb == AppColors.shiftEvening.toARGB32() ||
+      argb == AppColors.brandOrange.toARGB32()) {
+    return CharacterType.orange;
+  }
+  if (argb == AppColors.shiftNight.toARGB32() ||
+      argb == AppColors.brandBlue.toARGB32()) {
+    return CharacterType.blue;
+  }
+
+  // hue 기반 분류 (fallback)
+  // Day(yellow): 43+, Evening(orange): 15-43, Night: 파랑
+  if (hue >= 43 && hue < 70) return CharacterType.yellow;   // Day
+  if (hue >= 15 && hue < 43) return CharacterType.orange;   // Evening
+  if (hue >= 190 && hue < 260) return CharacterType.blue;   // Night
+
+  return CharacterType.grey;
 }
 
 /// 근무 타입에 매핑되는 캐릭터 도트

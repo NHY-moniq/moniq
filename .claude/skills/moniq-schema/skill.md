@@ -3,7 +3,7 @@ name: moniq-schema
 description: "Supabase 스키마 및 마이그레이션 관리. 테이블 생성, RLS 정책, 인덱스, Edge Function. '스키마', '마이그레이션', 'RLS' 시 사용."
 ---
 
-# Moniq Schema — Supabase 스키마 관리
+# OnorOff Schema — Supabase 스키마 관리
 
 ## 테이블 공통 규칙
 
