@@ -94,6 +94,52 @@ class ScheduleRemoteDataSource {
         .toList();
   }
 
+  /// 특정 팀의 연월 기간에 해당하는 스케줄 + shifts 전체 삭제
+  Future<int> deleteSchedulesByMonth({
+    required String teamId,
+    required int year,
+    required int month,
+  }) async {
+    final monthStart = '$year-${month.toString().padLeft(2, '0')}-01';
+    final nextMonth = month == 12 ? 1 : month + 1;
+    final nextYear = month == 12 ? year + 1 : year;
+    final monthEnd = '$nextYear-${nextMonth.toString().padLeft(2, '0')}-01';
+
+    // 해당 기간의 shifts 먼저 삭제
+    await _client
+        .from('shifts')
+        .delete()
+        .eq('team_id', teamId)
+        .gte('shift_date', monthStart)
+        .lt('shift_date', monthEnd);
+
+    // 해당 기간의 schedules 조회
+    final schedules = await _client
+        .from('schedules')
+        .select('id')
+        .eq('team_id', teamId)
+        .gte('period_start', monthStart)
+        .lt('period_start', monthEnd);
+
+    int count = (schedules as List).length;
+    final scheduleIds = (schedules).map((s) => s['id'] as String).toList();
+
+    if (scheduleIds.isNotEmpty) {
+      // 다른 스케줄의 previous_version_id 참조 해제
+      await _client
+          .from('schedules')
+          .update({'previous_version_id': null})
+          .inFilter('previous_version_id', scheduleIds);
+
+      // 스케줄 삭제
+      for (final id in scheduleIds) {
+        await _client.from('schedules').delete().eq('id', id);
+      }
+    }
+
+    return count;
+  }
+
   String _dateStr(DateTime dt) =>
       '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
 }
