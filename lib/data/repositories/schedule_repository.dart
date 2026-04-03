@@ -39,4 +39,13 @@ class ScheduleRepository {
   Future<List<ScheduleModel>> getSchedules(String teamId) {
     return _dataSource.getSchedules(teamId);
   }
+
+  Future<int> deleteSchedulesByMonth({
+    required String teamId,
+    required int year,
+    required int month,
+  }) {
+    return _dataSource.deleteSchedulesByMonth(
+        teamId: teamId, year: year, month: month);
+  }
 }

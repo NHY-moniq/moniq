@@ -124,6 +124,37 @@ class NotificationService {
     );
   }
 
+  /// 희망 휴무 입력 요청 즉시 알림
+  Future<void> showWantedDayOffNotification({
+    required String teamName,
+    required String periodDescription,
+    DateTime? deadline,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'moniq_wanted',
+      'Moniq 희망 휴무 알림',
+      channelDescription: '희망 휴무일 입력 요청 알림',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    final deadlineStr = deadline != null
+        ? ' (마감: ${deadline.month}/${deadline.day})'
+        : '';
+
+    await _plugin.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      '[$teamName] 희망 휴무일 입력 요청',
+      '$periodDescription 기간의 희망 휴무일을 입력해주세요.$deadlineStr',
+      const NotificationDetails(android: androidDetails, iOS: iosDetails),
+    );
+  }
+
   /// 스케줄 변경 요청 즉시 알림
   Future<void> showScheduleChangeNotification({
     required String teamName,

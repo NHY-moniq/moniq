@@ -7,9 +7,11 @@ import 'package:moniq/data/models/shift_model.dart';
 import 'package:moniq/data/models/shift_rule_model.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/team_member_with_user.dart';
+import 'package:moniq/data/models/wanted_request_model.dart';
 import 'package:moniq/data/providers/schedule_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
+import 'package:moniq/data/providers/wanted_providers.dart';
 
 part 'schedule_generation_viewmodel.freezed.dart';
 
@@ -22,6 +24,7 @@ class ScheduleGenerationState with _$ScheduleGenerationState {
     required List<ShiftRuleModel> rules,
     DateTime? periodStart,
     DateTime? periodEnd,
+    @Default([]) List<WantedEntryModel> wantedEntries,
     @Default(false) bool isGenerating,
     @Default(false) bool isPublishing,
     ScheduleModel? generatedSchedule,
@@ -61,11 +64,23 @@ class ScheduleGenerationViewModel
     final nextMonth = DateTime(now.year, now.month + 1, 1);
     final nextMonthEnd = DateTime(now.year, now.month + 2, 0);
 
+    // 희망 휴무 엔트리 로드
+    List<WantedEntryModel> wantedEntries = [];
+    try {
+      final wantedRepo = ref.watch(wantedRepositoryProvider);
+      wantedEntries = await wantedRepo.getEntriesForPeriod(
+        teamId: teamId,
+        periodStart: nextMonth,
+        periodEnd: nextMonthEnd,
+      );
+    } catch (_) {}
+
     return ScheduleGenerationState(
       teamId: teamId,
       shiftTypes: shiftTypes,
       members: members,
       rules: rules,
+      wantedEntries: wantedEntries,
       periodStart: nextMonth,
       periodEnd: nextMonthEnd,
     );
@@ -95,7 +110,7 @@ class ScheduleGenerationViewModel
         periodEnd: current.periodEnd!,
       );
 
-      // 2. 자동 배정 알고리즘 실행
+      // 2. 자동 배정 알고리즘 실행 (희망 휴무 반영)
       final result = _generateShifts(
         members: current.members,
         shiftTypes: current.shiftTypes,
@@ -104,6 +119,7 @@ class ScheduleGenerationViewModel
         end: current.periodEnd!,
         scheduleId: schedule.id,
         teamId: current.teamId,
+        wantedEntries: current.wantedEntries,
       );
 
       // 3. shifts 삽입
@@ -173,6 +189,7 @@ class ScheduleGenerationViewModel
     required DateTime end,
     required String scheduleId,
     required String teamId,
+    List<WantedEntryModel> wantedEntries = const [],
   }) {
     final shifts = <Map<String, dynamic>>[];
     final warnings = <String>[];
@@ -221,6 +238,14 @@ class ScheduleGenerationViewModel
       memberLastWorked[m.userId] = null;
     }
 
+    // 희망 휴무 날짜 맵 (userId -> Set<dateStr>)
+    final wantedDaysOff = <String, Set<String>>{};
+    for (final entry in wantedEntries) {
+      final dateStr =
+          '${entry.wantedDate.year}-${entry.wantedDate.month.toString().padLeft(2, '0')}-${entry.wantedDate.day.toString().padLeft(2, '0')}';
+      wantedDaysOff.putIfAbsent(entry.userId, () => {}).add(dateStr);
+    }
+
     // 날짜별로 순회
     final dayCount = end.difference(start).inDays + 1;
     final workShiftTypes =
@@ -237,7 +262,7 @@ class ScheduleGenerationViewModel
             shiftType.name.contains('야간') ||
             shiftType.name.contains('나이트');
 
-        // 배정 가능한 멤버 필터링
+        // 배정 가능한 멤버 필터링 (희망 휴무일 제외)
         final eligible = members.where((m) {
           final shiftCount = memberShiftCount[m.userId] ?? 0;
           final nightCount = memberNightCount[m.userId] ?? 0;
@@ -246,6 +271,10 @@ class ScheduleGenerationViewModel
           if (shiftCount >= maxMonthlyShifts) return false;
           if (isNight && nightCount >= maxMonthlyNightShifts) return false;
           if (consecutive >= maxConsecutiveDays) return false;
+
+          // 희망 휴무일이면 제외
+          final userWanted = wantedDaysOff[m.userId];
+          if (userWanted != null && userWanted.contains(dateStr)) return false;
 
           return true;
         }).toList();

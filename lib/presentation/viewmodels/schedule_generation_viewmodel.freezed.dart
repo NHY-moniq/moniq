@@ -23,6 +23,8 @@ mixin _$ScheduleGenerationState {
   List<ShiftRuleModel> get rules => throw _privateConstructorUsedError;
   DateTime? get periodStart => throw _privateConstructorUsedError;
   DateTime? get periodEnd => throw _privateConstructorUsedError;
+  List<WantedEntryModel> get wantedEntries =>
+      throw _privateConstructorUsedError;
   bool get isGenerating => throw _privateConstructorUsedError;
   bool get isPublishing => throw _privateConstructorUsedError;
   ScheduleModel? get generatedSchedule => throw _privateConstructorUsedError;
@@ -51,6 +53,7 @@ abstract class $ScheduleGenerationStateCopyWith<$Res> {
     List<ShiftRuleModel> rules,
     DateTime? periodStart,
     DateTime? periodEnd,
+    List<WantedEntryModel> wantedEntries,
     bool isGenerating,
     bool isPublishing,
     ScheduleModel? generatedSchedule,
@@ -86,6 +89,7 @@ class _$ScheduleGenerationStateCopyWithImpl<
     Object? rules = null,
     Object? periodStart = freezed,
     Object? periodEnd = freezed,
+    Object? wantedEntries = null,
     Object? isGenerating = null,
     Object? isPublishing = null,
     Object? generatedSchedule = freezed,
@@ -119,6 +123,10 @@ class _$ScheduleGenerationStateCopyWithImpl<
                 ? _value.periodEnd
                 : periodEnd // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            wantedEntries: null == wantedEntries
+                ? _value.wantedEntries
+                : wantedEntries // ignore: cast_nullable_to_non_nullable
+                      as List<WantedEntryModel>,
             isGenerating: null == isGenerating
                 ? _value.isGenerating
                 : isGenerating // ignore: cast_nullable_to_non_nullable
@@ -179,6 +187,7 @@ abstract class _$$ScheduleGenerationStateImplCopyWith<$Res>
     List<ShiftRuleModel> rules,
     DateTime? periodStart,
     DateTime? periodEnd,
+    List<WantedEntryModel> wantedEntries,
     bool isGenerating,
     bool isPublishing,
     ScheduleModel? generatedSchedule,
@@ -215,6 +224,7 @@ class __$$ScheduleGenerationStateImplCopyWithImpl<$Res>
     Object? rules = null,
     Object? periodStart = freezed,
     Object? periodEnd = freezed,
+    Object? wantedEntries = null,
     Object? isGenerating = null,
     Object? isPublishing = null,
     Object? generatedSchedule = freezed,
@@ -248,6 +258,10 @@ class __$$ScheduleGenerationStateImplCopyWithImpl<$Res>
             ? _value.periodEnd
             : periodEnd // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        wantedEntries: null == wantedEntries
+            ? _value._wantedEntries
+            : wantedEntries // ignore: cast_nullable_to_non_nullable
+                  as List<WantedEntryModel>,
         isGenerating: null == isGenerating
             ? _value.isGenerating
             : isGenerating // ignore: cast_nullable_to_non_nullable
@@ -287,6 +301,7 @@ class _$ScheduleGenerationStateImpl implements _ScheduleGenerationState {
     required final List<ShiftRuleModel> rules,
     this.periodStart,
     this.periodEnd,
+    final List<WantedEntryModel> wantedEntries = const [],
     this.isGenerating = false,
     this.isPublishing = false,
     this.generatedSchedule,
@@ -296,6 +311,7 @@ class _$ScheduleGenerationStateImpl implements _ScheduleGenerationState {
   }) : _shiftTypes = shiftTypes,
        _members = members,
        _rules = rules,
+       _wantedEntries = wantedEntries,
        _previewShifts = previewShifts,
        _validationWarnings = validationWarnings;
 
@@ -329,6 +345,15 @@ class _$ScheduleGenerationStateImpl implements _ScheduleGenerationState {
   final DateTime? periodStart;
   @override
   final DateTime? periodEnd;
+  final List<WantedEntryModel> _wantedEntries;
+  @override
+  @JsonKey()
+  List<WantedEntryModel> get wantedEntries {
+    if (_wantedEntries is EqualUnmodifiableListView) return _wantedEntries;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_wantedEntries);
+  }
+
   @override
   @JsonKey()
   final bool isGenerating;
@@ -363,7 +388,7 @@ class _$ScheduleGenerationStateImpl implements _ScheduleGenerationState {
 
   @override
   String toString() {
-    return 'ScheduleGenerationState(teamId: $teamId, shiftTypes: $shiftTypes, members: $members, rules: $rules, periodStart: $periodStart, periodEnd: $periodEnd, isGenerating: $isGenerating, isPublishing: $isPublishing, generatedSchedule: $generatedSchedule, previewShifts: $previewShifts, validationWarnings: $validationWarnings, error: $error)';
+    return 'ScheduleGenerationState(teamId: $teamId, shiftTypes: $shiftTypes, members: $members, rules: $rules, periodStart: $periodStart, periodEnd: $periodEnd, wantedEntries: $wantedEntries, isGenerating: $isGenerating, isPublishing: $isPublishing, generatedSchedule: $generatedSchedule, previewShifts: $previewShifts, validationWarnings: $validationWarnings, error: $error)';
   }
 
   @override
@@ -382,6 +407,10 @@ class _$ScheduleGenerationStateImpl implements _ScheduleGenerationState {
                 other.periodStart == periodStart) &&
             (identical(other.periodEnd, periodEnd) ||
                 other.periodEnd == periodEnd) &&
+            const DeepCollectionEquality().equals(
+              other._wantedEntries,
+              _wantedEntries,
+            ) &&
             (identical(other.isGenerating, isGenerating) ||
                 other.isGenerating == isGenerating) &&
             (identical(other.isPublishing, isPublishing) ||
@@ -408,6 +437,7 @@ class _$ScheduleGenerationStateImpl implements _ScheduleGenerationState {
     const DeepCollectionEquality().hash(_rules),
     periodStart,
     periodEnd,
+    const DeepCollectionEquality().hash(_wantedEntries),
     isGenerating,
     isPublishing,
     generatedSchedule,
@@ -436,6 +466,7 @@ abstract class _ScheduleGenerationState implements ScheduleGenerationState {
     required final List<ShiftRuleModel> rules,
     final DateTime? periodStart,
     final DateTime? periodEnd,
+    final List<WantedEntryModel> wantedEntries,
     final bool isGenerating,
     final bool isPublishing,
     final ScheduleModel? generatedSchedule,
@@ -456,6 +487,8 @@ abstract class _ScheduleGenerationState implements ScheduleGenerationState {
   DateTime? get periodStart;
   @override
   DateTime? get periodEnd;
+  @override
+  List<WantedEntryModel> get wantedEntries;
   @override
   bool get isGenerating;
   @override
