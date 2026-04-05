@@ -14,7 +14,6 @@ import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
 import 'package:moniq/presentation/widgets/calendar/roster_panel.dart';
-import 'package:moniq/presentation/widgets/calendar/shift_marker.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/widgets/common/character_blob.dart';
@@ -240,17 +239,46 @@ class _TeamCalendarView extends HookConsumerWidget {
                 markerBuilder: (context, day, events) {
                   if (events.isEmpty) return null;
                   final shifts = events.cast<ShiftWithType>();
-                  // 고유한 shift type별 도트 표시
-                  final uniqueColors = <String, String>{};
+                  // 근무유형별 인원수 집계
+                  final typeCount = <String, _ShiftTypeInfo>{};
                   for (final s in shifts) {
-                    uniqueColors[s.shiftType.id] = s.shiftType.color;
+                    final key = s.shiftType.id;
+                    typeCount.putIfAbsent(
+                      key,
+                      () => _ShiftTypeInfo(
+                        code: s.shiftType.code,
+                        color: s.shiftType.color,
+                        count: 0,
+                      ),
+                    );
+                    typeCount[key]!.count++;
                   }
                   return Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: uniqueColors.values
+                    children: typeCount.values
                         .take(3)
-                        .map((c) => ShiftMarker(color: parseHexColor(c)))
-                        .toList(),
+                        .map((info) {
+                      final color = parseHexColor(info.color);
+                      return Container(
+                        width: 12,
+                        height: 12,
+                        margin: const EdgeInsets.symmetric(horizontal: 0.5),
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${info.count}',
+                            style: const TextStyle(
+                              fontSize: 6,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   );
                 },
               ),
@@ -294,6 +322,7 @@ class _TeamDrawer extends HookConsumerWidget {
     );
 
     return Drawer(
+      width: MediaQuery.of(context).size.width * 0.6,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -411,5 +440,17 @@ class _TeamDrawer extends HookConsumerWidget {
       ),
     );
   }
+}
+
+class _ShiftTypeInfo {
+  _ShiftTypeInfo({
+    required this.code,
+    required this.color,
+    required this.count,
+  });
+
+  final String code;
+  final String color;
+  int count;
 }
 

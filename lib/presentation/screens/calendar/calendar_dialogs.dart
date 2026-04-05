@@ -181,6 +181,16 @@ void showEventForm(BuildContext context, WidgetRef ref,
   TimeOfDay? endTime =
       existing?.endTime != null ? parseTime(existing!.endTime!) : null;
   String selectedColor = existing?.color ?? '#38A169';
+  String selectedRecurrence = existing?.recurrence ?? 'none';
+
+  const recurrenceOptions = [
+    ('none', '반복 안함'),
+    ('daily', '매일'),
+    ('weekly', '매주'),
+    ('biweekly', '2주'),
+    ('monthly', '매달'),
+    ('yearly', '매년'),
+  ];
 
   const colorOptions = [
     '#38A169',
@@ -350,6 +360,27 @@ void showEventForm(BuildContext context, WidgetRef ref,
                     prefixIcon: Icon(Icons.notes)),
                 maxLines: 2,
               ),
+              // 반복 설정 (새 일정만)
+              if (index == null) ...[
+                const SizedBox(height: AppSpacing.md),
+                DropdownButtonFormField<String>(
+                  value: selectedRecurrence,
+                  decoration: const InputDecoration(
+                    labelText: '반복',
+                    prefixIcon: Icon(Icons.repeat),
+                    contentPadding: EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.sm),
+                  ),
+                  items: recurrenceOptions.map((opt) {
+                    final (value, label) = opt;
+                    return DropdownMenuItem(
+                        value: value, child: Text(label));
+                  }).toList(),
+                  onChanged: (v) =>
+                      setSheetState(() => selectedRecurrence = v!),
+                ),
+              ],
               const SizedBox(height: AppSpacing.lg),
               ElevatedButton(
                 onPressed: () async {
@@ -371,6 +402,7 @@ void showEventForm(BuildContext context, WidgetRef ref,
                             : null,
                     color: selectedColor,
                     createdAt: DateTime.now(),
+                    recurrence: index == null ? selectedRecurrence : null,
                   );
                   final ds =
                       ref.read(personalEventDataSourceProvider);
