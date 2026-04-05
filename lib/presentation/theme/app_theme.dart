@@ -171,17 +171,25 @@ abstract final class AppTheme {
       brightness: Brightness.dark,
       primary: AppColors.primary,
       onPrimary: AppColors.onPrimary,
-      primaryContainer: AppColors.onPrimaryContainer,
+      primaryContainer: AppColors.primaryContainerDark,
+      onPrimaryContainer: AppColors.onPrimaryContainerDark,
       secondary: AppColors.secondary,
       onSecondary: AppColors.onSecondary,
+      secondaryContainer: AppColors.secondaryContainerDark,
       tertiary: AppColors.tertiary,
+      tertiaryContainer: AppColors.tertiaryContainerDark,
       error: AppColors.error,
       onError: AppColors.onError,
       surface: AppColors.surfaceDark,
       onSurface: AppColors.textPrimaryDark,
       onSurfaceVariant: AppColors.textSecondaryDark,
+      surfaceContainerLowest: AppColors.surfaceDark,
+      surfaceContainerLow: AppColors.surfaceContainerLowDark,
+      surfaceContainer: AppColors.surfaceContainerDark,
+      surfaceContainerHigh: AppColors.surfaceContainerHighDark,
+      surfaceContainerHighest: const Color(0xFF333333),
       outline: AppColors.outline,
-      outlineVariant: AppColors.borderDark,
+      outlineVariant: AppColors.outlineVariantDark,
     );
 
     final textTheme = GoogleFonts.plusJakartaSansTextTheme(
@@ -208,6 +216,7 @@ abstract final class AppTheme {
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.surfaceDark.withValues(alpha: 0.8),
         foregroundColor: AppColors.textPrimaryDark,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
@@ -247,7 +256,7 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surfaceDark,
+        fillColor: AppColors.surfaceContainerDark,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.xxl,
           vertical: AppSpacing.lg,
@@ -284,7 +293,7 @@ abstract final class AppTheme {
         space: 1,
       ),
       cardTheme: CardThemeData(
-        color: AppColors.surfaceDark,
+        color: AppColors.surfaceContainerDark,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.borderRadiusXl,

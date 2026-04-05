@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/team_icon_utils.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
@@ -34,12 +33,17 @@ class TeamDetailScreen extends HookConsumerWidget {
             },
             child: Container(
               decoration: BoxDecoration(
-                color: AppColors.surfaceContainerHigh,
+                color: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHigh,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.arrow_back,
-                color: AppColors.onSurface.withValues(alpha: 0.6),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.6),
                 size: 20,
               ),
             ),
@@ -86,7 +90,10 @@ class TeamDetailScreen extends HookConsumerWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 2.0,
-                    color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withValues(alpha: 0.6),
                   ),
                 ),
               ),
@@ -95,7 +102,7 @@ class TeamDetailScreen extends HookConsumerWidget {
               // Management menu cards
               _BubbleMenuCard(
                 icon: Icons.people_outline,
-                iconColor: AppColors.tertiary,
+                iconColor: Theme.of(context).colorScheme.tertiary,
                 title: '멤버 관리',
                 subtitle: '${state.members.length}명 등록됨',
                 onTap: () => context.push('/teams/$teamId/members'),
@@ -103,7 +110,7 @@ class TeamDetailScreen extends HookConsumerWidget {
               const SizedBox(height: AppSpacing.md),
               _BubbleMenuCard(
                 icon: Icons.settings_outlined,
-                iconColor: AppColors.secondary,
+                iconColor: Theme.of(context).colorScheme.secondary,
                 title: '팀 상세 설정',
                 subtitle: '근무 유형 · 고정 규칙',
                 onTap: () => context.push('/teams/$teamId/settings'),
@@ -111,7 +118,7 @@ class TeamDetailScreen extends HookConsumerWidget {
               const SizedBox(height: AppSpacing.md),
               _BubbleMenuCard(
                 icon: Icons.auto_awesome_outlined,
-                iconColor: AppColors.primary,
+                iconColor: Theme.of(context).colorScheme.primary,
                 title: '스케줄 생성',
                 subtitle: '생성 규칙 설정',
                 onTap: () =>
@@ -125,7 +132,9 @@ class TeamDetailScreen extends HookConsumerWidget {
               // Leave / Delete
               _BubbleMenuCard(
                 icon: Icons.exit_to_app,
-                iconColor: AppColors.onSurfaceVariant,
+                iconColor: Theme.of(context)
+                    .colorScheme
+                    .onSurfaceVariant,
                 title: '팀 나가기',
                 onTap: () => _confirmLeave(context, ref, state),
               ),
@@ -133,9 +142,9 @@ class TeamDetailScreen extends HookConsumerWidget {
                 const SizedBox(height: AppSpacing.md),
                 _BubbleMenuCard(
                   icon: Icons.delete_outline,
-                  iconColor: AppColors.error,
+                  iconColor: Theme.of(context).colorScheme.error,
                   title: '팀 삭제',
-                  titleColor: AppColors.error,
+                  titleColor: Theme.of(context).colorScheme.error,
                   onTap: () => _confirmDelete(context, ref, state),
                 ),
               ],
@@ -217,9 +226,11 @@ class TeamDetailScreen extends HookConsumerWidget {
                     }
                   }
                 },
-                child: const Text(
+                child: Text(
                   '나가기 (팀 삭제)',
-                  style: TextStyle(color: AppColors.error),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                 ),
               ),
             ],
@@ -256,9 +267,11 @@ class TeamDetailScreen extends HookConsumerWidget {
                     }
                   }
                 },
-                child: const Text(
+                child: Text(
                   '나가기',
-                  style: TextStyle(color: AppColors.error),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                 ),
               ),
             ],
@@ -303,9 +316,11 @@ class TeamDetailScreen extends HookConsumerWidget {
                 }
               }
             },
-            child: const Text(
+            child: Text(
               '삭제',
-              style: TextStyle(color: AppColors.error),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.error,
+              ),
             ),
           ),
         ],
@@ -390,6 +405,8 @@ class _TeamHeroSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final colorScheme = theme.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
@@ -397,9 +414,12 @@ class _TeamHeroSection extends StatelessWidget {
         horizontal: AppSpacing.xxl,
       ),
       decoration: BoxDecoration(
-        color: AppColors.primaryContainer.withValues(alpha: 0.3),
+        color: colorScheme.primaryContainer.withValues(alpha: 0.3),
         borderRadius: AppRadius.borderRadiusXl,
-        border: Border.all(color: Colors.white, width: 2),
+        border: Border.all(
+          color: colorScheme.outlineVariant,
+          width: 2,
+        ),
       ),
       child: Column(
         children: [
@@ -410,18 +430,25 @@ class _TeamHeroSection extends StatelessWidget {
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.primary, AppColors.secondary],
+                  gradient: LinearGradient(
+                    colors: [
+                      colorScheme.primary,
+                      colorScheme.secondary,
+                    ],
                   ),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.2),
+                      color: colorScheme.primary
+                          .withValues(alpha: 0.2),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
                   ],
-                  border: Border.all(color: Colors.white, width: 4),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant,
+                    width: 4,
+                  ),
                 ),
                 child: ClipOval(
                   child: TeamProfileAvatar(icon: icon, radius: 46),
@@ -437,19 +464,20 @@ class _TeamHeroSection extends StatelessWidget {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: colorScheme.surfaceContainerHigh,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
+                            color: Colors.black
+                                .withValues(alpha: 0.1),
                             blurRadius: 8,
                           ),
                         ],
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.edit,
                         size: 16,
-                        color: AppColors.secondary,
+                        color: colorScheme.secondary,
                       ),
                     ),
                   ),
@@ -469,7 +497,7 @@ class _TeamHeroSection extends StatelessWidget {
             Text(
               description!,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.onSurfaceVariant,
+                color: colorScheme.onSurfaceVariant,
               ),
               textAlign: TextAlign.center,
             ),
@@ -491,17 +519,21 @@ class _TeamHeroSection extends StatelessWidget {
                   vertical: AppSpacing.md,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: colorScheme.surfaceContainerHigh,
                   borderRadius: AppRadius.borderRadiusFull,
                   border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.2),
+                    color: colorScheme.primary
+                        .withValues(alpha: 0.2),
                   ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.link,
-                        size: 16, color: AppColors.primary),
+                    Icon(
+                      Icons.link,
+                      size: 16,
+                      color: colorScheme.primary,
+                    ),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
                       inviteCode!,
@@ -509,12 +541,16 @@ class _TeamHeroSection extends StatelessWidget {
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.5,
-                        color: AppColors.onSurface.withValues(alpha: 0.7),
+                        color: colorScheme.onSurface
+                            .withValues(alpha: 0.7),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
-                    Icon(Icons.copy,
-                        size: 14, color: AppColors.primary),
+                    Icon(
+                      Icons.copy,
+                      size: 14,
+                      color: colorScheme.primary,
+                    ),
                   ],
                 ),
               ),
@@ -553,9 +589,12 @@ class _BubbleMenuCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.xl),
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLow,
+          color: theme.colorScheme.surfaceContainerLow,
           borderRadius: AppRadius.borderRadiusLg,
-          border: Border.all(color: Colors.transparent, width: 2),
+          border: Border.all(
+            color: Colors.transparent,
+            width: 2,
+          ),
         ),
         child: Row(
           children: [
@@ -584,7 +623,7 @@ class _BubbleMenuCard extends StatelessWidget {
                     Text(
                       subtitle!,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.onSurfaceVariant,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                 ],

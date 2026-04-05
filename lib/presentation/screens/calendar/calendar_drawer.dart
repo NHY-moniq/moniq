@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 
 import 'calendar_providers.dart';
@@ -108,7 +107,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
               margin: const EdgeInsets.only(
                   top: AppSpacing.md, bottom: AppSpacing.sm),
               decoration: BoxDecoration(
-                color: AppColors.borderLight,
+                color: theme.colorScheme.outlineVariant,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -344,7 +343,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                           shape: BoxShape.circle,
                           border: isSelected
                               ? Border.all(
-                                  color: AppColors.textPrimaryLight,
+                                  color: Theme.of(ctx).colorScheme.onSurface,
                                   width: 2.5)
                               : null,
                         ),

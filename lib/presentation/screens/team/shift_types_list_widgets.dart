@@ -6,7 +6,6 @@ import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/presentation/screens/team/custom_shift_form.dart';
 import 'package:moniq/presentation/screens/team/shift_template_data.dart';
 import 'package:moniq/presentation/screens/team/shift_type_manage_widgets.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 
@@ -42,7 +41,9 @@ class ShiftTypesList extends ConsumerWidget {
                   .textTheme
                   .bodyMedium
                   ?.copyWith(
-                    color: AppColors.textSecondaryLight,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant,
                   ),
             ),
           ),
@@ -66,9 +67,12 @@ class ShiftTypesList extends ConsumerWidget {
               icon: const Icon(Icons.add_rounded, size: 20),
               label: const Text('근무 유형 추가'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(
-                  color: AppColors.primary,
+                foregroundColor:
+                  Theme.of(context).colorScheme.primary,
+                side: BorderSide(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary,
                   width: 1.5,
                 ),
                 shape: RoundedRectangleBorder(
@@ -165,7 +169,7 @@ class _EmptyShiftTypesViewState
         Text(
           '기본 근무 유형을 추가해보세요',
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: AppColors.textSecondaryLight,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -199,12 +203,12 @@ class _EmptyShiftTypesViewState
           child: FilledButton.icon(
             onPressed: _loading ? null : _addAllDefaults,
             icon: _loading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: theme.colorScheme.onPrimary,
                     ),
                   )
                 : const Icon(
@@ -215,8 +219,10 @@ class _EmptyShiftTypesViewState
               _loading ? '추가 중...' : '기본 3개 한번에 추가',
             ),
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
+              backgroundColor:
+                  theme.colorScheme.primary,
+              foregroundColor:
+                  theme.colorScheme.onPrimary,
               padding: const EdgeInsets.symmetric(
                 vertical: AppSpacing.md,
               ),
@@ -297,7 +303,8 @@ class ShiftTemplateCard extends StatelessWidget {
                 template.description,
                 style:
                     theme.textTheme.labelSmall?.copyWith(
-                  color: AppColors.textSecondaryLight,
+                  color: theme.colorScheme
+                      .onSurfaceVariant,
                   fontSize: 10,
                 ),
                 textAlign: TextAlign.center,
@@ -421,7 +428,7 @@ class _ShiftTypeCreateFromTemplateSheetState
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.borderLight,
+                color: theme.colorScheme.outlineVariant,
                 borderRadius:
                     AppRadius.borderRadiusFull,
               ),
@@ -454,8 +461,8 @@ class _ShiftTypeCreateFromTemplateSheetState
                       '기본값이 입력되어 있어요. 수정 후 추가하세요.',
                       style: theme.textTheme.bodySmall
                           ?.copyWith(
-                        color:
-                            AppColors.textSecondaryLight,
+                        color: theme.colorScheme
+                            .onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -480,18 +487,20 @@ class _ShiftTypeCreateFromTemplateSheetState
             onPressed: _saving ? null : _create,
             style: FilledButton.styleFrom(
               backgroundColor: color,
-              foregroundColor: Colors.white,
+              foregroundColor:
+                  theme.colorScheme.onPrimary,
               padding: const EdgeInsets.symmetric(
                 vertical: AppSpacing.md,
               ),
             ),
             child: _saving
-                ? const SizedBox(
+                ? SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color:
+                          theme.colorScheme.onPrimary,
                     ),
                   )
                 : const Text('추가'),

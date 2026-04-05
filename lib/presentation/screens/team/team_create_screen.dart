@@ -9,7 +9,6 @@ import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
@@ -110,8 +109,10 @@ class TeamCreateScreen extends HookConsumerWidget {
                   SelectableText.rich(
                     TextSpan(
                       text: errorMessage.value,
-                      style: const TextStyle(
-                        color: AppColors.error,
+                      style: TextStyle(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .error,
                       ),
                     ),
                     textAlign: TextAlign.center,
@@ -222,7 +223,9 @@ class TeamCreateScreen extends HookConsumerWidget {
                       .textTheme
                       .bodySmall
                       ?.copyWith(
-                        color: AppColors.textSecondaryLight,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurfaceVariant,
                       ),
                 ),
                 const SizedBox(height: AppSpacing.xxl),
@@ -265,12 +268,14 @@ class TeamCreateScreen extends HookConsumerWidget {
                   onPressed:
                       isLoading.value ? null : handleCreate,
                   child: isLoading.value
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimary,
                           ),
                         )
                       : const Text('팀 만들기'),
@@ -349,8 +354,8 @@ class _ProfilePreview extends StatelessWidget {
                   height: 30,
                   decoration: BoxDecoration(
                     color: _hasImage
-                        ? AppColors.error
-                        : AppColors.primary,
+                        ? Theme.of(context).colorScheme.error
+                        : Theme.of(context).colorScheme.primary,
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: Theme.of(context)
@@ -361,7 +366,9 @@ class _ProfilePreview extends StatelessWidget {
                   child: Icon(
                     _hasImage ? Icons.close : Icons.camera_alt,
                     size: 16,
-                    color: Colors.white,
+                    color: _hasImage
+                        ? Theme.of(context).colorScheme.onError
+                        : Theme.of(context).colorScheme.onPrimary,
                   ),
                 ),
               ),
@@ -376,7 +383,9 @@ class _ProfilePreview extends StatelessWidget {
                 .textTheme
                 .bodySmall
                 ?.copyWith(
-                  color: AppColors.textSecondaryLight,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurfaceVariant,
                 ),
           ),
       ],
@@ -487,7 +496,9 @@ class _SuccessView extends StatelessWidget {
                             ?.copyWith(
                               letterSpacing: 4,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary,
                             ),
                         textAlign: TextAlign.center,
                       ),

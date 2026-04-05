@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/models/roster_entry.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 
 class RosterPanel extends StatelessWidget {
@@ -40,7 +39,7 @@ class RosterPanel extends StatelessWidget {
                 child: Text(
                   '이 날짜에 배정된 근무가 없습니다',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondaryLight,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -82,8 +81,8 @@ class _ShiftTypeGroup extends StatelessWidget {
               child: Center(
                 child: Text(
                   entry.shiftType.code,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: theme.colorScheme.onPrimary,
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
                   ),

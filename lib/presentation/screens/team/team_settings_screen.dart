@@ -3,7 +3,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/shift_rule_model.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/presentation/screens/team/shift_types_list_widgets.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -322,7 +321,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
                     '관리자만 설정을 수정할 수 있습니다',
                     style: theme.textTheme.bodyMedium
                         ?.copyWith(
-                      color: AppColors.textSecondaryLight,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -389,7 +388,7 @@ class SectionHeader extends StatelessWidget {
           Text(
             subtitle!,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondaryLight,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -485,7 +484,9 @@ class NumberRuleRow extends StatelessWidget {
                   .textTheme
                   .bodySmall
                   ?.copyWith(
-                    color: AppColors.textSecondaryLight,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant,
                   ),
             ),
           ),
@@ -535,8 +536,9 @@ class ToggleRuleRow extends StatelessWidget {
                         .textTheme
                         .bodySmall
                         ?.copyWith(
-                          color:
-                              AppColors.textSecondaryLight,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant,
                         ),
                   ),
               ],
@@ -545,7 +547,7 @@ class ToggleRuleRow extends StatelessWidget {
           Switch.adaptive(
             value: value,
             onChanged: readOnly ? null : onChanged,
-            activeColor: AppColors.primary,
+            activeColor: Theme.of(context).colorScheme.primary,
           ),
         ],
       ),

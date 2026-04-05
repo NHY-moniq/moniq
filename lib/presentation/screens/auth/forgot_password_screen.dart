@@ -32,6 +32,8 @@ class ForgotPasswordScreen extends HookConsumerWidget {
       }
     }
 
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('비밀번호 찾기'),
@@ -52,16 +54,15 @@ class ForgotPasswordScreen extends HookConsumerWidget {
                       const SizedBox(height: AppSpacing.lg),
                       Text(
                         '재설정 메일이 발송되었습니다',
-                        style: Theme.of(context).textTheme.titleLarge,
+                        style: theme.textTheme.titleLarge,
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(
                         '이메일을 확인하고 비밀번호를 재설정해주세요.',
-                        style:
-                            Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.textSecondaryLight,
-                                ),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -75,10 +76,9 @@ class ForgotPasswordScreen extends HookConsumerWidget {
                       const SizedBox(height: AppSpacing.xxl),
                       Text(
                         '가입한 이메일을 입력하면\n비밀번호 재설정 메일을 보내드립니다.',
-                        style:
-                            Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.textSecondaryLight,
-                                ),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: AppSpacing.xxxl),
@@ -88,7 +88,9 @@ class ForgotPasswordScreen extends HookConsumerWidget {
                         SelectableText.rich(
                           TextSpan(
                             text: errorMessage.value,
-                            style: const TextStyle(color: AppColors.error),
+                            style: TextStyle(
+                              color: theme.colorScheme.error,
+                            ),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -123,12 +125,12 @@ class ForgotPasswordScreen extends HookConsumerWidget {
                         onPressed:
                             isLoading.value ? null : handleResetPassword,
                         child: isLoading.value
-                            ? const SizedBox(
+                            ? SizedBox(
                                 height: 20,
                                 width: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: Colors.white,
+                                  color: theme.colorScheme.onPrimary,
                                 ),
                               )
                             : const Text('비밀번호 재설정 메일 보내기'),

@@ -31,18 +31,28 @@ abstract final class AppColors {
 
   // Background
   static const backgroundLight = Color(0xFFFFFDF7);
-  static const backgroundDark = Color(0xFF1A1500);
-  static const surfaceDark = Color(0xFF2A2400);
+  static const backgroundDark = Color(0xFF121212);
+
+  // Dark surface variants (matching design HTML)
+  static const surfaceDark = Color(0xFF121212);
+  static const surfaceContainerDark = Color(0xFF1E1E1E);
+  static const surfaceContainerLowDark = Color(0xFF181818);
+  static const surfaceContainerHighDark = Color(0xFF282828);
+  static const primaryContainerDark = Color(0xFF332B00);
+  static const onPrimaryContainerDark = Color(0xFFFFECB3);
+  static const secondaryContainerDark = Color(0xFF422E11);
+  static const tertiaryContainerDark = Color(0xFF10334A);
 
   // Text
   static const textPrimaryLight = Color(0xFF373830);
   static const textSecondaryLight = Color(0xFF818177);
-  static const textPrimaryDark = Color(0xFFF0EDE0);
-  static const textSecondaryDark = Color(0xFF9CA38F);
+  static const textPrimaryDark = Color(0xFFF5F5F5);
+  static const textSecondaryDark = Color(0xFFB0B0B0);
 
   // Outline
   static const outline = Color(0xFF818177);
   static const outlineVariant = Color(0xFFDEDBC0);
+  static const outlineVariantDark = Color(0xFF2C2C2C);
 
   // Error
   static const error = Color(0xFFFF5252);
@@ -61,9 +71,9 @@ abstract final class AppColors {
 
   // Border
   static const borderLight = Color(0xFFE8E2D2);
-  static const borderDark = Color(0xFF4A4530);
+  static const borderDark = Color(0xFF333333);
 
   // Divider
   static const dividerLight = Color(0xFFE8E2D2);
-  static const dividerDark = Color(0xFF3D3820);
+  static const dividerDark = Color(0xFF2C2C2C);
 }

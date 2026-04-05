@@ -3,7 +3,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/core/utils/time_utils.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -170,7 +169,11 @@ class ShiftTypesScreen extends HookConsumerWidget {
                         shape: BoxShape.circle,
                         border: isSelected
                             ? Border.all(
-                                color: Colors.black87, width: 2.5)
+                                color: Theme.of(ctx)
+                                    .colorScheme
+                                    .onSurface,
+                                width: 2.5,
+                              )
                             : null,
                       ),
                     ),
@@ -269,19 +272,25 @@ class _ShiftTypeTile extends StatelessWidget {
       ),
       title: Text(shiftType.name,
           style: TextStyle(
-            color: shiftType.isActive ? null : AppColors.textSecondaryLight,
+            color: shiftType.isActive
+                ? null
+                : Theme.of(context).colorScheme.onSurfaceVariant,
             decoration: shiftType.isActive ? null : TextDecoration.lineThrough,
           )),
       subtitle: timeText.isNotEmpty
           ? Text(timeText,
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: AppColors.textSecondaryLight))
+                  ?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant,
+                  ))
           : null,
       trailing: isAdmin
           ? Switch.adaptive(
               value: shiftType.isActive,
               onChanged: onToggle,
-              activeColor: AppColors.primary,
+              activeColor: Theme.of(context).colorScheme.primary,
             )
           : null,
       onTap: onTap,

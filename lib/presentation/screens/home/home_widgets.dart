@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
 
@@ -14,6 +13,8 @@ class WeeklyHoursCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xxl),
       decoration: BoxDecoration(
@@ -32,7 +33,7 @@ class WeeklyHoursCard extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.5,
-              color: AppColors.outline,
+              color: colorScheme.outline,
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -55,7 +56,7 @@ class WeeklyHoursCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.onSurfaceVariant,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -79,6 +80,8 @@ class OnShiftTeamCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xxl),
       decoration: BoxDecoration(
@@ -97,7 +100,7 @@ class OnShiftTeamCard extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.5,
-              color: AppColors.outline,
+              color: colorScheme.outline,
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -116,16 +119,16 @@ class OnShiftTeamCard extends StatelessWidget {
                       height: 40,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.surfaceContainerHigh,
+                        color: colorScheme.surfaceContainerHigh,
                         border: Border.all(
                           color: shiftTheme.background,
                           width: 3,
                         ),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.person,
                         size: 18,
-                        color: AppColors.onSurfaceVariant,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -136,7 +139,7 @@ class OnShiftTeamCard extends StatelessWidget {
                     height: 40,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.surface,
+                      color: colorScheme.surface,
                       border: Border.all(
                         color: shiftTheme.background,
                         width: 3,
@@ -148,7 +151,7 @@ class OnShiftTeamCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.outline,
+                          color: colorScheme.outline,
                         ),
                       ),
                     ),
@@ -174,6 +177,8 @@ class AnnouncementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -214,7 +219,7 @@ class AnnouncementCard extends StatelessWidget {
                   '아직 공지사항이 없습니다',
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.onSurfaceVariant,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -222,7 +227,7 @@ class AnnouncementCard extends StatelessWidget {
           ),
           Icon(
             Icons.chevron_right,
-            color: AppColors.outline,
+            color: colorScheme.outline,
           ),
         ],
       ),

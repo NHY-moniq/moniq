@@ -49,7 +49,7 @@ void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
               height: 4,
               margin: const EdgeInsets.only(bottom: AppSpacing.lg),
               decoration: BoxDecoration(
-                color: AppColors.borderLight,
+                color: Theme.of(ctx).colorScheme.outlineVariant,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -111,11 +111,11 @@ void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.tertiary.withValues(alpha: 0.12),
+                  color: Theme.of(ctx).colorScheme.tertiary.withValues(alpha: 0.12),
                   borderRadius: AppRadius.borderRadiusMd,
                 ),
-                child: const Icon(Icons.edit_note,
-                    color: AppColors.tertiary),
+                child: Icon(Icons.edit_note,
+                    color: Theme.of(ctx).colorScheme.tertiary),
               ),
               title: const Text('메모 추가'),
               subtitle: const Text('간단한 텍스트 메모'),
@@ -195,7 +195,7 @@ void showEventForm(BuildContext context, WidgetRef ref,
                   height: 4,
                   margin: const EdgeInsets.only(bottom: AppSpacing.lg),
                   decoration: BoxDecoration(
-                    color: AppColors.borderLight,
+                    color: Theme.of(ctx).colorScheme.outlineVariant,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -302,7 +302,7 @@ void showEventForm(BuildContext context, WidgetRef ref,
                           shape: BoxShape.circle,
                           border: isSelected
                               ? Border.all(
-                                  color: AppColors.textPrimaryLight,
+                                  color: Theme.of(ctx).colorScheme.onSurface,
                                   width: 2.5)
                               : null,
                           boxShadow: isSelected
@@ -404,7 +404,7 @@ void showNoteForm(BuildContext context, WidgetRef ref,
               height: 4,
               margin: const EdgeInsets.only(bottom: AppSpacing.lg),
               decoration: BoxDecoration(
-                color: AppColors.borderLight,
+                color: Theme.of(ctx).colorScheme.outlineVariant,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -457,7 +457,7 @@ void showNoteForm(BuildContext context, WidgetRef ref,
               },
               style: ElevatedButton.styleFrom(
                 foregroundColor: hasValue
-                    ? Colors.white
+                    ? Theme.of(ctx).colorScheme.onPrimary
                     : Theme.of(ctx)
                         .colorScheme
                         .onPrimary
@@ -551,7 +551,7 @@ void showEventEditWithShiftTypes(BuildContext context,
                 height: 4,
                 margin: const EdgeInsets.only(bottom: AppSpacing.lg),
                 decoration: BoxDecoration(
-                  color: AppColors.borderLight,
+                  color: Theme.of(ctx).colorScheme.outlineVariant,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),

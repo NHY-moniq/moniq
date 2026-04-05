@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/team_member_with_user.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -44,7 +43,10 @@ class MembersScreen extends HookConsumerWidget {
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor:
-                          AppColors.primary.withValues(alpha: 0.1),
+                          Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.1),
                       backgroundImage: m.user.avatarUrl != null
                           ? NetworkImage(m.user.avatarUrl!)
                           : null,
@@ -53,8 +55,10 @@ class MembersScreen extends HookConsumerWidget {
                               m.displayName.isNotEmpty
                                   ? m.displayName[0].toUpperCase()
                                   : '?',
-                              style: const TextStyle(
-                                  color: AppColors.primary,
+                              style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primary,
                                   fontWeight: FontWeight.w600),
                             )
                           : null,
@@ -69,7 +73,9 @@ class MembersScreen extends HookConsumerWidget {
                                   .textTheme
                                   .bodySmall
                                   ?.copyWith(
-                                      color: AppColors.textSecondaryLight)),
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant)),
                         ],
                       ],
                     ),
@@ -134,9 +140,16 @@ class MembersScreen extends HookConsumerWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.person_remove, color: AppColors.error),
-              title: const Text('멤버 제거',
-                  style: TextStyle(color: AppColors.error)),
+              leading: Icon(
+                Icons.person_remove,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                '멤버 제거',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 _confirmRemove(context, ref, m);
@@ -167,7 +180,12 @@ class MembersScreen extends HookConsumerWidget {
                   .removeMember(m.userId);
             },
             child:
-                const Text('제거', style: TextStyle(color: AppColors.error)),
+                Text(
+                  '제거',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
           ),
         ],
       ),
@@ -188,8 +206,14 @@ class _RoleBadge extends StatelessWidget {
           horizontal: AppSpacing.sm, vertical: AppSpacing.xxs),
       decoration: BoxDecoration(
         color: isAdmin
-            ? AppColors.primary.withValues(alpha: 0.1)
-            : AppColors.textSecondaryLight.withValues(alpha: 0.1),
+            ? Theme.of(context)
+                .colorScheme
+                .primary
+                .withValues(alpha: 0.1)
+            : Theme.of(context)
+                .colorScheme
+                .onSurfaceVariant
+                .withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
@@ -197,7 +221,9 @@ class _RoleBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          color: isAdmin ? AppColors.primary : AppColors.textSecondaryLight,
+          color: isAdmin
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     );

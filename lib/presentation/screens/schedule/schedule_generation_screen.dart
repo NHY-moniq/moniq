@@ -172,12 +172,15 @@ class _SetupView extends HookConsumerWidget {
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline, color: AppColors.error),
+                    Icon(
+                      Icons.error_outline,
+                      color: theme.colorScheme.error,
+                    ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(state.error!,
                           style: theme.textTheme.bodyMedium
-                              ?.copyWith(color: AppColors.error)),
+                              ?.copyWith(color: theme.colorScheme.error)),
                     ),
                   ],
                 ),
@@ -217,7 +220,7 @@ class _SetupView extends HookConsumerWidget {
                   ? '멤버를 먼저 추가해주세요'
                   : '근무 유형을 먼저 설정해주세요',
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: AppColors.error),
+                  ?.copyWith(color: theme.colorScheme.error),
               textAlign: TextAlign.center,
             ),
           ],
@@ -340,7 +343,7 @@ class _PreviewView extends HookConsumerWidget {
                                 Text(
                                   shiftTypeMap[s.shiftTypeId] ?? '',
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: AppColors.textSecondaryLight,
+                                    color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                                 const SizedBox(width: AppSpacing.sm),
@@ -443,13 +446,16 @@ class _DateRow extends StatelessWidget {
               Text(
                 date != null ? dateFormat.format(date!) : '선택',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.primary,
+                  color: theme.colorScheme.primary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
-              const Icon(Icons.calendar_today,
-                  size: 18, color: AppColors.primary),
+              Icon(
+                Icons.calendar_today,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
             ],
           ),
         ],
@@ -471,7 +477,7 @@ class _InfoRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(icon, size: 18, color: AppColors.textSecondaryLight),
+        Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
         const SizedBox(width: AppSpacing.sm),
         Text(label, style: theme.textTheme.bodyMedium),
         const Spacer(),
