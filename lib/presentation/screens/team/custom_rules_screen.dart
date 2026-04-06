@@ -444,7 +444,7 @@ class _AddRuleSheetState extends ConsumerState<_AddRuleSheet> {
         body: {
           'text': text,
           'teamMembers': widget.members
-              .map((m) => {'id': m.member.id, 'name': m.displayName})
+              .map((m) => {'id': m.userId, 'name': m.displayName})
               .toList(),
           'shiftTypes': widget.shiftTypes
               .map((s) => {'id': s.id, 'name': s.name, 'code': s.code})

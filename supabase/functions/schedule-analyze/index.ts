@@ -13,9 +13,12 @@ interface AnalyzeRequest {
   understaffedCount: number;
   wantedTotal: number;
   wantedSatisfied: number;
-  softViolations: Record<string, number>; // {'NOD':1,'NOOD':3,'NOE':2,'EOD':1}
+  softViolations: Record<string, number>;
+  customRuleViolations: string[];
   members: { name: string; attributes: string[] }[];
   activeRules: string[];
+  memberSchedules: Record<string, Record<string, string>>; // { 멤버명: { 날짜: 근무코드 } }
+  hardRules: string[]; // 절대 지켜야 할 하드룰 목록
 }
 
 serve(async (req) => {
@@ -39,10 +42,6 @@ serve(async (req) => {
         ? Math.round((body.wantedSatisfied / body.wantedTotal) * 100)
         : 100;
 
-    const memberSummary = body.members
-      .filter((m) => m.attributes.length > 0)
-      .map((m) => `${m.name}(${m.attributes.join(',')})`)
-      .join(', ');
 
     // 소프트 기피 패턴 위반 요약
     const softViol = body.softViolations ?? {};
@@ -53,35 +52,59 @@ serve(async (req) => {
     if (softViol['EOD'])  softLines.push(`EOD(이브닝→오프→데이) ${softViol['EOD']}회`);
     const softSummary = softLines.length > 0 ? softLines.join(', ') : '없음';
 
-    const prompt = `당신은 병원 근무표 분석 전문가입니다. 아래 생성된 근무표 정보를 분석하고 한국어로 간결하게 피드백을 제공해주세요.
+    const customViol = body.customRuleViolations ?? [];
+    const customViolSummary = customViol.length > 0
+      ? customViol.map((v) => `  - ${v}`).join('\n')
+      : '  - 없음';
 
-## 근무표 정보
-- 기간: ${body.periodLabel}
-- 팀명: ${body.teamName}
-- 팀원 수: ${body.members.length}명
-- 특별 속성 팀원: ${memberSummary || '없음'}
+    // 전체 근무 배정표 compact 문자열
+    const scheduleLines = Object.entries(body.memberSchedules ?? {})
+      .map(([name, days]) => {
+        const sorted = Object.entries(days)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, code]) => `${date.slice(5)}=${code}`)  // MM-DD=X
+          .join(', ');
+        return `${name}: ${sorted}`;
+      })
+      .join('\n');
 
-## 결과 요약
-- 인원 부족 발생: ${body.understaffedCount}건
-- 원티드 반영률: ${body.wantedSatisfied}/${body.wantedTotal} (${wantedPct}%)
+    const hardRulesSummary = (body.hardRules ?? []).map((r) => `  - ${r}`).join('\n');
+
+    const prompt = `당신은 병원 근무표 분석 전문가입니다. 아래 전체 근무표와 하드룰을 기반으로 **검증된 해결 방안**만 제시해주세요.
+
+## 절대 지켜야 할 하드룰 (제안 전 반드시 확인)
+${hardRulesSummary}
+
+## 전체 근무 배정표 (D=데이, E=이브닝, N=나이트, O=오프)
+${scheduleLines}
+
+## 위반 현황
+- 인원 부족: ${body.understaffedCount}건
+- 원티드 반영: ${body.wantedSatisfied}/${body.wantedTotal} (${wantedPct}%)
 - 하드 위반: ${body.hardViolations.length}건
 ${body.hardViolations.length > 0 ? body.hardViolations.map((v) => `  - ${v}`).join('\n') : '  - 없음'}
+- 기피패턴: ${softSummary}
+- 커스텀 룰 위반:
+${customViolSummary}
 
-## 소프트 기피패턴 위반 (생체리듬 관련)
-- 실제 발생: ${softSummary}
-※ NOD/NOOD = 나이트 후 짧은 간격으로 데이 복귀 (피로 누적 위험)
-※ NOE = 나이트 후 이브닝 (역방향 순환)
-※ EOD = 이브닝 후 데이 (짧은 간격)
+## 해결 방안 제안 절차 (반드시 이 순서로 실행)
+1. 위 전체 배정표에서 관련 멤버의 해당 월 전체 근무를 확인하세요
+2. 변경/교체하려는 날짜의 앞뒤 모든 날짜를 배정표에서 직접 읽어서 하드룰 위반 여부를 검증하세요
+   - N→D: 변경일 전날이 N이면 해당 멤버에게 D 배정 불가
+   - NOD: 변경일 전날이 오프이고 전전날이 N이면 해당 멤버에게 D 배정 불가
+   - N→E: 전날이 N이면 E 배정 불가 (해당 룰 활성 시)
+   - E→D: 전날이 E이면 D 배정 불가 (해당 룰 활성 시)
+   - 연속 근무: 변경으로 인해 연속 근무일이 최대치 초과하는지 확인
+   - 월 최대 근무: 변경 멤버의 월 총 근무 횟수 초과 여부 확인
+3. 검증을 통과한 방안만 제안하세요. 하나도 없으면 "안전한 해결 방안을 찾지 못했습니다"라고 하세요
 
-## 적용 규칙
-${body.activeRules.map((r) => `- ${r}`).join('\n')}
+다음 형식으로 응답 (마크다운 없이 plain text, 전체 350자 이내):
+1. 한줄 요약
+2. 문제점 (있는 경우만, 최대 2개)
+3. 해결 방안 (최대 2개, 검증 근거 간략 포함)
+   예: "A의 MM/DD를 D→O로 변경하면 해결됩니다 (전날=O, 전전날=E이므로 시퀀스 위반 없음)"
 
-다음 형식으로 응답해주세요 (마크다운 없이 plain text, 번호 목록):
-1. 전체 요약 (1~2문장)
-2. 주요 문제점 (있는 경우만, 최대 3개 — 소프트 기피패턴 위반이 있으면 반드시 포함)
-3. 개선 제안 (있는 경우만, 최대 2개)
-
-없는 항목은 생략하세요. 전체 250자 이내로 간결하게 작성하세요.`;
+없는 항목은 생략하세요.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',

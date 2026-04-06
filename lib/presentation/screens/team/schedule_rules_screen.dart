@@ -466,14 +466,18 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () {
-                  ref.invalidate(scheduleGenerationViewModelProvider(
-                    widget.teamId,
-                  ));
-                  context.push(
-                    '/teams/${widget.teamId}/schedule/generate',
-                  );
-                },
+                onPressed: _saving
+                    ? null
+                    : () async {
+                        if (_isDirty && widget.isAdmin) await _save();
+                        if (!mounted) return;
+                        ref.invalidate(scheduleGenerationViewModelProvider(
+                          widget.teamId,
+                        ));
+                        context.push(
+                          '/teams/${widget.teamId}/schedule/generate',
+                        );
+                      },
                 icon: const Icon(Icons.auto_awesome),
                 label: const Text('스케줄 생성하기'),
               ),

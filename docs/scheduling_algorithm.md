@@ -1,7 +1,7 @@
 # 스케줄 생성 알고리즘 명세
 
 > 파일: `lib/presentation/viewmodels/schedule_generation_viewmodel.dart` — `_generateShifts()`
-> 기준일: 2026-04-05
+> 기준일: 2026-04-06
 
 ---
 
@@ -178,7 +178,81 @@ for 날짜 D in [start, end]:
 
 ---
 
-## 6. 현재 한계 / 고도화 예정 항목
+## 6. Violation Report
+
+생성 완료 즉시 `_GenerationResult`에서 계산되어 state에 저장됩니다.
+
+### 6-1. 하드 위반 (`validationWarnings: List<String>`)
+
+- 인원 부족 (understaffed)
+- 멤버 속성 위반 (night_exempt/day_only/night_dedicated 사후 검증)
+- 시퀀스 위반 (N→D, NOD 사후 검증)
+- 숙련도 조건 미충족 (`skill_condition`)
+
+### 6-2. 소프트 패턴 위반 (`softViolations: Map<String, List<String>>`)
+
+각 패턴별로 위반이 발생한 **멤버 + 날짜(MM-DD)** 목록을 저장합니다.
+
+```dart
+// 예시
+{
+  'NOD':  ['홍길동 05-03'],
+  'NOOD': ['임간호 05-10', '정간호 05-21'],
+  'NOE':  [],
+  'EOD':  ['박간호 05-07'],
+}
+```
+
+> 이전에는 `Map<String, int>` (횟수만)였으나 **2026-04-06** 상세화.
+
+### 6-3. 원티드 미반영 (`wantedUnsatisfied: List<String>`)
+
+반영되지 못한 희망 휴무를 **멤버 + 날짜(MM-DD)** 형식으로 저장합니다.
+
+```dart
+// 예시
+['홍길동 05-10', '김간호 05-15']
+```
+
+### 6-4. 커스텀 룰 위반 (`customRuleViolations: List<String>`)
+
+생성 완료 직후 `_computeCustomRuleViolations()`가 호출되어 자동 계산됩니다.
+각 위반에는 **구체적인 날짜**가 포함됩니다.
+
+```
+// 예시
+'동시 배정 금지 위반: 김간호, 박간호 → 3일 (05-03, 05-10, 05-17) ("...")'
+'근무 금지 위반: 김나연에게 N 배정됨 → 05-05, 05-12 ("...")'
+```
+
+---
+
+## 7. AI 분석 (`schedule-analyze` Edge Function)
+
+위반 리포트 화면에서 "AI 분석" 버튼을 탭하면 호출됩니다 (on-demand).
+
+### 전달 데이터
+
+- `hardViolations`: 하드 위반 문자열 목록
+- `softViolations`: 패턴별 횟수 (`Map<String, int>` 로 변환해서 전송)
+- `customRuleViolations`: 커스텀 룰 위반 목록
+- `wantedTotal` / `wantedSatisfied`
+- `memberSchedules`: **전체 근무 배정표** `{ 멤버명: { 'MM-DD': 'D'|'E'|'N'|'O' } }`
+- `hardRules`: 활성 하드룰 목록 (AI 검증용)
+- `activeRules`: 적용 규칙 요약
+
+### AI 검증 절차
+
+AI는 해결 방안 제안 전에 다음을 전체 배정표에서 직접 확인합니다:
+1. 변경 대상 멤버의 해당 월 전체 근무 흐름
+2. N→D / NOD / N→E / E→D 시퀀스 위반 여부
+3. 연속 근무일 / 월 최대 근무 초과 여부
+
+검증을 통과한 방안만 제안하며, 없으면 "안전한 해결 방안을 찾지 못했습니다"로 응답합니다.
+
+---
+
+## 8. 현재 한계 / 고도화 예정 항목
 
 | 항목 | 현황 | 비고 |
 |---|---|---|
@@ -186,6 +260,6 @@ for 날짜 D in [start, end]:
 | 알고리즘 탐색 방식 | Greedy (날짜순 1회 패스) | 역추적(backtracking) 없음. 앞날 배정이 뒷날에 영향 줄 수 있음 |
 | 원티드 요청 근무 유형 지정 | 미지원 | 현재는 off_request만 반영. 특정 날 D 원한다는 요청은 없음 |
 | 주말 고려 | 미적용 | 토/일 별도 처리 없음 |
-| 피드백 가중치 반영 | 미구현 | schedule_feedback 저장은 되지만 다음달 생성에 반영 안 됨 (Phase E 후속) |
+| 피드백 가중치 반영 | 미구현 | schedule_feedback 저장은 되지만 다음달 생성에 반영 안 됨 |
 | 커스텀 룰 알고리즘 통합 | ✅ 구현 완료 | member_shift_ban, anti_pair, require_pair, date_off, post_night_off, skill_condition |
 | 커스텀 룰 freeform 사후 평가 | 미구현 | freeform 타입은 저장만, 생성 후 AI 평가 미구현 |

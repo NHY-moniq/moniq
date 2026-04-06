@@ -187,8 +187,7 @@ class _SetupView extends HookConsumerWidget {
                         ? '없음'
                         : state.customRules
                                 .where((r) => r.isActive)
-                                .length ==
-                            0
+                                .isEmpty
                         ? '${state.customRules.length}개 (모두 비활성)'
                         : '${state.customRules.where((r) => r.isActive).length}개 적용 중',
                     onTap: state.customRules.isEmpty
@@ -735,15 +734,8 @@ class _ViolationSheetState extends ConsumerState<_ViolationSheet>
     final state = ref.watch(
       scheduleGenerationViewModelProvider(widget.teamId),
     ).valueOrNull ?? widget.state;
-    final warnings = state.validationWarnings ?? [];
-
-    // 하드 위반: validationWarnings에서 인원 부족 관련 메시지
-    final hardWarnings = warnings
-        .where((w) => w.contains('부족') || w.contains('인원'))
-        .toList();
-    final softWarnings = warnings
-        .where((w) => !w.contains('부족') && !w.contains('인원'))
-        .toList();
+    // 하드 위반: validationWarnings 전체
+    final hardWarnings = state.validationWarnings ?? [];
 
     final wantedPct = state.wantedTotal > 0
         ? (state.wantedSatisfied / state.wantedTotal * 100).round()
@@ -916,7 +908,32 @@ class _ViolationSheetState extends ConsumerState<_ViolationSheet>
                   ],
                 ),
               ),
-              const Tab(text: '소프트 요약'),
+              Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (state.customRuleViolations.isNotEmpty ||
+                        state.softViolations.values.any((v) => v.isNotEmpty))
+                      Container(
+                        margin: const EdgeInsets.only(right: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.brandOrange,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${state.customRuleViolations.length + state.softViolations.values.fold(0, (s, v) => s + v.length)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    const Text('소프트 요약'),
+                  ],
+                ),
+              ),
             ],
           ),
           Expanded(
@@ -966,73 +983,357 @@ class _ViolationSheetState extends ConsumerState<_ViolationSheet>
                       ),
 
                 // ── 탭 2: 소프트 요약 ──
-                ListView(
-                  controller: scrollCtrl,
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  children: [
-                    // 원티드 반영률
-                    _SummaryCard(
-                      icon: Icons.favorite_outline,
-                      iconColor: AppColors.brandOrange,
-                      title: '원티드 반영률',
-                      value: '$wantedPct%',
-                      subtitle:
-                          '${state.wantedSatisfied}건 반영 / 전체 ${state.wantedTotal}건',
-                      valueColor: wantedPct >= 80
+                _SoftSummaryTab(state: state, wantedPct: wantedPct),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────
+// 위반 리포트 진입 배너 (항상 표시)
+// ────────────────────────────────────────
+
+class _ViolationSummaryBanner extends StatelessWidget {
+  const _ViolationSummaryBanner({
+    required this.state,
+    required this.onTap,
+  });
+
+  final ScheduleGenerationState state;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hardCount = (state.validationWarnings ?? []).length;
+    final customViolCount = state.customRuleViolations.length;
+    final hasIssue = hardCount > 0 || customViolCount > 0;
+
+    // 소프트 기피 패턴 총 위반 수
+    final softPatternTotal =
+        state.softViolations.values.fold(0, (s, v) => s + v.length);
+
+    final wantedPct = state.wantedTotal > 0
+        ? (state.wantedSatisfied / state.wantedTotal * 100).round()
+        : 100;
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        color: hasIssue
+            ? AppColors.error.withValues(alpha: 0.06)
+            : AppColors.success.withValues(alpha: 0.06),
+        child: Row(
+          children: [
+            Icon(
+              hasIssue ? Icons.assignment_late_outlined : Icons.assignment_turned_in_outlined,
+              size: 20,
+              color: hasIssue ? AppColors.error : AppColors.success,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 4,
+                children: [
+                  if (hardCount > 0)
+                    _BannerChip(
+                      label: '하드 위반 ${hardCount}건',
+                      color: AppColors.error,
+                    ),
+                  if (customViolCount > 0)
+                    _BannerChip(
+                      label: '커스텀 룰 위반 ${customViolCount}건',
+                      color: AppColors.error,
+                    ),
+                  if (softPatternTotal > 0)
+                    _BannerChip(
+                      label: '기피패턴 ${softPatternTotal}회',
+                      color: AppColors.brandOrange,
+                    ),
+                  if (state.wantedTotal > 0)
+                    _BannerChip(
+                      label: '원티드 ${wantedPct}%',
+                      color: wantedPct >= 80
                           ? AppColors.success
                           : AppColors.brandOrange,
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                    // 기타 소프트 위반
-                    if (softWarnings.isNotEmpty) ...[
-                      Text(
-                        '기타 주의사항',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: AppColors.textSecondaryLight,
-                        ),
+                  if (!hasIssue && softPatternTotal == 0 && state.wantedTotal == 0)
+                    Text(
+                      '위반 없음',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      ...softWarnings.map(
-                        (w) => Padding(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 4),
-                          child: Row(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              const Icon(
-                                Icons.info_outline,
-                                size: 16,
-                                color: AppColors.brandOrange,
-                              ),
-                              const SizedBox(width: AppSpacing.sm),
-                              Expanded(
-                                child: Text(
-                                  w,
-                                  style: theme.textTheme.bodySmall,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                    if (softWarnings.isEmpty && state.wantedTotal == 0)
-                      Center(
-                        child: Padding(
-                          padding:
-                              const EdgeInsets.only(top: AppSpacing.xxl),
-                          child: Text(
-                            '원티드 요청이 없습니다',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textSecondaryLight,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
+                    ),
+                ],
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '리포트',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 16,
+                  color: AppColors.textSecondaryLight,
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BannerChip extends StatelessWidget {
+  const _BannerChip({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: color,
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────
+// 소프트 요약 탭
+// ────────────────────────────────────────
+
+class _SoftSummaryTab extends StatelessWidget {
+  const _SoftSummaryTab({
+    required this.state,
+    required this.wantedPct,
+  });
+
+  final ScheduleGenerationState state;
+  final int wantedPct;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final softViol = state.softViolations;
+    final hasSoftPattern = softViol.isNotEmpty &&
+        softViol.values.any((v) => v.isNotEmpty);
+    final customViols = state.customRuleViolations;
+
+    return ListView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      children: [
+        // ── 원티드 반영률 ──
+        if (state.wantedTotal > 0) ...[
+          _SummaryCard(
+            icon: Icons.favorite_outline,
+            iconColor: AppColors.brandOrange,
+            title: '원티드 반영률',
+            value: '$wantedPct%',
+            subtitle:
+                '${state.wantedSatisfied}건 반영 / 전체 ${state.wantedTotal}건',
+            valueColor:
+                wantedPct >= 80 ? AppColors.success : AppColors.brandOrange,
+          ),
+          if (state.wantedUnsatisfied.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.brandOrange.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: AppColors.brandOrange.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '미반영 원티드',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppColors.brandOrange,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  ...state.wantedUnsatisfied.map(
+                    (item) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.event_busy_outlined,
+                              size: 14, color: AppColors.brandOrange),
+                          const SizedBox(width: 6),
+                          Text(item,
+                              style: theme.textTheme.bodySmall),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.md),
+        ],
+
+        // ── 기피 패턴 위반 ──
+        if (hasSoftPattern) ...[
+          Text(
+            '기피패턴 위반',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: AppColors.textSecondaryLight,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ...{
+            'NOD': ('NOD (나이트→오프→데이)', softViol['NOD']),
+            'NOOD': ('NOOD (나이트→오프×2→데이)', softViol['NOOD']),
+            'NOE': ('NOE (나이트→오프→이브닝)', softViol['NOE']),
+            'EOD': ('EOD (이브닝→오프→데이)', softViol['EOD']),
+          }.entries.where((e) => (e.value.$2?.isNotEmpty ?? false)).map((e) {
+            final label = e.value.$1;
+            final items = e.value.$2!;
+            return _PatternGroup(label: label, items: items);
+          }),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+
+        // ── 커스텀 룰 위반 ──
+        if (customViols.isNotEmpty) ...[
+          Text(
+            '커스텀 룰 위반',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: AppColors.textSecondaryLight,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: AppColors.error.withValues(alpha: 0.15)),
+            ),
+            child: Column(
+              children: customViols
+                  .map(
+                    (v) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.error_outline,
+                              size: 15, color: AppColors.error),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(v,
+                                style: theme.textTheme.bodySmall),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+
+        // ── 모두 양호 ──
+        if (state.wantedTotal == 0 && !hasSoftPattern && customViols.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.xxl),
+              child: Column(
+                children: [
+                  const Icon(Icons.check_circle_outline,
+                      size: 40, color: AppColors.success),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    '소프트 위반 없음',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _PatternGroup extends StatelessWidget {
+  const _PatternGroup({required this.label, required this.items});
+  final String label;
+  final List<String> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.brandOrange.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border:
+            Border.all(color: AppColors.brandOrange.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded,
+                  size: 15, color: AppColors.brandOrange),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(label,
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+              ),
+              Text(
+                '${items.length}회',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.brandOrange,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ...items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(left: 21, top: 2),
+              child: Text('• $item',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondaryLight,
+                  )),
             ),
           ),
         ],
@@ -1207,66 +1508,11 @@ class _PreviewView extends HookConsumerWidget {
           ),
         ),
 
-        // ── Violation 요약 배너 ──
-        if (state.understaffedCount > 0 || state.wantedTotal > 0)
-          InkWell(
-            onTap: () => _showViolationSheet(context, ref, state, teamId),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.sm,
-              ),
-              color: state.understaffedCount > 0
-                  ? AppColors.error.withValues(alpha: 0.08)
-                  : AppColors.brandOrange.withValues(alpha: 0.08),
-              child: Row(
-                children: [
-                  Icon(
-                    state.understaffedCount > 0
-                        ? Icons.warning_amber_rounded
-                        : Icons.info_outline,
-                    size: 18,
-                    color: state.understaffedCount > 0
-                        ? AppColors.error
-                        : AppColors.brandOrange,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          if (state.understaffedCount > 0)
-                            TextSpan(
-                              text: '인원 부족 ${state.understaffedCount}건  ',
-                              style: TextStyle(
-                                color: AppColors.error,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
-                          if (state.wantedTotal > 0)
-                            TextSpan(
-                              text:
-                                  '원티드 ${state.wantedSatisfied}/${state.wantedTotal} 반영',
-                              style: TextStyle(
-                                color: AppColors.brandOrange,
-                                fontSize: 13,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.chevron_right,
-                    size: 16,
-                    color: AppColors.textSecondaryLight,
-                  ),
-                ],
-              ),
-            ),
-          ),
+        // ── 위반 리포트 진입 배너 (항상 표시) ──
+        _ViolationSummaryBanner(
+          state: state,
+          onTap: () => _showViolationSheet(context, ref, state, teamId),
+        ),
 
         // ── 경고 + 그리드 (스크롤 영역) ──
         Expanded(
@@ -1391,6 +1637,7 @@ class _PreviewView extends HookConsumerWidget {
                 Row(
                   children: [
                     Expanded(
+                      flex: 2,
                       child: OutlinedButton(
                         onPressed: state.isPublishing
                             ? null
@@ -1408,6 +1655,7 @@ class _PreviewView extends HookConsumerWidget {
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
+                      flex: 2,
                       child: OutlinedButton.icon(
                         onPressed: state.isPublishing
                             ? null
@@ -1426,22 +1674,22 @@ class _PreviewView extends HookConsumerWidget {
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
-                      flex: 2,
+                      flex: 3,
                       child: ElevatedButton.icon(
                         onPressed: state.isPublishing
                             ? null
                             : () => _publish(context, ref),
                         icon: state.isPublishing
                             ? const SizedBox(
-                                width: 20,
-                                height: 20,
+                                width: 16,
+                                height: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Icon(Icons.publish),
+                            : const Icon(Icons.publish, size: 18),
                         label: Text(
-                          state.isPublishing ? '발행 중...' : '스케줄 발행',
+                          state.isPublishing ? '발행 중' : '발행',
                         ),
                       ),
                     ),
