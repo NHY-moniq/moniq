@@ -89,9 +89,18 @@ ${shiftList}
 
 6. **skill_condition** — 특정 근무에 최소 숙련도 멤버 조건
    rule_value: { "shift_code": "<code>", "min_skill": <int>, "min_count": <int> }
-   예: "데이에 숙련도 3 이상 1명 필수" → skill_condition
+   숙련도 표현 매핑: 신규/신입/주니어 → min_skill: 1, 중간/중급 → min_skill: 2, 올드/시니어/선배/고숙련 → min_skill: 3
+   예: "데이에 올드 1명 필수" → skill_condition, shift_code: "D", min_skill: 3, min_count: 1
+   예: "나이트에 신규만 서면 안 돼요" → 이건 skill_balance로 처리
 
-7. **freeform** — 위에 해당 안 하는 복잡한 규칙
+7. **skill_balance** — 신규(junior)가 있는 근무에 올드(senior)가 반드시 함께
+   rule_value: { "shift_code": "<code 또는 null(전체 근무)>" }
+   예: "신규가 있으면 올드 한 명은 꼭 있어야 해요" → skill_balance, shift_code: null
+   예: "신규끼리만 같은 근무 서지 않게 해주세요" → skill_balance, shift_code: null
+   예: "데이 근무에 신규만 있으면 안 돼요" → skill_balance, shift_code: "D"
+   예: "신입이 있는 나이트엔 선배도 꼭 있어야 해요" → skill_balance, shift_code: "N"
+
+8. **freeform** — 위에 해당 안 하는 복잡한 규칙
    rule_value: { "description": "<원문 그대로>" }
 
 ## 응답 형식 (JSON만, 다른 텍스트 없음)
@@ -110,6 +119,7 @@ ${shiftList}
 - date_off: hard
 - post_night_off: hard
 - skill_condition: hard
+- skill_balance: soft
 - freeform: soft (항상)
 
 멤버 이름이 일치하지 않거나 모호한 경우 freeform으로 처리하세요.

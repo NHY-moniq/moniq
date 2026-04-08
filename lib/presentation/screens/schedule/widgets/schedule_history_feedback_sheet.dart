@@ -89,6 +89,7 @@ class _ScheduleHistoryFeedbackSheetState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -107,7 +108,8 @@ class _ScheduleHistoryFeedbackSheetState
               height: 4,
               margin: const EdgeInsets.only(bottom: AppSpacing.lg),
               decoration: BoxDecoration(
-                color: AppColors.textSecondaryLight.withValues(alpha: 0.3),
+                color: colorScheme.onSurfaceVariant
+                    .withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -121,7 +123,7 @@ class _ScheduleHistoryFeedbackSheetState
             Text(
               '피드백은 다음 달 스케줄 생성에 반영됩니다',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondaryLight,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: AppSpacing.xxl),
@@ -129,18 +131,21 @@ class _ScheduleHistoryFeedbackSheetState
             if (!_loaded)
               const CircularProgressIndicator()
             else if (_saved && _overallRating == 0)
-              ..._buildForm(theme)
+              ..._buildForm(theme, colorScheme)
             else if (_saved && _overallRating > 0)
-              ..._buildForm(theme)
+              ..._buildForm(theme, colorScheme)
             else
-              ..._buildForm(theme),
+              ..._buildForm(theme, colorScheme),
           ],
         ),
       ),
     );
   }
 
-  List<Widget> _buildForm(ThemeData theme) {
+  List<Widget> _buildForm(
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     return [
       // 별점
       Row(
@@ -158,7 +163,7 @@ class _ScheduleHistoryFeedbackSheetState
                 size: 40,
                 color: star <= _overallRating
                     ? AppColors.brandOrange
-                    : AppColors.textSecondaryLight,
+                    : colorScheme.onSurfaceVariant,
               ),
             ),
           );
@@ -174,11 +179,15 @@ class _ScheduleHistoryFeedbackSheetState
           child: Row(
             children: [
               Expanded(
-                child: Text(e.value, style: theme.textTheme.bodyMedium),
+                child: Text(
+                  e.value,
+                  style: theme.textTheme.bodyMedium,
+                ),
               ),
               ScheduleHistoryRatingToggle(
                 value: cur,
-                onChanged: (v) => setState(() => _ruleRatings[e.key] = v),
+                onChanged: (v) =>
+                    setState(() => _ruleRatings[e.key] = v),
               ),
             ],
           ),
@@ -193,13 +202,16 @@ class _ScheduleHistoryFeedbackSheetState
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.check_circle_outline,
-                  color: AppColors.success, size: 16),
+              const Icon(
+                Icons.check_circle_outline,
+                color: AppColors.success,
+                size: 16,
+              ),
               const SizedBox(width: 6),
               Text(
                 '저장된 피드백입니다. 수정 후 다시 저장할 수 있습니다.',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondaryLight,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -236,6 +248,8 @@ class ScheduleHistoryRatingToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -251,7 +265,7 @@ class ScheduleHistoryRatingToggle extends StatelessWidget {
           label: '아쉬워요',
           icon: Icons.thumb_down_outlined,
           selected: value == -1,
-          color: AppColors.error,
+          color: colorScheme.error,
           onTap: () => onChanged(value == -1 ? 0 : -1),
         ),
       ],
@@ -278,34 +292,46 @@ class ScheduleHistoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: 4,
+        ),
         decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.1) : Colors.transparent,
+          color: selected
+              ? color.withValues(alpha: 0.1)
+              : Colors.transparent,
           border: Border.all(
             color: selected
                 ? color
-                : AppColors.textSecondaryLight.withValues(alpha: 0.3),
+                : colorScheme.onSurfaceVariant
+                    .withValues(alpha: 0.3),
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                size: 13,
-                color: selected ? color : AppColors.textSecondaryLight),
+            Icon(
+              icon,
+              size: 13,
+              color: selected
+                  ? color
+                  : colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(width: 3),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 11,
-                color:
-                    selected ? color : AppColors.textSecondaryLight,
+              style: textTheme.labelSmall?.copyWith(
+                color: selected
+                    ? color
+                    : colorScheme.onSurfaceVariant,
                 fontWeight:
                     selected ? FontWeight.w600 : FontWeight.normal,
               ),

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 
 import 'calendar_providers.dart';
@@ -23,47 +22,110 @@ class CalendarDrawer extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final shiftTypes = ref.watch(personalShiftTypesProvider);
+
     return Drawer(
-      width: MediaQuery.of(context).size.width * 0.66,
+      width: 280,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topRight: Radius.circular(AppRadius.xl),
+          bottomRight: Radius.circular(AppRadius.xl),
+        ),
+      ),
+      elevation: 16,
       child: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Profile Section ──
             Padding(
-              padding: AppSpacing.screenAll,
-              child: Text('메뉴', style: theme.textTheme.titleLarge),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xxl,
+                AppSpacing.xxxl,
+                AppSpacing.xxl,
+                AppSpacing.lg,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer,
+                      borderRadius: AppRadius.borderRadiusMd,
+                    ),
+                    padding: const EdgeInsets.all(AppSpacing.xs),
+                    clipBehavior: Clip.antiAlias,
+                    child: Icon(
+                      Icons.person_rounded,
+                      size: 36,
+                      color: cs.onPrimaryContainer,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.lg),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Moniq',
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            color: cs.primary,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xxs),
+                        Text(
+                          'SHIFT MANAGER',
+                          style: theme.textTheme.labelSmall
+                              ?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.schedule_outlined),
-              title: const Text('내 근무 유형 설정'),
-              subtitle: Text('${shiftTypes.length}개 설정됨'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.pop(context);
-                _showPersonalShiftTypeManager(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.calendar_month_outlined),
-              title: const Text('외부 캘린더 일정 가져오기'),
-              subtitle: const Text('외부 캘린더 설정'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.pop(context);
-                onImportCalendar();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.ios_share_outlined),
-              title: const Text('캘린더 내보내기'),
-              subtitle: const Text('이미지 또는 스프레드시트로 내보내기'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.pop(context);
-                onExportCalendar();
-              },
+
+            // ── Navigation Links ──
+            Expanded(
+              child: Column(
+                children: [
+                  const SizedBox(height: AppSpacing.sm),
+                  _DrawerNavItem(
+                    icon: Icons.schedule_outlined,
+                    label: '내 근무 유형 설정',
+                    badge: '${shiftTypes.length}',
+                    isActive: true,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showPersonalShiftTypeManager(context);
+                    },
+                  ),
+                  _DrawerNavItem(
+                    icon: Icons.calendar_month_outlined,
+                    label: '외부 캘린더 일정 가져오기',
+                    onTap: () {
+                      Navigator.pop(context);
+                      onImportCalendar();
+                    },
+                  ),
+                  _DrawerNavItem(
+                    icon: Icons.ios_share_outlined,
+                    label: '캘린더 내보내기',
+                    onTap: () {
+                      Navigator.pop(context);
+                      onExportCalendar();
+                    },
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -80,6 +142,95 @@ class CalendarDrawer extends HookConsumerWidget {
             BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
       builder: (ctx) => const PersonalShiftTypeSheet(),
+    );
+  }
+}
+
+// ── Drawer Navigation Item ──
+
+class _DrawerNavItem extends StatelessWidget {
+  const _DrawerNavItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.badge,
+    this.isActive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final String? badge;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final textColor =
+        isActive ? cs.primary : cs.onSurfaceVariant;
+    final iconColor =
+        isActive ? cs.primaryContainer : cs.onSurfaceVariant;
+    final bgColor =
+        isActive ? cs.surfaceContainerHighest : Colors.transparent;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs,
+      ),
+      child: Material(
+        color: bgColor,
+        borderRadius: AppRadius.borderRadiusFull,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.borderRadiusFull,
+          hoverColor: cs.surfaceContainerLow,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: iconColor, size: 24),
+                const SizedBox(width: AppSpacing.lg),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  ),
+                ),
+                if (badge != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xxs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer,
+                      borderRadius: AppRadius.borderRadiusFull,
+                    ),
+                    child: Text(
+                      badge!,
+                      style:
+                          Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                        color: cs.onPrimaryContainer,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -217,17 +368,17 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
     TimeOfDay endTime = existing?.endTime != null
         ? _parseTimeOfDay(existing!.endTime!)
         : const TimeOfDay(hour: 15, minute: 0);
-    String selectedColor = existing?.color ?? '#E8923A';
+    String selectedColor = existing?.color ?? '#FF8C00';
 
     const colorOptions = [
-      '#F0C040',
-      '#E8923A',
-      '#5A8BB5',
+      '#FFD700',
+      '#FF8C00',
+      '#0061A4',
       '#A0AEC0',
-      '#38A169',
-      '#ED64A6',
-      '#9F7AEA',
-      '#ED8936',
+      '#81C784',
+      '#F48FB1',
+      '#B39DDB',
+      '#FF8A65',
     ];
 
     showModalBottomSheet(
@@ -272,7 +423,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.borderLight,
+                      color: Theme.of(ctx).colorScheme.outlineVariant,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -331,7 +482,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                 Text(
                   '근무 시간',
                   style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
-                        color: AppColors.textSecondaryLight,
+                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
                       ),
                 ),
@@ -383,7 +534,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                           horizontal: AppSpacing.md),
                       child: Icon(Icons.arrow_forward_rounded,
                           size: 18,
-                          color: AppColors.textSecondaryLight
+                          color: Theme.of(ctx).colorScheme.onSurfaceVariant
                               .withValues(alpha: 0.5)),
                     ),
                     // 종료
@@ -435,7 +586,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                 Text(
                   '색상',
                   style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
-                        color: AppColors.textSecondaryLight,
+                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
                       ),
                 ),
@@ -512,7 +663,8 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                     Navigator.pop(ctx);
                   },
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor:
+                        Theme.of(ctx).colorScheme.primary,
                     padding: const EdgeInsets.symmetric(
                         vertical: AppSpacing.md),
                   ),

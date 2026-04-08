@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/data/providers/announcement_providers.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
 
@@ -74,6 +73,13 @@ class WeeklyHoursCard extends StatelessWidget {
         border: Border.all(
           color: shiftTheme.primary.withValues(alpha: 0.12),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: shiftTheme.primary.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,6 +147,13 @@ class OnShiftTeamCard extends StatelessWidget {
         border: Border.all(
           color: shiftTheme.primary.withValues(alpha: 0.15),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: shiftTheme.primary.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -259,6 +272,13 @@ class AnnouncementCard extends ConsumerWidget {
           border: Border.all(
             color: shiftTheme.primary.withValues(alpha: 0.12),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: shiftTheme.primary.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -272,7 +292,7 @@ class AnnouncementCard extends ConsumerWidget {
               child: Icon(
                 Icons.campaign_outlined,
                 size: 20,
-                color: shiftTheme.primary,
+                color: shiftTheme.accentText,
               ),
             ),
             const SizedBox(width: AppSpacing.md),
@@ -295,7 +315,7 @@ class AnnouncementCard extends ConsumerWidget {
                           teamLabel,
                           style: TextStyle(
                             fontSize: 11,
-                            color: shiftTheme.primary,
+                            color: shiftTheme.accentText,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -307,7 +327,9 @@ class AnnouncementCard extends ConsumerWidget {
                     subtitle,
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.onSurface,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface,
                       fontWeight: FontWeight.w500,
                     ),
                     maxLines: 1,
@@ -321,14 +343,16 @@ class AnnouncementCard extends ConsumerWidget {
                 dateText,
                 style: TextStyle(
                   fontSize: 11,
-                  color: AppColors.onSurfaceVariant,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurfaceVariant,
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
             ],
             Icon(
               Icons.chevron_right,
-              color: AppColors.outline,
+              color: Theme.of(context).colorScheme.outline,
             ),
           ],
         ),
@@ -347,6 +371,13 @@ class AnnouncementCard extends ConsumerWidget {
           border: Border.all(
             color: shiftTheme.primary.withValues(alpha: 0.12),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: shiftTheme.primary.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -360,7 +391,7 @@ class AnnouncementCard extends ConsumerWidget {
               child: Icon(
                 Icons.campaign_outlined,
                 size: 20,
-                color: shiftTheme.primary,
+                color: shiftTheme.accentText,
               ),
             ),
             const SizedBox(width: AppSpacing.md),
@@ -379,13 +410,18 @@ class AnnouncementCard extends ConsumerWidget {
                     '아직 공지사항이 없습니다',
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.onSurfaceVariant,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: AppColors.outline),
+            Icon(
+              Icons.chevron_right,
+              color: Theme.of(context).colorScheme.outline,
+            ),
           ],
         ),
       ),

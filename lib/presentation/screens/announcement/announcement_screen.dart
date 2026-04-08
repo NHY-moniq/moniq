@@ -70,6 +70,7 @@ class AnnouncementScreen extends HookConsumerWidget {
   void _showCreateSheet(BuildContext context, WidgetRef ref) {
     final titleC = TextEditingController();
     final contentC = TextEditingController();
+    final theme = Theme.of(context);
 
     showModalBottomSheet(
       context: context,
@@ -89,13 +90,18 @@ class AnnouncementScreen extends HookConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('공지사항 작성',
-                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    )),
+            Text(
+              '공지사항 작성',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: AppSpacing.xxl),
             TextField(
               controller: titleC,
+              textCapitalization: TextCapitalization.sentences,
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
                 hintText: '제목',
                 prefixIcon: Icon(Icons.title),
@@ -105,6 +111,9 @@ class AnnouncementScreen extends HookConsumerWidget {
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: contentC,
+              textCapitalization: TextCapitalization.sentences,
+              keyboardType: TextInputType.multiline,
+              textInputAction: TextInputAction.newline,
               decoration: const InputDecoration(
                 hintText: '내용 (선택)',
                 prefixIcon: Icon(Icons.notes),
@@ -131,7 +140,9 @@ class AnnouncementScreen extends HookConsumerWidget {
                 if (ctx.mounted) {
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('공지사항이 등록되었습니다')),
+                    const SnackBar(
+                      content: Text('공지사항이 등록되었습니다'),
+                    ),
                   );
                 }
               },
@@ -188,6 +199,7 @@ class AnnouncementListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final dateFormat = DateFormat('MM.dd');
 
     return Card(
@@ -206,9 +218,8 @@ class AnnouncementListTile extends StatelessWidget {
                     if (teamName != null) ...[
                       Text(
                         teamName!,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.primary,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.primary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -218,14 +229,18 @@ class AnnouncementListTile extends StatelessWidget {
                     Row(
                       children: [
                         if (isPinned) ...[
-                          Icon(Icons.push_pin,
-                              size: 14, color: AppColors.brandOrange),
+                          Icon(
+                            Icons.push_pin,
+                            size: 14,
+                            color: AppColors.brandOrange,
+                          ),
                           const SizedBox(width: AppSpacing.xs),
                         ],
                         Expanded(
                           child: Text(
                             title,
-                            style: theme.textTheme.bodyLarge?.copyWith(
+                            style:
+                                theme.textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
                             maxLines: 1,
@@ -235,12 +250,13 @@ class AnnouncementListTile extends StatelessWidget {
                       ],
                     ),
                     // 내용 미리보기
-                    if (content != null && content!.isNotEmpty) ...[
+                    if (content != null &&
+                        content!.isNotEmpty) ...[
                       const SizedBox(height: AppSpacing.xxs),
                       Text(
                         content!,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.onSurfaceVariant,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -254,12 +270,15 @@ class AnnouncementListTile extends StatelessWidget {
                 Text(
                   dateFormat.format(createdAt!),
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               const SizedBox(width: AppSpacing.xs),
-              Icon(Icons.chevron_right,
-                  size: 20, color: AppColors.outline),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: colorScheme.outline,
+              ),
             ],
           ),
         ),
@@ -284,6 +303,8 @@ class AnnouncementDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final a = announcement;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final dateFormat = DateFormat('yyyy.MM.dd HH:mm');
 
     return Scaffold(
@@ -298,16 +319,23 @@ class AnnouncementDetailPage extends StatelessWidget {
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: const Text('공지 삭제'),
-                    content: const Text('이 공지사항을 삭제하시겠습니까?'),
+                    content:
+                        const Text('이 공지사항을 삭제하시겠습니까?'),
                     actions: [
                       TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
+                        onPressed: () =>
+                            Navigator.pop(ctx, false),
                         child: const Text('취소'),
                       ),
                       TextButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('삭제',
-                            style: TextStyle(color: AppColors.error)),
+                        onPressed: () =>
+                            Navigator.pop(ctx, true),
+                        child: Text(
+                          '삭제',
+                          style: TextStyle(
+                            color: colorScheme.error,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -332,14 +360,14 @@ class AnnouncementDetailPage extends StatelessWidget {
                   vertical: AppSpacing.xxs,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                  color: colorScheme.primary
+                      .withValues(alpha: 0.1),
                   borderRadius: AppRadius.borderRadiusSm,
                 ),
                 child: Text(
                   teamName!,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.primary,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.primary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -348,17 +376,16 @@ class AnnouncementDetailPage extends StatelessWidget {
             ],
             Text(
               a.title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             if (a.createdAt != null) ...[
               const SizedBox(height: AppSpacing.sm),
               Text(
                 dateFormat.format(a.createdAt!),
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.onSurfaceVariant,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -366,9 +393,9 @@ class AnnouncementDetailPage extends StatelessWidget {
             if (a.content != null && a.content!.isNotEmpty)
               Text(
                 a.content!,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      height: 1.6,
-                    ),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  height: 1.6,
+                ),
               ),
           ],
         ),

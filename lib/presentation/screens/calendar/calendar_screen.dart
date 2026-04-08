@@ -187,8 +187,14 @@ class CalendarScreen extends HookConsumerWidget {
               children: [
                 const SizedBox(height: AppSpacing.sm),
 
-                // ── Calendar (범례는 헤더 안에 포함) ──
+                // ── Calendar (범례는 개인 근무유형에서 동적 생성) ──
                 MoniqCalendar(
+                  legendItems: ref.watch(personalShiftTypesProvider)
+                      .map((st) => (
+                            color: parseHexColor(st.color),
+                            label: st.code.toUpperCase(),
+                          ))
+                      .toList(),
                   focusedDay: state.focusedMonth,
                   selectedDay: state.selectedDate,
                   startingDayOfWeek: startingDay,

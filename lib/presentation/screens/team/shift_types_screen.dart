@@ -305,8 +305,10 @@ class _ShiftTypeTile extends StatelessWidget {
         alignment: Alignment.center,
         child: Text(
           shiftType.code,
-          style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+          style: TextStyle(
+              color: Theme.of(context).colorScheme.surface,
+              fontWeight: FontWeight.bold,
+              fontSize: 16),
         ),
       ),
       title: Text(shiftType.name,

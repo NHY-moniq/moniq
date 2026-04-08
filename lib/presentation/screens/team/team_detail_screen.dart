@@ -121,13 +121,27 @@ class TeamDetailScreen extends HookConsumerWidget {
                 onTap: () => context.push('/teams/$teamId/settings'),
               ),
               const SizedBox(height: AppSpacing.md),
-              TeamDetailBubbleMenuCard(
-                icon: Icons.auto_awesome_outlined,
-                iconColor: Theme.of(context).colorScheme.primary,
-                title: '스케줄 생성',
-                subtitle: '생성 규칙 설정',
-                onTap: () =>
-                    context.push('/teams/$teamId/schedule-rules'),
+              Opacity(
+                opacity: state.isAdmin ? 1.0 : 0.5,
+                child: TeamDetailBubbleMenuCard(
+                  icon: Icons.auto_awesome_outlined,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  title: '스케줄 생성',
+                  subtitle: state.isAdmin
+                      ? '생성 규칙 설정'
+                      : '팀 관리자만 사용 가능',
+                  onTap: () {
+                    if (state.isAdmin) {
+                      context.push('/teams/$teamId/schedule-rules');
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('팀 관리자만 사용 가능한 기능입니다.'),
+                        ),
+                      );
+                    }
+                  },
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               Opacity(
@@ -157,7 +171,7 @@ class TeamDetailScreen extends HookConsumerWidget {
                 const SizedBox(height: AppSpacing.md),
                 TeamDetailBubbleMenuCard(
                   icon: Icons.delete_sweep_outlined,
-                  iconColor: AppColors.error,
+                  iconColor: Theme.of(context).colorScheme.error,
                   title: '일정 전체 삭제',
                   subtitle: '특정 월의 팀 일정 전체 삭제',
                   onTap: () => showDeleteScheduleSheet(
@@ -180,7 +194,10 @@ class TeamDetailScreen extends HookConsumerWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 2.0,
-                    color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withValues(alpha: 0.6),
                   ),
                 ),
               ),
@@ -213,7 +230,7 @@ class TeamDetailScreen extends HookConsumerWidget {
               const SizedBox(height: AppSpacing.md),
               TeamDetailBubbleMenuCard(
                 icon: Icons.edit_calendar_outlined,
-                iconColor: AppColors.secondary,
+                iconColor: Theme.of(context).colorScheme.secondary,
                 title: '희망 휴무일 입력',
                 subtitle: '내 희망 휴무일 입력하기',
                 onTap: () =>
@@ -222,7 +239,7 @@ class TeamDetailScreen extends HookConsumerWidget {
               const SizedBox(height: AppSpacing.md),
               TeamDetailBubbleMenuCard(
                 icon: Icons.swap_horiz_outlined,
-                iconColor: AppColors.tertiary,
+                iconColor: Theme.of(context).colorScheme.tertiary,
                 title: '교환/변경 요청',
                 subtitle: '근무 교환 및 변경 요청 관리',
                 onTap: () =>

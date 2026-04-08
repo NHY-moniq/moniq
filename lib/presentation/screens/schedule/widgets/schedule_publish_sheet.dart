@@ -25,10 +25,12 @@ class PublishSuccessSheet extends StatefulWidget {
   final bool showSuccessHeader;
 
   @override
-  State<PublishSuccessSheet> createState() => PublishSuccessSheetState();
+  State<PublishSuccessSheet> createState() =>
+      PublishSuccessSheetState();
 }
 
-class PublishSuccessSheetState extends State<PublishSuccessSheet> {
+class PublishSuccessSheetState
+    extends State<PublishSuccessSheet> {
   int _overallRating = 0; // 0 = 미선택
   // ruleRatings: 1=좋음, -1=아쉬움, 0=미평가
   final Map<String, int> _ruleRatings = {
@@ -53,7 +55,9 @@ class PublishSuccessSheetState extends State<PublishSuccessSheet> {
         ..removeWhere((_, v) => v == 0);
       await widget.ref
           .read(
-            scheduleGenerationViewModelProvider(widget.teamId).notifier,
+            scheduleGenerationViewModelProvider(
+              widget.teamId,
+            ).notifier,
           )
           .saveFeedback(
             overallRating: _overallRating,
@@ -71,6 +75,7 @@ class PublishSuccessSheetState extends State<PublishSuccessSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -78,14 +83,18 @@ class PublishSuccessSheetState extends State<PublishSuccessSheet> {
           left: AppSpacing.xxl,
           right: AppSpacing.xxl,
           top: AppSpacing.xxl,
-          bottom: MediaQuery.viewInsetsOf(context).bottom + AppSpacing.xxl,
+          bottom: MediaQuery.viewInsetsOf(context).bottom +
+              AppSpacing.xxl,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (widget.showSuccessHeader) ...[
               // -- 단계 표시 --
-              const ScheduleStepIndicator(currentStep: 2, totalSteps: 3),
+              const ScheduleStepIndicator(
+                currentStep: 2,
+                totalSteps: 3,
+              ),
               const SizedBox(height: AppSpacing.xxl),
 
               // -- 완료 아이콘 --
@@ -114,7 +123,7 @@ class PublishSuccessSheetState extends State<PublishSuccessSheet> {
               Text(
                 '팀 멤버에게 알림이 전송됩니다.',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondaryLight,
+                  color: colorScheme.onSurfaceVariant,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -127,10 +136,14 @@ class PublishSuccessSheetState extends State<PublishSuccessSheet> {
               Container(
                 width: 36,
                 height: 4,
-                margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+                margin: const EdgeInsets.only(
+                  bottom: AppSpacing.lg,
+                ),
                 decoration: BoxDecoration(
-                  color: AppColors.textSecondaryLight.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
+                  color: colorScheme.onSurfaceVariant
+                      .withValues(alpha: 0.3),
+                  borderRadius:
+                      BorderRadius.circular(AppRadius.xs),
                 ),
               ),
               Text(
@@ -142,7 +155,7 @@ class PublishSuccessSheetState extends State<PublishSuccessSheet> {
               Text(
                 '피드백은 다음 달 스케줄 생성에 반영됩니다',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondaryLight,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
@@ -152,19 +165,25 @@ class PublishSuccessSheetState extends State<PublishSuccessSheet> {
             if (_saved)
               Column(
                 children: [
-                  const Icon(Icons.favorite, color: AppColors.brandOrange, size: 32),
+                  const Icon(
+                    Icons.favorite,
+                    color: AppColors.brandOrange,
+                    size: 32,
+                  ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     '피드백 감사합니다!',
-                    style: theme.textTheme.bodyMedium?.copyWith(
+                    style:
+                        theme.textTheme.bodyMedium?.copyWith(
                       color: AppColors.brandOrange,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   Text(
                     '다음 달 근무표 생성에 반영됩니다.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondaryLight,
+                    style:
+                        theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -179,7 +198,7 @@ class PublishSuccessSheetState extends State<PublishSuccessSheet> {
               Text(
                 '피드백은 다음 달 스케줄 생성에 반영됩니다',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondaryLight,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -190,10 +209,12 @@ class PublishSuccessSheetState extends State<PublishSuccessSheet> {
                 children: List.generate(5, (i) {
                   final star = i + 1;
                   return GestureDetector(
-                    onTap: () => setState(() => _overallRating = star),
+                    onTap: () =>
+                        setState(() => _overallRating = star),
                     child: Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                      ),
                       child: Icon(
                         star <= _overallRating
                             ? Icons.star_rounded
@@ -201,7 +222,7 @@ class PublishSuccessSheetState extends State<PublishSuccessSheet> {
                         size: 36,
                         color: star <= _overallRating
                             ? AppColors.brandOrange
-                            : AppColors.textSecondaryLight,
+                            : colorScheme.onSurfaceVariant,
                       ),
                     ),
                   );
@@ -211,22 +232,26 @@ class PublishSuccessSheetState extends State<PublishSuccessSheet> {
 
               // 항목별 좋음/아쉬움
               ..._ruleLabels.entries.map((entry) {
-                final current = _ruleRatings[entry.key] ?? 0;
+                final current =
+                    _ruleRatings[entry.key] ?? 0;
                 return Padding(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.xs,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
                         child: Text(
                           entry.value,
-                          style: theme.textTheme.bodySmall,
+                          style:
+                              theme.textTheme.bodySmall,
                         ),
                       ),
                       RatingToggle(
                         value: current,
                         onChanged: (v) => setState(
-                          () => _ruleRatings[entry.key] = v,
+                          () =>
+                              _ruleRatings[entry.key] = v,
                         ),
                       ),
                     ],
@@ -241,12 +266,17 @@ class PublishSuccessSheetState extends State<PublishSuccessSheet> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed:
-                      (_overallRating == 0 || _isSaving) ? null : _save,
+                      (_overallRating == 0 || _isSaving)
+                          ? null
+                          : _save,
                   child: _isSaving
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child:
+                              CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
                         )
                       : const Text('피드백 저장'),
                 ),
@@ -269,7 +299,11 @@ class PublishSuccessSheetState extends State<PublishSuccessSheet> {
 }
 
 class RatingToggle extends StatelessWidget {
-  const RatingToggle({super.key, required this.value, required this.onChanged});
+  const RatingToggle({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
   final int value; // -1, 0, 1
   final ValueChanged<int> onChanged;
 
@@ -315,11 +349,16 @@ class ToggleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 5,
+        ),
         decoration: BoxDecoration(
           color: selected
               ? selectedColor.withValues(alpha: 0.1)
@@ -327,9 +366,11 @@ class ToggleChip extends StatelessWidget {
           border: Border.all(
             color: selected
                 ? selectedColor
-                : AppColors.textSecondaryLight.withValues(alpha: 0.3),
+                : colorScheme.onSurfaceVariant
+                    .withValues(alpha: 0.3),
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius:
+              BorderRadius.circular(AppRadius.lg),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -339,18 +380,18 @@ class ToggleChip extends StatelessWidget {
               size: 14,
               color: selected
                   ? selectedColor
-                  : AppColors.textSecondaryLight,
+                  : colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 12,
+              style: theme.textTheme.labelMedium?.copyWith(
                 color: selected
                     ? selectedColor
-                    : AppColors.textSecondaryLight,
-                fontWeight:
-                    selected ? FontWeight.w600 : FontWeight.normal,
+                    : colorScheme.onSurfaceVariant,
+                fontWeight: selected
+                    ? FontWeight.w600
+                    : FontWeight.normal,
               ),
             ),
           ],

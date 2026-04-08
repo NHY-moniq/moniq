@@ -57,6 +57,16 @@ class CustomRulesBody extends ConsumerWidget {
                           .toggleActive(rules[i].id, isActive: val);
                       ref.invalidate(customRulesProvider(teamId));
                     },
+                    onTogglePriority: rules[i].ruleType == 'freeform'
+                        ? null
+                        : () async {
+                            final newPriority =
+                                rules[i].priority == 'hard' ? 'soft' : 'hard';
+                            await ref
+                                .read(customRuleRepositoryProvider)
+                                .updatePriority(rules[i].id, priority: newPriority);
+                            ref.invalidate(customRulesProvider(teamId));
+                          },
                     onDelete: () async {
                       final ok = await confirmDeleteRule(context);
                       if (!ok) return;
@@ -146,11 +156,13 @@ class CustomRuleCard extends StatelessWidget {
     required this.rule,
     required this.onToggle,
     required this.onDelete,
+    this.onTogglePriority,
   });
 
   final CustomRuleModel rule;
   final ValueChanged<bool> onToggle;
   final VoidCallback onDelete;
+  final VoidCallback? onTogglePriority;
 
   @override
   Widget build(BuildContext context) {
@@ -190,12 +202,18 @@ class CustomRuleCard extends StatelessWidget {
             decoration: rule.isActive ? null : TextDecoration.lineThrough,
           ),
         ),
-        subtitle: Row(
-          children: [
-            CustomRuleTypeBadge(ruleType: rule.ruleType),
-            const SizedBox(width: AppSpacing.xs),
-            CustomRulePriorityBadge(priority: rule.priority),
-          ],
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(
+            children: [
+              CustomRuleTypeBadge(ruleType: rule.ruleType),
+              const SizedBox(width: AppSpacing.sm),
+              _PriorityToggle(
+                priority: rule.priority,
+                onToggle: onTogglePriority,
+              ),
+            ],
+          ),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -230,6 +248,8 @@ class CustomRuleCard extends StatelessWidget {
         return Icons.bedtime_outlined;
       case 'skill_condition':
         return Icons.workspace_premium_outlined;
+      case 'skill_balance':
+        return Icons.balance_outlined;
       default:
         return Icons.notes_rounded;
     }
@@ -278,32 +298,113 @@ class CustomRuleTypeBadge extends StatelessWidget {
         return '나이트 후 오프';
       case 'skill_condition':
         return '숙련도 조건';
+      case 'skill_balance':
+        return '숙련도 균형';
       default:
         return '자유형';
     }
   }
 }
 
-class CustomRulePriorityBadge extends StatelessWidget {
-  const CustomRulePriorityBadge({super.key, required this.priority});
+class _PriorityToggle extends StatelessWidget {
+  const _PriorityToggle({
+    required this.priority,
+    this.onToggle,
+  });
 
   final String priority;
+  final VoidCallback? onToggle; // null = freeform (비활성)
 
   @override
   Widget build(BuildContext context) {
-    final isHard = priority == 'hard';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: isHard ? AppColors.errorLight : AppColors.primaryContainer,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        isHard ? '하드' : '소프트',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: isHard ? AppColors.error : AppColors.onPrimaryContainer,
-              fontWeight: FontWeight.w600,
+    final theme = Theme.of(context);
+    final isSoft = priority == 'soft';
+    final isFreeform = onToggle == null;
+
+    Widget toggle = GestureDetector(
+      onTap: isFreeform ? null : onToggle,
+      child: Container(
+        height: 24,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isFreeform
+                ? theme.colorScheme.outline.withValues(alpha: 0.3)
+                : isSoft
+                    ? theme.colorScheme.secondary
+                    : AppColors.error,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _Segment(
+              label: '소프트',
+              selected: isSoft,
+              selectedColor: theme.colorScheme.secondary,
+              isLeft: true,
             ),
+            Container(
+              width: 1,
+              color: isFreeform
+                  ? theme.colorScheme.outline.withValues(alpha: 0.3)
+                  : isSoft
+                      ? theme.colorScheme.secondary
+                      : AppColors.error,
+            ),
+            _Segment(
+              label: '하드',
+              selected: !isSoft,
+              selectedColor: AppColors.error,
+              isLeft: false,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (isFreeform) {
+      return Opacity(opacity: 0.4, child: toggle);
+    }
+    return toggle;
+  }
+}
+
+class _Segment extends StatelessWidget {
+  const _Segment({
+    required this.label,
+    required this.selected,
+    required this.selectedColor,
+    required this.isLeft,
+  });
+
+  final String label;
+  final bool selected;
+  final Color selectedColor;
+  final bool isLeft;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: selected ? selectedColor : Colors.transparent,
+        borderRadius: BorderRadius.horizontal(
+          left: isLeft ? const Radius.circular(4) : Radius.zero,
+          right: !isLeft ? const Radius.circular(4) : Radius.zero,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: selected
+              ? Colors.white
+              : Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }
@@ -555,6 +656,6 @@ class _CustomRuleAddSheetState extends ConsumerState<CustomRuleAddSheet> {
   static const _examples = [
     '나이트 3연속이면 2일 쉬어야 해요',
     'A와 B는 같은 나이트를 서지 않게 해주세요',
-    '데이에 숙련도 3 이상 1명은 꼭 있어야 해요',
+    '신규가 있는 근무에는 올드 한 명은 꼭 있어야 해요',
   ];
 }

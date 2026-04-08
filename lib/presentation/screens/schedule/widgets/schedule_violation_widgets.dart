@@ -52,9 +52,9 @@ class _ViolationSheetState extends ConsumerState<ViolationSheet>
         : 100;
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.55,
-      minChildSize: 0.35,
-      maxChildSize: 0.85,
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
       expand: false,
       builder: (ctx, scrollCtrl) => Column(
         children: [
@@ -324,9 +324,13 @@ class ViolationSummaryBanner extends StatelessWidget {
     final customViolCount = state.customRuleViolations.length;
     final hasIssue = hardCount > 0 || customViolCount > 0;
 
-    // 소프트 기피 패턴 총 위반 수
-    final softPatternTotal =
-        state.softViolations.values.fold(0, (s, v) => s + v.length);
+    // 소프트 기피 패턴 총 위반 수 (신규단독 제외)
+    const patternKeys = {'NOD', 'NOOD', 'NOE', 'EOD'};
+    final softPatternTotal = state.softViolations.entries
+        .where((e) => patternKeys.contains(e.key))
+        .fold(0, (s, e) => s + e.value.length);
+    final skillViolTotal =
+        (state.softViolations['신규단독'] ?? []).length;
 
     final wantedPct = state.wantedTotal > 0
         ? (state.wantedSatisfied / state.wantedTotal * 100).round()
@@ -371,6 +375,11 @@ class ViolationSummaryBanner extends StatelessWidget {
                       label: '기피패턴 ${softPatternTotal}회',
                       color: AppColors.brandOrange,
                     ),
+                  if (skillViolTotal > 0)
+                    BannerChip(
+                      label: '숙련도 ${skillViolTotal}건',
+                      color: AppColors.brandOrange,
+                    ),
                   if (state.wantedTotal > 0)
                     BannerChip(
                       label: '원티드 ${wantedPct}%',
@@ -378,7 +387,7 @@ class ViolationSummaryBanner extends StatelessWidget {
                           ? AppColors.success
                           : AppColors.brandOrange,
                     ),
-                  if (!hasIssue && softPatternTotal == 0 && state.wantedTotal == 0)
+                  if (!hasIssue && softPatternTotal == 0 && skillViolTotal == 0 && state.wantedTotal == 0)
                     Text(
                       '위반 없음',
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -448,8 +457,9 @@ class SoftSummaryTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final softViol = state.softViolations;
-    final hasSoftPattern = softViol.isNotEmpty &&
-        softViol.values.any((v) => v.isNotEmpty);
+    const patternKeys = {'NOD', 'NOOD', 'NOE', 'EOD'};
+    final hasSoftPattern = softViol.entries
+        .any((e) => patternKeys.contains(e.key) && e.value.isNotEmpty);
     final customViols = state.customRuleViolations;
 
     return ListView(
@@ -519,15 +529,32 @@ class SoftSummaryTab extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           ...{
-            'NOD': ('NOD (나이트->오프->데이)', softViol['NOD']),
-            'NOOD': ('NOOD (나이트->오프x2->데이)', softViol['NOOD']),
-            'NOE': ('NOE (나이트->오프->이브닝)', softViol['NOE']),
-            'EOD': ('EOD (이브닝->오프->데이)', softViol['EOD']),
+            'NOD': ('NOD (나이트→오프→데이)', softViol['NOD']),
+            'NOOD': ('NOOD (나이트→오프×2→데이)', softViol['NOOD']),
+            'NOE': ('NOE (나이트→오프→이브닝)', softViol['NOE']),
+            'EOD': ('EOD (이브닝→오프→데이)', softViol['EOD']),
           }.entries.where((e) => (e.value.$2?.isNotEmpty ?? false)).map((e) {
             final label = e.value.$1;
             final items = e.value.$2!;
             return PatternGroup(label: label, items: items);
           }),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+
+        // -- 숙련도 위반 --
+        if ((softViol['신규단독'] ?? []).isNotEmpty) ...[
+          Text(
+            '숙련도 위반',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: AppColors.textSecondaryLight,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          PatternGroup(
+            label: '신규 단독 근무',
+            items: softViol['신규단독']!,
+            icon: Icons.school_outlined,
+          ),
           const SizedBox(height: AppSpacing.sm),
         ],
 
@@ -540,41 +567,17 @@ class SoftSummaryTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.error.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                  color: AppColors.error.withValues(alpha: 0.15)),
-            ),
-            child: Column(
-              children: customViols
-                  .map(
-                    (v) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 3),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.error_outline,
-                              size: 15, color: AppColors.error),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(v,
-                                style: theme.textTheme.bodySmall),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
+          ...CustomRuleViolationGroup.groupBy(customViols).map(
+            (g) => CustomRuleViolationGroup(group: g),
           ),
           const SizedBox(height: AppSpacing.md),
         ],
 
         // -- 모두 양호 --
-        if (state.wantedTotal == 0 && !hasSoftPattern && customViols.isEmpty)
+        if (state.wantedTotal == 0 &&
+            !hasSoftPattern &&
+            (softViol['신규단독'] ?? []).isEmpty &&
+            customViols.isEmpty)
           Center(
             child: Padding(
               padding: const EdgeInsets.only(top: AppSpacing.xxl),
@@ -600,9 +603,15 @@ class SoftSummaryTab extends StatelessWidget {
 }
 
 class PatternGroup extends StatelessWidget {
-  const PatternGroup({super.key, required this.label, required this.items});
+  const PatternGroup({
+    super.key,
+    required this.label,
+    required this.items,
+    this.icon = Icons.warning_amber_rounded,
+  });
   final String label;
   final List<String> items;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -621,8 +630,7 @@ class PatternGroup extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.warning_amber_rounded,
-                  size: 15, color: AppColors.brandOrange),
+              Icon(icon, size: 15, color: AppColors.brandOrange),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(label,
@@ -706,6 +714,124 @@ class SummaryCard extends StatelessWidget {
             style: theme.textTheme.titleLarge?.copyWith(
               color: valueColor,
               fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────
+// 커스텀 룰 위반 그룹 카드
+// ────────────────────────────────────────
+
+class _CustomRuleGroup {
+  _CustomRuleGroup({required this.ruleText, required this.items});
+  final String ruleText;
+  final List<String> items;
+}
+
+class CustomRuleViolationGroup extends StatelessWidget {
+  const CustomRuleViolationGroup({super.key, required this.group});
+  final _CustomRuleGroup group;
+
+  /// 메시지 파싱: `"위반내용 (\"룰 텍스트\")"` → (ruleText, body)
+  static (String rule, String body) _parse(String v) {
+    final match = RegExp(r'^(.*)\s*\("(.+)"\)$').firstMatch(v.trim());
+    if (match != null) {
+      return (match.group(2)!, match.group(1)!.trim());
+    }
+    return ('기타', v);
+  }
+
+  /// 위반 목록을 룰 텍스트 기준으로 그룹핑
+  static List<_CustomRuleGroup> groupBy(List<String> viols) {
+    final map = <String, List<String>>{};
+    for (final v in viols) {
+      final (rule, body) = _parse(v);
+      map.putIfAbsent(rule, () => []).add(body);
+    }
+    return map.entries
+        .map((e) => _CustomRuleGroup(ruleText: e.key, items: e.value))
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 룰 텍스트 헤더
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.08),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(9)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.gavel_rounded,
+                    size: 14, color: AppColors.error),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '"${group.ruleText}"',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.error,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${group.items.length}건',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppColors.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 위반 내용 목록
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: group.items
+                  .map(
+                    (body) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.error_outline,
+                              size: 14, color: AppColors.error),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              body,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppColors.textSecondaryLight,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
           ),
         ],

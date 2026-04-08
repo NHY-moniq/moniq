@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
@@ -62,18 +64,21 @@ class HomeBody extends ConsumerWidget {
     final shiftName = hasServerShift
         ? firstShift.shiftType.name
         : matchedShiftType?.name ?? 'Off';
+    final isOff = hasServerShift
+        ? firstShift.shiftType.code.toUpperCase() == 'OFF'
+        : !hasShift;
     final startTime =
         hasServerShift ? firstShift.shiftType.startTime : matchedShiftType?.startTime;
     final endTime =
         hasServerShift ? firstShift.shiftType.endTime : matchedShiftType?.endTime;
     final teamName = hasServerShift ? firstShift.teamName : null;
 
-    // Subtitle
-    final subtitle = hasShift
-        ? teamName != null
+    // Subtitle — 랜덤 인사말
+    final subtitle = isOff
+        ? _offGreetings[Random().nextInt(_offGreetings.length)]
+        : teamName != null
             ? '$teamName에서 근무 중이에요'
-            : '오늘도 파이팅!'
-        : '오늘은 쉬는 날이에요';
+            : _workGreetings[Random().nextInt(_workGreetings.length)];
 
     return Padding(
       padding: AppSpacing.screenHorizontal,
@@ -142,4 +147,22 @@ class HomeBody extends ConsumerWidget {
       ),
     );
   }
+
+  static const _workGreetings = [
+    '오늘도 파이팅!',
+    '좋은 하루 보내세요!',
+    '오늘도 힘내봐요!',
+    '화이팅, 할 수 있어요!',
+    '멋진 하루 되세요!',
+    '오늘도 수고 많아요!',
+    '좋은 일만 가득하길!',
+  ];
+
+  static const _offGreetings = [
+    '오늘은 쉬는 날이에요',
+    '푹 쉬세요!',
+    '오늘은 충전하는 날!',
+    '편안한 하루 되세요!',
+    '오늘은 나를 위한 시간!',
+  ];
 }

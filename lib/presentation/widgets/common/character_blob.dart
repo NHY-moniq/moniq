@@ -14,6 +14,18 @@ enum CharacterType {
 
   /// 회색 — Off / 휴무
   grey,
+
+  /// 초록이
+  green,
+
+  /// 분홍이
+  pink,
+
+  /// 보라
+  purple,
+
+  /// 코랄(빨강/주홍)
+  coral,
 }
 
 /// OnorOff 캐릭터 blob 위젯.
@@ -37,6 +49,10 @@ class CharacterBlob extends StatelessWidget {
         CharacterType.orange => AppColors.brandOrange,
         CharacterType.blue => AppColors.brandBlue,
         CharacterType.grey => AppColors.shiftOff,
+        CharacterType.green => const Color(0xFF81C784),
+        CharacterType.pink => const Color(0xFFF48FB1),
+        CharacterType.purple => const Color(0xFFB39DDB),
+        CharacterType.coral => const Color(0xFFFF8A65),
       };
 
   Color get _shadowColor => switch (type) {
@@ -44,6 +60,10 @@ class CharacterBlob extends StatelessWidget {
         CharacterType.orange => AppColors.secondary,
         CharacterType.blue => AppColors.tertiary,
         CharacterType.grey => AppColors.outline,
+        CharacterType.green => const Color(0xFF4CAF50),
+        CharacterType.pink => const Color(0xFFE91E63),
+        CharacterType.purple => const Color(0xFF7E57C2),
+        CharacterType.coral => const Color(0xFFFF5722),
       };
 
   @override
@@ -221,10 +241,13 @@ CharacterType characterTypeFromColor(Color color) {
   }
 
   // hue 기반 분류 (fallback)
-  // Day(yellow): 43+, Evening(orange): 15-43, Night: 파랑
-  if (hue >= 43 && hue < 70) return CharacterType.yellow;   // Day
-  if (hue >= 15 && hue < 43) return CharacterType.orange;   // Evening
-  if (hue >= 190 && hue < 260) return CharacterType.blue;   // Night
+  if (hue >= 43 && hue < 70) return CharacterType.yellow;    // Day (노란)
+  if (hue >= 15 && hue < 43) return CharacterType.orange;    // Evening (주황)
+  if (hue >= 190 && hue < 260) return CharacterType.blue;    // Night (파란)
+  if (hue >= 80 && hue < 170) return CharacterType.green;    // 초록
+  if (hue >= 0 && hue < 15) return CharacterType.coral;      // 코랄/주홍
+  if (hue >= 330 && hue <= 360) return CharacterType.pink;   // 분홍
+  if (hue >= 260 && hue < 330) return CharacterType.purple;  // 보라
 
   return CharacterType.grey;
 }

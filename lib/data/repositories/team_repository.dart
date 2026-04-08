@@ -13,6 +13,10 @@ class TeamRepository {
     return _dataSource.getMyTeams();
   }
 
+  Future<TeamModel> getTeamById(String teamId) {
+    return _dataSource.getTeamById(teamId);
+  }
+
   Future<TeamModel> createTeam({
     required String name,
     String? icon,

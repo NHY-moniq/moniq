@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/models/roster_entry.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 
 /// 근무 변경 섹션 — 현재 내 근무 + 변경할 근무 유형 선택
@@ -25,6 +24,7 @@ class RequestCreateShiftChangeSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     if (isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -34,15 +34,17 @@ class RequestCreateShiftChangeSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 현재 내 근무
-        Text('현재 내 근무',
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600)),
+        Text(
+          '현재 내 근무',
+          style: theme.textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: AppSpacing.sm),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
-            color: AppColors.surfaceContainerLow,
+            color: colorScheme.surfaceContainerLow,
             borderRadius: AppRadius.borderRadiusMd,
           ),
           child: Text(
@@ -51,7 +53,7 @@ class RequestCreateShiftChangeSection extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color: myShiftTypeName != null
                   ? null
-                  : AppColors.textSecondaryLight,
+                  : colorScheme.onSurfaceVariant,
             ),
           ),
         ),
@@ -59,9 +61,11 @@ class RequestCreateShiftChangeSection extends StatelessWidget {
         const SizedBox(height: AppSpacing.lg),
 
         // 변경할 근무 유형 선택
-        Text('변경할 근무 유형',
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600)),
+        Text(
+          '변경할 근무 유형',
+          style: theme.textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: AppSpacing.sm),
         Wrap(
           spacing: AppSpacing.sm,
@@ -110,6 +114,7 @@ class RequestCreateSwapSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     if (isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -120,15 +125,17 @@ class RequestCreateSwapSection extends StatelessWidget {
       children: [
         // 현재 내 근무
         if (myShiftTypeName != null) ...[
-          Text('현재 내 근무',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
+          Text(
+            '현재 내 근무',
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: AppSpacing.sm),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
+              color: colorScheme.surfaceContainerLow,
               borderRadius: AppRadius.borderRadiusMd,
             ),
             child: Text(
@@ -142,16 +149,20 @@ class RequestCreateSwapSection extends StatelessWidget {
         ],
 
         // 팀원 근무 목록
-        Text('교환할 팀원 선택',
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600)),
+        Text(
+          '교환할 팀원 선택',
+          style: theme.textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: AppSpacing.sm),
 
         if (roster.isEmpty)
-          Text('해당 날짜에 배정된 근무가 없습니다',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondaryLight,
-              ))
+          Text(
+            '해당 날짜에 배정된 근무가 없습니다',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          )
         else
           ...roster.map((entry) {
             final color = parseHexColor(entry.shiftType.color);
@@ -172,10 +183,9 @@ class RequestCreateSwapSection extends StatelessWidget {
                       child: Center(
                         child: Text(
                           entry.shiftType.code,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.surface,
                             fontWeight: FontWeight.bold,
-                            fontSize: 10,
                           ),
                         ),
                       ),
@@ -199,17 +209,24 @@ class RequestCreateSwapSection extends StatelessWidget {
                     children: entry.workers
                         .where((w) => w.user.id != myUserId)
                         .map((w) {
-                      final name = w.user.displayName ?? w.user.email;
-                      final isSelected = selectedSwapUserId == w.user.id;
+                      final name =
+                          w.user.displayName ?? w.user.email;
+                      final isSelected =
+                          selectedSwapUserId == w.user.id;
 
                       return ChoiceChip(
                         label: Text(name),
                         selected: isSelected,
                         onSelected: (_) =>
                             onSwapUserSelected(w.user.id, name),
-                        selectedColor: color.withValues(alpha: 0.2),
+                        selectedColor:
+                            color.withValues(alpha: 0.2),
                         avatar: isSelected
-                            ? Icon(Icons.check, size: 16, color: color)
+                            ? Icon(
+                                Icons.check,
+                                size: 16,
+                                color: color,
+                              )
                             : null,
                       );
                     }).toList(),
@@ -226,18 +243,22 @@ class RequestCreateSwapSection extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.08),
+              color: colorScheme.primary.withValues(alpha: 0.08),
               borderRadius: AppRadius.borderRadiusMd,
             ),
             child: Row(
               children: [
-                Icon(Icons.swap_horiz, color: AppColors.primary, size: 20),
+                Icon(
+                  Icons.swap_horiz,
+                  color: colorScheme.primary,
+                  size: 20,
+                ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     '$selectedSwapUserName 님과 근무 교환 요청',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.primary,
+                      color: colorScheme.primary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
