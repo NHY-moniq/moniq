@@ -185,6 +185,19 @@ class ShiftRemoteDataSource {
         .eq('id', id);
   }
 
+  /// 근무 유형 삭제. 해당 유형으로 배정된 근무가 있으면 삭제 불가 예외.
+  Future<void> deleteShiftType(String id) async {
+    final referenced = await _client
+        .from('shifts')
+        .select('id')
+        .eq('shift_type_id', id)
+        .limit(1);
+    if ((referenced as List).isNotEmpty) {
+      throw Exception('이 근무 유형으로 배정된 근무가 있어 삭제할 수 없습니다. 비활성화만 가능합니다.');
+    }
+    await _client.from('shift_types').delete().eq('id', id);
+  }
+
   Future<void> reorderShiftTypes(
       String teamId, List<String> orderedIds) async {
     for (var i = 0; i < orderedIds.length; i++) {

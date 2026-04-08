@@ -224,17 +224,23 @@ class WantedMemberViewModel
   }
 
   /// 희망 휴무일 삭제
-  Future<void> removeEntry(String entryId) async {
+  Future<bool> removeEntry(String entryId) async {
     final current = state.valueOrNull;
-    if (current == null) return;
+    if (current == null) return false;
 
     try {
       final repo = ref.read(wantedRepositoryProvider);
       await repo.deleteWantedEntry(entryId);
       state = AsyncData(current.copyWith(
         myEntries: current.myEntries.where((e) => e.id != entryId).toList(),
+        error: null,
       ));
-    } catch (_) {}
+      return true;
+    } catch (e) {
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      state = AsyncData(current.copyWith(error: msg));
+      return false;
+    }
   }
 
   Future<void> refresh() async {

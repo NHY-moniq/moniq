@@ -146,10 +146,22 @@ class _EntryView extends HookConsumerWidget {
                             ? null
                             : IconButton(
                           icon: const Icon(Icons.close, size: 20),
-                          onPressed: () => ref
-                              .read(wantedMemberViewModelProvider(teamId)
-                                  .notifier)
-                              .removeEntry(entry.id),
+                          onPressed: () async {
+                            final ok = await ref
+                                .read(wantedMemberViewModelProvider(teamId)
+                                    .notifier)
+                                .removeEntry(entry.id);
+                            if (!context.mounted || ok) return;
+                            final err = ref
+                                .read(wantedMemberViewModelProvider(teamId))
+                                .valueOrNull
+                                ?.error;
+                            if (err != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(err)),
+                              );
+                            }
+                          },
                         ),
                       ),
                     );
@@ -296,8 +308,19 @@ class _EntryView extends HookConsumerWidget {
                                   reason:
                                       reason.isNotEmpty ? reason : null,
                                 );
-                            if (success && ctx.mounted) {
+                            if (!ctx.mounted) return;
+                            if (success) {
                               Navigator.pop(ctx);
+                            } else {
+                              final err = ref
+                                  .read(wantedMemberViewModelProvider(teamId))
+                                  .valueOrNull
+                                  ?.error;
+                              if (err != null) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(content: Text(err)),
+                                );
+                              }
                             }
                           },
                     child: Text(selectedDates.isEmpty

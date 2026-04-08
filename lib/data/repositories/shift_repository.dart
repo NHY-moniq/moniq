@@ -144,6 +144,10 @@ class ShiftRepository {
     return _dataSource.toggleShiftTypeActive(id, isActive);
   }
 
+  Future<void> deleteShiftType(String id) {
+    return _dataSource.deleteShiftType(id);
+  }
+
   Future<void> reorderShiftTypes(String teamId, List<String> orderedIds) {
     return _dataSource.reorderShiftTypes(teamId, orderedIds);
   }
