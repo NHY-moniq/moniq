@@ -88,11 +88,11 @@ class MemberTile extends StatelessWidget {
   String? _skillLabel(String? skillLevel) {
     switch (skillLevel) {
       case 'junior':
-        return '3년 미만';
+        return '신규';
       case 'mid':
-        return '3~5년';
+        return '중간';
       case 'senior':
-        return '5년 이상';
+        return '올드';
       default:
         return null;
     }

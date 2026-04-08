@@ -51,6 +51,13 @@ class CustomRuleRemoteDataSource {
         .eq('id', ruleId);
   }
 
+  Future<void> updatePriority(String ruleId, {required String priority}) async {
+    await _client
+        .from('custom_rules')
+        .update({'priority': priority})
+        .eq('id', ruleId);
+  }
+
   Future<void> deleteRule(String ruleId) async {
     await _client.from('custom_rules').delete().eq('id', ruleId);
   }

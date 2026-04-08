@@ -518,8 +518,50 @@ class ScheduleGenerationViewModel
           if (violated.isNotEmpty) {
             violations.add('날짜 오프 위반: ${mName(uid)}이 ${violated.join(', ')} 근무 배정 ("${rule.originalText}")');
           }
+
+        case 'skill_balance':
+          final filterCode = (rv['shift_code'] as String?)?.toUpperCase();
+          // 날짜 × 근무유형 순회
+          final dateSet = shifts.map((sh) => dateFmt(sh.shiftDate)).toSet().toList()..sort();
+          for (final dStr in dateSet) {
+            for (final st in s.shiftTypes) {
+              // D/E/N으로 인식되는 타입만 체크
+              final bool isD = st.code.toUpperCase() == 'D' || st.name.contains('데이') || st.name.contains('주간');
+              final bool isE = st.code.toUpperCase() == 'E' || st.name.contains('이브닝') || st.name.contains('저녁');
+              final bool isN = st.code.toUpperCase() == 'N' || st.name.contains('나이트') || st.name.contains('야간');
+              if (!isD && !isE && !isN) continue;
+
+              String? stCode = isN ? 'N' : isE ? 'E' : 'D';
+
+              if (filterCode != null && filterCode != stCode) continue;
+
+              final dayShiftUids = shifts
+                  .where((sh) => dateFmt(sh.shiftDate) == dStr && sh.shiftTypeId == st.id)
+                  .map((sh) => sh.userId)
+                  .toList();
+              if (dayShiftUids.isEmpty) continue;
+
+              final dayMembers = dayShiftUids.map((uid) =>
+                  s.members.firstWhere((m) => m.userId == uid,
+                      orElse: () => s.members.first)).toList();
+
+              // 숙련도 미설정 멤버 있으면 판단 불가 → 건너뜀
+              if (dayMembers.any((m) => m.member.skillLevel == null)) continue;
+
+              final hasJunior = dayMembers.any((m) => m.member.skillLevel == 'junior');
+              final hasSeniorOrMid = dayMembers.any((m) =>
+                  m.member.skillLevel == 'senior' || m.member.skillLevel == 'mid');
+
+              if (hasJunior && !hasSeniorOrMid) {
+                violations.add(
+                  '숙련도 불균형: $dStr ${st.name} 근무에 신규만 배정되고 올드/중간 없음 ("${rule.originalText}")',
+                );
+              }
+            }
+          }
       }
     }
+
     return violations;
   }
 
@@ -672,6 +714,18 @@ class ScheduleGenerationViewModel
         .where((c) => c.shiftCode.isNotEmpty)
         .toList();
 
+    // skill_balance: { shift_code? }
+    // "신규가 있으면 올드 한명은 있어야 한다" — soft/hard 모두 지원
+    // hard: 배정 후 위반 시 warning
+    // soft: 스코어링으로 유도
+    final skillBalanceRules = activeCustomRules
+        .where((r) => r.ruleType == 'skill_balance')
+        .map((r) => (
+              shiftCode: (r.ruleValue['shift_code'] as String?)?.toUpperCase(),
+              isHard: r.priority == 'hard',
+            ))
+        .toList();
+
     // 소프트: 원티드 우선순위 (1번 인덱스가 최고 우선순위)
     final priorityOrder = List<String>.from(
       (ruleMap['wanted_priority_order']?['order'] as List?) ??
@@ -696,7 +750,6 @@ class ScheduleGenerationViewModel
         t.code.toUpperCase() == 'E' ||
         t.name.contains('이브닝') ||
         t.name.contains('저녁');
-
     // 희망 휴무 날짜 맵 (userId -> Set<dateStr>)
     final wantedDaysOff = <String, Set<String>>{};
     for (final entry in wantedEntries) {
@@ -705,8 +758,10 @@ class ScheduleGenerationViewModel
       wantedDaysOff.putIfAbsent(entry.userId, () => {}).add(dateStr);
     }
 
-    final workShiftTypes =
-        shiftTypes.where((t) => t.code.toUpperCase() != 'OFF').toList();
+    // D/E/N으로 인식되는 타입만 포함 (알 수 없는 추가 타입, OFF 타입 제외)
+    final workShiftTypes = shiftTypes
+        .where((t) => isDayType(t) || isEveningType(t) || isNightType(t))
+        .toList();
 
     // ── 날짜 포맷 ──
     String fmt(DateTime d) =>
@@ -734,7 +789,7 @@ class ScheduleGenerationViewModel
     };
     // 소프트 기피 패턴 위반 상세 (멤버 + 날짜)
     final softViolCounts = <String, List<String>>{
-      'NOD': [], 'NOOD': [], 'NOE': [], 'EOD': [],
+      'NOD': [], 'NOOD': [], 'NOE': [], 'EOD': [], '신규단독': [],
     };
     final lastWorkedDate = <String, DateTime?>{
       for (final m in members) m.userId: null,
@@ -954,6 +1009,65 @@ class ScheduleGenerationViewModel
             if (partnerAssigned) s += 80;
           }
 
+          // ── 기본 소프트: 신규끼리만 같은 근무 방지 ──
+          // 신규가 이미 배정된 근무에 또 신규를 배정하면 페널티 (올드 없을 시)
+          {
+            final alreadyJuniors = shifts.where((sh) =>
+                sh['shift_date'] == dateStr &&
+                sh['shift_type_id'] == shiftType.id &&
+                members.firstWhere(
+                  (mm) => mm.userId == sh['user_id'],
+                  orElse: () => members.first,
+                ).member.skillLevel == 'junior').length;
+            final alreadySeniors = shifts.where((sh) =>
+                sh['shift_date'] == dateStr &&
+                sh['shift_type_id'] == shiftType.id &&
+                members.firstWhere(
+                  (mm) => mm.userId == sh['user_id'],
+                  orElse: () => members.first,
+                ).member.skillLevel == 'senior').length;
+
+            if (m.member.skillLevel == 'junior' &&
+                alreadyJuniors >= 1 &&
+                alreadySeniors == 0) {
+              s -= 90; // 신규끼리 뭉치기 방지
+            }
+            if (m.member.skillLevel == 'senior' && alreadyJuniors >= 1) {
+              s += 60; // 신규 있는 근무에 올드 선호
+            }
+          }
+
+          // ── skill_balance 커스텀 룰 ──
+          for (final sr in skillBalanceRules) {
+            if (sr.shiftCode != null && sr.shiftCode != shiftCode) continue;
+            final alreadyJuniors = shifts.where((sh) =>
+                sh['shift_date'] == dateStr &&
+                sh['shift_type_id'] == shiftType.id &&
+                members.firstWhere(
+                  (mm) => mm.userId == sh['user_id'],
+                  orElse: () => members.first,
+                ).member.skillLevel == 'junior').length;
+            final alreadySeniors = shifts.where((sh) =>
+                sh['shift_date'] == dateStr &&
+                sh['shift_type_id'] == shiftType.id &&
+                members.firstWhere(
+                  (mm) => mm.userId == sh['user_id'],
+                  orElse: () => members.first,
+                ).member.skillLevel == 'senior').length;
+            // 신규 있고 올드 없으면 올드에 강한 보너스
+            if (m.member.skillLevel == 'senior' &&
+                alreadyJuniors >= 1 &&
+                alreadySeniors == 0) {
+              s += 120;
+            }
+            // 신규가 있고 올드도 없는데 또 신규 배정 시 강한 페널티
+            if (m.member.skillLevel == 'junior' &&
+                alreadyJuniors >= 1 &&
+                alreadySeniors == 0) {
+              s -= 130;
+            }
+          }
+
           return s;
         }
 
@@ -1071,14 +1185,56 @@ class ScheduleGenerationViewModel
               (m) => m.userId == uid,
               orElse: () => members.first,
             );
-            final skill = int.tryParse(member.member.skillLevel ?? '') ?? 0;
+            final skill = _skillLevelNum(member.member.skillLevel);
             return skill >= cond.minSkill;
           }).length;
           if (qualifiedCount < cond.minCount) {
+            final skillLabel = _skillLevelLabel(cond.minSkill);
             warnings.add(
-              '$dateStr ${cond.shiftCode} 근무: 숙련도 ${cond.minSkill} 이상 ${cond.minCount}명 조건 미충족 ($qualifiedCount명)',
+              '$dateStr ${cond.shiftCode} 근무: $skillLabel 이상 ${cond.minCount}명 조건 미충족 ($qualifiedCount명)',
             );
           }
+        }
+      }
+    }
+
+    // ── 사후 검증: 신규 단독 근무 (기본 소프트 체크) ──
+    // 숙련도가 모두 설정된 경우에만 체크 (미설정 멤버 있으면 판단 불가 → 건너뜀)
+    for (int d = 0; d < dayCount; d++) {
+      final date = start.add(Duration(days: d));
+      final dateStr = fmt(date);
+      for (final shiftType in workShiftTypes) {
+        final assignedUids = shifts
+            .where((s) =>
+                s['shift_date'] == dateStr && s['shift_type_id'] == shiftType.id)
+            .map((s) => s['user_id'] as String)
+            .toList();
+        if (assignedUids.isEmpty) continue;
+
+        final assignedMembers = assignedUids
+            .map((uid) => members.firstWhere(
+                  (m) => m.userId == uid,
+                  orElse: () => members.first,
+                ))
+            .toList();
+
+        // 숙련도 미설정 멤버가 한 명이라도 있으면 판단 불가 → 건너뜀
+        final hasUnknownSkill =
+            assignedMembers.any((m) => m.member.skillLevel == null);
+        if (hasUnknownSkill) continue;
+
+        final hasJunior =
+            assignedMembers.any((m) => m.member.skillLevel == 'junior');
+        final hasSeniorOrMid = assignedMembers.any((m) =>
+            m.member.skillLevel == 'senior' || m.member.skillLevel == 'mid');
+
+        if (hasJunior && !hasSeniorOrMid) {
+          final mmdd = dateStr.substring(5);
+          final juniorNames = assignedMembers
+              .where((m) => m.member.skillLevel == 'junior')
+              .map((m) => m.displayName)
+              .join(', ');
+          softViolCounts['신규단독']!.add('${shiftType.name} $mmdd ($juniorNames)');
         }
       }
     }
@@ -1116,6 +1272,26 @@ class ScheduleGenerationViewModel
         ..removeWhere((_, v) => v.isEmpty),
       wantedUnsatisfied: wantedUnsatisfied,
     );
+  }
+
+  /// 'junior'/'mid'/'senior' 문자열 → 숫자 (1/2/3)
+  static int _skillLevelNum(String? level) {
+    switch (level) {
+      case 'junior': return 1;
+      case 'mid': return 2;
+      case 'senior': return 3;
+      default: return 0;
+    }
+  }
+
+  /// 숙련도 숫자 → 한국어 라벨
+  static String _skillLevelLabel(int num) {
+    switch (num) {
+      case 1: return '신규';
+      case 2: return '중간';
+      case 3: return '올드';
+      default: return '숙련도 $num';
+    }
   }
 }
 

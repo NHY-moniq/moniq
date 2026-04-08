@@ -64,18 +64,17 @@ class TeamCalendarViewModel
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    final teams = await _teamRepository.getMyTeams();
-    final team = teams.firstWhere((t) => t.id == teamId);
+    final results = await Future.wait([
+      _teamRepository.getTeamById(teamId),
+      _shiftRepository.getShiftTypes(teamId),
+      _shiftRepository.getTeamMonthlyShifts(teamId: teamId, month: now),
+      _shiftRepository.getTeamRoster(teamId: teamId, date: today),
+    ]);
 
-    final shiftTypes = await _shiftRepository.getShiftTypes(teamId);
-    final monthlyShifts = await _shiftRepository.getTeamMonthlyShifts(
-      teamId: teamId,
-      month: now,
-    );
-    final roster = await _shiftRepository.getTeamRoster(
-      teamId: teamId,
-      date: today,
-    );
+    final team = results[0] as TeamModel;
+    final shiftTypes = results[1] as List<ShiftTypeModel>;
+    final monthlyShifts = results[2] as Map<DateTime, List<ShiftWithType>>;
+    final roster = results[3] as List<RosterEntry>;
 
     return TeamCalendarState(
       teamId: teamId,
