@@ -69,6 +69,17 @@ class RosterPanel extends ConsumerWidget {
   }
 }
 
+class _SwapCandidate {
+  _SwapCandidate({
+    required this.worker,
+    required this.shiftType,
+    required this.isDifferentType,
+  });
+  final RosterWorker worker;
+  final ShiftTypeModel shiftType;
+  final bool isDifferentType;
+}
+
 class _ShiftTypeGroup extends ConsumerWidget {
   const _ShiftTypeGroup({
     required this.entry,
@@ -151,7 +162,10 @@ class _ShiftTypeGroup extends ConsumerWidget {
                             shiftId: worker.shiftId!,
                             workerName: name,
                           );
-                        } else if (!isMe) {
+                        } else if (isMe) {
+                          // 본인 칩 탭 → 교환 후보 추천 시트
+                          _showRecommendedSwapSheet(context, ref);
+                        } else {
                           _showSwapSheet(
                             context,
                             ref,
@@ -186,6 +200,127 @@ class _ShiftTypeGroup extends ConsumerWidget {
         ),
         const SizedBox(height: AppSpacing.md),
       ],
+    );
+  }
+
+  /// 본인 근무 탭 → 같은 날짜에 다른 유형으로 근무 중인 후보들을 정렬해 보여주는 시트.
+  /// 후보를 누르면 기존 1:1 교환 요청 흐름으로 진입한다.
+  void _showRecommendedSwapSheet(BuildContext context, WidgetRef ref) {
+    final tid = teamId!;
+    final myUserId = ref.read(currentUserProvider)?.id;
+    final myShiftTypeId = entry.shiftType.id;
+    final dateStr = DateFormat('M월 d일 (E)', 'ko_KR').format(date);
+
+    // 후보: 같은 날짜의 모든 근무자 중 (a) 본인 제외 (b) 다른 shift_type을 우선
+    final candidates = <_SwapCandidate>[];
+    for (final e in allEntries) {
+      for (final w in e.workers) {
+        if (w.user.id == myUserId) continue;
+        candidates.add(_SwapCandidate(
+          worker: w,
+          shiftType: e.shiftType,
+          isDifferentType: e.shiftType.id != myShiftTypeId,
+        ));
+      }
+    }
+    // 정렬: 다른 유형 우선 → 이름순
+    candidates.sort((a, b) {
+      if (a.isDifferentType != b.isDifferentType) {
+        return a.isDifferentType ? -1 : 1;
+      }
+      final an = a.worker.user.displayName ?? a.worker.user.email;
+      final bn = b.worker.user.displayName ?? b.worker.user.email;
+      return an.compareTo(bn);
+    });
+
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: AppSpacing.xxl,
+          right: AppSpacing.xxl,
+          top: AppSpacing.xxl,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xxl,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('교환 후보 추천',
+                style: Theme.of(ctx)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: AppSpacing.sm),
+            Text('$dateStr · 다른 유형 우선 정렬',
+                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    )),
+            const SizedBox(height: AppSpacing.lg),
+            if (candidates.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                child: Text(
+                  '같은 날짜에 교환 가능한 다른 근무자가 없습니다',
+                  style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 360),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: candidates.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSpacing.xs),
+                  itemBuilder: (lctx, i) {
+                    final c = candidates[i];
+                    final cColor = parseHexColor(c.shiftType.color);
+                    final cName =
+                        c.worker.user.displayName ?? c.worker.user.email;
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundColor: cColor,
+                        child: Text(c.shiftType.code,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            )),
+                      ),
+                      title: Text(cName),
+                      subtitle: Text(c.shiftType.name),
+                      trailing: c.isDifferentType
+                          ? const Icon(Icons.recommend,
+                              color: AppColors.primary, size: 20)
+                          : null,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _showSwapSheet(
+                          context,
+                          ref,
+                          targetUserId: c.worker.user.id,
+                          targetName: cName,
+                          targetShiftType: c.shiftType.name,
+                          targetShiftColor: cColor,
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
