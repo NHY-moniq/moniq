@@ -28,17 +28,17 @@ const skillOptions = [
   SkillOption(
     value: 'junior',
     label: '신규',
-    description: '임상 경력 3년 미만',
+    description: '신규 간호사',
   ),
   SkillOption(
     value: 'mid',
     label: '중간',
-    description: '임상 경력 3년 이상 5년 미만',
+    description: '중간 경력 간호사',
   ),
   SkillOption(
     value: 'senior',
     label: '올드',
-    description: '임상 경력 5년 이상',
+    description: '올드 간호사',
   ),
 ];
 
@@ -50,11 +50,13 @@ class MemberEditSheet extends ConsumerStatefulWidget {
     required this.teamId,
     required this.member,
     required this.state,
+    this.scrollController,
   });
 
   final String teamId;
   final TeamMemberWithUser member;
   final TeamDetailState state;
+  final ScrollController? scrollController;
 
   @override
   ConsumerState<MemberEditSheet> createState() =>
@@ -69,6 +71,7 @@ class _MemberEditSheetState
   late bool _nightExempt;
   late bool _dayOnly;
   late bool _nightDedicated;
+  late String? _skillLevel;
 
   @override
   void initState() {
@@ -76,20 +79,24 @@ class _MemberEditSheetState
     _nightExempt = widget.member.member.nightExempt;
     _dayOnly = widget.member.member.dayOnly;
     _nightDedicated = widget.member.member.nightDedicated;
+    _skillLevel = widget.member.member.skillLevel;
   }
 
-  Future<void> _saveAttrs() async {
+  Future<void> _saveAttrs({
+    required bool nightExempt,
+    required bool dayOnly,
+    required bool nightDedicated,
+  }) async {
     setState(() => _saving = true);
     try {
       await ref
           .read(teamDetailViewModelProvider(widget.teamId).notifier)
           .updateMemberAttrs(
             widget.member.userId,
-            nightExempt: _nightExempt,
-            dayOnly: _dayOnly,
-            nightDedicated: _nightDedicated,
+            nightExempt: nightExempt,
+            dayOnly: dayOnly,
+            nightDedicated: nightDedicated,
           );
-      if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) _showError('저장 중 오류가 발생했습니다: $e');
     } finally {
@@ -123,15 +130,17 @@ class _MemberEditSheetState
   }
 
   Future<void> _changeSkillLevel(String? skillLevel) async {
-    setState(() => _saving = true);
+    setState(() {
+      _skillLevel = skillLevel;
+      _saving = true;
+    });
     try {
       await ref
           .read(teamDetailViewModelProvider(widget.teamId).notifier)
           .updateMemberSkillLevel(widget.member.userId, skillLevel);
-      // 숙련도는 저장 후 바로 닫지 않고 속성과 함께 저장할 수 있도록 유지
-      if (mounted) setState(() => _saving = false);
     } catch (e) {
       if (mounted) _showError('숙련도 변경 중 오류가 발생했습니다: $e');
+    } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
@@ -188,12 +197,14 @@ class _MemberEditSheetState
     final m = widget.member;
     final newRoleLabel =
         m.role == 'admin' ? '일반 멤버로 변경' : '관리자로 변경';
-    final currentSkill = m.member.skillLevel;
+    // _skillLevel is local state, updated immediately on selection
 
-    return SafeArea(
+    return SingleChildScrollView(
+      controller: widget.scrollController,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: AppSpacing.md,
+        padding: EdgeInsets.only(
+          top: AppSpacing.md,
+          bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.md,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -292,7 +303,7 @@ class _MemberEditSheetState
                   dense: true,
                   value: opt.value,
                   // ignore: deprecated_member_use
-                  groupValue: currentSkill,
+                  groupValue: _skillLevel,
                   title: Text(opt.label),
                   subtitle: Text(
                     opt.description,
@@ -333,13 +344,18 @@ class _MemberEditSheetState
               onChanged: _saving
                   ? null
                   : (v) {
+                      final newNightExempt = v ? false : _nightExempt;
+                      final newDayOnly = v ? false : _dayOnly;
                       setState(() {
                         _nightDedicated = v;
-                        if (v) {
-                          _nightExempt = false;
-                          _dayOnly = false;
-                        }
+                        _nightExempt = newNightExempt;
+                        _dayOnly = newDayOnly;
                       });
+                      _saveAttrs(
+                        nightExempt: newNightExempt,
+                        dayOnly: newDayOnly,
+                        nightDedicated: v,
+                      );
                     },
               title: const Text('나이트 전담'),
               subtitle: const Text('나이트 근무만 배정'),
@@ -351,7 +367,14 @@ class _MemberEditSheetState
               value: _nightExempt,
               onChanged: (_saving || _nightDedicated)
                   ? null
-                  : (v) => setState(() => _nightExempt = v),
+                  : (v) {
+                      setState(() => _nightExempt = v);
+                      _saveAttrs(
+                        nightExempt: v,
+                        dayOnly: _dayOnly,
+                        nightDedicated: _nightDedicated,
+                      );
+                    },
               title: const Text('나이트 제외'),
               subtitle: const Text('나이트 근무 배정 안 함'),
               // ignore: deprecated_member_use
@@ -362,32 +385,18 @@ class _MemberEditSheetState
               value: _dayOnly,
               onChanged: (_saving || _nightDedicated)
                   ? null
-                  : (v) => setState(() => _dayOnly = v),
+                  : (v) {
+                      setState(() => _dayOnly = v);
+                      _saveAttrs(
+                        nightExempt: _nightExempt,
+                        dayOnly: v,
+                        nightDedicated: _nightDedicated,
+                      );
+                    },
               title: const Text('데이 전용'),
               subtitle: const Text('데이 근무만 배정'),
               // ignore: deprecated_member_use
               activeColor: AppColors.shiftDay,
-            ),
-
-            // 속성 저장 버튼
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.sm,
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _saving ? null : _saveAttrs,
-                  child: _saving
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('저장'),
-                ),
-              ),
             ),
 
             const Divider(height: AppSpacing.lg),

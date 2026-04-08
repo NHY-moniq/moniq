@@ -29,60 +29,61 @@ class TeamScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 두 provider 동시에 watch — 순차 로딩 없음
     final teamsAsync = ref.watch(teamViewModelProvider);
+    final favoriteTeamAsync = ref.watch(favoriteTeamProvider);
 
-    return teamsAsync.when(
-      loading: () => Scaffold(
+    if (teamsAsync.isLoading || favoriteTeamAsync.isLoading) {
+      return Scaffold(
         appBar: AppBar(title: const Text('팀')),
         body: const MoniqLoadingView(),
-      ),
-      error: (e, _) => Scaffold(
+      );
+    }
+
+    if (teamsAsync.hasError) {
+      return Scaffold(
         appBar: AppBar(title: const Text('팀')),
         body: MoniqErrorView(
           message: '팀 정보를 불러올 수 없습니다',
           onRetry: () => ref.read(teamViewModelProvider.notifier).refresh(),
         ),
-      ),
-      data: (teams) {
-        if (teams.isEmpty) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('팀')),
-            body: MoniqEmptyState(
-              icon: Icons.groups_outlined,
-              character: CharacterType.orange,
-              message: '아직 참여한 팀이 없어요',
-              description: '팀을 만들거나 초대 코드로 참여해보세요',
-              actionLabel: '팀 만들기',
-              onAction: () => context.push('/teams/create'),
-              secondaryActionLabel: '초대 코드로 참여',
-              onSecondaryAction: () => context.push('/teams/join'),
-            ),
-          );
-        }
+      );
+    }
 
-        final favoriteTeamAsync = ref.watch(favoriteTeamProvider);
+    if (favoriteTeamAsync.hasError) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('팀')),
+        body: MoniqErrorView(
+          message: '즐겨찾기 팀을 불러올 수 없습니다',
+          onRetry: () => ref.invalidate(favoriteTeamProvider),
+        ),
+      );
+    }
 
-        return favoriteTeamAsync.when(
-          loading: () => Scaffold(
-            appBar: AppBar(title: const Text('팀')),
-            body: const MoniqLoadingView(),
-          ),
-          error: (e, _) => Scaffold(
-            appBar: AppBar(title: const Text('팀')),
-            body: MoniqErrorView(
-              message: '즐겨찾기 팀을 불러올 수 없습니다',
-              onRetry: () => ref.invalidate(favoriteTeamProvider),
-            ),
-          ),
-          data: (favoriteTeam) {
-            if (favoriteTeam == null) {
-              return _NoFavoriteView(teams: teams);
-            }
-            return _TeamCalendarView(team: favoriteTeam, teams: teams);
-          },
-        );
-      },
-    );
+    final teams = teamsAsync.valueOrNull ?? [];
+    final favoriteTeam = favoriteTeamAsync.valueOrNull;
+
+    if (teams.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('팀')),
+        body: MoniqEmptyState(
+          icon: Icons.groups_outlined,
+          character: CharacterType.orange,
+          message: '아직 참여한 팀이 없어요',
+          description: '팀을 만들거나 초대 코드로 참여해보세요',
+          actionLabel: '팀 만들기',
+          onAction: () => context.push('/teams/create'),
+          secondaryActionLabel: '초대 코드로 참여',
+          onSecondaryAction: () => context.push('/teams/join'),
+        ),
+      );
+    }
+
+    if (favoriteTeam == null) {
+      return _NoFavoriteView(teams: teams);
+    }
+
+    return _TeamCalendarView(team: favoriteTeam, teams: teams);
   }
 }
 

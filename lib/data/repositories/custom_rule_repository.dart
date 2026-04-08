@@ -30,5 +30,8 @@ class CustomRuleRepository {
   Future<void> toggleActive(String ruleId, {required bool isActive}) =>
       _ds.toggleActive(ruleId, isActive: isActive);
 
+  Future<void> updatePriority(String ruleId, {required String priority}) =>
+      _ds.updatePriority(ruleId, priority: priority);
+
   Future<void> deleteRule(String ruleId) => _ds.deleteRule(ruleId);
 }
