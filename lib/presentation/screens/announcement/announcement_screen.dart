@@ -342,6 +342,7 @@ class AnnouncementListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final dateFormat = DateFormat('MM.dd');
 
     return Card(
@@ -360,9 +361,8 @@ class AnnouncementListTile extends StatelessWidget {
                     if (teamName != null) ...[
                       Text(
                         teamName!,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.primary,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.primary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -372,14 +372,18 @@ class AnnouncementListTile extends StatelessWidget {
                     Row(
                       children: [
                         if (isPinned) ...[
-                          Icon(Icons.push_pin,
-                              size: 14, color: AppColors.brandOrange),
+                          Icon(
+                            Icons.push_pin,
+                            size: 14,
+                            color: AppColors.brandOrange,
+                          ),
                           const SizedBox(width: AppSpacing.xs),
                         ],
                         Expanded(
                           child: Text(
                             title,
-                            style: theme.textTheme.bodyLarge?.copyWith(
+                            style:
+                                theme.textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
                             maxLines: 1,
@@ -389,12 +393,13 @@ class AnnouncementListTile extends StatelessWidget {
                       ],
                     ),
                     // 내용 미리보기
-                    if (content != null && content!.isNotEmpty) ...[
+                    if (content != null &&
+                        content!.isNotEmpty) ...[
                       const SizedBox(height: AppSpacing.xxs),
                       Text(
                         content!,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.onSurfaceVariant,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -408,12 +413,15 @@ class AnnouncementListTile extends StatelessWidget {
                 Text(
                   dateFormat.format(createdAt!),
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               const SizedBox(width: AppSpacing.xs),
-              Icon(Icons.chevron_right,
-                  size: 20, color: AppColors.outline),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: colorScheme.outline,
+              ),
             ],
           ),
         ),
@@ -510,16 +518,23 @@ class _AnnouncementDetailPageState
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: const Text('공지 삭제'),
-                    content: const Text('이 공지사항을 삭제하시겠습니까?'),
+                    content:
+                        const Text('이 공지사항을 삭제하시겠습니까?'),
                     actions: [
                       TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
+                        onPressed: () =>
+                            Navigator.pop(ctx, false),
                         child: const Text('취소'),
                       ),
                       TextButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('삭제',
-                            style: TextStyle(color: AppColors.error)),
+                        onPressed: () =>
+                            Navigator.pop(ctx, true),
+                        child: Text(
+                          '삭제',
+                          style: TextStyle(
+                            color: colorScheme.error,
+                          ),
+                        ),
                       ),
                     ],
                   ),

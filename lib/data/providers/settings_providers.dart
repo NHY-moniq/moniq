@@ -4,6 +4,7 @@ import 'package:moniq/data/datasources/device_calendar_data_source.dart';
 import 'package:moniq/data/datasources/notification_service.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/datasources/settings_local_data_source.dart';
+import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/repositories/settings_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -117,7 +118,8 @@ class NotificationEnabledNotifier extends Notifier<bool> {
     await ns.cancelAll();
 
     final prefs = ref.read(sharedPreferencesProvider);
-    final eventDs = PersonalEventLocalDataSource(prefs: prefs);
+    final userId = ref.read(currentUserProvider)?.id ?? 'anonymous';
+    final eventDs = PersonalEventLocalDataSource(prefs: prefs, userId: userId);
 
     final now = DateTime.now();
     int notifId = 100;

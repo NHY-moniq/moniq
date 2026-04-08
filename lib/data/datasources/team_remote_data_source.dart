@@ -38,6 +38,17 @@ class TeamRemoteDataSource {
         .toList();
   }
 
+  Future<TeamModel> getTeamById(String teamId) async {
+    final row = await _client
+        .from('teams')
+        .select()
+        .eq('id', teamId)
+        .eq('is_deleted', false)
+        .single();
+
+    return TeamModel.fromJson(row as Map<String, dynamic>);
+  }
+
   Future<TeamModel> createTeam({
     required String name,
     String? icon,

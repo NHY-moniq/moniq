@@ -46,24 +46,27 @@ class TeamDetailViewModel extends FamilyAsyncNotifier<TeamDetailState, String> {
     _teamRepository = ref.watch(teamRepositoryProvider);
     _shiftRepository = ref.watch(shiftRepositoryProvider);
 
-    final results = await Future.wait([
-      _teamRepository.getMyTeams(),
-      _teamRepository.getTeamMembersWithUsers(teamId),
-      _shiftRepository.getAllShiftTypes(teamId),
-    ]);
-
-    // shift_rules는 테이블이 없을 수 있으므로 별도 try-catch
-    List<ShiftRuleModel> rules = [];
-    try {
-      rules = await _shiftRepository.getShiftRules(teamId);
-    } catch (_) {
-      // shift_rules 테이블 미생성 시 빈 리스트로 진행
+    // shift_rules 테이블 없을 수 있으므로 에러 무시 래핑
+    Future<List<ShiftRuleModel>> safeGetRules() async {
+      try {
+        return await _shiftRepository.getShiftRules(teamId);
+      } catch (_) {
+        return [];
+      }
     }
 
-    final teams = results[0] as List<TeamModel>;
-    final team = teams.firstWhere((t) => t.id == teamId);
+    // 모든 쿼리를 병렬 실행 (기존: getMyTeams=직렬2개 + getShiftRules=별도 직렬)
+    final results = await Future.wait([
+      _teamRepository.getTeamById(teamId),           // 단일 팀 직접 조회 (1쿼리)
+      _teamRepository.getTeamMembersWithUsers(teamId),
+      _shiftRepository.getAllShiftTypes(teamId),
+      safeGetRules(),                                 // 병렬로 이동
+    ]);
+
+    final team = results[0] as TeamModel;
     final members = results[1] as List<TeamMemberWithUser>;
     final shiftTypes = results[2] as List<ShiftTypeModel>;
+    final rules = results[3] as List<ShiftRuleModel>;
 
     final isAdmin = members.any(
       (m) => m.userId == currentUserId && m.role == 'admin',

@@ -26,7 +26,9 @@ class ScheduleHistoryVersionCard extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.lg),
+        ),
       ),
       builder: (_) => ScheduleHistoryFeedbackSheet(
         scheduleId: schedule.id,
@@ -39,12 +41,13 @@ class ScheduleHistoryVersionCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final fmt = DateFormat('yyyy.MM.dd');
     final isPublished = schedule.status == 'published';
 
     return Card(
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         onTap: () => context.push(
           '/teams/$teamId/schedule/history/${schedule.id}',
         ),
@@ -58,19 +61,19 @@ class ScheduleHistoryVersionCard extends ConsumerWidget {
                 height: 48,
                 decoration: BoxDecoration(
                   color: isPublished
-                      ? AppColors.primary.withValues(alpha: 0.12)
-                      : AppColors.textSecondaryLight.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+                      ? colorScheme.primary.withValues(alpha: 0.12)
+                      : colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
                 child: Center(
                   child: Text(
                     'v${schedule.versionNo}',
-                    style: TextStyle(
+                    style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w700,
-                      fontSize: 14,
                       color: isPublished
-                          ? AppColors.primary
-                          : AppColors.textSecondaryLight,
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -90,18 +93,22 @@ class ScheduleHistoryVersionCard extends ConsumerWidget {
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: isPublished
-                                ? AppColors.success.withValues(alpha: 0.12)
+                                ? AppColors.success
+                                    .withValues(alpha: 0.12)
                                 : AppColors.brandOrange
                                     .withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.xs,
+                            ),
                           ),
                           child: Text(
                             isPublished ? '발행됨' : '초안',
-                            style: TextStyle(
-                              fontSize: 11,
+                            style: theme.textTheme.labelSmall?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: isPublished
                                   ? AppColors.success
@@ -115,7 +122,7 @@ class ScheduleHistoryVersionCard extends ConsumerWidget {
                             DateFormat('MM.dd HH:mm')
                                 .format(schedule.createdAt!.toLocal()),
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondaryLight,
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -135,9 +142,9 @@ class ScheduleHistoryVersionCard extends ConsumerWidget {
                 onTap: () => context.push(
                   '/teams/$teamId/schedule/history/${schedule.id}',
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.chevron_right,
-                  color: AppColors.textSecondaryLight,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ],

@@ -81,10 +81,18 @@ class MembersScreen extends HookConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => MemberEditSheet(
-        teamId: teamId,
-        member: m,
-        state: state,
+      useSafeArea: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (_, scrollController) => MemberEditSheet(
+          teamId: teamId,
+          member: m,
+          state: state,
+          scrollController: scrollController,
+        ),
       ),
     );
   }

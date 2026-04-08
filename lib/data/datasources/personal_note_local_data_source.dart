@@ -31,10 +31,14 @@ class PersonalNote {
 }
 
 class PersonalNoteLocalDataSource {
-  PersonalNoteLocalDataSource({required SharedPreferences prefs})
-      : _prefs = prefs;
+  PersonalNoteLocalDataSource({
+    required SharedPreferences prefs,
+    required String userId,
+  })  : _prefs = prefs,
+        _userId = userId;
 
   final SharedPreferences _prefs;
+  final String _userId;
 
   static const _keyPrefix = 'personal_notes';
 
@@ -43,7 +47,7 @@ class PersonalNoteLocalDataSource {
 
   /// 특정 날짜의 메모 목록
   List<PersonalNote> getNotes(DateTime date) {
-    final key = '$_keyPrefix:${_dateKey(date)}';
+    final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
     final raw = _prefs.getStringList(key);
     if (raw == null || raw.isEmpty) return [];
     return raw
@@ -68,7 +72,7 @@ class PersonalNoteLocalDataSource {
 
   /// 메모 추가
   Future<void> addNote(DateTime date, String content) async {
-    final key = '$_keyPrefix:${_dateKey(date)}';
+    final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
     final existing = _prefs.getStringList(key) ?? [];
     final note = PersonalNote(
       date: DateTime(date.year, date.month, date.day),
@@ -81,7 +85,7 @@ class PersonalNoteLocalDataSource {
 
   /// 메모 삭제 (인덱스)
   Future<void> removeNote(DateTime date, int index) async {
-    final key = '$_keyPrefix:${_dateKey(date)}';
+    final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
     final existing = _prefs.getStringList(key) ?? [];
     if (index >= 0 && index < existing.length) {
       existing.removeAt(index);
@@ -95,7 +99,7 @@ class PersonalNoteLocalDataSource {
 
   /// 메모 수정
   Future<void> updateNote(DateTime date, int index, String content) async {
-    final key = '$_keyPrefix:${_dateKey(date)}';
+    final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
     final existing = _prefs.getStringList(key) ?? [];
     if (index >= 0 && index < existing.length) {
       final note = PersonalNote(

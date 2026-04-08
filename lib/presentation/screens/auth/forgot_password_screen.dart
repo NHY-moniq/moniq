@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/core/utils/auth_error_utils.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
@@ -26,7 +27,7 @@ class ForgotPasswordScreen extends HookConsumerWidget {
             .resetPassword(emailController.text.trim());
         isSent.value = true;
       } catch (e) {
-        errorMessage.value = e.toString();
+        errorMessage.value = friendlyAuthError(e);
       } finally {
         isLoading.value = false;
       }

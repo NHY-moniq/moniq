@@ -172,15 +172,19 @@ class TeamCreateScreen extends HookConsumerWidget {
                           shape: BoxShape.circle,
                           border: isSelected
                               ? Border.all(
-                                  color: Colors.black87,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface,
                                   width: 2.5,
                                 )
                               : null,
                         ),
                         child: isSelected
-                            ? const Icon(
+                            ? Icon(
                                 Icons.check,
-                                color: Colors.white,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surface,
                                 size: 18,
                               )
                             : null,

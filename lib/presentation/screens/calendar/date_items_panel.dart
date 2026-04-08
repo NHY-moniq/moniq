@@ -52,6 +52,14 @@ class DateItemsPanel extends ConsumerWidget {
     final dateKey = DateTime(date.year, date.month, date.day);
     final isExpanded = ref.watch(dateExpandedProvider(dateKey));
 
+    // 개인 일정 중 shift type과 이름 매칭되는 건 근무로 분류
+    final shiftTypeNames = ref
+        .watch(personalShiftTypesProvider)
+        .map((st) => st.name)
+        .toSet();
+    final shiftEvents = events.where((e) => shiftTypeNames.contains(e.title)).toList();
+    final normalEvents = events.where((e) => !shiftTypeNames.contains(e.title)).toList();
+
     return Padding(
       padding: AppSpacing.screenHorizontal,
       child: Column(
@@ -192,163 +200,264 @@ class DateItemsPanel extends ConsumerWidget {
             ),
           ],
 
-          // Shift list
-          if (shifts.isNotEmpty && isExpanded) ...[
-            const SizedBox(height: AppSpacing.md),
+          // ── 근무 일정 섹션 ──
+          if ((shifts.isNotEmpty || shiftEvents.isNotEmpty) && isExpanded) ...[
+            const SizedBox(height: AppSpacing.lg),
+            _buildSectionHeader(theme, '근무 일정'),
+            const SizedBox(height: AppSpacing.sm),
+            // 서버 근무
             ...shifts.map((s) {
               final shiftColor = parseHexColor(s.shiftType.color);
-              return _buildColorBarCard(
+              return _buildShiftCard(
                 theme: theme,
-                context: context,
-                barColor: shiftColor,
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: shiftColor.withValues(alpha: 0.15),
-                        borderRadius: AppRadius.borderRadiusSm,
-                      ),
-                      child: Text(
-                        s.shiftType.code,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: shiftColor,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      s.shiftType.name,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (s.shiftType.startTime != null) ...[
-                      const SizedBox(width: AppSpacing.sm),
-                      Text(
-                        '${s.shiftType.startTime} ~ ${s.shiftType.endTime ?? ''}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                    if (s.teamName != null) ...[
-                      const Spacer(),
-                      Text(
-                        s.teamName!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                shiftColor: shiftColor,
+                code: s.shiftType.code,
+                name: s.shiftType.name,
+                startTime: s.shiftType.startTime,
+                endTime: s.shiftType.endTime,
+                teamName: s.teamName,
               );
             }),
-            if (events.isNotEmpty)
-              _buildEventPreviewCard(theme, events.first),
-          ],
-
-          // Events when no shifts
-          if (events.isNotEmpty && shifts.isEmpty && isExpanded) ...[
-            const SizedBox(height: AppSpacing.md),
-            ...events.asMap().entries.map((entry) {
-              final index = entry.key;
-              final event = entry.value;
+            // 개인 캘린더 근무
+            ...shiftEvents.map((event) {
+              final originalIndex = events.indexOf(event);
               final eventColor = event.color != null
                   ? parseHexColor(event.color!)
-                  : AppColors.success;
-              return _buildEventCard(
-                  theme, ref, context, event, eventColor, index);
-            }),
-          ],
-
-          // Remaining events when shifts exist
-          if (events.length > 1 && shifts.isNotEmpty && isExpanded) ...[
-            const SizedBox(height: AppSpacing.md),
-            ...events
-                .asMap()
-                .entries
-                .where((e) => e.key > 0)
-                .map((entry) {
-              final index = entry.key;
-              final event = entry.value;
-              final eventColor = event.color != null
-                  ? parseHexColor(event.color!)
-                  : AppColors.success;
-              return _buildEventCard(
-                  theme, ref, context, event, eventColor, index);
-            }),
-          ],
-
-          // Notes list
-          if (notes.isNotEmpty && isExpanded) ...[
-            if (events.isNotEmpty || shifts.isNotEmpty)
-              const SizedBox(height: AppSpacing.xs),
-            ...notes.asMap().entries.map((entry) {
-              final index = entry.key;
-              final note = entry.value;
-
-              return _buildColorBarCard(
+                  : AppColors.shiftDay;
+              final matchedType = ref
+                  .read(personalShiftTypesProvider)
+                  .where((st) => st.name == event.title)
+                  .firstOrNull;
+              return _buildShiftCard(
                 theme: theme,
-                context: context,
-                barColor: theme.colorScheme.tertiary,
+                shiftColor: eventColor,
+                code: matchedType?.code ?? event.title.substring(0, 1),
+                name: event.title,
+                startTime: matchedType?.startTime ?? event.startTime,
+                endTime: matchedType?.endTime ?? event.endTime,
                 trailing: PopupMenuButton<String>(
                   icon: Icon(Icons.more_horiz,
                       size: 18, color: theme.colorScheme.onSurfaceVariant),
                   itemBuilder: (_) => [
-                    const PopupMenuItem(
-                        value: 'edit', child: Text('\uC218\uC815')),
-                    const PopupMenuItem(
-                        value: 'delete', child: Text('\uC0AD\uC81C')),
+                    const PopupMenuItem(value: 'edit', child: Text('\uC218\uC815')),
+                    const PopupMenuItem(value: 'delete', child: Text('\uC0AD\uC81C')),
                   ],
                   onSelected: (action) {
                     if (action == 'edit') {
-                      showNoteForm(
-                          context, ref, date, index, note.content);
+                      showEventEditWithShiftTypes(context, ref, date, originalIndex, event);
                     } else if (action == 'delete') {
-                      _deleteNote(ref, index);
+                      _deleteEvent(context, ref, originalIndex);
                     }
                   },
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            theme.colorScheme.tertiary.withValues(alpha: 0.12),
-                        borderRadius: AppRadius.borderRadiusSm,
-                      ),
-                      child: Text(
-                        '\uBA54\uBAA8',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: theme.colorScheme.tertiary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        note.content,
-                        style: theme.textTheme.bodyMedium,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
                 ),
               );
             }),
           ],
+
+          // ── 개인 일정 섹션 ──
+          if (normalEvents.isNotEmpty && isExpanded) ...[
+            const SizedBox(height: AppSpacing.lg),
+            _buildSectionHeader(theme, '개인 일정'),
+            const SizedBox(height: AppSpacing.sm),
+            ...normalEvents.asMap().entries.map((entry) {
+              final event = entry.value;
+              final originalIndex = events.indexOf(event);
+              final eventColor = event.color != null
+                  ? parseHexColor(event.color!)
+                  : AppColors.success;
+              return _buildEventCard(
+                  theme, ref, context, event, eventColor, originalIndex);
+            }),
+          ],
+
+          // ── 메모 섹션 ──
+          if (notes.isNotEmpty && isExpanded) ...[
+            const SizedBox(height: AppSpacing.lg),
+            _buildSectionHeader(theme, '메모'),
+            const SizedBox(height: AppSpacing.sm),
+            ...notes.asMap().entries.map((entry) {
+              final index = entry.key;
+              final note = entry.value;
+              final noteKey = '${dateKey.toIso8601String()}-$index';
+              final isNoteExpanded = ref.watch(noteExpandedProvider(noteKey));
+
+              return GestureDetector(
+                onTap: () => ref
+                    .read(noteExpandedProvider(noteKey).notifier)
+                    .state = !isNoteExpanded,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF3A3520).withValues(alpha: 0.6)
+                        : const Color(0xFFFFF9C4).withValues(alpha: 0.6),
+                    borderRadius: AppRadius.borderRadiusMd,
+                    border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF5C5330).withValues(alpha: 0.5)
+                          : const Color(0xFFFFE082).withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.push_pin_rounded,
+                        size: 14,
+                        color: theme.colorScheme.secondary.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          note.content,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                            height: 1.4,
+                          ),
+                          maxLines: isNoteExpanded ? null : 1,
+                          overflow: isNoteExpanded ? null : TextOverflow.ellipsis,
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        icon: Icon(Icons.more_horiz,
+                            size: 16, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(
+                              value: 'edit', child: Text('\uC218\uC815')),
+                          const PopupMenuItem(
+                              value: 'delete', child: Text('\uC0AD\uC81C')),
+                        ],
+                        onSelected: (action) {
+                          if (action == 'edit') {
+                            showNoteForm(
+                                context, ref, date, index, note.content);
+                          } else if (action == 'delete') {
+                            _deleteNote(ref, index);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Shift card with colored background (matches home active shift style)
+  Widget _buildShiftCard({
+    required ThemeData theme,
+    required Color shiftColor,
+    required String code,
+    required String name,
+    String? startTime,
+    String? endTime,
+    String? teamName,
+    Widget? trailing,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            shiftColor.withValues(alpha: 0.15),
+            shiftColor.withValues(alpha: 0.06),
+          ],
+        ),
+        borderRadius: AppRadius.borderRadiusMd,
+        border: Border.all(
+          color: shiftColor.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: shiftColor,
+                    borderRadius: AppRadius.borderRadiusSm,
+                  ),
+                  child: Center(
+                    child: Text(
+                      code,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: ThemeData.estimateBrightnessForColor(shiftColor) ==
+                                Brightness.dark
+                            ? Colors.white
+                            : Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    name,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                if (startTime != null) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: shiftColor.withValues(alpha: 0.12),
+                      borderRadius: AppRadius.borderRadiusSm,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.access_time, size: 12, color: shiftColor),
+                        const SizedBox(width: 3),
+                        Text(
+                          '$startTime ~ ${endTime ?? ''}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: shiftColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (teamName != null) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    teamName,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (trailing != null) trailing,
         ],
       ),
     );
@@ -357,148 +466,98 @@ class DateItemsPanel extends ConsumerWidget {
   /// Builds a card with a left color bar using BoxDecoration border
   /// instead of a separate Container + IntrinsicHeight for pixel-perfect
   /// alignment.
-  Widget _buildColorBarCard({
-    required ThemeData theme,
-    required BuildContext context,
-    required Color barColor,
-    required Widget child,
-    Widget? trailing,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: AppRadius.borderRadiusMd,
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
-        ),
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            Container(
-              width: 5,
-              decoration: BoxDecoration(
-                color: barColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(AppRadius.md),
-                  bottomLeft: Radius.circular(AppRadius.md),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.md,
-                ),
-                child: child,
-              ),
-            ),
-            if (trailing != null) trailing,
-          ],
-        ),
+  Widget _buildSectionHeader(ThemeData theme, String title) {
+    return Text(
+      title,
+      style: theme.textTheme.labelMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+        color: theme.colorScheme.onSurfaceVariant,
+        letterSpacing: 0.5,
       ),
     );
   }
 
-  /// Event preview card (single, compact)
-  Widget _buildEventPreviewCard(ThemeData theme, PersonalEvent event) {
-    final eventColor =
-        event.color != null ? parseHexColor(event.color!) : AppColors.success;
+  /// Full event card — same structure as shift card for alignment
+  Widget _buildEventCard(ThemeData theme, WidgetRef ref,
+      BuildContext context, PersonalEvent event, Color eventColor, int index) {
     return Container(
-      margin: const EdgeInsets.only(top: AppSpacing.xs),
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
       decoration: BoxDecoration(
-        color: eventColor.withValues(alpha: 0.08),
-        borderRadius: AppRadius.borderRadiusSm,
-        border: Border.all(color: eventColor.withValues(alpha: 0.2)),
+        color: eventColor.withValues(alpha: 0.06),
+        borderRadius: AppRadius.borderRadiusMd,
+        border: Border.all(
+          color: eventColor.withValues(alpha: 0.15),
+        ),
       ),
       child: Row(
         children: [
-          Icon(Icons.event, size: 14, color: eventColor),
-          const SizedBox(width: AppSpacing.xs),
           Expanded(
-            child: Text(
-              '${event.title}  ${event.timeRange}',
-              style: TextStyle(
-                fontSize: 12,
-                color: eventColor,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Full event card
-  Widget _buildEventCard(ThemeData theme, WidgetRef ref,
-      BuildContext context, PersonalEvent event, Color eventColor, int index) {
-    return _buildColorBarCard(
-      theme: theme,
-      context: context,
-      barColor: eventColor,
-      trailing: PopupMenuButton<String>(
-        icon: Icon(Icons.more_horiz,
-            size: 18, color: theme.colorScheme.onSurfaceVariant),
-        itemBuilder: (_) => [
-          const PopupMenuItem(value: 'edit', child: Text('\uC218\uC815')),
-          const PopupMenuItem(value: 'delete', child: Text('\uC0AD\uC81C')),
-        ],
-        onSelected: (action) {
-          if (action == 'edit') {
-            showEventEditWithShiftTypes(context, ref, date, index, event);
-          } else if (action == 'delete') {
-            _deleteEvent(context, ref, index);
-          }
-        },
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(event.title,
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm, vertical: 2),
-                decoration: BoxDecoration(
-                  color: eventColor.withValues(alpha: 0.12),
-                  borderRadius: AppRadius.borderRadiusSm,
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: eventColor.withValues(alpha: 0.15),
+                    borderRadius: AppRadius.borderRadiusSm,
+                  ),
+                  child: Icon(
+                    Icons.event_outlined,
+                    size: 16,
+                    color: eventColor,
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.access_time, size: 12, color: eventColor),
-                    const SizedBox(width: 3),
-                    Text(event.timeRange,
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: eventColor)),
-                  ],
-                ),
-              ),
-              if (event.description != null &&
-                  event.description!.isNotEmpty) ...[
-                const SizedBox(width: AppSpacing.sm),
+                const SizedBox(width: AppSpacing.md),
                 Expanded(
-                  child: Text(event.description!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    event.title,
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: eventColor.withValues(alpha: 0.12),
+                    borderRadius: AppRadius.borderRadiusSm,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.access_time, size: 12, color: eventColor),
+                      const SizedBox(width: 3),
+                      Text(event.timeRange,
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: eventColor)),
+                    ],
+                  ),
                 ),
               ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_horiz,
+                size: 18, color: theme.colorScheme.onSurfaceVariant),
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'edit', child: Text('\uC218\uC815')),
+              const PopupMenuItem(value: 'delete', child: Text('\uC0AD\uC81C')),
             ],
+            onSelected: (action) {
+              if (action == 'edit') {
+                showEventEditWithShiftTypes(context, ref, date, index, event);
+              } else if (action == 'delete') {
+                _deleteEvent(context, ref, index);
+              }
+            },
           ),
         ],
       ),
@@ -560,3 +619,4 @@ class DateItemsPanel extends ConsumerWidget {
     refreshAll(ref, date);
   }
 }
+

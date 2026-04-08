@@ -108,44 +108,77 @@ class _ShiftTypeGroup extends ConsumerWidget {
             false)
         : false;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 그룹 헤더
-        Row(
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: AppRadius.borderRadiusSm,
-              ),
-              child: Center(
-                child: Text(
-                  entry.shiftType.code,
-                  style: TextStyle(
-                    color: theme.colorScheme.onPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            color.withValues(alpha: 0.12),
+            color.withValues(alpha: 0.04),
+          ],
+        ),
+        borderRadius: AppRadius.borderRadiusMd,
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 그룹 헤더
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: AppRadius.borderRadiusSm,
+                ),
+                child: Center(
+                  child: Text(
+                    entry.shiftType.code,
+                    style: TextStyle(
+                      color: ThemeData.estimateBrightnessForColor(color) ==
+                              Brightness.dark
+                          ? Colors.white
+                          : Colors.black87,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              '${entry.shiftType.name} (${entry.workers.length}명)',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+              const SizedBox(width: AppSpacing.md),
+              Text(
+                entry.shiftType.name,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        // 근무자 목록
-        Padding(
-          padding: const EdgeInsets.only(left: 36),
-          child: Wrap(
+              const SizedBox(width: AppSpacing.sm),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${entry.workers.length}명',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          // 근무자 목록
+          Wrap(
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.xs,
             children: entry.workers.map((worker) {
@@ -183,8 +216,8 @@ class _ShiftTypeGroup extends ConsumerWidget {
                   label: Text(
                     isMe ? '$name (나)' : name,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: isMe ? AppColors.primary : null,
-                      fontWeight: isMe ? FontWeight.w600 : null,
+                      color: isMe ? color : null,
+                      fontWeight: isMe ? FontWeight.w700 : null,
                     ),
                   ),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -194,15 +227,14 @@ class _ShiftTypeGroup extends ConsumerWidget {
                     horizontal: AppSpacing.sm,
                   ),
                   backgroundColor: isMe
-                      ? AppColors.primary.withValues(alpha: 0.1)
+                      ? color.withValues(alpha: 0.15)
                       : null,
                 ),
               );
             }).toList(),
           ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-      ],
+        ],
+      ),
     );
   }
 

@@ -50,7 +50,10 @@ class ShiftTypeCard extends ConsumerWidget {
               ),
               color: shiftType.isActive
                   ? color.withValues(alpha: 0.06)
-                  : Colors.grey.withValues(alpha: 0.04),
+                  : Theme.of(context)
+                      .colorScheme
+                      .onSurfaceVariant
+                      .withValues(alpha: 0.04),
             ),
             child: Row(
               children: [
@@ -68,8 +71,10 @@ class ShiftTypeCard extends ConsumerWidget {
                   alignment: Alignment.center,
                   child: Text(
                     shiftType.code,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surface,
                       fontWeight: FontWeight.w800,
                       fontSize: 18,
                     ),
@@ -492,8 +497,10 @@ class TemplateTile extends StatelessWidget {
                             ),
                             child: Text(
                               template.code,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surface,
                                 fontWeight:
                                     FontWeight.w800,
                                 fontSize: 12,

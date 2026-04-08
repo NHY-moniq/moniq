@@ -6,6 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/profile_viewmodel.dart';
 
@@ -113,7 +114,10 @@ class ProfileEditScreen extends HookConsumerWidget {
                               ),
                             )
                           : profileState.isNicknameDuplicate == false
-                              ? const Icon(Icons.check_circle, color: Colors.green)
+                              ? Icon(
+                                Icons.check_circle,
+                                color: AppColors.success,
+                              )
                               : profileState.isNicknameDuplicate == true
                                   ? Icon(
                                       Icons.cancel,
@@ -236,11 +240,12 @@ class _AvatarSection extends StatelessWidget {
                   child: Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.black38,
+                      color: theme.colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.38),
                     ),
-                    child: const Center(
+                    child: Center(
                       child: CircularProgressIndicator(
-                        color: Colors.white,
+                        color: theme.colorScheme.surface,
                         strokeWidth: 3,
                       ),
                     ),

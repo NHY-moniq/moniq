@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 
 // ── 우선순위 항목 모델 ──
@@ -88,7 +87,9 @@ class ScheduleRulePatternToggleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final activeColor = isHard ? AppColors.error : AppColors.primary;
+    final colorScheme = theme.colorScheme;
+    final activeColor =
+        isHard ? colorScheme.error : colorScheme.primary;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
@@ -101,18 +102,17 @@ class ScheduleRulePatternToggleRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: value
                   ? activeColor.withValues(alpha: 0.12)
-                  : AppColors.textSecondaryLight
+                  : colorScheme.onSurfaceVariant
                       .withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(AppRadius.xs),
             ),
             child: Text(
               pattern,
-              style: TextStyle(
-                fontSize: 12,
+              style: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: value
                     ? activeColor
-                    : AppColors.textSecondaryLight,
+                    : colorScheme.onSurfaceVariant,
                 letterSpacing: 0.5,
               ),
             ),
@@ -122,14 +122,14 @@ class ScheduleRulePatternToggleRow extends StatelessWidget {
             child: Text(
               description,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondaryLight,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ),
           Switch.adaptive(
             value: value,
             onChanged: readOnly ? null : onChanged,
-            activeColor: Theme.of(context).colorScheme.primary,
+            activeTrackColor: colorScheme.primary,
           ),
         ],
       ),
@@ -184,7 +184,7 @@ class ScheduleRuleToggleRow extends StatelessWidget {
           Switch.adaptive(
             value: value,
             onChanged: readOnly ? null : onChanged,
-            activeColor: AppColors.primary,
+            activeTrackColor: Theme.of(context).colorScheme.primary,
           ),
         ],
       ),
@@ -217,7 +217,7 @@ class ScheduleRulePriorityReorderCard extends StatelessWidget {
         onReorder: onReorder,
         proxyDecorator: (child, index, animation) => Material(
           elevation: 4,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppRadius.xs),
           child: child,
         ),
         itemBuilder: (context, index) {
@@ -235,11 +235,11 @@ class ScheduleRulePriorityReorderCard extends StatelessWidget {
             ),
             trailing: ReorderableDragStartListener(
               index: index,
-              child: const Padding(
-                padding: EdgeInsets.all(8),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xs),
                 child: Icon(
                   Icons.menu,
-                  color: AppColors.textSecondaryLight,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
@@ -282,6 +282,8 @@ class ScheduleRuleRankBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final isTop = rank == 1;
     return Container(
       width: 28,
@@ -289,18 +291,17 @@ class ScheduleRuleRankBadge extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: isTop
-            ? AppColors.primary.withValues(alpha: 0.15)
-            : AppColors.surfaceContainer,
+            ? colorScheme.primary.withValues(alpha: 0.15)
+            : colorScheme.surfaceContainer,
         shape: BoxShape.circle,
       ),
       child: Text(
         '$rank',
-        style: TextStyle(
-          fontSize: 12,
+        style: theme.textTheme.labelSmall?.copyWith(
           fontWeight: FontWeight.w700,
           color: isTop
-              ? AppColors.primary
-              : AppColors.textSecondaryLight,
+              ? colorScheme.primary
+              : colorScheme.onSurfaceVariant,
         ),
       ),
     );

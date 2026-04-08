@@ -4,7 +4,6 @@ import 'package:moniq/data/models/shift_rule_model.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/presentation/screens/team/shift_types_list_widgets.dart';
 import 'package:moniq/presentation/screens/team/team_settings_widgets.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -241,7 +240,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
                     child: Text(
                       '근무 유형별 최소 인원',
                       style: theme.textTheme.labelMedium?.copyWith(
-                        color: AppColors.textSecondaryLight,
+                        color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

@@ -22,6 +22,7 @@ class ScheduleStepIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Row(
       children: List.generate(totalSteps * 2 - 1, (i) {
@@ -33,8 +34,8 @@ class ScheduleStepIndicator extends StatelessWidget {
             child: Container(
               height: 2,
               color: isDone
-                  ? AppColors.primary
-                  : AppColors.outlineVariant,
+                  ? colorScheme.primary
+                  : colorScheme.outlineVariant,
             ),
           );
         }
@@ -51,18 +52,18 @@ class ScheduleStepIndicator extends StatelessWidget {
               height: 28,
               decoration: BoxDecoration(
                 color: isCurrent
-                    ? AppColors.primary
+                    ? colorScheme.primary
                     : isDone
                         ? AppColors.success
-                        : AppColors.outlineVariant,
+                        : colorScheme.outlineVariant,
                 shape: BoxShape.circle,
               ),
               child: Center(
                 child: isDone
-                    ? const Icon(
+                    ? Icon(
                         Icons.check,
                         size: 16,
-                        color: Colors.white,
+                        color: colorScheme.surface,
                       )
                     : Text(
                         '${stepIdx + 1}',
@@ -70,8 +71,8 @@ class ScheduleStepIndicator extends StatelessWidget {
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: isCurrent
-                              ? AppColors.onPrimary
-                              : AppColors.textSecondaryLight,
+                              ? colorScheme.onPrimary
+                              : colorScheme.onSurfaceVariant,
                         ),
                       ),
               ),
@@ -81,8 +82,8 @@ class ScheduleStepIndicator extends StatelessWidget {
               _labels[stepIdx],
               style: theme.textTheme.labelSmall?.copyWith(
                 color: isCurrent
-                    ? AppColors.primary
-                    : AppColors.textSecondaryLight,
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
                 fontWeight: isCurrent
                     ? FontWeight.w600
                     : FontWeight.normal,
@@ -114,6 +115,7 @@ class ScheduleDatePickerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final fmt = DateFormat('yyyy년 MM월 dd일');
 
     return InkWell(
@@ -135,15 +137,15 @@ class ScheduleDatePickerRow extends StatelessWidget {
               Text(
                 date != null ? fmt.format(date!) : '선택',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.primary,
+                  color: colorScheme.primary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
-              const Icon(
+              Icon(
                 Icons.calendar_today,
                 size: 18,
-                color: AppColors.primary,
+                color: colorScheme.primary,
               ),
             ],
           ),
@@ -170,7 +172,11 @@ class ScheduleInfoRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
+        Icon(
+          icon,
+          size: 18,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: AppSpacing.sm),
         Text(label, style: theme.textTheme.bodyMedium),
         const Spacer(),
@@ -201,12 +207,17 @@ class ScheduleTappableInfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppRadius.xs),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: AppColors.textSecondaryLight),
+          Icon(
+            icon,
+            size: 18,
+            color: colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: AppSpacing.sm),
           Text(label, style: theme.textTheme.bodyMedium),
           const Spacer(),
@@ -214,16 +225,17 @@ class ScheduleTappableInfoRow extends StatelessWidget {
             value,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w500,
-              color:
-                  onTap != null ? AppColors.primary : null,
+              color: onTap != null
+                  ? colorScheme.primary
+                  : null,
             ),
           ),
           if (onTap != null) ...[
             const SizedBox(width: AppSpacing.xs),
-            const Icon(
+            Icon(
               Icons.chevron_right,
               size: 16,
-              color: AppColors.primary,
+              color: colorScheme.primary,
             ),
           ],
         ],

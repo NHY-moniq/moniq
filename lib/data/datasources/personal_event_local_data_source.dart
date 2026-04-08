@@ -117,7 +117,7 @@ class PersonalEventLocalDataSource {
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   List<PersonalEvent> getEvents(DateTime date) {
-    final key = '$_keyPrefix:${_dateKey(date)}';
+    final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
     final raw = _prefs.getStringList(key);
     if (raw == null || raw.isEmpty) return [];
     return raw
@@ -197,7 +197,7 @@ class PersonalEventLocalDataSource {
   }
 
   Future<void> removeEvent(DateTime date, int index) async {
-    final key = '$_keyPrefix:${_dateKey(date)}';
+    final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
     final existing = _prefs.getStringList(key) ?? [];
     if (index >= 0 && index < existing.length) {
       // Supabase에서도 삭제 (id 있는 경우)
@@ -257,7 +257,7 @@ class PersonalEventLocalDataSource {
   }
 
   Future<void> updateEvent(DateTime date, int index, PersonalEvent event) async {
-    final key = '$_keyPrefix:${_dateKey(date)}';
+    final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
     final existing = _prefs.getStringList(key) ?? [];
     if (index >= 0 && index < existing.length) {
       // 기존 id 보존 후 remote update
