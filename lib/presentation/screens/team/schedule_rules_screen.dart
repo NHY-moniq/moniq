@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/shift_rule_model.dart';
-import 'package:moniq/data/models/team_member_with_user.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/schedule_generation_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
+
+import 'schedule_rules_widgets.dart';
 
 /// 스케줄 생성 시 적용되는 유동 규칙 설정 페이지.
 ///
@@ -49,15 +50,6 @@ class ScheduleRulesScreen extends HookConsumerWidget {
   }
 }
 
-// ── 우선순위 항목 모델 ──
-
-class _PriorityItem {
-  _PriorityItem({required this.key, required this.label});
-
-  final String key;
-  final String label;
-}
-
 // ── 본문 ──
 
 class _RulesBody extends ConsumerStatefulWidget {
@@ -85,7 +77,7 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
   late bool _eodAvoid; // Evening → Off → Day
 
   // ── 원티드 우선순위 ──
-  late List<_PriorityItem> _wantedPriorityOrder;
+  late List<ScheduleRulePriorityItem> _wantedPriorityOrder;
 
   // ── 숙련도 배치 고려 ──
   late bool _considerSkillLevel;
@@ -123,10 +115,10 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
     final savedOrder =
         (ruleMap['wanted_priority_order'] ?? {})['order'] as List?;
     final defaultOrder = [
-      _PriorityItem(key: 'annual_leave', label: '연차 / 법정휴가'),
-      _PriorityItem(key: 'night_dedicated', label: '나이트전담 우선'),
-      _PriorityItem(key: 'fairness_rest', label: '휴무배려'),
-      _PriorityItem(key: 'fairness_equal', label: '균등배분'),
+      ScheduleRulePriorityItem(key: 'annual_leave', label: '연차 / 법정휴가'),
+      ScheduleRulePriorityItem(key: 'night_dedicated', label: '나이트전담 우선'),
+      ScheduleRulePriorityItem(key: 'fairness_rest', label: '휴무배려'),
+      ScheduleRulePriorityItem(key: 'fairness_equal', label: '균등배분'),
     ];
 
     if (savedOrder != null && savedOrder.isNotEmpty) {
@@ -250,14 +242,14 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── 하드 패턴 금지 ──
-            _SectionHeader(
+            ScheduleRuleSectionHeader(
               title: '패턴 금지 (필수)',
               subtitle: '위반 시 해당 배정을 절대 허용하지 않습니다',
             ),
             const SizedBox(height: AppSpacing.md),
-            _RuleCard(
+            ScheduleRuleCard(
               children: [
-                _PatternToggleRow(
+                ScheduleRulePatternToggleRow(
                   pattern: 'NOD',
                   description: '나이트 → 오프 → 데이 패턴 금지',
                   value: _nodDisabled,
@@ -274,14 +266,14 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
             const SizedBox(height: AppSpacing.xxl),
 
             // ── 소프트 기피 패턴 ──
-            _SectionHeader(
+            ScheduleRuleSectionHeader(
               title: '기피 패턴 (권장)',
               subtitle: '가능하면 피하지만, 인력 부족 시 허용됩니다',
             ),
             const SizedBox(height: AppSpacing.md),
-            _RuleCard(
+            ScheduleRuleCard(
               children: [
-                _PatternToggleRow(
+                ScheduleRulePatternToggleRow(
                   pattern: 'NOOD',
                   description: '나이트 → 오프 → 오프 → 데이 기피',
                   value: _noodAvoid,
@@ -293,7 +285,7 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
                   },
                 ),
                 const Divider(height: 1),
-                _PatternToggleRow(
+                ScheduleRulePatternToggleRow(
                   pattern: 'NOE',
                   description: '나이트 → 오프 → 이브닝 기피',
                   value: _noeAvoid,
@@ -305,7 +297,7 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
                   },
                 ),
                 const Divider(height: 1),
-                _PatternToggleRow(
+                ScheduleRulePatternToggleRow(
                   pattern: 'EOD',
                   description: '이브닝 → 오프 → 데이 기피',
                   value: _eodAvoid,
@@ -322,7 +314,7 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
             const SizedBox(height: AppSpacing.xxl),
 
             // ── 원티드 우선순위 ──
-            _SectionHeader(
+            ScheduleRuleSectionHeader(
               title: '원티드 반영 우선순위',
               subtitle: readOnly
                   ? '1번이 가장 높은 우선순위'
@@ -331,11 +323,11 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
             const SizedBox(height: AppSpacing.md),
 
             if (readOnly)
-              _RuleCard(
+              ScheduleRuleCard(
                 children: [
                   ..._wantedPriorityOrder.asMap().entries.map((e) {
                     final rank = e.key + 1;
-                    return _PriorityReadRow(
+                    return ScheduleRulePriorityReadRow(
                       rank: rank,
                       label: e.value.label,
                     );
@@ -343,7 +335,7 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
                 ],
               )
             else
-              _PriorityReorderCard(
+              ScheduleRulePriorityReorderCard(
                 items: _wantedPriorityOrder,
                 onReorder: (oldIndex, newIndex) {
                   setState(() {
@@ -359,14 +351,14 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
             const SizedBox(height: AppSpacing.xxl),
 
             // ── 추가 옵션 ──
-            _SectionHeader(
+            ScheduleRuleSectionHeader(
               title: '추가 옵션',
               subtitle: '스케줄 품질에 영향을 주는 설정',
             ),
             const SizedBox(height: AppSpacing.md),
-            _RuleCard(
+            ScheduleRuleCard(
               children: [
-                _ToggleRow(
+                ScheduleRuleToggleRow(
                   label: '숙련도 균형 배치',
                   description: '각 근무에 연차별 멤버가 균형 있게 배치',
                   value: _considerSkillLevel,
@@ -382,12 +374,12 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
             const SizedBox(height: AppSpacing.xxl),
 
             // ── 커스텀 규칙 진입 ──
-            _SectionHeader(
+            ScheduleRuleSectionHeader(
               title: '커스텀 규칙',
               subtitle: '자연어로 팀 전용 규칙을 추가합니다',
             ),
             const SizedBox(height: AppSpacing.md),
-            _RuleCard(
+            ScheduleRuleCard(
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(
@@ -487,297 +479,6 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
 
             const SizedBox(height: AppSpacing.xxxl),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── 공통 위젯 ──
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.title,
-    this.subtitle,
-  });
-
-  final String title;
-  final String? subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.titleMedium
-              ?.copyWith(fontWeight: FontWeight.w600),
-        ),
-        if (subtitle != null) ...[
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            subtitle!,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _RuleCard extends StatelessWidget {
-  const _RuleCard({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.sm,
-        ),
-        child: Column(children: children),
-      ),
-    );
-  }
-}
-
-class _PatternToggleRow extends StatelessWidget {
-  const _PatternToggleRow({
-    required this.pattern,
-    required this.description,
-    required this.value,
-    required this.isHard,
-    required this.readOnly,
-    required this.onChanged,
-  });
-
-  final String pattern;
-  final String description;
-  final bool value;
-  final bool isHard;
-  final bool readOnly;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final activeColor = isHard ? AppColors.error : AppColors.primary;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xxs,
-            ),
-            decoration: BoxDecoration(
-              color: value
-                  ? activeColor.withValues(alpha: 0.12)
-                  : AppColors.textSecondaryLight
-                      .withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              pattern,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: value
-                    ? activeColor
-                    : AppColors.textSecondaryLight,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              description,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondaryLight,
-              ),
-            ),
-          ),
-          Switch.adaptive(
-            value: value,
-            onChanged: readOnly ? null : onChanged,
-            activeColor: Theme.of(context).colorScheme.primary,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ToggleRow extends StatelessWidget {
-  const _ToggleRow({
-    required this.label,
-    this.description,
-    required this.value,
-    required this.readOnly,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String? description;
-  final bool value;
-  final bool readOnly;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                if (description != null)
-                  Text(
-                    description!,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(
-                          color:
-                              Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-              ],
-            ),
-          ),
-          Switch.adaptive(
-            value: value,
-            onChanged: readOnly ? null : onChanged,
-            activeColor: AppColors.primary,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── 우선순위 reorder 카드 ──
-
-class _PriorityReorderCard extends StatelessWidget {
-  const _PriorityReorderCard({
-    required this.items,
-    required this.onReorder,
-  });
-
-  final List<_PriorityItem> items;
-  final ReorderCallback onReorder;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Card(
-      child: ReorderableListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        buildDefaultDragHandles: false,
-        itemCount: items.length,
-        onReorder: onReorder,
-        proxyDecorator: (child, index, animation) => Material(
-          elevation: 4,
-          borderRadius: BorderRadius.circular(8),
-          child: child,
-        ),
-        itemBuilder: (context, index) {
-          final item = items[index];
-          final rank = index + 1;
-          return ListTile(
-            key: ValueKey(item.key),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-            ),
-            leading: _RankBadge(rank: rank),
-            title: Text(
-              item.label,
-              style: theme.textTheme.bodyMedium,
-            ),
-            trailing: ReorderableDragStartListener(
-              index: index,
-              child: const Padding(
-                padding: EdgeInsets.all(8),
-                child: Icon(
-                  Icons.menu,
-                  color: AppColors.textSecondaryLight,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _PriorityReadRow extends StatelessWidget {
-  const _PriorityReadRow({
-    required this.rank,
-    required this.label,
-  });
-
-  final int rank;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: Row(
-        children: [
-          _RankBadge(rank: rank),
-          const SizedBox(width: AppSpacing.md),
-          Text(label, style: Theme.of(context).textTheme.bodyMedium),
-        ],
-      ),
-    );
-  }
-}
-
-class _RankBadge extends StatelessWidget {
-  const _RankBadge({required this.rank});
-
-  final int rank;
-
-  @override
-  Widget build(BuildContext context) {
-    final isTop = rank == 1;
-    return Container(
-      width: 28,
-      height: 28,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: isTop
-            ? AppColors.primary.withValues(alpha: 0.15)
-            : AppColors.surfaceContainer,
-        shape: BoxShape.circle,
-      ),
-      child: Text(
-        '$rank',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: isTop
-              ? AppColors.primary
-              : AppColors.textSecondaryLight,
         ),
       ),
     );

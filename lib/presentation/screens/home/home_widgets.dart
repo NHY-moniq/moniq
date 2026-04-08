@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -6,6 +7,51 @@ import 'package:moniq/data/providers/announcement_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
+
+// ════════════════════════════════════════════════
+// Home Avatar
+// ════════════════════════════════════════════════
+
+class HomeAvatar extends StatelessWidget {
+  const HomeAvatar({super.key, required this.url, required this.ringColor});
+
+  final String? url;
+  final Color ringColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Theme.of(context).colorScheme.primaryContainer,
+        border: Border.all(color: ringColor, width: 2),
+      ),
+      child: url != null && url!.isNotEmpty
+          ? ClipOval(
+              child: CachedNetworkImage(
+                imageUrl: url!,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => Icon(
+                  Icons.person,
+                  size: 20,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onPrimaryContainer,
+                ),
+              ),
+            )
+          : Icon(
+              Icons.person,
+              size: 20,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onPrimaryContainer,
+            ),
+    );
+  }
+}
 
 // ════════════════════════════════════════════════
 // Weekly Hours Card
@@ -339,7 +385,7 @@ class AnnouncementCard extends ConsumerWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: colorScheme.outline),
+            Icon(Icons.chevron_right, color: AppColors.outline),
           ],
         ),
       ),
