@@ -60,12 +60,37 @@ class WantedRemoteDataSource {
     return WantedRequestModel.fromJson(rows.first);
   }
 
-  /// 수집 요청 마감
+  /// 수집 요청 마감 — update가 실제로 적용됐는지 검증.
   Future<void> closeWantedRequest(String requestId) async {
-    await _client
+    final result = await _client
         .from('wanted_requests')
         .update({'status': 'closed'})
-        .eq('id', requestId);
+        .eq('id', requestId)
+        .select();
+    if ((result as List).isEmpty) {
+      throw Exception('수집 마감 실패: 권한이 없거나 요청을 찾을 수 없습니다');
+    }
+  }
+
+  /// 수집 요청이 아직 입력 가능한 상태인지 확인. 마감 또는 상태가 collecting이 아니면 예외.
+  Future<void> _ensureCollecting(String wantedRequestId) async {
+    final req = await _client
+        .from('wanted_requests')
+        .select('status, deadline')
+        .eq('id', wantedRequestId)
+        .single();
+
+    final status = req['status'] as String?;
+    if (status != 'collecting') {
+      throw Exception('이미 수집이 완료되어 입력할 수 없습니다');
+    }
+    final deadlineStr = req['deadline'] as String?;
+    if (deadlineStr != null) {
+      final deadline = DateTime.parse(deadlineStr);
+      if (DateTime.now().isAfter(deadline)) {
+        throw Exception('수집 마감일이 지나 입력할 수 없습니다');
+      }
+    }
   }
 
   /// 희망 휴무일 입력 (팀원)
@@ -74,8 +99,10 @@ class WantedRemoteDataSource {
     required String teamId,
     required DateTime wantedDate,
     String? reason,
+    int priority = 1,
   }) async {
     if (_userId == null) throw Exception('Not authenticated');
+    await _ensureCollecting(wantedRequestId);
 
     final row = await _client
         .from('wanted_entries')
@@ -85,6 +112,7 @@ class WantedRemoteDataSource {
           'user_id': _userId,
           'wanted_date': _dateStr(wantedDate),
           'reason': reason,
+          'priority': priority,
         })
         .select()
         .single();
@@ -128,8 +156,18 @@ class WantedRemoteDataSource {
     }).toList();
   }
 
-  /// 희망 휴무일 삭제
+  /// 희망 휴무일 삭제 (수집 진행 중일 때만)
   Future<void> deleteWantedEntry(String entryId) async {
+    final entry = await _client
+        .from('wanted_entries')
+        .select('wanted_request_id')
+        .eq('id', entryId)
+        .single();
+    final requestId = entry['wanted_request_id'] as String?;
+    if (requestId == null) {
+      throw Exception('엔트리 데이터가 올바르지 않습니다');
+    }
+    await _ensureCollecting(requestId);
     await _client.from('wanted_entries').delete().eq('id', entryId);
   }
 

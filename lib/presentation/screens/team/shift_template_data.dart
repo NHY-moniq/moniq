@@ -49,6 +49,15 @@ const defaultShiftTemplates = [
     description: '밤 9시 ~ 오전 8시',
     icon: Icons.nightlight_round,
   ),
+  ShiftTemplate(
+    name: '교육',
+    code: 'ED',
+    color: '#9F7AEA',
+    startTime: '09:00:00',
+    endTime: '18:00:00',
+    description: '오전 9시 ~ 오후 6시',
+    icon: Icons.school_rounded,
+  ),
 ];
 
 const presetColors = [

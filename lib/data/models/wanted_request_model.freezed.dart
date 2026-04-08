@@ -369,6 +369,7 @@ mixin _$WantedEntryModel {
   @JsonKey(name: 'wanted_date')
   DateTime get wantedDate => throw _privateConstructorUsedError;
   String? get reason => throw _privateConstructorUsedError;
+  int get priority => throw _privateConstructorUsedError; // 1=최우선, 2=차선, 3=가능하면
   @JsonKey(name: 'created_at')
   DateTime? get createdAt => throw _privateConstructorUsedError;
 
@@ -396,6 +397,7 @@ abstract class $WantedEntryModelCopyWith<$Res> {
     @JsonKey(name: 'user_id') String userId,
     @JsonKey(name: 'wanted_date') DateTime wantedDate,
     String? reason,
+    int priority,
     @JsonKey(name: 'created_at') DateTime? createdAt,
   });
 }
@@ -421,6 +423,7 @@ class _$WantedEntryModelCopyWithImpl<$Res, $Val extends WantedEntryModel>
     Object? userId = null,
     Object? wantedDate = null,
     Object? reason = freezed,
+    Object? priority = null,
     Object? createdAt = freezed,
   }) {
     return _then(
@@ -449,6 +452,10 @@ class _$WantedEntryModelCopyWithImpl<$Res, $Val extends WantedEntryModel>
                 ? _value.reason
                 : reason // ignore: cast_nullable_to_non_nullable
                       as String?,
+            priority: null == priority
+                ? _value.priority
+                : priority // ignore: cast_nullable_to_non_nullable
+                      as int,
             createdAt: freezed == createdAt
                 ? _value.createdAt
                 : createdAt // ignore: cast_nullable_to_non_nullable
@@ -475,6 +482,7 @@ abstract class _$$WantedEntryModelImplCopyWith<$Res>
     @JsonKey(name: 'user_id') String userId,
     @JsonKey(name: 'wanted_date') DateTime wantedDate,
     String? reason,
+    int priority,
     @JsonKey(name: 'created_at') DateTime? createdAt,
   });
 }
@@ -499,6 +507,7 @@ class __$$WantedEntryModelImplCopyWithImpl<$Res>
     Object? userId = null,
     Object? wantedDate = null,
     Object? reason = freezed,
+    Object? priority = null,
     Object? createdAt = freezed,
   }) {
     return _then(
@@ -527,6 +536,10 @@ class __$$WantedEntryModelImplCopyWithImpl<$Res>
             ? _value.reason
             : reason // ignore: cast_nullable_to_non_nullable
                   as String?,
+        priority: null == priority
+            ? _value.priority
+            : priority // ignore: cast_nullable_to_non_nullable
+                  as int,
         createdAt: freezed == createdAt
             ? _value.createdAt
             : createdAt // ignore: cast_nullable_to_non_nullable
@@ -546,6 +559,7 @@ class _$WantedEntryModelImpl implements _WantedEntryModel {
     @JsonKey(name: 'user_id') required this.userId,
     @JsonKey(name: 'wanted_date') required this.wantedDate,
     this.reason,
+    this.priority = 1,
     @JsonKey(name: 'created_at') this.createdAt,
   });
 
@@ -569,12 +583,16 @@ class _$WantedEntryModelImpl implements _WantedEntryModel {
   @override
   final String? reason;
   @override
+  @JsonKey()
+  final int priority;
+  // 1=최우선, 2=차선, 3=가능하면
+  @override
   @JsonKey(name: 'created_at')
   final DateTime? createdAt;
 
   @override
   String toString() {
-    return 'WantedEntryModel(id: $id, wantedRequestId: $wantedRequestId, teamId: $teamId, userId: $userId, wantedDate: $wantedDate, reason: $reason, createdAt: $createdAt)';
+    return 'WantedEntryModel(id: $id, wantedRequestId: $wantedRequestId, teamId: $teamId, userId: $userId, wantedDate: $wantedDate, reason: $reason, priority: $priority, createdAt: $createdAt)';
   }
 
   @override
@@ -590,6 +608,8 @@ class _$WantedEntryModelImpl implements _WantedEntryModel {
             (identical(other.wantedDate, wantedDate) ||
                 other.wantedDate == wantedDate) &&
             (identical(other.reason, reason) || other.reason == reason) &&
+            (identical(other.priority, priority) ||
+                other.priority == priority) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt));
   }
@@ -604,6 +624,7 @@ class _$WantedEntryModelImpl implements _WantedEntryModel {
     userId,
     wantedDate,
     reason,
+    priority,
     createdAt,
   );
 
@@ -632,6 +653,7 @@ abstract class _WantedEntryModel implements WantedEntryModel {
     @JsonKey(name: 'user_id') required final String userId,
     @JsonKey(name: 'wanted_date') required final DateTime wantedDate,
     final String? reason,
+    final int priority,
     @JsonKey(name: 'created_at') final DateTime? createdAt,
   }) = _$WantedEntryModelImpl;
 
@@ -654,6 +676,8 @@ abstract class _WantedEntryModel implements WantedEntryModel {
   DateTime get wantedDate;
   @override
   String? get reason;
+  @override
+  int get priority; // 1=최우선, 2=차선, 3=가능하면
   @override
   @JsonKey(name: 'created_at')
   DateTime? get createdAt;

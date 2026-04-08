@@ -195,6 +195,7 @@ abstract class _RosterEntry implements RosterEntry {
 /// @nodoc
 mixin _$RosterWorker {
   UserModel get user => throw _privateConstructorUsedError;
+  String? get shiftId => throw _privateConstructorUsedError;
   String? get note => throw _privateConstructorUsedError;
 
   /// Create a copy of RosterWorker
@@ -211,7 +212,7 @@ abstract class $RosterWorkerCopyWith<$Res> {
     $Res Function(RosterWorker) then,
   ) = _$RosterWorkerCopyWithImpl<$Res, RosterWorker>;
   @useResult
-  $Res call({UserModel user, String? note});
+  $Res call({UserModel user, String? shiftId, String? note});
 
   $UserModelCopyWith<$Res> get user;
 }
@@ -230,13 +231,21 @@ class _$RosterWorkerCopyWithImpl<$Res, $Val extends RosterWorker>
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({Object? user = null, Object? note = freezed}) {
+  $Res call({
+    Object? user = null,
+    Object? shiftId = freezed,
+    Object? note = freezed,
+  }) {
     return _then(
       _value.copyWith(
             user: null == user
                 ? _value.user
                 : user // ignore: cast_nullable_to_non_nullable
                       as UserModel,
+            shiftId: freezed == shiftId
+                ? _value.shiftId
+                : shiftId // ignore: cast_nullable_to_non_nullable
+                      as String?,
             note: freezed == note
                 ? _value.note
                 : note // ignore: cast_nullable_to_non_nullable
@@ -266,7 +275,7 @@ abstract class _$$RosterWorkerImplCopyWith<$Res>
   ) = __$$RosterWorkerImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({UserModel user, String? note});
+  $Res call({UserModel user, String? shiftId, String? note});
 
   @override
   $UserModelCopyWith<$Res> get user;
@@ -285,13 +294,21 @@ class __$$RosterWorkerImplCopyWithImpl<$Res>
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({Object? user = null, Object? note = freezed}) {
+  $Res call({
+    Object? user = null,
+    Object? shiftId = freezed,
+    Object? note = freezed,
+  }) {
     return _then(
       _$RosterWorkerImpl(
         user: null == user
             ? _value.user
             : user // ignore: cast_nullable_to_non_nullable
                   as UserModel,
+        shiftId: freezed == shiftId
+            ? _value.shiftId
+            : shiftId // ignore: cast_nullable_to_non_nullable
+                  as String?,
         note: freezed == note
             ? _value.note
             : note // ignore: cast_nullable_to_non_nullable
@@ -304,16 +321,18 @@ class __$$RosterWorkerImplCopyWithImpl<$Res>
 /// @nodoc
 
 class _$RosterWorkerImpl implements _RosterWorker {
-  const _$RosterWorkerImpl({required this.user, this.note});
+  const _$RosterWorkerImpl({required this.user, this.shiftId, this.note});
 
   @override
   final UserModel user;
+  @override
+  final String? shiftId;
   @override
   final String? note;
 
   @override
   String toString() {
-    return 'RosterWorker(user: $user, note: $note)';
+    return 'RosterWorker(user: $user, shiftId: $shiftId, note: $note)';
   }
 
   @override
@@ -322,11 +341,12 @@ class _$RosterWorkerImpl implements _RosterWorker {
         (other.runtimeType == runtimeType &&
             other is _$RosterWorkerImpl &&
             (identical(other.user, user) || other.user == user) &&
+            (identical(other.shiftId, shiftId) || other.shiftId == shiftId) &&
             (identical(other.note, note) || other.note == note));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, user, note);
+  int get hashCode => Object.hash(runtimeType, user, shiftId, note);
 
   /// Create a copy of RosterWorker
   /// with the given fields replaced by the non-null parameter values.
@@ -340,11 +360,14 @@ class _$RosterWorkerImpl implements _RosterWorker {
 abstract class _RosterWorker implements RosterWorker {
   const factory _RosterWorker({
     required final UserModel user,
+    final String? shiftId,
     final String? note,
   }) = _$RosterWorkerImpl;
 
   @override
   UserModel get user;
+  @override
+  String? get shiftId;
   @override
   String? get note;
 

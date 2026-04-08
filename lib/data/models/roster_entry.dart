@@ -16,6 +16,7 @@ class RosterEntry with _$RosterEntry {
 class RosterWorker with _$RosterWorker {
   const factory RosterWorker({
     required UserModel user,
+    String? shiftId,
     String? note,
   }) = _RosterWorker;
 }

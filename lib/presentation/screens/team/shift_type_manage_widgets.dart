@@ -132,12 +132,57 @@ class ShiftTypeCard extends ConsumerWidget {
                         ),
                     activeColor: color,
                   ),
+                // 삭제 버튼
+                if (isAdmin)
+                  IconButton(
+                    icon: Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    tooltip: '삭제',
+                    onPressed: () => _confirmDelete(context, ref),
+                  ),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDelete(
+      BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('근무 유형 삭제'),
+        content: Text(
+            '"${shiftType.name}" 근무 유형을 삭제하시겠습니까?\n배정된 근무가 있으면 삭제할 수 없습니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await ref
+          .read(teamDetailViewModelProvider(teamId).notifier)
+          .deleteShiftType(shiftType.id);
+    } catch (e) {
+      if (!context.mounted) return;
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(msg)));
+    }
   }
 
   void _showEditSheet(

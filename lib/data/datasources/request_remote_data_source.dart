@@ -87,6 +87,17 @@ class RequestRemoteDataSource {
         .eq('id', requestId);
   }
 
+  /// 요청 삭제 (보통 취소된 건)
+  Future<void> deleteRequest(String requestId) async {
+    await _client.from('requests').delete().eq('id', requestId);
+  }
+
+  /// 여러 요청 일괄 삭제
+  Future<void> deleteRequests(List<String> requestIds) async {
+    if (requestIds.isEmpty) return;
+    await _client.from('requests').delete().inFilter('id', requestIds);
+  }
+
   String _dateStr(DateTime dt) =>
       '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
 }

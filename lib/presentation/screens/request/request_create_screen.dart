@@ -39,6 +39,8 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
   String _changeType = 'day_off';
   DateTime? _requestedDate;
   String? _selectedShiftTypeId;
+  // 근무 교환 플로우: 변경 후 원하는 shift_type
+  String? _swapDesiredShiftTypeId;
   String? _selectedSwapUserId;
   String? _selectedSwapUserName;
   String _reason = '';
@@ -230,7 +232,15 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
               isLoading: _isLoadingRoster,
               myShiftTypeName: _myShiftTypeName,
               roster: _roster,
+              shiftTypes: _shiftTypes,
               myUserId: ref.read(currentUserProvider)?.id,
+              desiredShiftTypeId: _swapDesiredShiftTypeId,
+              onDesiredShiftTypeSelected: (id) => setState(() {
+                _swapDesiredShiftTypeId = id;
+                // 이전 선택한 상대가 더 이상 추천에 맞지 않으면 초기화
+                _selectedSwapUserId = null;
+                _selectedSwapUserName = null;
+              }),
               selectedSwapUserId: _selectedSwapUserId,
               selectedSwapUserName: _selectedSwapUserName,
               onSwapUserSelected: (userId, userName) {

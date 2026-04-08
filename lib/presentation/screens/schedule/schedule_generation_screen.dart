@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/schedule_generation_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -124,8 +125,7 @@ class _SetupView extends HookConsumerWidget {
                   ScheduleDatePickerRow(
                     label: '종료일',
                     date: state.periodEnd,
-                    firstDate:
-                        state.periodStart ?? DateTime.now(),
+                    firstDate: DateTime.now(),
                     lastDate: DateTime.now()
                         .add(const Duration(days: 365)),
                     onPicked: (picked) => notifier.setPeriod(
@@ -133,6 +133,19 @@ class _SetupView extends HookConsumerWidget {
                       picked,
                     ),
                   ),
+                  if (state.periodStart != null &&
+                      state.periodEnd != null &&
+                      state.periodEnd!.isBefore(state.periodStart!)) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '시작 일자가 마감 일자 이후입니다',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: AppColors.error),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -325,7 +338,10 @@ class _SetupView extends HookConsumerWidget {
             child: ElevatedButton.icon(
               onPressed: state.isGenerating ||
                       state.members.isEmpty ||
-                      state.shiftTypes.isEmpty
+                      state.shiftTypes.isEmpty ||
+                      state.periodStart == null ||
+                      state.periodEnd == null ||
+                      state.periodEnd!.isBefore(state.periodStart!)
                   ? null
                   : () => ref
                       .read(

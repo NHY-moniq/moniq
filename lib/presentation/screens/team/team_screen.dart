@@ -8,9 +8,12 @@ import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/schedule_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
+import 'package:moniq/presentation/screens/team/team_detail_dialogs.dart';
 import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
 import 'package:moniq/presentation/widgets/calendar/roster_panel.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
@@ -323,11 +326,14 @@ class _TeamDrawer extends HookConsumerWidget {
       (t) => t.id == currentTeamId,
     );
 
+    final teamDetail = ref.watch(teamDetailViewModelProvider(currentTeamId));
+    final isAdmin = teamDetail.valueOrNull?.isAdmin ?? false;
+
     return Drawer(
-      width: MediaQuery.of(context).size.width * 0.6,
+      width: MediaQuery.of(context).size.width * 0.66,
       child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: ListView(
+          padding: EdgeInsets.zero,
           children: [
             Padding(
               padding: AppSpacing.screenAll,
@@ -336,58 +342,34 @@ class _TeamDrawer extends HookConsumerWidget {
                 style: theme.textTheme.titleLarge,
               ),
             ),
-            const Divider(),
 
-            // 현재 즐겨찾는 팀 -> 팀 설정
-            ListTile(
-              leading: Icon(
-                Icons.star,
-                color: theme.colorScheme.primary,
-              ),
-              title: const Text('현재 즐겨찾는 팀'),
-              subtitle: Text(
-                currentTeam.name,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              trailing: const Icon(Icons.chevron_right),
+            // ── 팀 ──
+            _drawerSection(theme, '팀'),
+            _drawerTile(
+              icon: Icons.star,
+              iconColor: Colors.amber,
+              title: '현재 즐겨찾는 팀',
+              trailingText: currentTeam.name,
               onTap: () {
                 Navigator.pop(context);
                 context.push('/teams/$currentTeamId/detail');
               },
             ),
-
-            // 팀 목록
-            ListTile(
-              leading: const Icon(Icons.groups_outlined),
-              title: const Text('팀 목록'),
-              subtitle: Text(
-                '${teams.length}개 팀',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              trailing: const Icon(Icons.chevron_right),
+            _drawerTile(
+              icon: Icons.groups_outlined,
+              title: '팀 목록',
+              trailingText: '${teams.length}개',
               onTap: () {
                 Navigator.pop(context);
                 context.push('/teams/list');
               },
             ),
 
-            const Divider(),
-
-            // 캘린더 내보내기
-            ListTile(
-              leading: const Icon(Icons.ios_share_outlined),
-              title: const Text('캘린더 내보내기'),
-              subtitle: Text(
-                '이미지 또는 스프레드시트로 내보내기',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              trailing: const Icon(Icons.chevron_right),
+            // ── 가져오기 / 내보내기 ──
+            _drawerSection(theme, '가져오기 · 내보내기'),
+            _drawerTile(
+              icon: Icons.ios_share_outlined,
+              title: '캘린더 내보내기',
               onTap: () {
                 final calendarAsync = ref.read(
                     teamCalendarViewModelProvider(currentTeamId));
@@ -401,18 +383,25 @@ class _TeamDrawer extends HookConsumerWidget {
                 });
               },
             ),
-
-            // Excel 일정 가져오기
-            ListTile(
-              leading: const Icon(Icons.upload_file_outlined),
-              title: const Text('Excel 일정 가져오기'),
-              subtitle: Text(
-                '엑셀 파일에서 근무 일정 가져오기',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              trailing: const Icon(Icons.chevron_right),
+            _drawerTile(
+              icon: Icons.description_outlined,
+              title: 'Excel 샘플 양식',
+              onTap: () {
+                final ctx = scaffoldContext;
+                final shiftRepo = ref.read(shiftRepositoryProvider);
+                Navigator.pop(context);
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  exportSampleTemplate(
+                    ctx,
+                    shiftRepo: shiftRepo,
+                    teamId: currentTeamId,
+                  );
+                });
+              },
+            ),
+            _drawerTile(
+              icon: Icons.upload_file_outlined,
+              title: 'Excel 일정 가져오기',
               onTap: () {
                 final ctx = scaffoldContext;
                 final shiftRepo = ref.read(shiftRepositoryProvider);
@@ -431,18 +420,104 @@ class _TeamDrawer extends HookConsumerWidget {
               },
             ),
 
-            // 변경 요청
-            ListTile(
-              leading: const Icon(Icons.swap_horiz),
-              title: const Text('변경 요청'),
+            // ── 관리 (관리자만) ──
+            if (isAdmin) ...[
+              _drawerSection(theme, '관리'),
+              _drawerTile(
+                icon: Icons.delete_sweep_outlined,
+                iconColor: AppColors.error,
+                title: '일정 전체 삭제',
+                onTap: () {
+                  final state = teamDetail.valueOrNull;
+                  if (state == null) return;
+                  final ctx = scaffoldContext;
+                  // 드로어 dispose 전에 repo 캡처
+                  final scheduleRepo =
+                      ref.read(scheduleRepositoryProvider);
+                  Navigator.pop(context);
+                  Future.delayed(const Duration(milliseconds: 300), () {
+                    showDeleteScheduleSheet(
+                      context: ctx,
+                      scheduleRepo: scheduleRepo,
+                      teamId: currentTeamId,
+                      state: state,
+                    );
+                  });
+                },
+              ),
+            ],
+
+            // ── 소통 ──
+            _drawerSection(theme, '소통'),
+            _drawerTile(
+              icon: Icons.campaign_outlined,
+              iconColor: AppColors.brandOrange,
+              title: '팀 공지사항',
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/teams/$currentTeamId/announcements');
+              },
+            ),
+            _drawerTile(
+              icon: Icons.swap_horiz,
+              title: '변경 요청',
               onTap: () {
                 Navigator.pop(context);
                 context.push('/teams/$currentTeamId/requests');
               },
             ),
+            const SizedBox(height: AppSpacing.lg),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _drawerSection(ThemeData theme, String label) {
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: AppSpacing.lg,
+        right: AppSpacing.lg,
+        top: AppSpacing.lg,
+        bottom: AppSpacing.xs,
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _drawerTile({
+    required IconData icon,
+    Color? iconColor,
+    required String title,
+    String? trailingText,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -2),
+      leading: Icon(icon, color: iconColor, size: 22),
+      title: Text(title, style: const TextStyle(fontSize: 14)),
+      trailing: trailingText != null
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  trailingText,
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right, size: 18),
+              ],
+            )
+          : const Icon(Icons.chevron_right, size: 18),
+      onTap: onTap,
     );
   }
 }

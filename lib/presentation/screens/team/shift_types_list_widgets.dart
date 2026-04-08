@@ -106,7 +106,7 @@ class ShiftTypesList extends ConsumerWidget {
   }
 }
 
-/// 빈 상태: 기본 근무 유형 템플릿 카드 3개
+/// 빈 상태: 기본 근무 유형 템플릿 카드 4개 (데이 / 이브닝 / 나이트 / 교육)
 class EmptyShiftTypesView extends ConsumerStatefulWidget {
   const EmptyShiftTypesView({
     super.key,
@@ -174,14 +174,14 @@ class _EmptyShiftTypesViewState
         ),
         const SizedBox(height: AppSpacing.lg),
 
-        // 3개 템플릿 카드 (탭하면 편집 후 추가)
+        // 템플릿 카드 (탭하면 편집 후 추가)
         Row(
           children: defaultShiftTemplates
               .map(
                 (t) => Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.xs,
+                      horizontal: AppSpacing.xxs,
                     ),
                     child: ShiftTemplateCard(
                       template: t,
@@ -216,7 +216,7 @@ class _EmptyShiftTypesViewState
                     size: 20,
                   ),
             label: Text(
-              _loading ? '추가 중...' : '기본 3개 한번에 추가',
+              _loading ? '추가 중...' : '기본 4개 한번에 추가',
             ),
             style: FilledButton.styleFrom(
               backgroundColor:
@@ -618,6 +618,14 @@ class _BouncyShiftIconState extends State<BouncyShiftIcon>
       return _buildSunIcon();
     } else if (widget.code == 'E') {
       return _buildSunsetIcon();
+    } else if (widget.code == 'N') {
+      return _buildMoonIcon();
+    } else if (widget.code == 'ED') {
+      return Icon(
+        Icons.school_rounded,
+        size: 30,
+        color: widget.color,
+      );
     } else {
       return _buildMoonIcon();
     }
