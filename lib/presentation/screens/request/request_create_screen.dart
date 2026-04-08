@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/models/roster_entry.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/request_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
+import 'package:moniq/presentation/screens/request/request_create_widgets.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/request_viewmodel.dart';
 
@@ -45,7 +44,6 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
   String _note = '';
   bool _isSubmitting = false;
 
-  // 로딩 상태
   List<ShiftTypeModel> _shiftTypes = [];
   List<RosterEntry> _roster = [];
   String? _myShiftTypeName;
@@ -88,7 +86,6 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
       date: _requestedDate!,
     );
 
-    // 내 근무 유형 찾기
     final myUserId = ref.read(currentUserProvider)?.id;
     _myShiftTypeName = null;
     for (final entry in _roster) {
@@ -102,6 +99,15 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
     }
 
     if (mounted) setState(() => _isLoadingRoster = false);
+  }
+
+  bool get _canSubmit {
+    if (_isSubmitting || _reason.isEmpty) return false;
+    if (_changeType == 'shift_change' && _selectedShiftTypeId == null) {
+      return false;
+    }
+    if (_changeType == 'swap' && _selectedSwapUserId == null) return false;
+    return true;
   }
 
   @override
@@ -140,7 +146,8 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
                     _loadRoster();
                   }
                 },
-                selectedColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                selectedColor:
+                    theme.colorScheme.primary.withValues(alpha: 0.15),
               );
             }).toList(),
           ),
@@ -187,8 +194,7 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
                   const SizedBox(width: AppSpacing.md),
                   Text(
                     _requestedDate != null
-                        ? DateFormat('yyyy년 MM월 dd일')
-                            .format(_requestedDate!)
+                        ? DateFormat('yyyy년 MM월 dd일').format(_requestedDate!)
                         : '날짜를 선택해주세요',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: _requestedDate != null
@@ -201,16 +207,36 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
             ),
           ),
 
-          // 근무 변경: 현재 근무 + 변경할 근무 유형 선택
+          // 근무 변경 섹션
           if (_changeType == 'shift_change') ...[
             const SizedBox(height: AppSpacing.xxl),
-            _buildShiftChangeSection(theme),
+            RequestCreateShiftChangeSection(
+              isLoading: _isLoadingRoster,
+              myShiftTypeName: _myShiftTypeName,
+              shiftTypes: _shiftTypes,
+              selectedShiftTypeId: _selectedShiftTypeId,
+              onShiftTypeSelected: (id) =>
+                  setState(() => _selectedShiftTypeId = id),
+            ),
           ],
 
-          // 근무 교환: 해당 날짜 팀원 근무 목록
+          // 근무 교환 섹션
           if (_changeType == 'swap') ...[
             const SizedBox(height: AppSpacing.xxl),
-            _buildSwapSection(theme),
+            RequestCreateSwapSection(
+              isLoading: _isLoadingRoster,
+              myShiftTypeName: _myShiftTypeName,
+              roster: _roster,
+              myUserId: ref.read(currentUserProvider)?.id,
+              selectedSwapUserId: _selectedSwapUserId,
+              selectedSwapUserName: _selectedSwapUserName,
+              onSwapUserSelected: (userId, userName) {
+                setState(() {
+                  _selectedSwapUserId = userId;
+                  _selectedSwapUserName = userName;
+                });
+              },
+            ),
           ],
 
           const SizedBox(height: AppSpacing.xxl),
@@ -229,7 +255,8 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
                 label: Text(reason),
                 selected: selected,
                 onSelected: (_) => setState(() => _reason = reason),
-                selectedColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                selectedColor:
+                    theme.colorScheme.primary.withValues(alpha: 0.15),
               );
             }).toList(),
           ),
@@ -270,229 +297,6 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
     );
   }
 
-  bool get _canSubmit {
-    if (_isSubmitting || _reason.isEmpty) return false;
-    if (_changeType == 'shift_change' && _selectedShiftTypeId == null) {
-      return false;
-    }
-    if (_changeType == 'swap' && _selectedSwapUserId == null) return false;
-    return true;
-  }
-
-  /// 근무 변경 섹션
-  Widget _buildShiftChangeSection(ThemeData theme) {
-    if (_isLoadingRoster) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 현재 내 근무
-        Text('현재 내 근무',
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: AppSpacing.sm),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerLow,
-            borderRadius: AppRadius.borderRadiusMd,
-          ),
-          child: Text(
-            _myShiftTypeName ?? '해당 날짜에 배정된 근무가 없습니다',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: _myShiftTypeName != null
-                  ? null
-                  : AppColors.textSecondaryLight,
-            ),
-          ),
-        ),
-
-        const SizedBox(height: AppSpacing.lg),
-
-        // 변경할 근무 유형 선택
-        Text('변경할 근무 유형',
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: AppSpacing.sm),
-        Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
-          children: _shiftTypes.map((st) {
-            final color = parseHexColor(st.color);
-            final selected = _selectedShiftTypeId == st.id;
-            return ChoiceChip(
-              avatar: CircleAvatar(
-                backgroundColor: color,
-                radius: 8,
-              ),
-              label: Text(st.name),
-              selected: selected,
-              onSelected: (_) =>
-                  setState(() => _selectedShiftTypeId = st.id),
-              selectedColor: color.withValues(alpha: 0.2),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  /// 근무 교환 섹션
-  Widget _buildSwapSection(ThemeData theme) {
-    if (_isLoadingRoster) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final myUserId = ref.read(currentUserProvider)?.id;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 현재 내 근무
-        if (_myShiftTypeName != null) ...[
-          Text('현재 내 근무',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: AppSpacing.sm),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
-              borderRadius: AppRadius.borderRadiusMd,
-            ),
-            child: Text(
-              _myShiftTypeName!,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-        ],
-
-        // 팀원 근무 목록
-        Text('교환할 팀원 선택',
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: AppSpacing.sm),
-
-        if (_roster.isEmpty)
-          Text('해당 날짜에 배정된 근무가 없습니다',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondaryLight,
-              ))
-        else
-          ..._roster.map((entry) {
-            final color = parseHexColor(entry.shiftType.color);
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 근무 유형 헤더
-                Row(
-                  children: [
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: AppRadius.borderRadiusSm,
-                      ),
-                      child: Center(
-                        child: Text(
-                          entry.shiftType.code,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      entry.shiftType.name,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                // 근무자 목록 (자기 자신 제외)
-                Padding(
-                  padding: const EdgeInsets.only(left: 32),
-                  child: Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.xs,
-                    children: entry.workers
-                        .where((w) => w.user.id != myUserId)
-                        .map((w) {
-                      final name =
-                          w.user.displayName ?? w.user.email;
-                      final isSelected =
-                          _selectedSwapUserId == w.user.id;
-
-                      return ChoiceChip(
-                        label: Text(name),
-                        selected: isSelected,
-                        onSelected: (_) {
-                          setState(() {
-                            _selectedSwapUserId = w.user.id;
-                            _selectedSwapUserName = name;
-                          });
-                        },
-                        selectedColor:
-                            color.withValues(alpha: 0.2),
-                        avatar: isSelected
-                            ? Icon(Icons.check,
-                                size: 16, color: color)
-                            : null,
-                      );
-                    }).toList(),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-              ],
-            );
-          }),
-
-        if (_selectedSwapUserName != null) ...[
-          const SizedBox(height: AppSpacing.sm),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.08),
-              borderRadius: AppRadius.borderRadiusMd,
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.swap_horiz,
-                    color: AppColors.primary, size: 20),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    '$_selectedSwapUserName 님과 근무 교환 요청',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
   Future<void> _submit(BuildContext context) async {
     // 휴무 요청 시 이미 휴무인지 체크
     if (_changeType == 'day_off' && _requestedDate != null) {
@@ -529,10 +333,8 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
       String? noteText = _note.isNotEmpty ? _note : null;
       String reasonText = _reason;
 
-      // 근무 교환인 경우 사유에 상대방 정보 포함
       if (_changeType == 'swap' && _selectedSwapUserName != null) {
-        reasonText =
-            '$_selectedSwapUserName 님과 근무 교환. $_reason';
+        reasonText = '$_selectedSwapUserName 님과 근무 교환. $_reason';
       }
 
       await repo.createRequest(

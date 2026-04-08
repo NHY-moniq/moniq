@@ -705,8 +705,6 @@ class ScheduleGenerationViewModel
       wantedDaysOff.putIfAbsent(entry.userId, () => {}).add(dateStr);
     }
 
-    // 날짜별로 순회
-    final dayCount = end.difference(start).inDays + 1;
     final workShiftTypes =
         shiftTypes.where((t) => t.code.toUpperCase() != 'OFF').toList();
 
