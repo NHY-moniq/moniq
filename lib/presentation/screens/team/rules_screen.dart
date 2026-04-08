@@ -3,7 +3,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/models/shift_rule_model.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -243,7 +242,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 child: Text('관리자만 규칙을 수정할 수 있습니다',
                     style: theme.textTheme.bodyMedium
-                        ?.copyWith(color: AppColors.textSecondaryLight)),
+                        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               ),
             ),
 
@@ -281,7 +280,7 @@ class _SectionCard extends StatelessWidget {
               const SizedBox(height: AppSpacing.xxs),
               Text(subtitle!,
                   style: theme.textTheme.bodySmall
-                      ?.copyWith(color: AppColors.textSecondaryLight)),
+                      ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
             const SizedBox(height: AppSpacing.md),
             child,
@@ -370,7 +369,7 @@ class _NumberRow extends StatelessWidget {
             width: 80,
             child: Text(suffix,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondaryLight)),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
         ],
       ),

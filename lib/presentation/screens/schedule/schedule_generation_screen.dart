@@ -337,14 +337,13 @@ class _SetupView extends HookConsumerWidget {
 
           if (state.members.isEmpty || state.shiftTypes.isEmpty) ...[
             const SizedBox(height: AppSpacing.md),
-            Center(
-              child: Text(
-                state.members.isEmpty
-                    ? '멤버를 먼저 추가해주세요'
-                    : '근무 유형을 먼저 설정해주세요',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: AppColors.error),
-              ),
+            Text(
+              state.members.isEmpty
+                  ? '멤버를 먼저 추가해주세요'
+                  : '근무 유형을 먼저 설정해주세요',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.error),
+              textAlign: TextAlign.center,
             ),
           ],
         ],
@@ -2299,7 +2298,7 @@ class _InfoRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(icon, size: 18, color: AppColors.textSecondaryLight),
+        Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
         const SizedBox(width: AppSpacing.sm),
         Text(label, style: theme.textTheme.bodyMedium),
         const Spacer(),

@@ -94,7 +94,7 @@ class DateItemsPanel extends ConsumerWidget {
                       child: Text(
                         '${date.day}',
                         style: theme.textTheme.titleLarge?.copyWith(
-                          color: Colors.white,
+                          color: theme.colorScheme.onPrimary,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -123,7 +123,7 @@ class DateItemsPanel extends ConsumerWidget {
                               ].join(' \u00B7 ')
                             : '\uB4F1\uB85D\uB41C \uD56D\uBAA9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondaryLight,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -134,7 +134,7 @@ class DateItemsPanel extends ConsumerWidget {
                       isExpanded
                           ? Icons.keyboard_arrow_up
                           : Icons.keyboard_arrow_down,
-                      color: AppColors.textSecondaryLight,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ],
                 ],
@@ -170,7 +170,7 @@ class DateItemsPanel extends ConsumerWidget {
                   Text(
                     '+ \uBC84\uD2BC\uC73C\uB85C \uC77C\uC815\uC774\uB098 \uBA54\uBAA8\uB97C \uCD94\uAC00\uD574\uBCF4\uC138\uC694',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondaryLight,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -217,7 +217,7 @@ class DateItemsPanel extends ConsumerWidget {
                       Text(
                         '${s.shiftType.startTime} ~ ${s.shiftType.endTime ?? ''}',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondaryLight,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -226,7 +226,7 @@ class DateItemsPanel extends ConsumerWidget {
                       Text(
                         s.teamName!,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondaryLight,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -281,10 +281,10 @@ class DateItemsPanel extends ConsumerWidget {
               return _buildColorBarCard(
                 theme: theme,
                 context: context,
-                barColor: AppColors.tertiary,
+                barColor: theme.colorScheme.tertiary,
                 trailing: PopupMenuButton<String>(
                   icon: Icon(Icons.more_horiz,
-                      size: 18, color: AppColors.textSecondaryLight),
+                      size: 18, color: theme.colorScheme.onSurfaceVariant),
                   itemBuilder: (_) => [
                     const PopupMenuItem(
                         value: 'edit', child: Text('\uC218\uC815')),
@@ -309,7 +309,7 @@ class DateItemsPanel extends ConsumerWidget {
                       ),
                       decoration: BoxDecoration(
                         color:
-                            AppColors.tertiary.withValues(alpha: 0.12),
+                            theme.colorScheme.tertiary.withValues(alpha: 0.12),
                         borderRadius: AppRadius.borderRadiusSm,
                       ),
                       child: Text(
@@ -317,7 +317,7 @@ class DateItemsPanel extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
-                          color: AppColors.tertiary,
+                          color: theme.colorScheme.tertiary,
                         ),
                       ),
                     ),
@@ -431,7 +431,7 @@ class DateItemsPanel extends ConsumerWidget {
       barColor: eventColor,
       trailing: PopupMenuButton<String>(
         icon: Icon(Icons.more_horiz,
-            size: 18, color: AppColors.textSecondaryLight),
+            size: 18, color: theme.colorScheme.onSurfaceVariant),
         itemBuilder: (_) => [
           const PopupMenuItem(value: 'edit', child: Text('\uC218\uC815')),
           const PopupMenuItem(value: 'delete', child: Text('\uC0AD\uC81C')),
@@ -479,7 +479,7 @@ class DateItemsPanel extends ConsumerWidget {
                 Expanded(
                   child: Text(event.description!,
                       style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondaryLight),
+                          color: theme.colorScheme.onSurfaceVariant),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                 ),

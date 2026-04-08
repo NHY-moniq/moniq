@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/core/utils/time_utils.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 
 class ShiftDetailPanel extends StatelessWidget {
@@ -37,7 +36,7 @@ class ShiftDetailPanel extends StatelessWidget {
             Text(
               '배정된 근무가 없습니다',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondaryLight,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             )
           else
@@ -98,7 +97,7 @@ class _ShiftDetailRow extends StatelessWidget {
                   Text(
                     timeStr,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondaryLight,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
               ],
@@ -108,7 +107,7 @@ class _ShiftDetailRow extends StatelessWidget {
             Text(
               shiftWithType.teamName!,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondaryLight,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           if (shift.note != null && shift.note!.isNotEmpty)
@@ -117,7 +116,7 @@ class _ShiftDetailRow extends StatelessWidget {
               child: Icon(
                 Icons.note_outlined,
                 size: 16,
-                color: AppColors.textSecondaryLight,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
         ],

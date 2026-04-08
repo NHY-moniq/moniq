@@ -18,6 +18,8 @@ class WeeklyHoursCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xxl),
       decoration: BoxDecoration(
@@ -36,7 +38,7 @@ class WeeklyHoursCard extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.5,
-              color: AppColors.outline,
+              color: colorScheme.outline,
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -59,7 +61,7 @@ class WeeklyHoursCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.onSurfaceVariant,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -83,6 +85,8 @@ class OnShiftTeamCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xxl),
       decoration: BoxDecoration(
@@ -101,7 +105,7 @@ class OnShiftTeamCard extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.5,
-              color: AppColors.outline,
+              color: colorScheme.outline,
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -120,16 +124,16 @@ class OnShiftTeamCard extends StatelessWidget {
                       height: 40,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.surfaceContainerHigh,
+                        color: colorScheme.surfaceContainerHigh,
                         border: Border.all(
                           color: shiftTheme.background,
                           width: 3,
                         ),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.person,
                         size: 18,
-                        color: AppColors.onSurfaceVariant,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -140,7 +144,7 @@ class OnShiftTeamCard extends StatelessWidget {
                     height: 40,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.surface,
+                      color: colorScheme.surface,
                       border: Border.all(
                         color: shiftTheme.background,
                         width: 3,
@@ -152,7 +156,7 @@ class OnShiftTeamCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.outline,
+                          color: colorScheme.outline,
                         ),
                       ),
                     ),
@@ -335,7 +339,7 @@ class AnnouncementCard extends ConsumerWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: AppColors.outline),
+            Icon(Icons.chevron_right, color: colorScheme.outline),
           ],
         ),
       ),

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
@@ -62,7 +61,7 @@ class HomeScreen extends HookConsumerWidget {
           IconButton(
             icon: Icon(
               Icons.notifications_outlined,
-              color: AppColors.onSurfaceVariant,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             onPressed: () {},
           ),
@@ -125,7 +124,8 @@ class HomeScreen extends HookConsumerWidget {
           onTap: () => Navigator.pop(ctx),
           child: CircleAvatar(
             radius: 100,
-            backgroundColor: AppColors.primaryContainer,
+            backgroundColor:
+                Theme.of(context).colorScheme.primaryContainer,
             backgroundImage: CachedNetworkImageProvider(url),
           ),
         ),
@@ -151,7 +151,7 @@ class _Avatar extends StatelessWidget {
       height: 40,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.primaryContainer,
+        color: Theme.of(context).colorScheme.primaryContainer,
         border: Border.all(color: ringColor, width: 2),
       ),
       child: url != null && url!.isNotEmpty
@@ -159,17 +159,21 @@ class _Avatar extends StatelessWidget {
               child: CachedNetworkImage(
                 imageUrl: url!,
                 fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => const Icon(
+                errorWidget: (_, __, ___) => Icon(
                   Icons.person,
                   size: 20,
-                  color: AppColors.onPrimaryContainer,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onPrimaryContainer,
                 ),
               ),
             )
-          : const Icon(
+          : Icon(
               Icons.person,
               size: 20,
-              color: AppColors.onPrimaryContainer,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onPrimaryContainer,
             ),
     );
   }
@@ -264,7 +268,9 @@ class _HomeBody extends ConsumerWidget {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: AppColors.onSurfaceVariant,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurfaceVariant,
             ),
           ),
           const SizedBox(height: AppSpacing.xxl),

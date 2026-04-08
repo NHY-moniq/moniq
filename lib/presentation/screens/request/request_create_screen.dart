@@ -140,7 +140,7 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
                     _loadRoster();
                   }
                 },
-                selectedColor: AppColors.primary.withValues(alpha: 0.15),
+                selectedColor: theme.colorScheme.primary.withValues(alpha: 0.15),
               );
             }).toList(),
           ),
@@ -175,13 +175,15 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
               width: double.infinity,
               padding: const EdgeInsets.all(AppSpacing.lg),
               decoration: BoxDecoration(
-                border: Border.all(color: AppColors.borderLight),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant,
+                ),
                 borderRadius: AppRadius.borderRadiusMd,
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_today,
-                      size: 20, color: AppColors.primary),
+                  Icon(Icons.calendar_today,
+                      size: 20, color: theme.colorScheme.primary),
                   const SizedBox(width: AppSpacing.md),
                   Text(
                     _requestedDate != null
@@ -191,7 +193,7 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: _requestedDate != null
                           ? null
-                          : AppColors.textSecondaryLight,
+                          : theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -227,7 +229,7 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
                 label: Text(reason),
                 selected: selected,
                 onSelected: (_) => setState(() => _reason = reason),
-                selectedColor: AppColors.primary.withValues(alpha: 0.15),
+                selectedColor: theme.colorScheme.primary.withValues(alpha: 0.15),
               );
             }).toList(),
           ),

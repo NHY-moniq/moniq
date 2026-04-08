@@ -45,7 +45,7 @@ class RosterPanel extends ConsumerWidget {
                 child: Text(
                   '이 날짜에 배정된 근무가 없습니다',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondaryLight,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -102,8 +102,8 @@ class _ShiftTypeGroup extends ConsumerWidget {
               child: Center(
                 child: Text(
                   entry.shiftType.code,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: theme.colorScheme.onPrimary,
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
                   ),

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
 
@@ -93,14 +92,15 @@ class LoginScreen extends HookConsumerWidget {
                             vertical: AppSpacing.md,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.error.withValues(alpha: 0.1),
+                            color: theme.colorScheme.error
+                                .withValues(alpha: 0.1),
                             borderRadius: AppRadius.borderRadiusFull,
                           ),
                           child: SelectableText.rich(
                             TextSpan(
                               text: errorMessage.value,
-                              style: const TextStyle(
-                                color: AppColors.error,
+                              style: TextStyle(
+                                color: theme.colorScheme.error,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -145,7 +145,8 @@ class LoginScreen extends HookConsumerWidget {
                             obscurePassword.value
                                 ? Icons.visibility_outlined
                                 : Icons.visibility_off_outlined,
-                            color: AppColors.outline.withValues(alpha: 0.6),
+                            color: theme.colorScheme.outline
+                                .withValues(alpha: 0.6),
                             size: 20,
                           ),
                           onPressed: () =>
@@ -167,12 +168,12 @@ class LoginScreen extends HookConsumerWidget {
                         child: ElevatedButton(
                           onPressed: busy ? null : handleEmailLogin,
                           child: busy
-                              ? const SizedBox(
+                              ? SizedBox(
                                   height: 20,
                                   width: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Colors.white,
+                                    color: theme.colorScheme.onPrimary,
                                   ),
                                 )
                               : const Text('로그인'),
@@ -186,7 +187,7 @@ class LoginScreen extends HookConsumerWidget {
                         child: Text(
                           '비밀번호를 잊으셨나요?',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppColors.secondary,
+                            color: theme.colorScheme.secondary,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -248,7 +249,8 @@ class LoginScreen extends HookConsumerWidget {
                           Text(
                             'OnorOff가 처음이신가요?',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.onSurface.withValues(alpha: 0.6),
+                              color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -257,7 +259,7 @@ class LoginScreen extends HookConsumerWidget {
                             child: Text(
                               '회원가입',
                               style: TextStyle(
-                                color: AppColors.tertiary,
+                                color: theme.colorScheme.tertiary,
                                 fontWeight: FontWeight.w800,
                                 fontSize: 14,
                               ),
@@ -284,7 +286,8 @@ class _BlobBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const IgnorePointer(
+    final colorScheme = Theme.of(context).colorScheme;
+    return IgnorePointer(
       child: Stack(
         children: [
           Positioned(
@@ -292,7 +295,7 @@ class _BlobBackground extends StatelessWidget {
             left: -40,
             child: _Blob(
               size: 300,
-              color: AppColors.primaryContainer,
+              color: colorScheme.primaryContainer,
             ),
           ),
           Positioned(
@@ -300,7 +303,7 @@ class _BlobBackground extends StatelessWidget {
             right: -80,
             child: _Blob(
               size: 360,
-              color: AppColors.secondaryContainer,
+              color: colorScheme.secondaryContainer,
             ),
           ),
         ],
@@ -347,7 +350,8 @@ class _BrandSection extends StatelessWidget {
         Text(
           '간호사를 위한 근무표 관리',
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: AppColors.onSurface.withValues(alpha: 0.6),
+            color: theme.colorScheme.onSurface
+                .withValues(alpha: 0.6),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -384,6 +388,7 @@ class _PillTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -395,7 +400,7 @@ class _PillTextField extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w800,
               letterSpacing: 2.0,
-              color: AppColors.onSurface.withValues(alpha: 0.5),
+              color: colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
         ),
@@ -410,7 +415,7 @@ class _PillTextField extends StatelessWidget {
             hintText: hint,
             prefixIcon: Padding(
               padding: const EdgeInsets.only(left: 20, right: 8),
-              child: Icon(icon, color: AppColors.primary, size: 20),
+              child: Icon(icon, color: colorScheme.primary, size: 20),
             ),
             prefixIconConstraints: const BoxConstraints(
               minWidth: 48,
@@ -427,12 +432,13 @@ class _PillTextField extends StatelessWidget {
 class _OrDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       children: [
         Expanded(
           child: Container(
             height: 2,
-            color: AppColors.surfaceContainer,
+            color: colorScheme.surfaceContainer,
           ),
         ),
         Padding(
@@ -443,14 +449,14 @@ class _OrDivider extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w800,
               letterSpacing: 2.0,
-              color: AppColors.outline.withValues(alpha: 0.4),
+              color: colorScheme.outline.withValues(alpha: 0.4),
             ),
           ),
         ),
         Expanded(
           child: Container(
             height: 2,
-            color: AppColors.surfaceContainer,
+            color: colorScheme.surfaceContainer,
           ),
         ),
       ],
@@ -474,15 +480,17 @@ class _SocialPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
       height: AppSizing.buttonHeight,
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          backgroundColor: backgroundColor ?? Colors.white,
-          foregroundColor: AppColors.onSurfaceVariant,
+          backgroundColor:
+              backgroundColor ?? colorScheme.surface,
+          foregroundColor: colorScheme.onSurfaceVariant,
           side: BorderSide(
-            color: AppColors.surfaceContainer,
+            color: colorScheme.surfaceContainer,
             width: 2,
           ),
           shape: RoundedRectangleBorder(

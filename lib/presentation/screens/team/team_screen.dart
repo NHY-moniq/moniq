@@ -8,7 +8,6 @@ import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/schedule_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
@@ -113,7 +112,7 @@ class _NoFavoriteView extends HookConsumerWidget {
             Text(
               '팀 탭에서 표시할 팀을 선택합니다',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondaryLight,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: AppSpacing.xxl),
@@ -343,7 +342,7 @@ class _TeamDrawer extends HookConsumerWidget {
               subtitle: Text(
                 currentTeam.name,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondaryLight,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               trailing: const Icon(Icons.chevron_right),
@@ -360,7 +359,7 @@ class _TeamDrawer extends HookConsumerWidget {
               subtitle: Text(
                 '${teams.length}개 팀',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondaryLight,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               trailing: const Icon(Icons.chevron_right),

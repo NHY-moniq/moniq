@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
 
 class AppShell extends ConsumerWidget {
@@ -65,8 +64,12 @@ class _FloatingNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final activeColor = shiftTheme.primary;
     final activeTextColor = shiftTheme.onPrimary;
+    final inactiveColor = colorScheme.onSurface.withValues(
+      alpha: 0.6,
+    );
 
     return Padding(
       padding: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
@@ -77,11 +80,13 @@ class _FloatingNavBar extends StatelessWidget {
           child: Container(
             height: 72,
             decoration: BoxDecoration(
-              color: AppColors.onSurface.withValues(alpha: 0.9),
+              color: colorScheme.surfaceContainerHigh.withValues(
+                alpha: 0.8,
+              ),
               borderRadius: BorderRadius.circular(999),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
+                  color: colorScheme.shadow.withValues(alpha: 0.2),
                   blurRadius: 35,
                   offset: const Offset(0, 15),
                 ),
@@ -108,7 +113,9 @@ class _FloatingNavBar extends StatelessWidget {
                             borderRadius: BorderRadius.circular(999),
                             boxShadow: [
                               BoxShadow(
-                                color: activeColor.withValues(alpha: 0.3),
+                                color: activeColor.withValues(
+                                  alpha: 0.3,
+                                ),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -122,7 +129,7 @@ class _FloatingNavBar extends StatelessWidget {
                           isActive ? item.activeIcon : item.icon,
                           color: isActive
                               ? activeTextColor
-                              : Colors.white.withValues(alpha: 0.6),
+                              : inactiveColor,
                           size: 22,
                         ),
                         const SizedBox(height: 2),
@@ -134,7 +141,7 @@ class _FloatingNavBar extends StatelessWidget {
                             letterSpacing: 1.5,
                             color: isActive
                                 ? activeTextColor
-                                : Colors.white.withValues(alpha: 0.6),
+                                : inactiveColor,
                           ),
                         ),
                       ],

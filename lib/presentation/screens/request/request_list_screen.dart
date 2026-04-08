@@ -146,23 +146,26 @@ class RequestListScreen extends HookConsumerWidget {
                   if (request.createdAt != null)
                     Text(
                       dateFormat.format(request.createdAt!),
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: AppColors.textSecondaryLight),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
               Text('요청 유형',
-                  style: theme.textTheme.labelMedium
-                      ?.copyWith(color: AppColors.textSecondaryLight)),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  )),
               const SizedBox(height: AppSpacing.xs),
               Text(_changeTypeLabel(request.changeType),
                   style: theme.textTheme.bodyLarge),
               if (request.requestedDate != null) ...[
                 const SizedBox(height: AppSpacing.md),
                 Text('희망 날짜',
-                    style: theme.textTheme.labelMedium
-                        ?.copyWith(color: AppColors.textSecondaryLight)),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    )),
                 const SizedBox(height: AppSpacing.xs),
                 Text(DateFormat('yyyy.MM.dd').format(request.requestedDate!),
                     style: theme.textTheme.bodyLarge),
@@ -170,16 +173,18 @@ class RequestListScreen extends HookConsumerWidget {
               if (request.reason != null && request.reason!.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.md),
                 Text('사유',
-                    style: theme.textTheme.labelMedium
-                        ?.copyWith(color: AppColors.textSecondaryLight)),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    )),
                 const SizedBox(height: AppSpacing.xs),
                 Text(request.reason!, style: theme.textTheme.bodyLarge),
               ],
               if (request.note != null && request.note!.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.md),
                 Text('메모',
-                    style: theme.textTheme.labelMedium
-                        ?.copyWith(color: AppColors.textSecondaryLight)),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    )),
                 const SizedBox(height: AppSpacing.xs),
                 Text(request.note!, style: theme.textTheme.bodyMedium),
               ],
@@ -199,7 +204,7 @@ class RequestListScreen extends HookConsumerWidget {
                           if (ctx.mounted) Navigator.pop(ctx);
                         },
                         style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.error),
+                            foregroundColor: theme.colorScheme.error),
                         child: const Text('거절'),
                       ),
                     ),
@@ -253,12 +258,13 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return FilterChip(
       label: Text(label),
       selected: selected,
       onSelected: (_) => onTap(),
-      selectedColor: AppColors.primary.withValues(alpha: 0.15),
-      checkmarkColor: AppColors.primary,
+      selectedColor: colorScheme.primary.withValues(alpha: 0.15),
+      checkmarkColor: colorScheme.primary,
     );
   }
 }
@@ -293,14 +299,16 @@ class _RequestCard extends StatelessWidget {
                     if (request.reason != null && request.reason!.isNotEmpty)
                       Text(request.reason!,
                           style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondaryLight),
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                     if (request.createdAt != null)
                       Text(
                         dateFormat.format(request.createdAt!),
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: AppColors.textSecondaryLight),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                   ],
                 ),
@@ -321,12 +329,33 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final (label, color, bgColor) = switch (status) {
-      'pending' => ('대기중', AppColors.brandOrange, AppColors.brandOrange.withValues(alpha: 0.1)),
-      'approved' => ('승인', AppColors.success, AppColors.successLight),
-      'rejected' => ('거절', AppColors.error, AppColors.errorLight),
-      'cancelled' => ('취소', AppColors.textSecondaryLight, AppColors.borderLight),
-      _ => ('알수없음', AppColors.textSecondaryLight, AppColors.borderLight),
+      'pending' => (
+        '대기중',
+        AppColors.brandOrange,
+        AppColors.brandOrange.withValues(alpha: 0.1),
+      ),
+      'approved' => (
+        '승인',
+        AppColors.success,
+        AppColors.successLight,
+      ),
+      'rejected' => (
+        '거절',
+        colorScheme.error,
+        AppColors.errorLight,
+      ),
+      'cancelled' => (
+        '취소',
+        colorScheme.onSurfaceVariant,
+        colorScheme.outlineVariant,
+      ),
+      _ => (
+        '알수없음',
+        colorScheme.onSurfaceVariant,
+        colorScheme.outlineVariant,
+      ),
     };
 
     return Container(

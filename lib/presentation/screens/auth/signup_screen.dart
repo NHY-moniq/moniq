@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
 
@@ -51,6 +50,8 @@ class SignupScreen extends HookConsumerWidget {
       }
     }
 
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(title: const Text('회원가입')),
       body: SafeArea(
@@ -66,7 +67,9 @@ class SignupScreen extends HookConsumerWidget {
                   SelectableText.rich(
                     TextSpan(
                       text: errorMessage.value,
-                      style: const TextStyle(color: AppColors.error),
+                      style: TextStyle(
+                        color: theme.colorScheme.error,
+                      ),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -160,12 +163,12 @@ class SignupScreen extends HookConsumerWidget {
                 ElevatedButton(
                   onPressed: isLoading.value ? null : handleSignup,
                   child: isLoading.value
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: theme.colorScheme.onPrimary,
                           ),
                         )
                       : const Text('회원가입'),
@@ -175,8 +178,8 @@ class SignupScreen extends HookConsumerWidget {
                 // Privacy policy
                 Text(
                   '회원가입 시 개인정보 처리방침에 동의합니다.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondaryLight,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                   textAlign: TextAlign.center,
                 ),

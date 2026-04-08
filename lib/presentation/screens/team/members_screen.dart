@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/team_member_with_user.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -301,10 +300,13 @@ class _MemberEditSheetState
                   )
                   .removeMember(widget.member.userId);
             },
-            child: const Text(
-              '제거',
-              style: TextStyle(color: AppColors.error),
-            ),
+            child:
+                Text(
+                  '제거',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
           ),
         ],
       ),
@@ -602,8 +604,14 @@ class _RoleBadge extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: isAdmin
-            ? AppColors.primary.withValues(alpha: 0.1)
-            : AppColors.textSecondaryLight.withValues(alpha: 0.1),
+            ? Theme.of(context)
+                .colorScheme
+                .primary
+                .withValues(alpha: 0.1)
+            : Theme.of(context)
+                .colorScheme
+                .onSurfaceVariant
+                .withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
@@ -612,8 +620,8 @@ class _RoleBadge extends StatelessWidget {
           fontSize: 12,
           fontWeight: FontWeight.w500,
           color: isAdmin
-              ? AppColors.primary
-              : AppColors.textSecondaryLight,
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     );

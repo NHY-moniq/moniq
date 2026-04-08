@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/presentation/screens/team/shift_template_data.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 
 /// 커스텀 근무 유형 입력 폼 (추가/수정 공용)
@@ -205,25 +204,33 @@ class _CustomShiftFormState
                     ?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: '근무 이름 입력',
                   hintStyle: TextStyle(
-                    color: AppColors.textSecondaryLight,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant,
                     fontWeight: FontWeight.w400,
                   ),
                   border: UnderlineInputBorder(
                     borderSide: BorderSide(
-                      color: AppColors.borderLight,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outlineVariant,
                     ),
                   ),
                   enabledBorder: UnderlineInputBorder(
                     borderSide: BorderSide(
-                      color: AppColors.borderLight,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outlineVariant,
                     ),
                   ),
                   focusedBorder: UnderlineInputBorder(
                     borderSide: BorderSide(
-                      color: AppColors.primary,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary,
                       width: 2,
                     ),
                   ),
@@ -244,7 +251,7 @@ class _CustomShiftFormState
         Text(
           '근무 시간',
           style: theme.textTheme.labelMedium?.copyWith(
-            color: AppColors.textSecondaryLight,
+            color: theme.colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -269,7 +276,7 @@ class _CustomShiftFormState
               child: Icon(
                 Icons.arrow_forward_rounded,
                 size: 18,
-                color: AppColors.textSecondaryLight
+                color: theme.colorScheme.onSurfaceVariant
                     .withValues(alpha: 0.5),
               ),
             ),
@@ -293,7 +300,7 @@ class _CustomShiftFormState
         Text(
           '색상',
           style: theme.textTheme.labelMedium?.copyWith(
-            color: AppColors.textSecondaryLight,
+            color: theme.colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -318,7 +325,8 @@ class _CustomShiftFormState
                   shape: BoxShape.circle,
                   border: isSelected
                       ? Border.all(
-                          color: Colors.white,
+                          color: theme.colorScheme
+                              .surface,
                           width: 2.5,
                         )
                       : null,
@@ -334,9 +342,10 @@ class _CustomShiftFormState
                       : null,
                 ),
                 child: isSelected
-                    ? const Icon(
+                    ? Icon(
                         Icons.check_rounded,
-                        color: Colors.white,
+                        color: theme.colorScheme
+                            .surface,
                         size: 16,
                       )
                     : null,
