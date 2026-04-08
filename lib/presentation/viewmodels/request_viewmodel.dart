@@ -1,5 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/data/datasources/notification_service.dart';
 import 'package:moniq/data/models/request_model.dart';
 import 'package:moniq/data/providers/request_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
@@ -73,12 +74,14 @@ class RequestListViewModel
   Future<void> approveRequest(String requestId) async {
     final repo = ref.read(requestRepositoryProvider);
     await repo.updateRequestStatus(requestId, 'approved');
+    await _notifyStatusChange(requestId, '승인');
     ref.invalidateSelf();
   }
 
   Future<void> rejectRequest(String requestId) async {
     final repo = ref.read(requestRepositoryProvider);
     await repo.updateRequestStatus(requestId, 'rejected');
+    await _notifyStatusChange(requestId, '거절');
     ref.invalidateSelf();
   }
 
@@ -86,6 +89,39 @@ class RequestListViewModel
     final repo = ref.read(requestRepositoryProvider);
     await repo.cancelRequest(requestId);
     ref.invalidateSelf();
+  }
+
+  /// 요청 상태 변경 시 알림 발송. 현재는 로컬 알림 (TODO: Edge Function 푸시).
+  Future<void> _notifyStatusChange(String requestId, String statusKo) async {
+    try {
+      final current = state.valueOrNull;
+      final req = current?.requests.firstWhere(
+        (r) => r.id == requestId,
+        orElse: () => current.requests.first,
+      );
+      final typeKo = _changeTypeLabel(req?.changeType);
+      await NotificationService.instance.showScheduleChangeNotification(
+        teamName: '근무 요청',
+        message: '$typeKo 요청이 $statusKo되었습니다',
+      );
+    } catch (_) {
+      // 알림 실패는 무시
+    }
+  }
+
+  String _changeTypeLabel(String? type) {
+    switch (type) {
+      case 'swap':
+        return '근무 교환';
+      case 'shift_change':
+        return '근무 변경';
+      case 'day_off':
+        return '휴무';
+      case 'schedule_change':
+        return '스케줄 변경';
+      default:
+        return '근무';
+    }
   }
 
   Future<void> refresh() async {
