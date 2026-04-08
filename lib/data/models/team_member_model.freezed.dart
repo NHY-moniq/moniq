@@ -29,6 +29,12 @@ mixin _$TeamMemberModel {
   String get role => throw _privateConstructorUsedError;
   @JsonKey(name: 'skill_level')
   String? get skillLevel => throw _privateConstructorUsedError;
+  @JsonKey(name: 'night_exempt')
+  bool get nightExempt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'day_only')
+  bool get dayOnly => throw _privateConstructorUsedError;
+  @JsonKey(name: 'night_dedicated')
+  bool get nightDedicated => throw _privateConstructorUsedError;
   @JsonKey(name: 'is_favorite')
   bool get isFavorite => throw _privateConstructorUsedError;
   @JsonKey(name: 'joined_at')
@@ -63,6 +69,9 @@ abstract class $TeamMemberModelCopyWith<$Res> {
     @JsonKey(name: 'user_id') String userId,
     String role,
     @JsonKey(name: 'skill_level') String? skillLevel,
+    @JsonKey(name: 'night_exempt') bool nightExempt,
+    @JsonKey(name: 'day_only') bool dayOnly,
+    @JsonKey(name: 'night_dedicated') bool nightDedicated,
     @JsonKey(name: 'is_favorite') bool isFavorite,
     @JsonKey(name: 'joined_at') DateTime? joinedAt,
     @JsonKey(name: 'created_at') DateTime? createdAt,
@@ -91,6 +100,9 @@ class _$TeamMemberModelCopyWithImpl<$Res, $Val extends TeamMemberModel>
     Object? userId = null,
     Object? role = null,
     Object? skillLevel = freezed,
+    Object? nightExempt = null,
+    Object? dayOnly = null,
+    Object? nightDedicated = null,
     Object? isFavorite = null,
     Object? joinedAt = freezed,
     Object? createdAt = freezed,
@@ -119,6 +131,18 @@ class _$TeamMemberModelCopyWithImpl<$Res, $Val extends TeamMemberModel>
                 ? _value.skillLevel
                 : skillLevel // ignore: cast_nullable_to_non_nullable
                       as String?,
+            nightExempt: null == nightExempt
+                ? _value.nightExempt
+                : nightExempt // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            dayOnly: null == dayOnly
+                ? _value.dayOnly
+                : dayOnly // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            nightDedicated: null == nightDedicated
+                ? _value.nightDedicated
+                : nightDedicated // ignore: cast_nullable_to_non_nullable
+                      as bool,
             isFavorite: null == isFavorite
                 ? _value.isFavorite
                 : isFavorite // ignore: cast_nullable_to_non_nullable
@@ -160,6 +184,9 @@ abstract class _$$TeamMemberModelImplCopyWith<$Res>
     @JsonKey(name: 'user_id') String userId,
     String role,
     @JsonKey(name: 'skill_level') String? skillLevel,
+    @JsonKey(name: 'night_exempt') bool nightExempt,
+    @JsonKey(name: 'day_only') bool dayOnly,
+    @JsonKey(name: 'night_dedicated') bool nightDedicated,
     @JsonKey(name: 'is_favorite') bool isFavorite,
     @JsonKey(name: 'joined_at') DateTime? joinedAt,
     @JsonKey(name: 'created_at') DateTime? createdAt,
@@ -187,6 +214,9 @@ class __$$TeamMemberModelImplCopyWithImpl<$Res>
     Object? userId = null,
     Object? role = null,
     Object? skillLevel = freezed,
+    Object? nightExempt = null,
+    Object? dayOnly = null,
+    Object? nightDedicated = null,
     Object? isFavorite = null,
     Object? joinedAt = freezed,
     Object? createdAt = freezed,
@@ -215,6 +245,18 @@ class __$$TeamMemberModelImplCopyWithImpl<$Res>
             ? _value.skillLevel
             : skillLevel // ignore: cast_nullable_to_non_nullable
                   as String?,
+        nightExempt: null == nightExempt
+            ? _value.nightExempt
+            : nightExempt // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        dayOnly: null == dayOnly
+            ? _value.dayOnly
+            : dayOnly // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        nightDedicated: null == nightDedicated
+            ? _value.nightDedicated
+            : nightDedicated // ignore: cast_nullable_to_non_nullable
+                  as bool,
         isFavorite: null == isFavorite
             ? _value.isFavorite
             : isFavorite // ignore: cast_nullable_to_non_nullable
@@ -249,6 +291,9 @@ class _$TeamMemberModelImpl implements _TeamMemberModel {
     @JsonKey(name: 'user_id') required this.userId,
     this.role = 'member',
     @JsonKey(name: 'skill_level') this.skillLevel,
+    @JsonKey(name: 'night_exempt') this.nightExempt = false,
+    @JsonKey(name: 'day_only') this.dayOnly = false,
+    @JsonKey(name: 'night_dedicated') this.nightDedicated = false,
     @JsonKey(name: 'is_favorite') this.isFavorite = false,
     @JsonKey(name: 'joined_at') this.joinedAt,
     @JsonKey(name: 'created_at') this.createdAt,
@@ -274,6 +319,15 @@ class _$TeamMemberModelImpl implements _TeamMemberModel {
   @JsonKey(name: 'skill_level')
   final String? skillLevel;
   @override
+  @JsonKey(name: 'night_exempt')
+  final bool nightExempt;
+  @override
+  @JsonKey(name: 'day_only')
+  final bool dayOnly;
+  @override
+  @JsonKey(name: 'night_dedicated')
+  final bool nightDedicated;
+  @override
   @JsonKey(name: 'is_favorite')
   final bool isFavorite;
   @override
@@ -291,7 +345,7 @@ class _$TeamMemberModelImpl implements _TeamMemberModel {
 
   @override
   String toString() {
-    return 'TeamMemberModel(id: $id, teamId: $teamId, userId: $userId, role: $role, skillLevel: $skillLevel, isFavorite: $isFavorite, joinedAt: $joinedAt, createdAt: $createdAt, updatedAt: $updatedAt, isDeleted: $isDeleted)';
+    return 'TeamMemberModel(id: $id, teamId: $teamId, userId: $userId, role: $role, skillLevel: $skillLevel, nightExempt: $nightExempt, dayOnly: $dayOnly, nightDedicated: $nightDedicated, isFavorite: $isFavorite, joinedAt: $joinedAt, createdAt: $createdAt, updatedAt: $updatedAt, isDeleted: $isDeleted)';
   }
 
   @override
@@ -305,6 +359,11 @@ class _$TeamMemberModelImpl implements _TeamMemberModel {
             (identical(other.role, role) || other.role == role) &&
             (identical(other.skillLevel, skillLevel) ||
                 other.skillLevel == skillLevel) &&
+            (identical(other.nightExempt, nightExempt) ||
+                other.nightExempt == nightExempt) &&
+            (identical(other.dayOnly, dayOnly) || other.dayOnly == dayOnly) &&
+            (identical(other.nightDedicated, nightDedicated) ||
+                other.nightDedicated == nightDedicated) &&
             (identical(other.isFavorite, isFavorite) ||
                 other.isFavorite == isFavorite) &&
             (identical(other.joinedAt, joinedAt) ||
@@ -326,6 +385,9 @@ class _$TeamMemberModelImpl implements _TeamMemberModel {
     userId,
     role,
     skillLevel,
+    nightExempt,
+    dayOnly,
+    nightDedicated,
     isFavorite,
     joinedAt,
     createdAt,
@@ -357,6 +419,9 @@ abstract class _TeamMemberModel implements TeamMemberModel {
     @JsonKey(name: 'user_id') required final String userId,
     final String role,
     @JsonKey(name: 'skill_level') final String? skillLevel,
+    @JsonKey(name: 'night_exempt') final bool nightExempt,
+    @JsonKey(name: 'day_only') final bool dayOnly,
+    @JsonKey(name: 'night_dedicated') final bool nightDedicated,
     @JsonKey(name: 'is_favorite') final bool isFavorite,
     @JsonKey(name: 'joined_at') final DateTime? joinedAt,
     @JsonKey(name: 'created_at') final DateTime? createdAt,
@@ -380,6 +445,15 @@ abstract class _TeamMemberModel implements TeamMemberModel {
   @override
   @JsonKey(name: 'skill_level')
   String? get skillLevel;
+  @override
+  @JsonKey(name: 'night_exempt')
+  bool get nightExempt;
+  @override
+  @JsonKey(name: 'day_only')
+  bool get dayOnly;
+  @override
+  @JsonKey(name: 'night_dedicated')
+  bool get nightDedicated;
   @override
   @JsonKey(name: 'is_favorite')
   bool get isFavorite;

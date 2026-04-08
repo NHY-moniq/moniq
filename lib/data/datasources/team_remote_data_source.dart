@@ -186,6 +186,39 @@ class TeamRemoteDataSource {
         .eq('user_id', userId);
   }
 
+  /// 멤버 숙련도 변경 (junior / mid / senior)
+  Future<void> updateMemberSkillLevel(
+    String teamId,
+    String userId,
+    String? skillLevel,
+  ) async {
+    await _client
+        .from('team_members')
+        .update({'skill_level': skillLevel})
+        .eq('team_id', teamId)
+        .eq('user_id', userId);
+  }
+
+  /// 멤버 속성 변경 (night_exempt / day_only / night_dedicated)
+  Future<void> updateMemberAttrs(
+    String teamId,
+    String userId, {
+    bool? nightExempt,
+    bool? dayOnly,
+    bool? nightDedicated,
+  }) async {
+    final updates = <String, dynamic>{};
+    if (nightExempt != null) updates['night_exempt'] = nightExempt;
+    if (dayOnly != null) updates['day_only'] = dayOnly;
+    if (nightDedicated != null) updates['night_dedicated'] = nightDedicated;
+    if (updates.isEmpty) return;
+    await _client
+        .from('team_members')
+        .update(updates)
+        .eq('team_id', teamId)
+        .eq('user_id', userId);
+  }
+
   /// 멤버 제거 (soft delete)
   Future<void> removeMember(String teamId, String userId) async {
     await _client

@@ -12,10 +12,10 @@ import 'package:moniq/presentation/screens/home/home_screen.dart';
 import 'package:moniq/presentation/screens/request/request_create_screen.dart';
 import 'package:moniq/presentation/screens/request/request_list_screen.dart';
 import 'package:moniq/presentation/screens/schedule/schedule_generation_screen.dart';
+import 'package:moniq/presentation/screens/schedule/schedule_history_screen.dart';
 import 'package:moniq/presentation/screens/settings/profile_edit_screen.dart';
 import 'package:moniq/presentation/screens/settings/settings_screen.dart';
 import 'package:moniq/presentation/screens/team/members_screen.dart';
-import 'package:moniq/presentation/screens/team/rules_screen.dart';
 import 'package:moniq/presentation/screens/team/shift_types_screen.dart';
 import 'package:moniq/presentation/screens/team/team_create_screen.dart';
 import 'package:moniq/presentation/screens/team/team_detail_screen.dart';
@@ -24,6 +24,7 @@ import 'package:moniq/presentation/screens/team/team_list_screen.dart';
 import 'package:moniq/presentation/screens/team/team_screen.dart';
 import 'package:moniq/presentation/screens/team/team_settings_screen.dart';
 import 'package:moniq/presentation/screens/team/schedule_rules_screen.dart';
+import 'package:moniq/presentation/screens/team/custom_rules_screen.dart';
 import 'package:moniq/presentation/screens/announcement/announcement_screen.dart';
 import 'package:moniq/presentation/screens/announcement/my_announcements_screen.dart';
 import 'package:moniq/presentation/screens/wanted/wanted_request_screen.dart';
@@ -186,13 +187,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: '/teams/:teamId/rules',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => RulesScreen(
-          teamId: state.pathParameters['teamId']!,
-        ),
-      ),
-      GoRoute(
         path: '/teams/:teamId/settings',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => TeamSettingsScreen(
@@ -203,6 +197,88 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/teams/:teamId/schedule-rules',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => ScheduleRulesScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/teams/:teamId/custom-rules',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => CustomRulesScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+
+      // My Announcements (홈에서 진입)
+      GoRoute(
+        path: '/announcements',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const MyAnnouncementsScreen(),
+      ),
+
+      // Team Announcements (팀 관리에서 진입)
+      GoRoute(
+        path: '/teams/:teamId/announcements',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => AnnouncementScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+
+      // Schedule generation
+      GoRoute(
+        path: '/teams/:teamId/schedule/generate',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => ScheduleGenerationScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+
+      // Schedule history
+      GoRoute(
+        path: '/teams/:teamId/schedule/history',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => ScheduleHistoryScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/teams/:teamId/schedule/history/:scheduleId',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => ScheduleVersionDetailScreen(
+          teamId: state.pathParameters['teamId']!,
+          scheduleId: state.pathParameters['scheduleId']!,
+        ),
+      ),
+
+      // Wanted (희망 휴무)
+      GoRoute(
+        path: '/teams/:teamId/wanted',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => WantedRequestScreen(
+          teamId: state.pathParameters['teamId']!,
+          teamName: state.uri.queryParameters['teamName'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/teams/:teamId/wanted/entry',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => WantedDayOffScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+
+      // Requests (교환/변경 요청)
+      GoRoute(
+        path: '/teams/:teamId/requests',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => RequestListScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/teams/:teamId/requests/create',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => RequestCreateScreen(
           teamId: state.pathParameters['teamId']!,
         ),
       ),
