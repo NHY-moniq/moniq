@@ -42,4 +42,12 @@ class RequestRepository {
   Future<void> cancelRequest(String requestId) {
     return _dataSource.cancelRequest(requestId);
   }
+
+  Future<void> deleteRequest(String requestId) {
+    return _dataSource.deleteRequest(requestId);
+  }
+
+  Future<void> deleteRequests(List<String> requestIds) {
+    return _dataSource.deleteRequests(requestIds);
+  }
 }

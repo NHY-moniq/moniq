@@ -1,8 +1,15 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/data/models/announcement_model.dart';
 import 'package:moniq/data/providers/announcement_providers.dart';
+import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
@@ -68,10 +75,6 @@ class AnnouncementScreen extends HookConsumerWidget {
   }
 
   void _showCreateSheet(BuildContext context, WidgetRef ref) {
-    final titleC = TextEditingController();
-    final contentC = TextEditingController();
-    final theme = Theme.of(context);
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -79,78 +82,7 @@ class AnnouncementScreen extends HookConsumerWidget {
         borderRadius:
             BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: AppSpacing.xxl,
-          right: AppSpacing.xxl,
-          top: AppSpacing.xxl,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xxl,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              '공지사항 작성',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xxl),
-            TextField(
-              controller: titleC,
-              textCapitalization: TextCapitalization.sentences,
-              keyboardType: TextInputType.text,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                hintText: '제목',
-                prefixIcon: Icon(Icons.title),
-              ),
-              maxLength: 50,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            TextField(
-              controller: contentC,
-              textCapitalization: TextCapitalization.sentences,
-              keyboardType: TextInputType.multiline,
-              textInputAction: TextInputAction.newline,
-              decoration: const InputDecoration(
-                hintText: '내용 (선택)',
-                prefixIcon: Icon(Icons.notes),
-              ),
-              maxLines: 6,
-              maxLength: 2000,
-            ),
-            const SizedBox(height: AppSpacing.xxl),
-            ElevatedButton(
-              onPressed: () async {
-                final title = titleC.text.trim();
-                if (title.isEmpty) return;
-
-                final repo = ref.read(announcementRepositoryProvider);
-                await repo.create(
-                  teamId: teamId,
-                  title: title,
-                  content: contentC.text.trim().isNotEmpty
-                      ? contentC.text.trim()
-                      : null,
-                );
-                ref.invalidate(teamAnnouncementsProvider(teamId));
-                ref.invalidate(myAnnouncementsProvider);
-                if (ctx.mounted) {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('공지사항이 등록되었습니다'),
-                    ),
-                  );
-                }
-              },
-              child: const Text('등록'),
-            ),
-          ],
-        ),
-      ),
+      builder: (ctx) => _AnnouncementCreateSheet(teamId: teamId),
     );
   }
 
@@ -171,6 +103,217 @@ class AnnouncementScreen extends HookConsumerWidget {
       ),
     );
   }
+}
+
+class _AnnouncementCreateSheet extends ConsumerStatefulWidget {
+  const _AnnouncementCreateSheet({required this.teamId});
+  final String teamId;
+
+  @override
+  ConsumerState<_AnnouncementCreateSheet> createState() =>
+      _AnnouncementCreateSheetState();
+}
+
+class _AnnouncementCreateSheetState
+    extends ConsumerState<_AnnouncementCreateSheet> {
+  final _titleC = TextEditingController();
+  final _contentC = TextEditingController();
+  final List<_PendingAttachment> _pending = [];
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _titleC.dispose();
+    _contentC.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickAttachment() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('사진 라이브러리에서 선택'),
+              onTap: () => Navigator.pop(ctx, 'photo'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('카메라로 촬영'),
+              onTap: () => Navigator.pop(ctx, 'camera'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.attach_file),
+              title: const Text('파일 선택'),
+              onTap: () => Navigator.pop(ctx, 'file'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null) return;
+
+    if (choice == 'photo') {
+      final picker = ImagePicker();
+      final picked = await picker.pickMultiImage();
+      if (picked.isEmpty) return;
+      setState(() {
+        for (final x in picked) {
+          _pending.add(_PendingAttachment(name: x.name, path: x.path));
+        }
+      });
+    } else if (choice == 'camera') {
+      final picker = ImagePicker();
+      final x = await picker.pickImage(source: ImageSource.camera);
+      if (x == null) return;
+      setState(() {
+        _pending.add(_PendingAttachment(name: x.name, path: x.path));
+      });
+    } else if (choice == 'file') {
+      final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+      if (result == null) return;
+      setState(() {
+        for (final f in result.files) {
+          if (f.path != null) {
+            _pending.add(_PendingAttachment(name: f.name, path: f.path!));
+          }
+        }
+      });
+    }
+  }
+
+  Future<void> _submit() async {
+    final title = _titleC.text.trim();
+    if (title.isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      final repo = ref.read(announcementRepositoryProvider);
+      // 첨부 업로드
+      final urls = <String>[];
+      for (final p in _pending) {
+        final url = await repo.uploadAttachment(
+          teamId: widget.teamId,
+          file: File(p.path),
+          filename: p.name,
+        );
+        urls.add(url);
+      }
+      await repo.create(
+        teamId: widget.teamId,
+        title: title,
+        content: _contentC.text.trim().isNotEmpty ? _contentC.text.trim() : null,
+        attachmentUrls: urls,
+      );
+      ref.invalidate(teamAnnouncementsProvider(widget.teamId));
+      ref.invalidate(myAnnouncementsProvider);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('공지사항이 등록되었습니다')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('등록 실패: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: AppSpacing.xxl,
+        right: AppSpacing.xxl,
+        top: AppSpacing.xxl,
+        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.xxl,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('공지사항 작성',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: AppSpacing.xxl),
+          TextField(
+            controller: _titleC,
+            decoration: const InputDecoration(
+              hintText: '제목',
+              prefixIcon: Icon(Icons.title),
+            ),
+            maxLength: 50,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            controller: _contentC,
+            decoration: const InputDecoration(
+              hintText: '내용 (선택)',
+              prefixIcon: Icon(Icons.notes),
+            ),
+            maxLines: 6,
+            maxLength: 2000,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          // 첨부파일 영역
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _saving ? null : _pickAttachment,
+              icon: const Icon(Icons.attach_file, size: 18),
+              label: const Text('첨부파일 추가'),
+            ),
+          ),
+          if (_pending.isNotEmpty)
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs,
+              children: _pending
+                  .asMap()
+                  .entries
+                  .map((e) => Chip(
+                        label: Text(e.value.name,
+                            style: const TextStyle(fontSize: 11)),
+                        onDeleted: _saving
+                            ? null
+                            : () => setState(() => _pending.removeAt(e.key)),
+                        visualDensity: VisualDensity.compact,
+                      ))
+                  .toList(),
+            ),
+          const SizedBox(height: AppSpacing.xxl),
+          ElevatedButton(
+            onPressed: _saving ? null : _submit,
+            child: _saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('등록'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingAttachment {
+  _PendingAttachment({required this.name, required this.path});
+  final String name;
+  final String path;
 }
 
 // ══════════════════════════════════════════════
@@ -287,8 +430,8 @@ class AnnouncementListTile extends StatelessWidget {
   }
 }
 
-/// 공지사항 상세 페이지 (공용)
-class AnnouncementDetailPage extends StatelessWidget {
+/// 공지사항 상세 페이지 (공용) — 첨부파일 + 댓글 지원
+class AnnouncementDetailPage extends ConsumerStatefulWidget {
   const AnnouncementDetailPage({
     super.key,
     required this.announcement,
@@ -301,17 +444,73 @@ class AnnouncementDetailPage extends StatelessWidget {
   final Future<void> Function()? onDelete;
 
   @override
+  ConsumerState<AnnouncementDetailPage> createState() =>
+      _AnnouncementDetailPageState();
+}
+
+class _AnnouncementDetailPageState
+    extends ConsumerState<AnnouncementDetailPage> {
+  final _commentC = TextEditingController();
+  bool _posting = false;
+
+  @override
+  void dispose() {
+    _commentC.dispose();
+    super.dispose();
+  }
+
+  Future<void> _addComment() async {
+    final text = _commentC.text.trim();
+    if (text.isEmpty) return;
+    setState(() => _posting = true);
+    try {
+      final repo = ref.read(announcementRepositoryProvider);
+      await repo.addComment(
+        announcementId: widget.announcement.id,
+        teamId: widget.announcement.teamId,
+        content: text,
+      );
+      _commentC.clear();
+      ref.invalidate(announcementCommentsProvider(widget.announcement.id));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('댓글 등록 실패: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _posting = false);
+    }
+  }
+
+  Future<void> _deleteComment(String commentId) async {
+    try {
+      await ref
+          .read(announcementRepositoryProvider)
+          .deleteComment(commentId);
+      ref.invalidate(announcementCommentsProvider(widget.announcement.id));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('삭제 실패: $e')),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final a = announcement;
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final a = widget.announcement;
     final dateFormat = DateFormat('yyyy.MM.dd HH:mm');
+    final commentsAsync =
+        ref.watch(announcementCommentsProvider(a.id));
+    final myUserId = ref.watch(currentUserProvider)?.id;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(teamName ?? '공지사항'),
+        title: Text(widget.teamName ?? '공지사항'),
         actions: [
-          if (onDelete != null)
+          if (widget.onDelete != null)
             IconButton(
               icon: const Icon(Icons.delete_outline),
               onPressed: () async {
@@ -341,64 +540,246 @@ class AnnouncementDetailPage extends StatelessWidget {
                   ),
                 );
                 if (confirm == true) {
-                  await onDelete!();
+                  await widget.onDelete!();
                   if (context.mounted) Navigator.pop(context);
                 }
               },
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: AppSpacing.screenAll,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (teamName != null) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xxs,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary
-                      .withValues(alpha: 0.1),
-                  borderRadius: AppRadius.borderRadiusSm,
-                ),
-                child: Text(
-                  teamName!,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: AppSpacing.screenAll,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (widget.teamName != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: AppSpacing.xxs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: AppRadius.borderRadiusSm,
+                      ),
+                      child: Text(
+                        widget.teamName!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                  ],
+                  Text(
+                    a.title,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                   ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-            ],
-            Text(
-              a.title,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
+                  if (a.createdAt != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      dateFormat.format(a.createdAt!),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  const Divider(height: AppSpacing.xxxl),
+                  if (a.content != null && a.content!.isNotEmpty)
+                    Text(
+                      a.content!,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(height: 1.6),
+                    ),
+
+                  // 첨부파일
+                  if (a.attachmentUrls.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.xl),
+                    Text('첨부파일',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: AppSpacing.sm),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.xs,
+                      children: a.attachmentUrls.map((url) {
+                        final filename = url.split('/').last;
+                        return ActionChip(
+                          avatar: const Icon(Icons.attach_file, size: 16),
+                          label: Text(filename,
+                              style: const TextStyle(fontSize: 12)),
+                          onPressed: () async {
+                            final uri = Uri.tryParse(url);
+                            if (uri != null &&
+                                await canLaunchUrl(uri)) {
+                              await launchUrl(uri,
+                                  mode: LaunchMode.externalApplication);
+                            } else {
+                              await Clipboard.setData(
+                                  ClipboardData(text: url));
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content:
+                                        Text('파일 링크가 클립보드에 복사되었습니다'),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
+
+                  // 댓글 섹션
+                  const SizedBox(height: AppSpacing.xxl),
+                  const Divider(),
+                  const SizedBox(height: AppSpacing.md),
+                  Text('댓글',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: AppSpacing.sm),
+                  commentsAsync.when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.all(AppSpacing.lg),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                    error: (e, _) => Text('댓글을 불러올 수 없습니다',
+                        style: TextStyle(color: AppColors.error)),
+                    data: (comments) {
+                      if (comments.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.md),
+                          child: Text('아직 댓글이 없습니다',
+                              style: TextStyle(
+                                color: AppColors.onSurfaceVariant,
+                              )),
+                        );
+                      }
+                      return Column(
+                        children: comments.map((cw) {
+                          final isMine = cw.comment.userId == myUserId;
+                          return Padding(
+                            padding: const EdgeInsets.only(
+                                bottom: AppSpacing.sm),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: AppColors.primary
+                                      .withValues(alpha: 0.15),
+                                  child: Text(
+                                    cw.displayName.isNotEmpty
+                                        ? cw.displayName[0]
+                                        : '?',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(cw.displayName,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              )),
+                                          const SizedBox(
+                                              width: AppSpacing.xs),
+                                          if (cw.comment.createdAt != null)
+                                            Text(
+                                              dateFormat.format(
+                                                  cw.comment.createdAt!),
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color:
+                                                    AppColors.onSurfaceVariant,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      Text(cw.comment.content,
+                                          style: const TextStyle(fontSize: 13)),
+                                    ],
+                                  ),
+                                ),
+                                if (isMine)
+                                  IconButton(
+                                    icon: const Icon(Icons.close, size: 16),
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () =>
+                                        _deleteComment(cw.comment.id),
+                                  ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
-            if (a.createdAt != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                dateFormat.format(a.createdAt!),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+          ),
+          // 댓글 입력
+          SafeArea(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: AppSpacing.lg,
+                right: AppSpacing.lg,
+                top: AppSpacing.sm,
+                bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.sm,
               ),
-            ],
-            const Divider(height: AppSpacing.xxxl),
-            if (a.content != null && a.content!.isNotEmpty)
-              Text(
-                a.content!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  height: 1.6,
-                ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _commentC,
+                      decoration: const InputDecoration(
+                        hintText: '댓글 입력',
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: _posting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send, color: AppColors.primary),
+                    onPressed: _posting ? null : _addComment,
+                  ),
+                ],
               ),
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }

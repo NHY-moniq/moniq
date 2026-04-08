@@ -28,9 +28,23 @@ class DateItemsPanel extends ConsumerWidget {
 
   static const _weekdays = ['\uC6D4', '\uD654', '\uC218', '\uBAA9', '\uAE08', '\uD1A0', '\uC77C'];
 
+  /// 개인 일정 정렬: 종일(startTime null) 우선, 그다음 시간순.
+  List<PersonalEvent> get _sortedEvents {
+    final list = [...events];
+    list.sort((a, b) {
+      final aAllDay = a.startTime == null;
+      final bAllDay = b.startTime == null;
+      if (aAllDay != bAllDay) return aAllDay ? -1 : 1;
+      if (aAllDay && bAllDay) return 0;
+      return a.startTime!.compareTo(b.startTime!);
+    });
+    return list;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final events = _sortedEvents;
     final hasItems =
         shifts.isNotEmpty || events.isNotEmpty || notes.isNotEmpty;
     final weekday = _weekdays[date.weekday - 1];

@@ -26,6 +26,16 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
   DateTime? _periodEnd;
   DateTime? _deadline;
 
+  String? get _periodRangeError {
+    if (_periodStart == null || _periodEnd == null) return null;
+    if (_periodEnd!.isBefore(_periodStart!)) {
+      return '시작 일자가 마감 일자 이후입니다';
+    }
+    return null;
+  }
+
+  bool get _hasValidationError => _periodRangeError != null;
+
   @override
   void initState() {
     super.initState();
@@ -112,7 +122,7 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
                         initialDate: _periodEnd ??
                             (_periodStart ?? DateTime.now())
                                 .add(const Duration(days: 30)),
-                        firstDate: _periodStart ?? DateTime.now(),
+                        firstDate: DateTime.now(),
                         lastDate:
                             DateTime.now().add(const Duration(days: 365)),
                       );
@@ -121,6 +131,17 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
                       }
                     },
                   ),
+                  if (_periodRangeError != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _periodRangeError!,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: AppColors.error),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -171,7 +192,8 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
                 return ElevatedButton.icon(
                   onPressed: isCreating ||
                           _periodStart == null ||
-                          _periodEnd == null
+                          _periodEnd == null ||
+                          _hasValidationError
                       ? null
                       : () async {
                           final success = await ref

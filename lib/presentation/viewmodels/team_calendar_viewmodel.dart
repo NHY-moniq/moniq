@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/data/datasources/notification_service.dart';
+import 'package:moniq/data/datasources/push_service.dart';
 import 'package:moniq/data/models/roster_entry.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
@@ -133,6 +135,78 @@ class TeamCalendarViewModel
     } catch (e, st) {
       state = AsyncError(e, st);
     }
+  }
+
+  /// 관리자: 특정 shift의 shift_type 변경 후 현재 월/선택일 재조회 + 알림
+  Future<void> updateShiftType(
+    String shiftId,
+    String newShiftTypeId, {
+    String? affectedWorkerName,
+    String? newShiftTypeName,
+  }) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    await _shiftRepository.updateShift(shiftId, shiftTypeId: newShiftTypeId);
+    await _notifyShiftChanged(
+      teamName: current.teamName,
+      action: '근무 변경',
+      detail:
+          '${affectedWorkerName ?? '근무자'}의 근무가 ${newShiftTypeName ?? '다른 유형'}(으)로 변경되었습니다',
+    );
+    await _reloadCurrent(current);
+  }
+
+  /// 관리자: 특정 shift 삭제 후 재조회 + 알림
+  Future<void> deleteShift(
+    String shiftId, {
+    String? affectedWorkerName,
+  }) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    await _shiftRepository.deleteShift(shiftId);
+    await _notifyShiftChanged(
+      teamName: current.teamName,
+      action: '근무 삭제',
+      detail: '${affectedWorkerName ?? '근무자'}의 근무가 삭제되었습니다',
+    );
+    await _reloadCurrent(current);
+  }
+
+  /// 근무 변경 알림 발송 — 로컬 알림 + FCM 푸시 (팀 전체).
+  Future<void> _notifyShiftChanged({
+    required String teamName,
+    required String action,
+    required String detail,
+  }) async {
+    final teamId = state.valueOrNull?.teamId;
+    try {
+      await NotificationService.instance.showScheduleChangeNotification(
+        teamName: teamName,
+        message: '$action: $detail',
+      );
+    } catch (_) {}
+    if (teamId != null) {
+      await PushService.instance.sendToTeam(
+        teamId: teamId,
+        title: '[$teamName] $action',
+        body: detail,
+      );
+    }
+  }
+
+  Future<void> _reloadCurrent(TeamCalendarState current) async {
+    final monthlyShifts = await _shiftRepository.getTeamMonthlyShifts(
+      teamId: current.teamId,
+      month: current.focusedMonth,
+    );
+    final roster = await _shiftRepository.getTeamRoster(
+      teamId: current.teamId,
+      date: current.selectedDate,
+    );
+    state = AsyncData(current.copyWith(
+      monthlyShifts: monthlyShifts,
+      selectedDateRoster: roster,
+    ));
   }
 
   void toggleViewMode() {

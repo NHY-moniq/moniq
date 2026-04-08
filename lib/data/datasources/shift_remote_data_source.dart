@@ -185,6 +185,40 @@ class ShiftRemoteDataSource {
         .eq('id', id);
   }
 
+  /// 개별 근무(shift) 수정 — 관리자 전용 (RLS에서 차단됨)
+  Future<void> updateShift(
+    String shiftId, {
+    String? shiftTypeId,
+    String? userId,
+    String? note,
+  }) async {
+    final updates = <String, dynamic>{};
+    if (shiftTypeId != null) updates['shift_type_id'] = shiftTypeId;
+    if (userId != null) updates['user_id'] = userId;
+    if (note != null) updates['note'] = note;
+    if (updates.isEmpty) return;
+
+    await _client.from('shifts').update(updates).eq('id', shiftId);
+  }
+
+  /// 개별 근무(shift) 삭제 — 관리자 전용
+  Future<void> deleteShift(String shiftId) async {
+    await _client.from('shifts').delete().eq('id', shiftId);
+  }
+
+  /// 근무 유형 삭제. 해당 유형으로 배정된 근무가 있으면 삭제 불가 예외.
+  Future<void> deleteShiftType(String id) async {
+    final referenced = await _client
+        .from('shifts')
+        .select('id')
+        .eq('shift_type_id', id)
+        .limit(1);
+    if ((referenced as List).isNotEmpty) {
+      throw Exception('이 근무 유형으로 배정된 근무가 있어 삭제할 수 없습니다. 비활성화만 가능합니다.');
+    }
+    await _client.from('shift_types').delete().eq('id', id);
+  }
+
   Future<void> reorderShiftTypes(
       String teamId, List<String> orderedIds) async {
     for (var i = 0; i < orderedIds.length; i++) {

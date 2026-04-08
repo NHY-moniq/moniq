@@ -197,6 +197,11 @@ class TeamDetailViewModel extends FamilyAsyncNotifier<TeamDetailState, String> {
     ref.invalidateSelf();
   }
 
+  Future<void> deleteShiftType(String id) async {
+    await _shiftRepository.deleteShiftType(id);
+    ref.invalidateSelf();
+  }
+
   Future<void> upsertRule(
     String ruleType,
     Map<String, dynamic> ruleValue,

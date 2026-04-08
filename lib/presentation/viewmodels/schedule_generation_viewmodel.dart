@@ -752,10 +752,15 @@ class ScheduleGenerationViewModel
         t.name.contains('저녁');
     // 희망 휴무 날짜 맵 (userId -> Set<dateStr>)
     final wantedDaysOff = <String, Set<String>>{};
+    final wantedPriority = <String, Map<String, int>>{};
     for (final entry in wantedEntries) {
       final dateStr =
           '${entry.wantedDate.year}-${entry.wantedDate.month.toString().padLeft(2, '0')}-${entry.wantedDate.day.toString().padLeft(2, '0')}';
-      wantedDaysOff.putIfAbsent(entry.userId, () => {}).add(dateStr);
+      final p = entry.priority;
+      wantedPriority.putIfAbsent(entry.userId, () => {})[dateStr] = p;
+      if (p == 1) {
+        wantedDaysOff.putIfAbsent(entry.userId, () => {}).add(dateStr);
+      }
     }
 
     // D/E/N으로 인식되는 타입만 포함 (알 수 없는 추가 타입, OFF 타입 제외)
@@ -957,6 +962,14 @@ class ScheduleGenerationViewModel
           // 나이트 전담 우선순위 보너스
           if (m.member.nightDedicated && isNight) {
             s += priorityWeight('night_dedicated');
+          }
+
+          // 희망 휴무 2/3순위 소프트 페널티 (1순위는 hard로 이미 차단됨)
+          final wPrio = wantedPriority[uid]?[dateStr];
+          if (wPrio == 2) {
+            s -= 80;
+          } else if (wPrio == 3) {
+            s -= 40;
           }
 
           // 숙련도 배치 고려 (나이트 근무에 중급 이상 우선)

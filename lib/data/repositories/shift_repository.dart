@@ -93,7 +93,7 @@ class ShiftRepository {
       final user = userMap[shift.userId];
       if (user == null) continue;
       grouped.putIfAbsent(shift.shiftTypeId, () => []).add(
-            RosterWorker(user: user, note: shift.note),
+            RosterWorker(user: user, shiftId: shift.id, note: shift.note),
           );
     }
 
@@ -142,6 +142,28 @@ class ShiftRepository {
 
   Future<void> toggleShiftTypeActive(String id, bool isActive) {
     return _dataSource.toggleShiftTypeActive(id, isActive);
+  }
+
+  Future<void> deleteShiftType(String id) {
+    return _dataSource.deleteShiftType(id);
+  }
+
+  Future<void> updateShift(
+    String shiftId, {
+    String? shiftTypeId,
+    String? userId,
+    String? note,
+  }) {
+    return _dataSource.updateShift(
+      shiftId,
+      shiftTypeId: shiftTypeId,
+      userId: userId,
+      note: note,
+    );
+  }
+
+  Future<void> deleteShift(String shiftId) {
+    return _dataSource.deleteShift(shiftId);
   }
 
   Future<void> reorderShiftTypes(String teamId, List<String> orderedIds) {

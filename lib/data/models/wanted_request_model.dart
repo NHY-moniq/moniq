@@ -31,6 +31,7 @@ class WantedEntryModel with _$WantedEntryModel {
     @JsonKey(name: 'user_id') required String userId,
     @JsonKey(name: 'wanted_date') required DateTime wantedDate,
     String? reason,
+    @Default(1) int priority, // 1=최우선, 2=차선, 3=가능하면
     @JsonKey(name: 'created_at') DateTime? createdAt,
   }) = _WantedEntryModel;
 
