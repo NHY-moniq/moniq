@@ -7,6 +7,7 @@ import 'package:moniq/app.dart';
 import 'package:moniq/core/constants/supabase_constants.dart';
 import 'package:moniq/data/datasources/fcm_token_service.dart';
 import 'package:moniq/data/datasources/notification_service.dart';
+import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -31,13 +32,19 @@ Future<void> main() async {
   try {
     await Firebase.initializeApp();
     FcmTokenService.instance.listenForRefresh();
-    // 로그인 상태면 즉시 토큰 동기화 (비로그인은 로그인 후 별도 호출)
+    // 로그인 상태면 즉시 토큰 + 개인 일정 동기화 (비로그인은 로그인 후 별도 호출)
     await FcmTokenService.instance.syncTokenForCurrentUser();
+    if (Supabase.instance.client.auth.currentUser != null) {
+      // fire-and-forget — 캐시 hydrate
+      PersonalEventLocalDataSource(prefs: prefs).pullFromRemote();
+    }
     // 이후 인증 상태 변경 시마다 재시도
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (data.event == AuthChangeEvent.signedIn ||
           data.event == AuthChangeEvent.tokenRefreshed) {
         FcmTokenService.instance.syncTokenForCurrentUser();
+        // 개인 일정 Supabase → 로컬 캐시 동기화
+        PersonalEventLocalDataSource(prefs: prefs).pullFromRemote();
       } else if (data.event == AuthChangeEvent.signedOut) {
         FcmTokenService.instance.clearTokenForCurrentUser();
       }

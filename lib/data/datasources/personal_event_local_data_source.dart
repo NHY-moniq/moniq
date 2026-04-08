@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'personal_event_remote_data_source.dart';
+
 class PersonalEvent {
   PersonalEvent({
+    this.id,
     required this.date,
     required this.title,
     this.startTime,
@@ -13,6 +16,8 @@ class PersonalEvent {
     this.recurrence,
   });
 
+  /// Supabase row id (로컬 전용 이벤트는 null).
+  final String? id;
   final DateTime date;
   final String title;
   final String? startTime; // "HH:mm"
@@ -22,7 +27,20 @@ class PersonalEvent {
   final DateTime? createdAt;
   final String? recurrence; // none, daily, weekly, biweekly, monthly, yearly
 
+  PersonalEvent copyWith({String? id}) => PersonalEvent(
+        id: id ?? this.id,
+        date: date,
+        title: title,
+        startTime: startTime,
+        endTime: endTime,
+        description: description,
+        color: color,
+        createdAt: createdAt,
+        recurrence: recurrence,
+      );
+
   Map<String, dynamic> toJson() => {
+        'id': id,
         'date': _dateStr(date),
         'title': title,
         'startTime': startTime,
@@ -36,6 +54,7 @@ class PersonalEvent {
   factory PersonalEvent.fromJson(Map<String, dynamic> json) {
     final parts = (json['date'] as String).split('-');
     return PersonalEvent(
+      id: json['id'] as String?,
       date: DateTime(
           int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2])),
       title: json['title'] as String,
@@ -61,12 +80,38 @@ class PersonalEvent {
 }
 
 class PersonalEventLocalDataSource {
-  PersonalEventLocalDataSource({required SharedPreferences prefs})
-      : _prefs = prefs;
+  PersonalEventLocalDataSource({
+    required SharedPreferences prefs,
+    PersonalEventRemoteDataSource? remote,
+  })  : _prefs = prefs,
+        _remote = remote ?? PersonalEventRemoteDataSource();
 
   final SharedPreferences _prefs;
+  final PersonalEventRemoteDataSource _remote;
 
   static const _keyPrefix = 'personal_events';
+
+  /// Supabase에서 사용자 이벤트 전부를 가져와 로컬 캐시를 재구축한다.
+  /// 로그인 직후 / 인증 변경 시 호출.
+  Future<void> pullFromRemote() async {
+    try {
+      final remoteEvents = await _remote.fetchAll();
+      // 기존 로컬 캐시 비우기 (이 prefix만)
+      final keys = _prefs.getKeys().where((k) => k.startsWith('$_keyPrefix:'));
+      for (final k in keys) {
+        await _prefs.remove(k);
+      }
+      // 새로 채움
+      for (final e in remoteEvents) {
+        final key = '$_keyPrefix:${_dateKey(e.date)}';
+        final list = _prefs.getStringList(key) ?? [];
+        list.add(jsonEncode(e.toJson()));
+        await _prefs.setStringList(key, list);
+      }
+    } catch (_) {
+      // 동기화 실패 시 기존 로컬 캐시 유지
+    }
+  }
 
   String _dateKey(DateTime date) =>
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -98,7 +143,7 @@ class PersonalEventLocalDataSource {
   Future<void> addEvent(PersonalEvent event) async {
     final dates = _generateRecurrenceDates(event.date, event.recurrence);
     for (final date in dates) {
-      final e = PersonalEvent(
+      var e = PersonalEvent(
         date: date,
         title: event.title,
         startTime: event.startTime,
@@ -108,6 +153,11 @@ class PersonalEventLocalDataSource {
         createdAt: event.createdAt,
         recurrence: event.recurrence,
       );
+      // Supabase insert (id 발급). 실패 시 로컬에만 저장.
+      try {
+        final saved = await _remote.insert(e);
+        e = saved;
+      } catch (_) {}
       final key = '$_keyPrefix:${_dateKey(date)}';
       final existing = _prefs.getStringList(key) ?? [];
       existing.add(jsonEncode(e.toJson()));
@@ -150,6 +200,14 @@ class PersonalEventLocalDataSource {
     final key = '$_keyPrefix:${_dateKey(date)}';
     final existing = _prefs.getStringList(key) ?? [];
     if (index >= 0 && index < existing.length) {
+      // Supabase에서도 삭제 (id 있는 경우)
+      try {
+        final removed = PersonalEvent.fromJson(
+            jsonDecode(existing[index]) as Map<String, dynamic>);
+        if (removed.id != null) {
+          await _remote.delete(removed.id!);
+        }
+      } catch (_) {}
       existing.removeAt(index);
       if (existing.isEmpty) {
         await _prefs.remove(key);
@@ -173,16 +231,25 @@ class PersonalEventLocalDataSource {
       final key = '$_keyPrefix:${_dateKey(current)}';
       final existing = _prefs.getStringList(key);
       if (existing != null && existing.isNotEmpty) {
-        final filtered = existing.where((s) {
+        final kept = <String>[];
+        for (final s in existing) {
           final e = PersonalEvent.fromJson(
               jsonDecode(s) as Map<String, dynamic>);
-          return !(e.title == title && e.recurrence == recurrence);
-        }).toList();
-
-        if (filtered.isEmpty) {
+          final isMatch = e.title == title && e.recurrence == recurrence;
+          if (isMatch) {
+            if (e.id != null) {
+              try {
+                await _remote.delete(e.id!);
+              } catch (_) {}
+            }
+          } else {
+            kept.add(s);
+          }
+        }
+        if (kept.isEmpty) {
           await _prefs.remove(key);
-        } else if (filtered.length != existing.length) {
-          await _prefs.setStringList(key, filtered);
+        } else if (kept.length != existing.length) {
+          await _prefs.setStringList(key, kept);
         }
       }
       current = current.add(const Duration(days: 1));
@@ -193,7 +260,21 @@ class PersonalEventLocalDataSource {
     final key = '$_keyPrefix:${_dateKey(date)}';
     final existing = _prefs.getStringList(key) ?? [];
     if (index >= 0 && index < existing.length) {
-      existing[index] = jsonEncode(event.toJson());
+      // 기존 id 보존 후 remote update
+      var merged = event;
+      try {
+        final old = PersonalEvent.fromJson(
+            jsonDecode(existing[index]) as Map<String, dynamic>);
+        if (old.id != null) {
+          merged = event.copyWith(id: old.id);
+          await _remote.update(merged);
+        } else {
+          // id가 없던 로컬 전용 이벤트면 새로 insert
+          final saved = await _remote.insert(merged);
+          merged = saved;
+        }
+      } catch (_) {}
+      existing[index] = jsonEncode(merged.toJson());
       await _prefs.setStringList(key, existing);
     }
   }
