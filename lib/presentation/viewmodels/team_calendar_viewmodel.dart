@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/datasources/notification_service.dart';
+import 'package:moniq/data/datasources/push_service.dart';
 import 'package:moniq/data/models/roster_entry.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
@@ -172,20 +173,25 @@ class TeamCalendarViewModel
     await _reloadCurrent(current);
   }
 
-  /// 근무 변경 알림 발송. 현재는 로컬 알림으로 처리되며,
-  /// 추후 Edge Function 기반 푸시 알림으로 확장 가능 (TODO).
+  /// 근무 변경 알림 발송 — 로컬 알림 + FCM 푸시 (팀 전체).
   Future<void> _notifyShiftChanged({
     required String teamName,
     required String action,
     required String detail,
   }) async {
+    final teamId = state.valueOrNull?.teamId;
     try {
       await NotificationService.instance.showScheduleChangeNotification(
         teamName: teamName,
         message: '$action: $detail',
       );
-    } catch (_) {
-      // 알림 실패는 무시 (메인 동작 보장)
+    } catch (_) {}
+    if (teamId != null) {
+      await PushService.instance.sendToTeam(
+        teamId: teamId,
+        title: '[$teamName] $action',
+        body: detail,
+      );
     }
   }
 

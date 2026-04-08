@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/datasources/notification_service.dart';
+import 'package:moniq/data/datasources/push_service.dart';
 import 'package:moniq/data/models/wanted_request_model.dart';
 import 'package:moniq/data/providers/wanted_providers.dart';
 
@@ -71,9 +72,16 @@ class WantedAdminViewModel
       final endStr =
           '${periodEnd.month}/${periodEnd.day}';
 
+      final body = '$startStr~$endStr 기간의 희망 휴무일을 입력해주세요.';
       await NotificationService.instance.showScheduleChangeNotification(
         teamName: teamName,
-        message: '$startStr~$endStr 기간의 희망 휴무일을 입력해주세요.',
+        message: body,
+      );
+      // 팀원 전체에게 FCM 푸시 (관리자 본인 제외)
+      await PushService.instance.sendToTeam(
+        teamId: current.teamId,
+        title: '[$teamName] 희망 휴무 수집',
+        body: body,
       );
 
       state = AsyncData(current.copyWith(

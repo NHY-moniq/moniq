@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/datasources/notification_service.dart';
+import 'package:moniq/data/datasources/push_service.dart';
 import 'package:moniq/data/models/request_model.dart';
 import 'package:moniq/data/providers/request_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
@@ -91,21 +92,34 @@ class RequestListViewModel
     ref.invalidateSelf();
   }
 
-  /// 요청 상태 변경 시 알림 발송. 현재는 로컬 알림 (TODO: Edge Function 푸시).
+  /// 요청 상태 변경 시 신청자에게 FCM 푸시 + 관리자 본인에게 로컬 알림.
   Future<void> _notifyStatusChange(String requestId, String statusKo) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final req = current.requests
+        .where((r) => r.id == requestId)
+        .cast<dynamic>()
+        .firstWhere((r) => true, orElse: () => null);
+    if (req == null) return;
+    final typeKo = _changeTypeLabel(req.changeType as String?);
+    final body = '$typeKo 요청이 $statusKo되었습니다';
+
+    // 1) 관리자 본인 화면 로컬 알림
     try {
-      final current = state.valueOrNull;
-      final req = current?.requests.firstWhere(
-        (r) => r.id == requestId,
-        orElse: () => current.requests.first,
-      );
-      final typeKo = _changeTypeLabel(req?.changeType);
       await NotificationService.instance.showScheduleChangeNotification(
         teamName: '근무 요청',
-        message: '$typeKo 요청이 $statusKo되었습니다',
+        message: body,
       );
-    } catch (_) {
-      // 알림 실패는 무시
+    } catch (_) {}
+
+    // 2) 신청자에게 FCM 푸시
+    final requesterId = req.requesterUserId as String?;
+    if (requesterId != null) {
+      await PushService.instance.sendToUsers(
+        userIds: [requesterId],
+        title: '요청 $statusKo',
+        body: body,
+      );
     }
   }
 

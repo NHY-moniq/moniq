@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/data/models/announcement_model.dart';
@@ -555,14 +556,24 @@ class _AnnouncementDetailPageState
                           avatar: const Icon(Icons.attach_file, size: 16),
                           label: Text(filename,
                               style: const TextStyle(fontSize: 12)),
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: url));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content:
-                                    Text('파일 링크가 클립보드에 복사되었습니다'),
-                              ),
-                            );
+                          onPressed: () async {
+                            final uri = Uri.tryParse(url);
+                            if (uri != null &&
+                                await canLaunchUrl(uri)) {
+                              await launchUrl(uri,
+                                  mode: LaunchMode.externalApplication);
+                            } else {
+                              await Clipboard.setData(
+                                  ClipboardData(text: url));
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content:
+                                        Text('파일 링크가 클립보드에 복사되었습니다'),
+                                  ),
+                                );
+                              }
+                            }
                           },
                         );
                       }).toList(),
