@@ -1,5 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/data/datasources/notification_service.dart';
 import 'package:moniq/data/models/roster_entry.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
@@ -136,20 +137,56 @@ class TeamCalendarViewModel
     }
   }
 
-  /// 관리자: 특정 shift의 shift_type 변경 후 현재 월/선택일 재조회
-  Future<void> updateShiftType(String shiftId, String newShiftTypeId) async {
+  /// 관리자: 특정 shift의 shift_type 변경 후 현재 월/선택일 재조회 + 알림
+  Future<void> updateShiftType(
+    String shiftId,
+    String newShiftTypeId, {
+    String? affectedWorkerName,
+    String? newShiftTypeName,
+  }) async {
     final current = state.valueOrNull;
     if (current == null) return;
     await _shiftRepository.updateShift(shiftId, shiftTypeId: newShiftTypeId);
+    await _notifyShiftChanged(
+      teamName: current.teamName,
+      action: '근무 변경',
+      detail:
+          '${affectedWorkerName ?? '근무자'}의 근무가 ${newShiftTypeName ?? '다른 유형'}(으)로 변경되었습니다',
+    );
     await _reloadCurrent(current);
   }
 
-  /// 관리자: 특정 shift 삭제 후 재조회
-  Future<void> deleteShift(String shiftId) async {
+  /// 관리자: 특정 shift 삭제 후 재조회 + 알림
+  Future<void> deleteShift(
+    String shiftId, {
+    String? affectedWorkerName,
+  }) async {
     final current = state.valueOrNull;
     if (current == null) return;
     await _shiftRepository.deleteShift(shiftId);
+    await _notifyShiftChanged(
+      teamName: current.teamName,
+      action: '근무 삭제',
+      detail: '${affectedWorkerName ?? '근무자'}의 근무가 삭제되었습니다',
+    );
     await _reloadCurrent(current);
+  }
+
+  /// 근무 변경 알림 발송. 현재는 로컬 알림으로 처리되며,
+  /// 추후 Edge Function 기반 푸시 알림으로 확장 가능 (TODO).
+  Future<void> _notifyShiftChanged({
+    required String teamName,
+    required String action,
+    required String detail,
+  }) async {
+    try {
+      await NotificationService.instance.showScheduleChangeNotification(
+        teamName: teamName,
+        message: '$action: $detail',
+      );
+    } catch (_) {
+      // 알림 실패는 무시 (메인 동작 보장)
+    }
   }
 
   Future<void> _reloadCurrent(TeamCalendarState current) async {

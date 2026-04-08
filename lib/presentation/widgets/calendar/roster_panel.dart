@@ -268,7 +268,12 @@ class _ShiftTypeGroup extends ConsumerWidget {
                             await ref
                                 .read(teamCalendarViewModelProvider(tid)
                                     .notifier)
-                                .updateShiftType(shiftId, t.id);
+                                .updateShiftType(
+                                  shiftId,
+                                  t.id,
+                                  affectedWorkerName: workerName,
+                                  newShiftTypeName: t.name,
+                                );
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text('${t.name}으로 변경되었습니다')),
@@ -317,7 +322,7 @@ class _ShiftTypeGroup extends ConsumerWidget {
                 try {
                   await ref
                       .read(teamCalendarViewModelProvider(tid).notifier)
-                      .deleteShift(shiftId);
+                      .deleteShift(shiftId, affectedWorkerName: workerName);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('근무가 삭제되었습니다')),
