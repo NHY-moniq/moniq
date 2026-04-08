@@ -282,6 +282,64 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           teamId: state.pathParameters['teamId']!,
         ),
       ),
+
+      // My Announcements (홈에서 진입)
+      GoRoute(
+        path: '/announcements',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const MyAnnouncementsScreen(),
+      ),
+
+      // Team Announcements (팀 관리에서 진입)
+      GoRoute(
+        path: '/teams/:teamId/announcements',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => AnnouncementScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+
+      // Schedule generation
+      GoRoute(
+        path: '/teams/:teamId/schedule/generate',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => ScheduleGenerationScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+
+      // Wanted (희망 휴무)
+      GoRoute(
+        path: '/teams/:teamId/wanted',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => WantedRequestScreen(
+          teamId: state.pathParameters['teamId']!,
+          teamName: state.uri.queryParameters['teamName'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/teams/:teamId/wanted/entry',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => WantedDayOffScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+
+      // Requests (교환/변경 요청)
+      GoRoute(
+        path: '/teams/:teamId/requests',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => RequestListScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/teams/:teamId/requests/create',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => RequestCreateScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
     ],
   );
 });

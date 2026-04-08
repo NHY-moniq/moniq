@@ -440,7 +440,7 @@ class DateItemsPanel extends ConsumerWidget {
           if (action == 'edit') {
             showEventEditWithShiftTypes(context, ref, date, index, event);
           } else if (action == 'delete') {
-            _deleteEvent(ref, index);
+            _deleteEvent(context, ref, index);
           }
         },
       ),
@@ -491,8 +491,51 @@ class DateItemsPanel extends ConsumerWidget {
     );
   }
 
-  void _deleteEvent(WidgetRef ref, int index) async {
+  void _deleteEvent(BuildContext context, WidgetRef ref, int index) async {
     final ds = ref.read(personalEventDataSourceProvider);
+    final events = ds.getEvents(date);
+    if (index < 0 || index >= events.length) return;
+
+    final event = events[index];
+
+    // 반복 일정이면 선택 다이얼로그
+    if (event.recurrence != null && event.recurrence != 'none') {
+      final ctx = context;
+      final choice = await showDialog<String>(
+        context: ctx,
+        builder: (dCtx) => SimpleDialog(
+          title: const Text('반복 일정 삭제'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dCtx, 'single'),
+              child: const Text('해당 일자 반복일정만 삭제'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dCtx, 'future'),
+              child: const Text('해당일정 이후 일정 모두 삭제'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dCtx, 'cancel'),
+              child: const Text('취소'),
+            ),
+          ],
+        ),
+      );
+
+      if (choice == 'single') {
+        await ds.removeEvent(date, index);
+        refreshAll(ref, date);
+      } else if (choice == 'future') {
+        await ds.removeRecurringEventsFrom(
+          date: date,
+          title: event.title,
+          recurrence: event.recurrence!,
+        );
+        refreshAll(ref, date);
+      }
+      return;
+    }
+
     await ds.removeEvent(date, index);
     refreshAll(ref, date);
   }

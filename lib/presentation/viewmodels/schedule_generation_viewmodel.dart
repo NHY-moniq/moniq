@@ -134,6 +134,7 @@ class ScheduleGenerationViewModel
       final activeMembers = current.members
           .where((m) => !current.excludedMemberIds.contains(m.userId))
           .toList();
+      // 2. 자동 배정 알고리즘 실행 (희망 휴무 반영)
       final result = _generateShifts(
         members: activeMembers,
         shiftTypes: current.shiftTypes,
@@ -696,6 +697,16 @@ class ScheduleGenerationViewModel
         t.name.contains('이브닝') ||
         t.name.contains('저녁');
 
+    // 희망 휴무 날짜 맵 (userId -> Set<dateStr>)
+    final wantedDaysOff = <String, Set<String>>{};
+    for (final entry in wantedEntries) {
+      final dateStr =
+          '${entry.wantedDate.year}-${entry.wantedDate.month.toString().padLeft(2, '0')}-${entry.wantedDate.day.toString().padLeft(2, '0')}';
+      wantedDaysOff.putIfAbsent(entry.userId, () => {}).add(dateStr);
+    }
+
+    // 날짜별로 순회
+    final dayCount = end.difference(start).inDays + 1;
     final workShiftTypes =
         shiftTypes.where((t) => t.code.toUpperCase() != 'OFF').toList();
 
@@ -748,6 +759,7 @@ class ScheduleGenerationViewModel
         final minStaff = max(1, minStaffing[shiftType.id] ?? 1);
 
         // ── eligible 필터링 (하드 제약) ──
+        // 배정 가능한 멤버 필터링 (희망 휴무일 제외)
         final eligible = members.where((m) {
           final uid = m.userId;
 
@@ -833,6 +845,10 @@ class ScheduleGenerationViewModel
                 s['shift_type_id'] == shiftType.id);
             if (partnerAlreadyAssigned) return false;
           }
+
+          // 희망 휴무일이면 제외
+          final userWanted = wantedDaysOff[m.userId];
+          if (userWanted != null && userWanted.contains(dateStr)) return false;
 
           return true;
         }).toList();

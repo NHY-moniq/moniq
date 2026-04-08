@@ -219,15 +219,47 @@ class _SetupView extends HookConsumerWidget {
             ),
           ),
 
-          // ── 희망 휴무 현황 ──
+          // 희망 휴무 현황
           if (state.wantedEntries.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xxl),
-            Text(
-              '희망 휴무 현황',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
+            Text('희망 휴무 현황',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600)),
             const SizedBox(height: AppSpacing.md),
+            Card(
+              color: AppColors.primary.withValues(alpha: 0.05),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InfoRow(
+                      icon: Icons.event_note,
+                      label: '수집된 희망 휴무',
+                      value: '${state.wantedEntries.length}건',
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    _InfoRow(
+                      icon: Icons.people,
+                      label: '입력 인원',
+                      value:
+                          '${state.wantedEntries.map((e) => e.userId).toSet().length}명',
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      '생성 시 희망 휴무일이 자동 반영됩니다',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
+          if (state.error != null) ...[
+            const SizedBox(height: AppSpacing.lg),
             Card(
               color: AppColors.primary.withValues(alpha: 0.05),
               child: Padding(

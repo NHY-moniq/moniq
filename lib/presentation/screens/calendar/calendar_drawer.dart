@@ -25,6 +25,7 @@ class CalendarDrawer extends HookConsumerWidget {
     final theme = Theme.of(context);
     final shiftTypes = ref.watch(personalShiftTypesProvider);
     return Drawer(
+      width: MediaQuery.of(context).size.width * 0.66,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,232 +211,350 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
       BuildContext context, WidgetRef ref, PersonalShiftType? existing) {
     final nameController =
         TextEditingController(text: existing?.name ?? '');
-    final codeController =
-        TextEditingController(text: existing?.code ?? '');
-    int startHour = existing?.startTime != null
-        ? int.parse(existing!.startTime!.split(':')[0])
-        : 7;
-    int startMinute = existing?.startTime != null
-        ? int.parse(existing!.startTime!.split(':')[1])
-        : 0;
-    int endHour = existing?.endTime != null
-        ? int.parse(existing!.endTime!.split(':')[0])
-        : 15;
-    int endMinute = existing?.endTime != null
-        ? int.parse(existing!.endTime!.split(':')[1])
-        : 0;
-    bool hasStartTime = existing?.startTime != null;
-    bool hasEndTime = existing?.endTime != null;
+    TimeOfDay startTime = existing?.startTime != null
+        ? _parseTimeOfDay(existing!.startTime!)
+        : const TimeOfDay(hour: 7, minute: 0);
+    TimeOfDay endTime = existing?.endTime != null
+        ? _parseTimeOfDay(existing!.endTime!)
+        : const TimeOfDay(hour: 15, minute: 0);
     String selectedColor = existing?.color ?? '#E8923A';
 
     const colorOptions = [
       '#F0C040',
       '#E8923A',
       '#5A8BB5',
-      '#E53E3E',
-      '#38A169',
       '#A0AEC0',
-      '#9F7AEA',
+      '#38A169',
       '#ED64A6',
+      '#9F7AEA',
+      '#ED8936',
     ];
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(
-              existing == null ? '근무 유형 추가' : '근무 유형 수정'),
-          content: SingleChildScrollView(
+        builder: (ctx, setSheetState) {
+          final badgeColor = parseHexColor(selectedColor);
+          final code = nameController.text.trim().isEmpty
+              ? '?'
+              : nameController.text.trim().characters.first.toUpperCase();
+
+          String periodLabel(TimeOfDay t) {
+            if (t.hour < 6) return '새벽';
+            if (t.hour < 12) return '오전';
+            if (t.hour < 18) return '오후';
+            return '밤';
+          }
+
+          String formatTime(TimeOfDay t) =>
+              '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+          return Padding(
+            padding: EdgeInsets.only(
+              left: AppSpacing.lg,
+              right: AppSpacing.lg,
+              top: AppSpacing.xl,
+              bottom:
+                  MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xl,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                      labelText: '이름 (예: 데이)'),
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.borderLight,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                TextField(
-                  controller: codeController,
-                  decoration: const InputDecoration(
-                      labelText: '코드 (예: D)'),
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  existing == null ? '근무 유형 추가' : '근무 유형 수정',
+                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                 ),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.xl),
+
+                // 뱃지 + 이름
                 Row(
                   children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: badgeColor,
+                        borderRadius: AppRadius.borderRadiusMd,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        code,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 20,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
                     Expanded(
-                      child: InkWell(
+                      child: TextField(
+                        controller: nameController,
+                        style: Theme.of(ctx)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                        decoration: const InputDecoration(
+                          hintText: '근무 이름 입력',
+                          border: UnderlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onChanged: (_) => setSheetState(() {}),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: AppSpacing.xxl),
+
+                // 근무 시간
+                Text(
+                  '근무 시간',
+                  style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
+                        color: AppColors.textSecondaryLight,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    // 시작
+                    Expanded(
+                      child: GestureDetector(
                         onTap: () {
-                          _showSheetCupertinoTimePicker(
+                          _showTimePicker(
                             context: ctx,
-                            initialHour: startHour,
-                            initialMinute: startMinute,
-                            onChanged: (h, m) {
-                              setDialogState(() {
-                                startHour = h;
-                                startMinute = m;
-                                hasStartTime = true;
-                              });
-                            },
+                            initial: startTime,
+                            onChanged: (t) =>
+                                setSheetState(() => startTime = t),
                           );
                         },
-                        child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: '시작',
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: AppSpacing.sm,
-                                vertical: AppSpacing.sm),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.md,
+                              horizontal: AppSpacing.lg),
+                          decoration: BoxDecoration(
+                            borderRadius: AppRadius.borderRadiusMd,
+                            border: Border.all(
+                                color: badgeColor.withValues(alpha: 0.25)),
+                            color: badgeColor.withValues(alpha: 0.05),
                           ),
-                          child: Text(
-                            hasStartTime
-                                ? '${startHour.toString().padLeft(2, '0')}:${startMinute.toString().padLeft(2, '0')}'
-                                : '없음',
+                          child: Column(
+                            children: [
+                              Text(periodLabel(startTime),
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: badgeColor,
+                                      fontWeight: FontWeight.w600)),
+                              const SizedBox(height: AppSpacing.xxs),
+                              Text(formatTime(startTime),
+                                  style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w700,
+                                      color: badgeColor,
+                                      letterSpacing: 1)),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: AppSpacing.sm),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md),
+                      child: Icon(Icons.arrow_forward_rounded,
+                          size: 18,
+                          color: AppColors.textSecondaryLight
+                              .withValues(alpha: 0.5)),
+                    ),
+                    // 종료
                     Expanded(
-                      child: InkWell(
+                      child: GestureDetector(
                         onTap: () {
-                          _showSheetCupertinoTimePicker(
+                          _showTimePicker(
                             context: ctx,
-                            initialHour: endHour,
-                            initialMinute: endMinute,
-                            onChanged: (h, m) {
-                              setDialogState(() {
-                                endHour = h;
-                                endMinute = m;
-                                hasEndTime = true;
-                              });
-                            },
+                            initial: endTime,
+                            onChanged: (t) =>
+                                setSheetState(() => endTime = t),
                           );
                         },
-                        child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: '종료',
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: AppSpacing.sm,
-                                vertical: AppSpacing.sm),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.md,
+                              horizontal: AppSpacing.lg),
+                          decoration: BoxDecoration(
+                            borderRadius: AppRadius.borderRadiusMd,
+                            border: Border.all(
+                                color: badgeColor.withValues(alpha: 0.25)),
+                            color: badgeColor.withValues(alpha: 0.05),
                           ),
-                          child: Text(
-                            hasEndTime
-                                ? '${endHour.toString().padLeft(2, '0')}:${endMinute.toString().padLeft(2, '0')}'
-                                : '없음',
+                          child: Column(
+                            children: [
+                              Text(periodLabel(endTime),
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: badgeColor,
+                                      fontWeight: FontWeight.w600)),
+                              const SizedBox(height: AppSpacing.xxs),
+                              Text(formatTime(endTime),
+                                  style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w700,
+                                      color: badgeColor,
+                                      letterSpacing: 1)),
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.md),
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  children: colorOptions.map((hex) {
-                    final isSelected = selectedColor == hex;
+
+                const SizedBox(height: AppSpacing.xxl),
+
+                // 색상
+                Text(
+                  '색상',
+                  style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
+                        color: AppColors.textSecondaryLight,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: colorOptions.map((c) {
+                    final isSelected = c == selectedColor;
+                    final color = parseHexColor(c);
                     return GestureDetector(
-                      onTap: () => setDialogState(
-                          () => selectedColor = hex),
-                      child: Container(
-                        width: 32,
-                        height: 32,
+                      onTap: () =>
+                          setSheetState(() => selectedColor = c),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: isSelected ? 32 : 28,
+                        height: isSelected ? 32 : 28,
                         decoration: BoxDecoration(
-                          color: parseHexColor(hex),
+                          color: color,
                           shape: BoxShape.circle,
                           border: isSelected
-                              ? Border.all(
-                                  color: AppColors.textPrimaryLight,
-                                  width: 2.5)
+                              ? Border.all(color: Colors.white, width: 2.5)
+                              : null,
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                      color: color.withValues(alpha: 0.5),
+                                      blurRadius: 8)
+                                ]
                               : null,
                         ),
+                        child: isSelected
+                            ? const Icon(Icons.check_rounded,
+                                color: Colors.white, size: 16)
+                            : null,
                       ),
                     );
                   }).toList(),
                 ),
+
+                const SizedBox(height: AppSpacing.xl),
+
+                // 저장 버튼
+                FilledButton(
+                  onPressed: () {
+                    final name = nameController.text.trim();
+                    if (name.isEmpty) return;
+
+                    final ds =
+                        ref.read(personalShiftTypeDataSourceProvider);
+                    final autoCode =
+                        name.characters.first.toUpperCase();
+
+                    String formatT(TimeOfDay t) =>
+                        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+                    final st = PersonalShiftType(
+                      id: existing?.id ??
+                          DateTime.now()
+                              .millisecondsSinceEpoch
+                              .toString(),
+                      name: name,
+                      code: existing?.code ?? autoCode,
+                      startTime: formatT(startTime),
+                      endTime: formatT(endTime),
+                      color: selectedColor,
+                    );
+
+                    if (existing == null) {
+                      ds.add(st);
+                    } else {
+                      ds.update(existing.id, st);
+                    }
+                    ref.invalidate(personalShiftTypesProvider);
+                    Navigator.pop(ctx);
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.md),
+                  ),
+                  child: Text(existing == null ? '추가' : '저장'),
+                ),
+                const SizedBox(height: AppSpacing.sm),
               ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('취소'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final name = nameController.text.trim();
-                final code = codeController.text.trim();
-                if (name.isEmpty || code.isEmpty) {
-                  showDialog(
-                    context: ctx,
-                    builder: (dialogCtx) => AlertDialog(
-                      title: const Text('입력 오류'),
-                      content: const Text(
-                          '필수 항목을 입력해주세요.\n이름과 코드는 반드시 입력해야 합니다.'),
-                      actions: [
-                        TextButton(
-                          onPressed: () =>
-                              Navigator.pop(dialogCtx),
-                          child: const Text('확인'),
-                        ),
-                      ],
-                    ),
-                  );
-                  return;
-                }
-
-                final ds = ref
-                    .read(personalShiftTypeDataSourceProvider);
-                final st = PersonalShiftType(
-                  id: existing?.id ??
-                      DateTime.now()
-                          .millisecondsSinceEpoch
-                          .toString(),
-                  name: name,
-                  code: code,
-                  startTime: hasStartTime
-                      ? '${startHour.toString().padLeft(2, '0')}:${startMinute.toString().padLeft(2, '0')}'
-                      : null,
-                  endTime: hasEndTime
-                      ? '${endHour.toString().padLeft(2, '0')}:${endMinute.toString().padLeft(2, '0')}'
-                      : null,
-                  color: selectedColor,
-                );
-
-                if (existing == null) {
-                  ds.add(st);
-                } else {
-                  ds.update(existing.id, st);
-                }
-                ref.invalidate(personalShiftTypesProvider);
-                Navigator.pop(ctx);
-              },
-              child: Text(existing == null ? '추가' : '저장'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  void _showSheetCupertinoTimePicker({
+  TimeOfDay _parseTimeOfDay(String timeStr) {
+    final parts = timeStr.split(':');
+    return TimeOfDay(
+      hour: int.parse(parts[0]),
+      minute: int.parse(parts[1]),
+    );
+  }
+
+  void _showTimePicker({
     required BuildContext context,
-    required int initialHour,
-    required int initialMinute,
-    required void Function(int hour, int minute) onChanged,
+    required TimeOfDay initial,
+    required ValueChanged<TimeOfDay> onChanged,
   }) {
-    int selectedHour = initialHour;
-    int selectedMinute = initialMinute;
+    var selected = initial;
 
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
       builder: (ctx) => SizedBox(
         height: 280,
         child: Column(
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm),
+                  horizontal: AppSpacing.lg, vertical: AppSpacing.md),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -445,7 +564,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                   ),
                   TextButton(
                     onPressed: () {
-                      onChanged(selectedHour, selectedMinute);
+                      onChanged(selected);
                       Navigator.pop(ctx);
                     },
                     child: const Text('확인'),
@@ -458,11 +577,10 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
               child: CupertinoDatePicker(
                 mode: CupertinoDatePickerMode.time,
                 use24hFormat: false,
-                initialDateTime: DateTime(
-                    2000, 1, 1, selectedHour, selectedMinute),
-                onDateTimeChanged: (dateTime) {
-                  selectedHour = dateTime.hour;
-                  selectedMinute = dateTime.minute;
+                initialDateTime:
+                    DateTime(2000, 1, 1, initial.hour, initial.minute),
+                onDateTimeChanged: (dt) {
+                  selected = TimeOfDay(hour: dt.hour, minute: dt.minute);
                 },
               ),
             ),
