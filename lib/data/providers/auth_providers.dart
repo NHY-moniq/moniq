@@ -21,5 +21,9 @@ final userProfileVersionProvider = StateProvider<int>((ref) => 0);
 /// Reactive current user - watches version counter to detect profile changes
 final currentUserProvider = Provider<User?>((ref) {
   ref.watch(userProfileVersionProvider);
-  return ref.watch(authRepositoryProvider).currentUser;
+  final authState = ref.watch(authStateChangesProvider);
+  final auth = ref.watch(goTrueClientProvider);
+
+  return authState.whenOrNull(data: (state) => state.session?.user) ??
+      auth.currentUser;
 });

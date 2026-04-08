@@ -2,6 +2,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_note_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
+import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 
 // ── Providers ──
@@ -14,19 +15,34 @@ final dateExpandedProvider =
     StateProvider.family<bool, DateTime>((ref, date) => true);
 
 final personalNoteDataSourceProvider = Provider<PersonalNoteLocalDataSource>(
-  (ref) => PersonalNoteLocalDataSource(
-      prefs: ref.watch(sharedPreferencesProvider)),
+  (ref) {
+    final userId = ref.watch(currentUserProvider)?.id ?? 'anonymous';
+    return PersonalNoteLocalDataSource(
+      prefs: ref.watch(sharedPreferencesProvider),
+      userId: userId,
+    );
+  },
 );
 
 final personalEventDataSourceProvider = Provider<PersonalEventLocalDataSource>(
-  (ref) => PersonalEventLocalDataSource(
-      prefs: ref.watch(sharedPreferencesProvider)),
+  (ref) {
+    final userId = ref.watch(currentUserProvider)?.id ?? 'anonymous';
+    return PersonalEventLocalDataSource(
+      prefs: ref.watch(sharedPreferencesProvider),
+      userId: userId,
+    );
+  },
 );
 
 final personalShiftTypeDataSourceProvider =
     Provider<PersonalShiftTypeLocalDataSource>(
-  (ref) => PersonalShiftTypeLocalDataSource(
-      prefs: ref.watch(sharedPreferencesProvider)),
+  (ref) {
+    final userId = ref.watch(currentUserProvider)?.id ?? 'anonymous';
+    return PersonalShiftTypeLocalDataSource(
+      prefs: ref.watch(sharedPreferencesProvider),
+      userId: userId,
+    );
+  },
 );
 
 final personalShiftTypesProvider = Provider<List<PersonalShiftType>>(

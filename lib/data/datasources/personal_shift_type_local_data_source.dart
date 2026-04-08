@@ -39,11 +39,14 @@ class PersonalShiftType {
 }
 
 class PersonalShiftTypeLocalDataSource {
-  PersonalShiftTypeLocalDataSource({required SharedPreferences prefs})
-      : _prefs = prefs;
+  PersonalShiftTypeLocalDataSource({
+    required SharedPreferences prefs,
+    required String userId,
+  })  : _prefs = prefs,
+        _key = 'personal_shift_types:$userId';
 
   final SharedPreferences _prefs;
-  static const _key = 'personal_shift_types';
+  final String _key;
 
   List<PersonalShiftType> getAll() {
     final raw = _prefs.getStringList(_key);
