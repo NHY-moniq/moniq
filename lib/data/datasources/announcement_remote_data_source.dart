@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:moniq/data/models/announcement_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -14,6 +16,7 @@ class AnnouncementRemoteDataSource {
     required String title,
     String? content,
     bool isPinned = false,
+    List<String> attachmentUrls = const [],
   }) async {
     if (_userId == null) throw Exception('Not authenticated');
 
@@ -25,11 +28,70 @@ class AnnouncementRemoteDataSource {
           'content': content,
           'created_by': _userId,
           'is_pinned': isPinned,
+          'attachment_urls': attachmentUrls,
         })
         .select()
         .single();
 
     return AnnouncementModel.fromJson(row);
+  }
+
+  /// 첨부파일 업로드 → public URL 반환
+  Future<String> uploadAttachment({
+    required String teamId,
+    required File file,
+    required String filename,
+  }) async {
+    if (_userId == null) throw Exception('Not authenticated');
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final path = '$teamId/${ts}_$filename';
+    await _client.storage.from('announcements').upload(path, file);
+    return _client.storage.from('announcements').getPublicUrl(path);
+  }
+
+  // ─── 댓글 ───
+
+  Future<AnnouncementCommentModel> addComment({
+    required String announcementId,
+    required String teamId,
+    required String content,
+  }) async {
+    if (_userId == null) throw Exception('Not authenticated');
+    final row = await _client
+        .from('announcement_comments')
+        .insert({
+          'announcement_id': announcementId,
+          'team_id': teamId,
+          'user_id': _userId,
+          'content': content,
+        })
+        .select()
+        .single();
+    return AnnouncementCommentModel.fromJson(row);
+  }
+
+  Future<List<AnnouncementCommentWithUser>> getComments(
+      String announcementId) async {
+    final rows = await _client
+        .from('announcement_comments')
+        .select('*, users!inner(display_name)')
+        .eq('announcement_id', announcementId)
+        .order('created_at');
+
+    return (rows as List).map((r) {
+      final map = r as Map<String, dynamic>;
+      final displayName =
+          (map['users'] as Map<String, dynamic>?)?['display_name'] as String? ??
+              '알 수 없음';
+      return AnnouncementCommentWithUser(
+        comment: AnnouncementCommentModel.fromJson(map),
+        displayName: displayName,
+      );
+    }).toList();
+  }
+
+  Future<void> deleteComment(String commentId) async {
+    await _client.from('announcement_comments').delete().eq('id', commentId);
   }
 
   Future<List<AnnouncementModel>> getByTeam(String teamId) async {

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:moniq/data/datasources/announcement_remote_data_source.dart';
 import 'package:moniq/data/models/announcement_model.dart';
 
@@ -12,7 +14,15 @@ class AnnouncementRepository {
     required String title,
     String? content,
     bool isPinned = false,
-  }) => _dataSource.create(teamId: teamId, title: title, content: content, isPinned: isPinned);
+    List<String> attachmentUrls = const [],
+  }) =>
+      _dataSource.create(
+        teamId: teamId,
+        title: title,
+        content: content,
+        isPinned: isPinned,
+        attachmentUrls: attachmentUrls,
+      );
 
   Future<List<AnnouncementModel>> getByTeam(String teamId) =>
       _dataSource.getByTeam(teamId);
@@ -24,4 +34,29 @@ class AnnouncementRepository {
       _dataSource.update(id, title: title, content: content, isPinned: isPinned);
 
   Future<void> delete(String id) => _dataSource.delete(id);
+
+  Future<String> uploadAttachment({
+    required String teamId,
+    required File file,
+    required String filename,
+  }) =>
+      _dataSource.uploadAttachment(
+          teamId: teamId, file: file, filename: filename);
+
+  Future<AnnouncementCommentModel> addComment({
+    required String announcementId,
+    required String teamId,
+    required String content,
+  }) =>
+      _dataSource.addComment(
+        announcementId: announcementId,
+        teamId: teamId,
+        content: content,
+      );
+
+  Future<List<AnnouncementCommentWithUser>> getComments(String announcementId) =>
+      _dataSource.getComments(announcementId);
+
+  Future<void> deleteComment(String commentId) =>
+      _dataSource.deleteComment(commentId);
 }

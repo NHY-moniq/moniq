@@ -30,3 +30,10 @@ final teamAnnouncementsProvider =
   final repo = ref.watch(announcementRepositoryProvider);
   return repo.getByTeam(teamId);
 });
+
+/// 특정 공지의 댓글
+final announcementCommentsProvider = FutureProvider.family<
+    List<AnnouncementCommentWithUser>, String>((ref, announcementId) async {
+  final repo = ref.watch(announcementRepositoryProvider);
+  return repo.getComments(announcementId);
+});
