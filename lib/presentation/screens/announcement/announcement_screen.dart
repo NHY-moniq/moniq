@@ -532,7 +532,7 @@ class _AnnouncementDetailPageState
                         child: Text(
                           '삭제',
                           style: TextStyle(
-                            color: colorScheme.error,
+                            color: AppColors.error,
                           ),
                         ),
                       ),

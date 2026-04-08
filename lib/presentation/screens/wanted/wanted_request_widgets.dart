@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/wanted_viewmodel.dart';
 

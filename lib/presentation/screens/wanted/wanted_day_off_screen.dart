@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/wanted_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
@@ -159,7 +160,7 @@ class _EntryView extends HookConsumerWidget {
                         leading: Container(
                           width: 40,
                           height: 40,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: AppColors.primary,
                             shape: BoxShape.circle,
                           ),

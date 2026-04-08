@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/schedule_generation_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';

@@ -8,6 +8,7 @@ import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/schedule_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';

@@ -82,11 +82,14 @@ class PersonalEvent {
 class PersonalEventLocalDataSource {
   PersonalEventLocalDataSource({
     required SharedPreferences prefs,
+    String userId = 'anonymous',
     PersonalEventRemoteDataSource? remote,
   })  : _prefs = prefs,
+        _userId = userId,
         _remote = remote ?? PersonalEventRemoteDataSource();
 
   final SharedPreferences _prefs;
+  final String _userId;
   final PersonalEventRemoteDataSource _remote;
 
   static const _keyPrefix = 'personal_events';
