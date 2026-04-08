@@ -25,7 +25,7 @@ class CalendarDrawer extends HookConsumerWidget {
     final theme = Theme.of(context);
     final shiftTypes = ref.watch(personalShiftTypesProvider);
     return Drawer(
-      width: MediaQuery.of(context).size.width * 0.6,
+      width: MediaQuery.of(context).size.width * 0.66,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
