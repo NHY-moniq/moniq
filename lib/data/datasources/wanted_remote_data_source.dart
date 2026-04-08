@@ -95,6 +95,7 @@ class WantedRemoteDataSource {
     required String teamId,
     required DateTime wantedDate,
     String? reason,
+    int priority = 1,
   }) async {
     if (_userId == null) throw Exception('Not authenticated');
     await _ensureCollecting(wantedRequestId);
@@ -107,6 +108,7 @@ class WantedRemoteDataSource {
           'user_id': _userId,
           'wanted_date': _dateStr(wantedDate),
           'reason': reason,
+          'priority': priority,
         })
         .select()
         .single();

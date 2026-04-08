@@ -397,6 +397,31 @@ class _TeamDrawer extends HookConsumerWidget {
               },
             ),
 
+            // Excel 샘플 양식 내보내기
+            ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: const Text('Excel 샘플 양식 내보내기'),
+              subtitle: Text(
+                '가져오기에 사용할 빈 양식을 공유합니다',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondaryLight,
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                final ctx = scaffoldContext;
+                final shiftRepo = ref.read(shiftRepositoryProvider);
+                Navigator.pop(context);
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  exportSampleTemplate(
+                    ctx,
+                    shiftRepo: shiftRepo,
+                    teamId: currentTeamId,
+                  );
+                });
+              },
+            ),
+
             // Excel 일정 가져오기
             ListTile(
               leading: const Icon(Icons.upload_file_outlined),

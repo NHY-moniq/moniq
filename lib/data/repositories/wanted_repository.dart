@@ -38,12 +38,14 @@ class WantedRepository {
     required String teamId,
     required DateTime wantedDate,
     String? reason,
+    int priority = 1,
   }) {
     return _dataSource.addWantedEntry(
       wantedRequestId: wantedRequestId,
       teamId: teamId,
       wantedDate: wantedDate,
       reason: reason,
+      priority: priority,
     );
   }
 

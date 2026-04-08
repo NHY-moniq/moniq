@@ -4,6 +4,8 @@ import 'package:excel/excel.dart' as xl;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:moniq/data/repositories/schedule_repository.dart';
 import 'package:moniq/data/repositories/shift_repository.dart';
 import 'package:moniq/data/repositories/team_repository.dart';
@@ -68,11 +70,29 @@ Future<void> importTeamExcel(
       memberNameMap[emailPrefix] = m.userId;
     }
 
+    // 3-2. 시트명 포맷 사전 검증: 최소 1개 시트가 "yyyy년 M월" 패턴을 포함해야 함
+    final sheetNameRegex = RegExp(r'(\d{4})년\s*(\d{1,2})월');
+    final validSheets = excel.tables.keys
+        .where((name) => sheetNameRegex.hasMatch(name))
+        .toList();
+    if (validSheets.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                '시트명 형식이 올바르지 않습니다. 시트명은 "yyyy년 M월" 형식이어야 합니다. 샘플 양식을 내보내 확인하세요.'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+      return;
+    }
+
     // 4. 파싱된 일정 데이터
     final parsed = <_ParsedShift>[];
     int skipped = 0;
 
-    for (final sheetName in excel.tables.keys) {
+    for (final sheetName in validSheets) {
       final sheet = excel.tables[sheetName]!;
 
       for (int r = 0; r < sheet.maxRows; r++) {
@@ -216,6 +236,72 @@ Future<void> importTeamExcel(
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('오류: $e')),
+      );
+    }
+  }
+}
+
+/// 팀 Excel 샘플 양식 파일을 생성하여 공유한다.
+/// - 시트명: "yyyy년 M월" (다음 달)
+/// - 1행: 월 타이틀
+/// - 2행: 요일 헤더
+/// - 3행~: 날짜 + "■ 근무코드 이름" 예시 2건
+Future<void> exportSampleTemplate(
+  BuildContext context, {
+  required ShiftRepository shiftRepo,
+  required String teamId,
+}) async {
+  try {
+    final shiftTypes = await shiftRepo.getShiftTypes(teamId);
+    final now = DateTime.now();
+    final target = DateTime(now.year, now.month + 1, 1);
+    final sheetName = '${target.year}년 ${target.month}월';
+
+    final excel = xl.Excel.createExcel();
+    final sheet = excel[sheetName];
+    excel.delete('Sheet1');
+
+    // 1행: 타이틀
+    sheet.appendRow([xl.TextCellValue(sheetName)]);
+    // 2행: 요일 헤더
+    sheet.appendRow(['월', '화', '수', '목', '금', '토', '일']
+        .map((d) => xl.TextCellValue(d))
+        .toList());
+
+    // 3행: 예시 셀 2개 — 실제 근무 유형 코드를 사용
+    final sampleCode = shiftTypes.isNotEmpty ? shiftTypes.first.code : 'D';
+    final sampleCode2 = shiftTypes.length > 1 ? shiftTypes[1].code : 'N';
+    sheet.appendRow([
+      xl.TextCellValue('1일\n■ $sampleCode 홍길동'),
+      xl.TextCellValue('2일\n■ $sampleCode2 김철수'),
+    ]);
+
+    // 안내 시트
+    final guide = excel['안내'];
+    guide.appendRow([
+      xl.TextCellValue(
+          '시트명은 "yyyy년 M월" 형식이어야 합니다. 각 셀에 "N일\\n■ 근무코드 이름" 패턴으로 입력하세요.')
+    ]);
+
+    final bytes = excel.encode();
+    if (bytes == null) throw Exception('파일 생성 실패');
+
+    final tempDir = await getTemporaryDirectory();
+    final path = '${tempDir.path}/moniq_sample_$sheetName.xlsx';
+    final file = File(path);
+    await file.writeAsBytes(bytes);
+
+    if (!context.mounted) return;
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path)],
+        text: '모닝큐 Excel 샘플 양식',
+      ),
+    );
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('샘플 생성 오류: $e')),
       );
     }
   }

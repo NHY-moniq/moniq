@@ -177,14 +177,14 @@ class WantedMemberViewModel
     }
   }
 
-  /// 희망 휴무일 복수 추가
+  /// 희망 휴무일 복수 추가 (날짜별 우선순위)
   Future<bool> addWantedDates({
-    required List<DateTime> dates,
+    required Map<DateTime, int> datesWithPriority,
     String? reason,
   }) async {
     final current = state.valueOrNull;
     if (current == null || current.activeRequest == null) return false;
-    if (dates.isEmpty) return false;
+    if (datesWithPriority.isEmpty) return false;
 
     state = AsyncData(current.copyWith(isSubmitting: true, error: null));
 
@@ -192,7 +192,9 @@ class WantedMemberViewModel
       final repo = ref.read(wantedRepositoryProvider);
       final newEntries = <WantedEntryModel>[];
 
-      for (final date in dates) {
+      for (final entry in datesWithPriority.entries) {
+        final date = entry.key;
+        final priority = entry.value;
         // 이미 등록된 날짜는 스킵
         final alreadyExists = current.myEntries.any((e) =>
             e.wantedDate.year == date.year &&
@@ -200,13 +202,14 @@ class WantedMemberViewModel
             e.wantedDate.day == date.day);
         if (alreadyExists) continue;
 
-        final entry = await repo.addWantedEntry(
+        final added = await repo.addWantedEntry(
           wantedRequestId: current.activeRequest!.id,
           teamId: current.teamId,
           wantedDate: date,
           reason: reason,
+          priority: priority,
         );
-        newEntries.add(entry);
+        newEntries.add(added);
       }
 
       state = AsyncData(current.copyWith(

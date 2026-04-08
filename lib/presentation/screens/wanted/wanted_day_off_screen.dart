@@ -128,13 +128,19 @@ class _EntryView extends HookConsumerWidget {
                         leading: Container(
                           width: 40,
                           height: 40,
-                          decoration: BoxDecoration(
-                            color:
-                                AppColors.primary.withValues(alpha: 0.1),
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.event,
-                              color: AppColors.primary, size: 20),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '${entry.priority}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
+                          ),
                         ),
                         title: Text(
                             dateFormat.format(entry.wantedDate)),
@@ -201,7 +207,9 @@ class _EntryView extends HookConsumerWidget {
         .map((e) => DateTime(
             e.wantedDate.year, e.wantedDate.month, e.wantedDate.day))
         .toSet();
-    final selectedDates = <DateTime>{};
+    // 날짜 → 우선순위(1/2/3). 없으면 미선택.
+    final selectedDates = <DateTime, int>{};
+    int currentPriority = 1;
     String reason = '';
 
     showModalBottomSheet(
@@ -241,12 +249,30 @@ class _EntryView extends HookConsumerWidget {
                           )),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '날짜를 탭하여 여러 날을 선택할 수 있습니다',
+                    '우선순위를 고른 뒤 날짜를 탭하세요. 다시 탭하면 해제됩니다.',
                     style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                           color: AppColors.onSurfaceVariant,
                         ),
                   ),
-                  const SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // 우선순위 선택 칩
+                  Row(
+                    children: [1, 2, 3].map((p) {
+                      final isActive = currentPriority == p;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: AppSpacing.sm),
+                        child: ChoiceChip(
+                          label: Text('$p순위'),
+                          selected: isActive,
+                          onSelected: (_) =>
+                              setSheetState(() => currentPriority = p),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+
+                  const SizedBox(height: AppSpacing.md),
 
                   // 캘린더 그리드
                   Expanded(
@@ -257,10 +283,15 @@ class _EntryView extends HookConsumerWidget {
                       existingDates: existingDates,
                       onToggle: (date) {
                         setSheetState(() {
-                          if (selectedDates.contains(date)) {
-                            selectedDates.remove(date);
+                          if (selectedDates.containsKey(date)) {
+                            // 같은 우선순위면 해제, 다른 우선순위면 덮어쓰기
+                            if (selectedDates[date] == currentPriority) {
+                              selectedDates.remove(date);
+                            } else {
+                              selectedDates[date] = currentPriority;
+                            }
                           } else {
-                            selectedDates.add(date);
+                            selectedDates[date] = currentPriority;
                           }
                         });
                       },
@@ -303,8 +334,8 @@ class _EntryView extends HookConsumerWidget {
                                 .read(wantedMemberViewModelProvider(teamId)
                                     .notifier)
                                 .addWantedDates(
-                                  dates: selectedDates.toList()
-                                    ..sort(),
+                                  datesWithPriority:
+                                      Map.of(selectedDates),
                                   reason:
                                       reason.isNotEmpty ? reason : null,
                                 );
@@ -351,7 +382,7 @@ class _MultiDateCalendar extends StatefulWidget {
 
   final DateTime periodStart;
   final DateTime periodEnd;
-  final Set<DateTime> selectedDates;
+  final Map<DateTime, int> selectedDates;
   final Set<DateTime> existingDates;
   final ValueChanged<DateTime> onToggle;
   final ScrollController scrollController;
@@ -467,7 +498,8 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
 
               final isInPeriod = !day.isBefore(widget.periodStart) &&
                   !day.isAfter(widget.periodEnd);
-              final isSelected = widget.selectedDates.contains(day);
+              final selectedPriority = widget.selectedDates[day];
+              final isSelected = selectedPriority != null;
               final isExisting = widget.existingDates.contains(day);
 
               return GestureDetector(
@@ -491,22 +523,39 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
                           )
                         : null,
                   ),
-                  child: Center(
-                    child: Text(
-                      '${day.day}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: isSelected
-                            ? Colors.white
-                            : isExisting
-                                ? AppColors.onSurfaceVariant
-                                : isInPeriod
-                                    ? null
-                                    : AppColors.onSurfaceVariant
-                                        .withValues(alpha: 0.3),
-                        fontWeight:
-                            isSelected ? FontWeight.w700 : null,
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Text(
+                          '${day.day}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: isSelected
+                                ? Colors.white
+                                : isExisting
+                                    ? AppColors.onSurfaceVariant
+                                    : isInPeriod
+                                        ? null
+                                        : AppColors.onSurfaceVariant
+                                            .withValues(alpha: 0.3),
+                            fontWeight:
+                                isSelected ? FontWeight.w700 : null,
+                          ),
+                        ),
                       ),
-                    ),
+                      if (isSelected)
+                        Positioned(
+                          top: 2,
+                          right: 2,
+                          child: Text(
+                            '$selectedPriority',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               );
