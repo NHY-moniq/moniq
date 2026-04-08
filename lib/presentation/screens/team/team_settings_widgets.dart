@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 
 class SectionHeader extends StatelessWidget {
@@ -231,13 +230,13 @@ class ShiftStaffingRow extends StatelessWidget {
             height: 28,
             decoration: BoxDecoration(
               color: parseHexColor(shiftType.color),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(AppRadius.xs),
             ),
             alignment: Alignment.center,
             child: Text(
               shiftType.code,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.surface,
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
               ),
@@ -288,7 +287,9 @@ class ShiftStaffingRow extends StatelessWidget {
                   .textTheme
                   .bodySmall
                   ?.copyWith(
-                    color: AppColors.textSecondaryLight,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant,
                   ),
             ),
           ),

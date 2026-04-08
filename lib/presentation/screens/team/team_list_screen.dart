@@ -361,7 +361,7 @@ class _TeamSlidableTile extends StatelessWidget {
               child: Icon(
                 isFavorite ? Icons.star : Icons.star_border,
                 color: isFavorite
-                    ? Colors.amber
+                    ? Theme.of(context).colorScheme.primary
                     : Theme.of(context).colorScheme.outline,
                 size: 20,
               ),

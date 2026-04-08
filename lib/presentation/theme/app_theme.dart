@@ -95,25 +95,25 @@ abstract final class AppTheme {
           vertical: AppSpacing.lg,
         ),
         border: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusFull,
+          borderRadius: AppRadius.borderRadiusLg,
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusFull,
+          borderRadius: AppRadius.borderRadiusLg,
           borderSide: const BorderSide(
             color: Colors.transparent,
             width: 2,
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusFull,
+          borderRadius: AppRadius.borderRadiusLg,
           borderSide: BorderSide(
             color: AppColors.primary.withValues(alpha: 0.3),
             width: 2,
           ),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusFull,
+          borderRadius: AppRadius.borderRadiusLg,
           borderSide: const BorderSide(color: AppColors.error),
         ),
         hintStyle: TextStyle(
@@ -262,25 +262,25 @@ abstract final class AppTheme {
           vertical: AppSpacing.lg,
         ),
         border: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusFull,
+          borderRadius: AppRadius.borderRadiusLg,
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusFull,
+          borderRadius: AppRadius.borderRadiusLg,
           borderSide: const BorderSide(
             color: Colors.transparent,
             width: 2,
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusFull,
+          borderRadius: AppRadius.borderRadiusLg,
           borderSide: BorderSide(
             color: AppColors.primary.withValues(alpha: 0.3),
             width: 2,
           ),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusFull,
+          borderRadius: AppRadius.borderRadiusLg,
           borderSide: const BorderSide(color: AppColors.error),
         ),
         hintStyle: TextStyle(

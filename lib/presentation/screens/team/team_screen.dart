@@ -8,7 +8,6 @@ import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/schedule_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
@@ -271,10 +270,12 @@ class _TeamCalendarView extends HookConsumerWidget {
                         child: Center(
                           child: Text(
                             '${info.count}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 6,
                               fontWeight: FontWeight.w700,
-                              color: Colors.white,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surface,
                             ),
                           ),
                         ),
@@ -284,7 +285,7 @@ class _TeamCalendarView extends HookConsumerWidget {
                 },
               ),
 
-              const Divider(),
+              const SizedBox(height: AppSpacing.sm),
 
               // Roster panel
               RosterPanel(
@@ -339,7 +340,10 @@ class _TeamDrawer extends HookConsumerWidget {
 
             // 현재 즐겨찾는 팀 -> 팀 설정
             ListTile(
-              leading: const Icon(Icons.star, color: Colors.amber),
+              leading: Icon(
+                Icons.star,
+                color: theme.colorScheme.primary,
+              ),
               title: const Text('현재 즐겨찾는 팀'),
               subtitle: Text(
                 currentTeam.name,
@@ -380,7 +384,7 @@ class _TeamDrawer extends HookConsumerWidget {
               subtitle: Text(
                 '이미지 또는 스프레드시트로 내보내기',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondaryLight,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               trailing: const Icon(Icons.chevron_right),
@@ -405,7 +409,7 @@ class _TeamDrawer extends HookConsumerWidget {
               subtitle: Text(
                 '엑셀 파일에서 근무 일정 가져오기',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondaryLight,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               trailing: const Icon(Icons.chevron_right),

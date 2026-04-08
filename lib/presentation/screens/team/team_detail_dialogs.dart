@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/data/providers/schedule_providers.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
@@ -246,9 +245,12 @@ void showDeleteScheduleSheet({
                           TextButton(
                             onPressed: () =>
                                 Navigator.pop(dCtx, true),
-                            child: const Text('삭제',
-                                style:
-                                    TextStyle(color: AppColors.error)),
+                            child: Text('삭제',
+                                style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .error,
+                                )),
                           ),
                         ],
                       ),
@@ -279,8 +281,12 @@ void showDeleteScheduleSheet({
                       }
                     }
                   },
-                  child: const Text('삭제',
-                      style: TextStyle(color: AppColors.error)),
+                  child: Text('삭제',
+                      style: TextStyle(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .error,
+                      )),
                 ),
               ],
             ),
@@ -358,7 +364,9 @@ void showEditTeamSheet({
                   children: [
                     CircleAvatar(
                       radius: 44,
-                      backgroundColor: AppColors.primaryContainer,
+                      backgroundColor: Theme.of(ctx)
+                          .colorScheme
+                          .primaryContainer,
                       backgroundImage: pickedImageBytes != null
                           ? MemoryImage(pickedImageBytes!)
                           : (state.team.icon != null &&
@@ -379,11 +387,16 @@ void showEditTeamSheet({
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: AppColors.primary,
+                          color: Theme.of(ctx)
+                              .colorScheme
+                              .primary,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.camera_alt,
-                            size: 14, color: Colors.white),
+                        child: Icon(Icons.camera_alt,
+                            size: 14,
+                            color: Theme.of(ctx)
+                                .colorScheme
+                                .surface),
                       ),
                     ),
                   ],

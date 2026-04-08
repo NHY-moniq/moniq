@@ -8,6 +8,7 @@ import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/request_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/presentation/screens/request/request_create_widgets.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/request_viewmodel.dart';
 
@@ -43,6 +44,8 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
   String _reason = '';
   String _note = '';
   bool _isSubmitting = false;
+  String? _errorMessage;
+  String? _successMessage;
 
   List<ShiftTypeModel> _shiftTypes = [];
   List<RosterEntry> _roster = [];
@@ -273,10 +276,37 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
             decoration: const InputDecoration(
               hintText: '추가 메모를 입력해주세요',
             ),
+            textCapitalization: TextCapitalization.sentences,
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.done,
             maxLines: 3,
           ),
 
           const SizedBox(height: AppSpacing.xxxl),
+
+          // 에러/성공 메시지
+          if (_errorMessage != null) ...[
+            SelectableText.rich(
+              TextSpan(
+                text: _errorMessage,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+          if (_successMessage != null) ...[
+            SelectableText.rich(
+              TextSpan(
+                text: _successMessage,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.success,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
 
           // 제출 버튼
           SizedBox(
@@ -287,7 +317,9 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
                     )
                   : const Text('요청 제출'),
             ),
@@ -318,14 +350,16 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
         if (hasShift) break;
       }
       if (!hasShift && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('이미 휴무인 날입니다!')),
-        );
+        setState(() => _errorMessage = '이미 휴무인 날입니다!');
         return;
       }
     }
 
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
 
     try {
       final repo = ref.read(requestRepositoryProvider);
@@ -334,7 +368,8 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
       String reasonText = _reason;
 
       if (_changeType == 'swap' && _selectedSwapUserName != null) {
-        reasonText = '$_selectedSwapUserName 님과 근무 교환. $_reason';
+        reasonText =
+            '$_selectedSwapUserName 님과 근무 교환. $_reason';
       }
 
       await repo.createRequest(
@@ -346,18 +381,17 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
         note: noteText,
       );
 
-      ref.invalidate(requestListViewModelProvider(widget.teamId));
+      ref.invalidate(
+        requestListViewModelProvider(widget.teamId),
+      );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('요청이 제출되었습니다')),
-        );
         context.pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('오류가 발생했습니다: $e')),
+        setState(
+          () => _errorMessage = '오류가 발생했습니다: $e',
         );
       }
     } finally {

@@ -28,10 +28,13 @@ class PreviewView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final dateFormat = DateFormat('MM.dd\n(E)', 'ko');
     final shifts = state.previewShifts ?? [];
     final members = state.members
-        .where((m) => !state.excludedMemberIds.contains(m.userId))
+        .where(
+          (m) => !state.excludedMemberIds.contains(m.userId),
+        )
         .toList();
 
     // 그리드 구성: Map<date, Map<userId, shiftTypeId>>
@@ -42,8 +45,10 @@ class PreviewView extends ConsumerWidget {
         shift.shiftDate.month,
         shift.shiftDate.day,
       );
-      grid.putIfAbsent(day, () => <String, String>{})[shift.userId] =
-          shift.shiftTypeId;
+      grid.putIfAbsent(
+        day,
+        () => <String, String>{},
+      )[shift.userId] = shift.shiftTypeId;
     }
     final sortedDays = grid.keys.toList()..sort();
 
@@ -54,8 +59,9 @@ class PreviewView extends ConsumerWidget {
 
     // 셀 빌더
     Widget buildCell(String? shiftTypeId) {
-      final type =
-          shiftTypeId != null ? shiftTypeMap[shiftTypeId] : null;
+      final type = shiftTypeId != null
+          ? shiftTypeMap[shiftTypeId]
+          : null;
       final color = type != null
           ? parseHexColor(type.color)
           : AppColors.shiftOff;
@@ -68,16 +74,18 @@ class PreviewView extends ConsumerWidget {
         margin: const EdgeInsets.all(2),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withValues(alpha: 0.5)),
+          borderRadius:
+              BorderRadius.circular(AppRadius.xs),
+          border: Border.all(
+            color: color.withValues(alpha: 0.5),
+          ),
         ),
         child: Center(
           child: Text(
             label,
-            style: TextStyle(
+            style: theme.textTheme.labelMedium?.copyWith(
               color: color,
               fontWeight: FontWeight.w700,
-              fontSize: 13,
             ),
           ),
         ),
@@ -92,7 +100,10 @@ class PreviewView extends ConsumerWidget {
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
           ),
-          child: const ScheduleStepIndicator(currentStep: 1, totalSteps: 3),
+          child: const ScheduleStepIndicator(
+            currentStep: 1,
+            totalSteps: 3,
+          ),
         ),
 
         // -- 생성 성공 배너 --
@@ -105,7 +116,10 @@ class PreviewView extends ConsumerWidget {
           color: AppColors.successLight,
           child: Row(
             children: [
-              const Icon(Icons.check_circle, color: AppColors.success),
+              const Icon(
+                Icons.check_circle,
+                color: AppColors.success,
+              ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
@@ -122,7 +136,12 @@ class PreviewView extends ConsumerWidget {
         // -- 위반 리포트 진입 배너 (항상 표시) --
         ViolationSummaryBanner(
           state: state,
-          onTap: () => _showViolationSheet(context, ref, state, teamId),
+          onTap: () => _showViolationSheet(
+            context,
+            ref,
+            state,
+            teamId,
+          ),
         ),
 
         // -- 경고 + 그리드 (스크롤 영역) --
@@ -131,7 +150,7 @@ class PreviewView extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 경고 (SingleChildScrollView 안이므로 고정 높이 불필요)
+                // 경고
                 if ((state.validationWarnings ?? []).isNotEmpty)
                   ExpansionTile(
                     leading: const Icon(
@@ -175,9 +194,11 @@ class PreviewView extends ConsumerWidget {
                               child: Text(
                                 dateFormat.format(day),
                                 textAlign: TextAlign.center,
-                                style: theme.textTheme.labelSmall
+                                style: theme
+                                    .textTheme.labelSmall
                                     ?.copyWith(
-                                  color: AppColors.textSecondaryLight,
+                                  color: colorScheme
+                                      .onSurfaceVariant,
                                   height: 1.2,
                                 ),
                               ),
@@ -191,39 +212,58 @@ class PreviewView extends ConsumerWidget {
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
                           children: [
                             Row(
-                              children: members.map(
-                                (m) => SizedBox(
-                                  width: 48,
-                                  height: 40,
-                                  child: Center(
-                                    child: Text(
-                                      m.displayName.length > 3
-                                          ? m.displayName
-                                              .substring(0, 3)
-                                          : m.displayName,
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                        fontWeight: FontWeight.w600,
+                              children: members
+                                  .map(
+                                    (m) => SizedBox(
+                                      width: 48,
+                                      height: 40,
+                                      child: Center(
+                                        child: Text(
+                                          m.displayName
+                                                      .length >
+                                                  3
+                                              ? m.displayName
+                                                  .substring(
+                                                  0,
+                                                  3,
+                                                )
+                                              : m.displayName,
+                                          style: theme
+                                              .textTheme
+                                              .labelSmall
+                                              ?.copyWith(
+                                            fontWeight:
+                                                FontWeight
+                                                    .w600,
+                                          ),
+                                          textAlign:
+                                              TextAlign
+                                                  .center,
+                                          overflow:
+                                              TextOverflow
+                                                  .ellipsis,
+                                        ),
                                       ),
-                                      textAlign: TextAlign.center,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                ),
-                              ).toList(),
+                                  )
+                                  .toList(),
                             ),
                             ...sortedDays.map(
                               (day) => SizedBox(
                                 height: 44,
                                 child: Row(
-                                  children: members.map(
-                                    (m) => buildCell(
-                                      grid[day]?[m.userId],
-                                    ),
-                                  ).toList(),
+                                  children: members
+                                      .map(
+                                        (m) => buildCell(
+                                          grid[day]
+                                              ?[m.userId],
+                                        ),
+                                      )
+                                      .toList(),
                                 ),
                               ),
                             ),
@@ -279,7 +319,10 @@ class PreviewView extends ConsumerWidget {
                                 await notifier.discardDraft();
                                 await notifier.generate();
                               },
-                        icon: const Icon(Icons.refresh, size: 16),
+                        icon: const Icon(
+                          Icons.refresh,
+                          size: 16,
+                        ),
                         label: const Text('재생성'),
                       ),
                     ),
@@ -294,13 +337,19 @@ class PreviewView extends ConsumerWidget {
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(
+                                child:
+                                    CircularProgressIndicator(
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Icon(Icons.publish, size: 18),
+                            : const Icon(
+                                Icons.publish,
+                                size: 18,
+                              ),
                         label: Text(
-                          state.isPublishing ? '발행 중' : '발행',
+                          state.isPublishing
+                              ? '발행 중'
+                              : '발행',
                         ),
                       ),
                     ),
@@ -313,10 +362,15 @@ class PreviewView extends ConsumerWidget {
                     ref,
                     showSuccessHeader: false,
                   ),
-                  icon: const Icon(Icons.rate_review_outlined, size: 16),
-                  label: const Text('이 근무표 피드백 남기기'),
+                  icon: const Icon(
+                    Icons.rate_review_outlined,
+                    size: 16,
+                  ),
+                  label:
+                      const Text('이 근무표 피드백 남기기'),
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.textSecondaryLight,
+                    foregroundColor:
+                        colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -327,7 +381,10 @@ class PreviewView extends ConsumerWidget {
     );
   }
 
-  Future<void> _publish(BuildContext context, WidgetRef ref) async {
+  Future<void> _publish(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final success = await ref
         .read(
           scheduleGenerationViewModelProvider(teamId).notifier,
@@ -346,11 +403,13 @@ class PreviewView extends ConsumerWidget {
   }) {
     return showModalBottomSheet(
       context: context,
-      isDismissible: !showSuccessHeader, // 피드백만 표시 시 닫기 허용
+      isDismissible: !showSuccessHeader,
       enableDrag: !showSuccessHeader,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.lg),
+        ),
       ),
       builder: (ctx) => PublishSuccessSheet(
         teamId: teamId,
@@ -373,7 +432,9 @@ void _showViolationSheet(
     context: context,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(AppRadius.md),
+      ),
     ),
     builder: (ctx) => ViolationSheet(
       state: state,
