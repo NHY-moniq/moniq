@@ -140,16 +140,16 @@ class _CustomShiftFormState
             ),
             const Divider(height: 1),
             Expanded(
-              child: CupertinoTimerPicker(
-                mode: CupertinoTimerPickerMode.hm,
-                initialTimerDuration: Duration(
-                  hours: current.hour,
-                  minutes: current.minute,
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.time,
+                use24hFormat: false,
+                initialDateTime: DateTime(
+                  2000, 1, 1, current.hour, current.minute,
                 ),
-                onTimerDurationChanged: (d) {
+                onDateTimeChanged: (dateTime) {
                   selected = TimeOfDay(
-                    hour: d.inHours % 24,
-                    minute: d.inMinutes % 60,
+                    hour: dateTime.hour,
+                    minute: dateTime.minute,
                   );
                 },
               ),

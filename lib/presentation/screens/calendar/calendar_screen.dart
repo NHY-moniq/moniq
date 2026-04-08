@@ -172,7 +172,7 @@ class CalendarScreen extends HookConsumerWidget {
           ),
           floatingActionButton: Padding(
             padding: const EdgeInsets.only(bottom: 72),
-            child: FloatingActionButton(
+            child: FloatingActionButton.small(
               onPressed: () => showAddMenu(context, ref, state.selectedDate),
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor:
@@ -253,28 +253,17 @@ class CalendarScreen extends HookConsumerWidget {
                   previewBuilder: (day) {
                     final key = DateTime(day.year, day.month, day.day);
                     final result = <CalendarPreview>[];
-                    // Server shifts
-                    final dayShifts = state.monthlyShifts[key];
-                    if (dayShifts != null && dayShifts.isNotEmpty) {
-                      for (final s in dayShifts) {
-                        if (result.length >= 3) break;
-                        result.add(CalendarPreview(
-                          text: s.shiftType.name,
-                          color: parseHexColor(s.shiftType.color),
-                          isWork: true,
-                        ));
-                      }
-                    }
-                    // Personal events — 근무 유형 매칭은 dot으로만, 비근무만 태그
+                    final shiftTypeNames = ref
+                        .read(personalShiftTypesProvider)
+                        .map((st) => st.name)
+                        .toSet();
+
+                    // Server shifts — dot으로만 표시 (previewBuilder 스킵)
+                    // Personal events — 근무 유형 매칭은 스킵, 비근무만 태그
                     final evts = monthlyEvents[key];
                     if (evts != null && evts.isNotEmpty) {
-                      final shiftTypeNames = ref
-                          .read(personalShiftTypesProvider)
-                          .map((st) => st.name)
-                          .toSet();
                       for (final e in evts) {
                         if (result.length >= 3) break;
-                        // 근무 유형 매칭 → 스킵 (dot으로만 표시됨)
                         if (shiftTypeNames.contains(e.title)) continue;
                         result.add(CalendarPreview(
                           text: e.title,

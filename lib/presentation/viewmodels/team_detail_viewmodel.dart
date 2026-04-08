@@ -105,6 +105,40 @@ class TeamDetailViewModel extends FamilyAsyncNotifier<TeamDetailState, String> {
     ref.invalidateSelf();
   }
 
+  Future<void> updateMemberSkillLevel(
+    String userId,
+    String? skillLevel,
+  ) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    await _teamRepository.updateMemberSkillLevel(
+      current.teamId,
+      userId,
+      skillLevel,
+    );
+    ref.invalidateSelf();
+  }
+
+  Future<void> updateMemberAttrs(
+    String userId, {
+    bool? nightExempt,
+    bool? dayOnly,
+    bool? nightDedicated,
+  }) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    await _teamRepository.updateMemberAttrs(
+      current.teamId,
+      userId,
+      nightExempt: nightExempt,
+      dayOnly: dayOnly,
+      nightDedicated: nightDedicated,
+    );
+    ref.invalidateSelf();
+  }
+
   Future<void> removeMember(String userId) async {
     final current = state.valueOrNull;
     if (current == null) return;

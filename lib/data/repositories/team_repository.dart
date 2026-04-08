@@ -61,6 +61,30 @@ class TeamRepository {
     return _dataSource.updateMemberRole(teamId, userId, role);
   }
 
+  Future<void> updateMemberSkillLevel(
+    String teamId,
+    String userId,
+    String? skillLevel,
+  ) {
+    return _dataSource.updateMemberSkillLevel(teamId, userId, skillLevel);
+  }
+
+  Future<void> updateMemberAttrs(
+    String teamId,
+    String userId, {
+    bool? nightExempt,
+    bool? dayOnly,
+    bool? nightDedicated,
+  }) {
+    return _dataSource.updateMemberAttrs(
+      teamId,
+      userId,
+      nightExempt: nightExempt,
+      dayOnly: dayOnly,
+      nightDedicated: nightDedicated,
+    );
+  }
+
   Future<void> removeMember(String teamId, String userId) {
     return _dataSource.removeMember(teamId, userId);
   }
