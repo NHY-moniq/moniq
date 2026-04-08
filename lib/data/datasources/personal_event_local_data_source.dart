@@ -61,10 +61,14 @@ class PersonalEvent {
 }
 
 class PersonalEventLocalDataSource {
-  PersonalEventLocalDataSource({required SharedPreferences prefs})
-      : _prefs = prefs;
+  PersonalEventLocalDataSource({
+    required SharedPreferences prefs,
+    required String userId,
+  })  : _prefs = prefs,
+        _userId = userId;
 
   final SharedPreferences _prefs;
+  final String _userId;
 
   static const _keyPrefix = 'personal_events';
 
@@ -72,7 +76,7 @@ class PersonalEventLocalDataSource {
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   List<PersonalEvent> getEvents(DateTime date) {
-    final key = '$_keyPrefix:${_dateKey(date)}';
+    final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
     final raw = _prefs.getStringList(key);
     if (raw == null || raw.isEmpty) return [];
     return raw
@@ -108,7 +112,7 @@ class PersonalEventLocalDataSource {
         createdAt: event.createdAt,
         recurrence: event.recurrence,
       );
-      final key = '$_keyPrefix:${_dateKey(date)}';
+      final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
       final existing = _prefs.getStringList(key) ?? [];
       existing.add(jsonEncode(e.toJson()));
       await _prefs.setStringList(key, existing);
@@ -147,7 +151,7 @@ class PersonalEventLocalDataSource {
   }
 
   Future<void> removeEvent(DateTime date, int index) async {
-    final key = '$_keyPrefix:${_dateKey(date)}';
+    final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
     final existing = _prefs.getStringList(key) ?? [];
     if (index >= 0 && index < existing.length) {
       existing.removeAt(index);
@@ -190,7 +194,7 @@ class PersonalEventLocalDataSource {
   }
 
   Future<void> updateEvent(DateTime date, int index, PersonalEvent event) async {
-    final key = '$_keyPrefix:${_dateKey(date)}';
+    final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
     final existing = _prefs.getStringList(key) ?? [];
     if (index >= 0 && index < existing.length) {
       existing[index] = jsonEncode(event.toJson());
