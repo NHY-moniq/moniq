@@ -53,38 +53,61 @@ void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            // 근무 일정 빠른 추가 (근무 유형 칩)
+            // 근무 일정 빠른 추가 (근무 유형 칩) — 하루 최대 1개
             Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('근무 일정 추가',
-                      style: Theme.of(ctx)
-                          .textTheme
-                          .titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.sm,
-                    children: shiftTypes.map((st) {
-                      final color = parseHexColor(st.color);
-                      return ActionChip(
-                        avatar: CircleAvatar(
-                          backgroundColor: color,
-                          radius: 8,
+              child: Builder(
+                builder: (innerCtx) {
+                  final existingEvents = ref.read(dateEventsProvider(date));
+                  final hasShift = existingEvents.any((e) =>
+                      shiftTypes.any((st) =>
+                          st.name == e.title && st.color == e.color));
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('근무 일정 추가',
+                          style: Theme.of(ctx)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600)),
+                      if (hasShift) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          '이미 등록된 근무가 있습니다 (1일 1개)',
+                          style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                color: AppColors.error,
+                              ),
                         ),
-                        label: Text(st.name),
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          addShiftEvent(ref, date, st);
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ],
+                      ],
+                      const SizedBox(height: AppSpacing.sm),
+                      Opacity(
+                        opacity: hasShift ? 0.4 : 1.0,
+                        child: Wrap(
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.sm,
+                          children: shiftTypes.map((st) {
+                            final color = parseHexColor(st.color);
+                            return ActionChip(
+                              avatar: CircleAvatar(
+                                backgroundColor: color,
+                                radius: 8,
+                              ),
+                              label: Text(st.name),
+                              onPressed: hasShift
+                                  ? null
+                                  : () {
+                                      Navigator.pop(ctx);
+                                      addShiftEvent(ref, date, st);
+                                    },
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
             const Divider(height: AppSpacing.xxl),
@@ -158,6 +181,16 @@ void showEventForm(BuildContext context, WidgetRef ref,
   TimeOfDay? endTime =
       existing?.endTime != null ? parseTime(existing!.endTime!) : null;
   String selectedColor = existing?.color ?? '#38A169';
+  String selectedRecurrence = existing?.recurrence ?? 'none';
+
+  const recurrenceOptions = [
+    ('none', '반복 안함'),
+    ('daily', '매일'),
+    ('weekly', '매주'),
+    ('biweekly', '2주'),
+    ('monthly', '매달'),
+    ('yearly', '매년'),
+  ];
 
   const colorOptions = [
     '#38A169',
@@ -327,6 +360,27 @@ void showEventForm(BuildContext context, WidgetRef ref,
                     prefixIcon: Icon(Icons.notes)),
                 maxLines: 2,
               ),
+              // 반복 설정 (새 일정만)
+              if (index == null) ...[
+                const SizedBox(height: AppSpacing.md),
+                DropdownButtonFormField<String>(
+                  value: selectedRecurrence,
+                  decoration: const InputDecoration(
+                    labelText: '반복',
+                    prefixIcon: Icon(Icons.repeat),
+                    contentPadding: EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.sm),
+                  ),
+                  items: recurrenceOptions.map((opt) {
+                    final (value, label) = opt;
+                    return DropdownMenuItem(
+                        value: value, child: Text(label));
+                  }).toList(),
+                  onChanged: (v) =>
+                      setSheetState(() => selectedRecurrence = v!),
+                ),
+              ],
               const SizedBox(height: AppSpacing.lg),
               ElevatedButton(
                 onPressed: () async {
@@ -348,6 +402,7 @@ void showEventForm(BuildContext context, WidgetRef ref,
                             : null,
                     color: selectedColor,
                     createdAt: DateTime.now(),
+                    recurrence: index == null ? selectedRecurrence : null,
                   );
                   final ds =
                       ref.read(personalEventDataSourceProvider);
@@ -423,6 +478,9 @@ void showNoteForm(BuildContext context, WidgetRef ref,
             decoration:
                 const InputDecoration(hintText: '메모를 입력하세요'),
             maxLines: 3,
+            maxLength: 1000,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+            inputFormatters: [LengthLimitingTextInputFormatter(1000)],
             textInputAction: TextInputAction.done,
           ),
           const SizedBox(height: AppSpacing.lg),

@@ -112,7 +112,12 @@ class TeamCalendarViewModel
         teamId: current.teamId,
         month: month,
       );
-      final selectedDate = DateTime(month.year, month.month, 1);
+
+      // 주간 모드에서는 focused 날짜를 그대로 사용, 월간에서는 1일
+      final selectedDate = current.viewMode == CalendarViewMode.week
+          ? DateTime(month.year, month.month, month.day)
+          : DateTime(month.year, month.month, 1);
+
       final roster = await _shiftRepository.getTeamRoster(
         teamId: current.teamId,
         date: selectedDate,

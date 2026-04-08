@@ -5,6 +5,8 @@ import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/models/team_model.dart';
+import 'package:moniq/data/providers/schedule_providers.dart';
+import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
@@ -12,10 +14,11 @@ import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
 import 'package:moniq/presentation/widgets/calendar/roster_panel.dart';
-import 'package:moniq/presentation/widgets/calendar/shift_marker.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/widgets/common/character_blob.dart';
+import 'package:moniq/presentation/screens/calendar/calendar_export.dart';
+import 'package:moniq/presentation/screens/team/team_excel_import.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
@@ -189,7 +192,7 @@ class _TeamCalendarView extends HookConsumerWidget {
           ),
         ],
       ),
-      endDrawer: _TeamDrawer(teams: teams, currentTeamId: team.id),
+      endDrawer: _TeamDrawer(teams: teams, currentTeamId: team.id, scaffoldContext: context),
       body: calendarAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
@@ -236,17 +239,46 @@ class _TeamCalendarView extends HookConsumerWidget {
                 markerBuilder: (context, day, events) {
                   if (events.isEmpty) return null;
                   final shifts = events.cast<ShiftWithType>();
-                  // 고유한 shift type별 도트 표시
-                  final uniqueColors = <String, String>{};
+                  // 근무유형별 인원수 집계
+                  final typeCount = <String, _ShiftTypeInfo>{};
                   for (final s in shifts) {
-                    uniqueColors[s.shiftType.id] = s.shiftType.color;
+                    final key = s.shiftType.id;
+                    typeCount.putIfAbsent(
+                      key,
+                      () => _ShiftTypeInfo(
+                        code: s.shiftType.code,
+                        color: s.shiftType.color,
+                        count: 0,
+                      ),
+                    );
+                    typeCount[key]!.count++;
                   }
                   return Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: uniqueColors.values
+                    children: typeCount.values
                         .take(3)
-                        .map((c) => ShiftMarker(color: parseHexColor(c)))
-                        .toList(),
+                        .map((info) {
+                      final color = parseHexColor(info.color);
+                      return Container(
+                        width: 12,
+                        height: 12,
+                        margin: const EdgeInsets.symmetric(horizontal: 0.5),
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${info.count}',
+                            style: const TextStyle(
+                              fontSize: 6,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   );
                 },
               ),
@@ -257,7 +289,11 @@ class _TeamCalendarView extends HookConsumerWidget {
               RosterPanel(
                 date: state.selectedDate,
                 rosterEntries: state.selectedDateRoster,
+                teamId: team.id,
               ),
+
+              // 하단 네비게이션 바 겹침 방지
+              const SizedBox(height: 100),
             ],
           ),
         ),
@@ -271,10 +307,12 @@ class _TeamDrawer extends HookConsumerWidget {
   const _TeamDrawer({
     required this.teams,
     required this.currentTeamId,
+    required this.scaffoldContext,
   });
 
   final List<TeamModel> teams;
   final String currentTeamId;
+  final BuildContext scaffoldContext;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -284,6 +322,7 @@ class _TeamDrawer extends HookConsumerWidget {
     );
 
     return Drawer(
+      width: MediaQuery.of(context).size.width * 0.6,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,6 +372,60 @@ class _TeamDrawer extends HookConsumerWidget {
 
             const Divider(),
 
+            // 캘린더 내보내기
+            ListTile(
+              leading: const Icon(Icons.ios_share_outlined),
+              title: const Text('캘린더 내보내기'),
+              subtitle: Text(
+                '이미지 또는 스프레드시트로 내보내기',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondaryLight,
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                final calendarAsync = ref.read(
+                    teamCalendarViewModelProvider(currentTeamId));
+                final teamRepo = ref.read(teamRepositoryProvider);
+                final ctx = scaffoldContext;
+                Navigator.pop(context);
+                calendarAsync.whenData((calState) {
+                  Future.delayed(const Duration(milliseconds: 300), () {
+                    exportTeamCalendarStandalone(ctx, calState, teamRepo);
+                  });
+                });
+              },
+            ),
+
+            // Excel 일정 가져오기
+            ListTile(
+              leading: const Icon(Icons.upload_file_outlined),
+              title: const Text('Excel 일정 가져오기'),
+              subtitle: Text(
+                '엑셀 파일에서 근무 일정 가져오기',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondaryLight,
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                final ctx = scaffoldContext;
+                final shiftRepo = ref.read(shiftRepositoryProvider);
+                final scheduleRepo = ref.read(scheduleRepositoryProvider);
+                final teamRepo = ref.read(teamRepositoryProvider);
+                Navigator.pop(context);
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  importTeamExcel(
+                    ctx,
+                    teamId: currentTeamId,
+                    shiftRepo: shiftRepo,
+                    scheduleRepo: scheduleRepo,
+                    teamRepo: teamRepo,
+                  );
+                });
+              },
+            ),
+
             // 변경 요청
             ListTile(
               leading: const Icon(Icons.swap_horiz),
@@ -347,5 +440,17 @@ class _TeamDrawer extends HookConsumerWidget {
       ),
     );
   }
+}
+
+class _ShiftTypeInfo {
+  _ShiftTypeInfo({
+    required this.code,
+    required this.color,
+    required this.count,
+  });
+
+  final String code;
+  final String color;
+  int count;
 }
 

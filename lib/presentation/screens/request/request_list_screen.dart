@@ -117,7 +117,7 @@ class RequestListScreen extends HookConsumerWidget {
           return _RequestCard(
             request: request,
             onTap: () =>
-                _showRequestDetail(context, ref, request),
+                _showRequestDetail(context, ref, request, state.isAdmin),
           );
         },
       ),
@@ -125,7 +125,7 @@ class RequestListScreen extends HookConsumerWidget {
   }
 
   void _showRequestDetail(
-      BuildContext context, WidgetRef ref, RequestModel request) {
+      BuildContext context, WidgetRef ref, RequestModel request, bool isAdmin) {
     final theme = Theme.of(context);
     final dateFormat = DateFormat('yyyy.MM.dd HH:mm');
 
@@ -185,8 +185,8 @@ class RequestListScreen extends HookConsumerWidget {
               ],
               const SizedBox(height: AppSpacing.xxl),
 
-              // 관리자 액션
-              if (request.status == 'pending') ...[
+              // 관리자 액션 (승인/거절)
+              if (request.status == 'pending' && isAdmin) ...[
                 Row(
                   children: [
                     Expanded(
@@ -219,6 +219,7 @@ class RequestListScreen extends HookConsumerWidget {
                   ],
                 ),
               ],
+              // 요청 취소 (본인만)
               if (request.status == 'pending') ...[
                 const SizedBox(height: AppSpacing.sm),
                 SizedBox(
