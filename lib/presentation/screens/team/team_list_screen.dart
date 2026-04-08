@@ -6,7 +6,6 @@ import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/character_blob.dart';
@@ -83,7 +82,7 @@ class TeamListScreen extends HookConsumerWidget {
                   animation: animation,
                   builder: (context, child) => Material(
                     elevation: 4,
-                    shadowColor: AppColors.primary.withValues(alpha: 0.3),
+                    shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                     borderRadius: AppRadius.borderRadiusLg,
                     child: child,
                   ),
@@ -211,9 +210,11 @@ class TeamListScreen extends HookConsumerWidget {
                   }
                 }
               },
-              child: const Text(
+              child: Text(
                 '나가기 (팀 삭제)',
-                style: TextStyle(color: AppColors.error),
+                style: TextStyle(
+                  color: Theme.of(ctx).colorScheme.error,
+                ),
               ),
             ),
           ],
@@ -284,9 +285,11 @@ class TeamListScreen extends HookConsumerWidget {
                 }
               }
             },
-            child: const Text(
+            child: Text(
               '나가기',
-              style: TextStyle(color: AppColors.error),
+              style: TextStyle(
+                color: Theme.of(ctx).colorScheme.error,
+              ),
             ),
           ),
         ],
@@ -322,15 +325,15 @@ class _TeamSlidableTile extends StatelessWidget {
         children: [
           SlidableAction(
             onPressed: (_) => onDetail(),
-            backgroundColor: AppColors.primary,
-            foregroundColor: AppColors.onPrimary,
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
             icon: Icons.settings_outlined,
             label: '설정',
           ),
           SlidableAction(
             onPressed: (_) => onLeave(),
-            backgroundColor: AppColors.error,
-            foregroundColor: Colors.white,
+            backgroundColor: Theme.of(context).colorScheme.error,
+            foregroundColor: Theme.of(context).colorScheme.onError,
             icon: Icons.exit_to_app,
             label: '나가기',
           ),
@@ -357,7 +360,9 @@ class _TeamSlidableTile extends StatelessWidget {
               onTap: onFavorite,
               child: Icon(
                 isFavorite ? Icons.star : Icons.star_border,
-                color: isFavorite ? Colors.amber : Colors.grey.shade400,
+                color: isFavorite
+                    ? Colors.amber
+                    : Theme.of(context).colorScheme.outline,
                 size: 20,
               ),
             ),
@@ -366,7 +371,7 @@ class _TeamSlidableTile extends StatelessWidget {
               index: index,
               child: Icon(
                 Icons.reorder,
-                color: Colors.grey.shade400,
+                color: Theme.of(context).colorScheme.outline,
                 size: 20,
               ),
             ),

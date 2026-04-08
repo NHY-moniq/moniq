@@ -6,7 +6,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/profile_viewmodel.dart';
 
@@ -116,7 +115,10 @@ class ProfileEditScreen extends HookConsumerWidget {
                           : profileState.isNicknameDuplicate == false
                               ? const Icon(Icons.check_circle, color: Colors.green)
                               : profileState.isNicknameDuplicate == true
-                                  ? Icon(Icons.cancel, color: AppColors.error)
+                                  ? Icon(
+                                      Icons.cancel,
+                                      color: theme.colorScheme.error,
+                                    )
                                   : null,
                       errorText: profileState.isNicknameDuplicate == true
                           ? '이미 사용 중인 닉네임입니다'
@@ -163,7 +165,7 @@ class ProfileEditScreen extends HookConsumerWidget {
             Text(
               '2~20자, 다른 사용자와 중복되지 않는 닉네임을 설정해주세요.',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondaryLight,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -272,7 +274,7 @@ class _AvatarSection extends StatelessWidget {
         Text(
           '프로필 사진 변경',
           style: theme.textTheme.bodySmall?.copyWith(
-            color: AppColors.textSecondaryLight,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
       ],

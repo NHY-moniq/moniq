@@ -10,6 +10,7 @@ class PersonalEvent {
     this.description,
     this.color,
     this.createdAt,
+    this.recurrence,
   });
 
   final DateTime date;
@@ -19,6 +20,7 @@ class PersonalEvent {
   final String? description;
   final String? color;     // hex color
   final DateTime? createdAt;
+  final String? recurrence; // none, daily, weekly, biweekly, monthly, yearly
 
   Map<String, dynamic> toJson() => {
         'date': _dateStr(date),
@@ -28,6 +30,7 @@ class PersonalEvent {
         'description': description,
         'color': color,
         'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
+        'recurrence': recurrence,
       };
 
   factory PersonalEvent.fromJson(Map<String, dynamic> json) {
@@ -43,6 +46,7 @@ class PersonalEvent {
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : null,
+      recurrence: json['recurrence'] as String?,
     );
   }
 
@@ -92,10 +96,54 @@ class PersonalEventLocalDataSource {
   }
 
   Future<void> addEvent(PersonalEvent event) async {
-    final key = '$_keyPrefix:${_dateKey(event.date)}';
-    final existing = _prefs.getStringList(key) ?? [];
-    existing.add(jsonEncode(event.toJson()));
-    await _prefs.setStringList(key, existing);
+    final dates = _generateRecurrenceDates(event.date, event.recurrence);
+    for (final date in dates) {
+      final e = PersonalEvent(
+        date: date,
+        title: event.title,
+        startTime: event.startTime,
+        endTime: event.endTime,
+        description: event.description,
+        color: event.color,
+        createdAt: event.createdAt,
+        recurrence: event.recurrence,
+      );
+      final key = '$_keyPrefix:${_dateKey(date)}';
+      final existing = _prefs.getStringList(key) ?? [];
+      existing.add(jsonEncode(e.toJson()));
+      await _prefs.setStringList(key, existing);
+    }
+  }
+
+  /// 반복 단위에 따라 날짜 목록 생성 (최대 1년)
+  List<DateTime> _generateRecurrenceDates(DateTime start, String? recurrence) {
+    if (recurrence == null || recurrence == 'none') {
+      return [start];
+    }
+
+    final dates = <DateTime>[start];
+    final maxDate = start.add(const Duration(days: 365));
+
+    DateTime next = start;
+    while (true) {
+      switch (recurrence) {
+        case 'daily':
+          next = next.add(const Duration(days: 1));
+        case 'weekly':
+          next = next.add(const Duration(days: 7));
+        case 'biweekly':
+          next = next.add(const Duration(days: 14));
+        case 'monthly':
+          next = DateTime(next.year, next.month + 1, start.day);
+        case 'yearly':
+          next = DateTime(next.year + 1, start.month, start.day);
+        default:
+          return dates;
+      }
+      if (next.isAfter(maxDate)) break;
+      dates.add(next);
+    }
+    return dates;
   }
 
   Future<void> removeEvent(DateTime date, int index) async {
@@ -108,6 +156,36 @@ class PersonalEventLocalDataSource {
       } else {
         await _prefs.setStringList(key, existing);
       }
+    }
+  }
+
+  /// 특정 날짜 이후의 동일 반복 일정 전체 삭제
+  Future<void> removeRecurringEventsFrom({
+    required DateTime date,
+    required String title,
+    required String recurrence,
+  }) async {
+    // 해당 날짜부터 1년치 탐색
+    final maxDate = date.add(const Duration(days: 366));
+    DateTime current = date;
+
+    while (!current.isAfter(maxDate)) {
+      final key = '$_keyPrefix:${_dateKey(current)}';
+      final existing = _prefs.getStringList(key);
+      if (existing != null && existing.isNotEmpty) {
+        final filtered = existing.where((s) {
+          final e = PersonalEvent.fromJson(
+              jsonDecode(s) as Map<String, dynamic>);
+          return !(e.title == title && e.recurrence == recurrence);
+        }).toList();
+
+        if (filtered.isEmpty) {
+          await _prefs.remove(key);
+        } else if (filtered.length != existing.length) {
+          await _prefs.setStringList(key, filtered);
+        }
+      }
+      current = current.add(const Duration(days: 1));
     }
   }
 

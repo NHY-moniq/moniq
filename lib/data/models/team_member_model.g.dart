@@ -14,6 +14,9 @@ _$TeamMemberModelImpl _$$TeamMemberModelImplFromJson(
   userId: json['user_id'] as String,
   role: json['role'] as String? ?? 'member',
   skillLevel: json['skill_level'] as String?,
+  nightExempt: json['night_exempt'] as bool? ?? false,
+  dayOnly: json['day_only'] as bool? ?? false,
+  nightDedicated: json['night_dedicated'] as bool? ?? false,
   isFavorite: json['is_favorite'] as bool? ?? false,
   joinedAt: json['joined_at'] == null
       ? null
@@ -35,6 +38,9 @@ Map<String, dynamic> _$$TeamMemberModelImplToJson(
   'user_id': instance.userId,
   'role': instance.role,
   'skill_level': instance.skillLevel,
+  'night_exempt': instance.nightExempt,
+  'day_only': instance.dayOnly,
+  'night_dedicated': instance.nightDedicated,
   'is_favorite': instance.isFavorite,
   'joined_at': instance.joinedAt?.toIso8601String(),
   'created_at': instance.createdAt?.toIso8601String(),

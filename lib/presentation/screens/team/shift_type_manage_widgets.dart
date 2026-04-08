@@ -6,7 +6,6 @@ import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/presentation/screens/team/custom_shift_form.dart';
 import 'package:moniq/presentation/screens/team/shift_template_data.dart';
 import 'package:moniq/presentation/screens/team/shift_types_list_widgets.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 
@@ -47,7 +46,7 @@ class ShiftTypeCard extends ConsumerWidget {
               border: Border.all(
                 color: shiftType.isActive
                     ? color.withValues(alpha: 0.3)
-                    : AppColors.borderLight,
+                    : Theme.of(context).colorScheme.outlineVariant,
               ),
               color: shiftType.isActive
                   ? color.withValues(alpha: 0.06)
@@ -62,7 +61,7 @@ class ShiftTypeCard extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: shiftType.isActive
                         ? color
-                        : AppColors.textSecondaryLight,
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
                     borderRadius:
                         AppRadius.borderRadiusMd,
                   ),
@@ -91,8 +90,8 @@ class ShiftTypeCard extends ConsumerWidget {
                           fontWeight: FontWeight.w600,
                           color: shiftType.isActive
                               ? null
-                              : AppColors
-                                  .textSecondaryLight,
+                              : theme.colorScheme
+                                  .onSurfaceVariant,
                           decoration: shiftType.isActive
                               ? null
                               : TextDecoration
@@ -104,8 +103,8 @@ class ShiftTypeCard extends ConsumerWidget {
                           timeText,
                           style: theme.textTheme.bodySmall
                               ?.copyWith(
-                            color: AppColors
-                                .textSecondaryLight,
+                            color: theme.colorScheme
+                                .onSurfaceVariant,
                           ),
                         ),
                     ],
@@ -266,7 +265,7 @@ class _ShiftTypeAddSheetState
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.borderLight,
+                color: Theme.of(context).colorScheme.outlineVariant,
                 borderRadius:
                     AppRadius.borderRadiusFull,
               ),
@@ -304,7 +303,7 @@ class _ShiftTypeAddSheetState
                   '기본 유형이 모두 추가되었습니다',
                   style: theme.textTheme.bodyMedium
                       ?.copyWith(
-                    color: AppColors.textSecondaryLight,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -325,7 +324,7 @@ class _ShiftTypeAddSheetState
               label: const Text('직접 만들기'),
               style: TextButton.styleFrom(
                 foregroundColor:
-                    AppColors.textSecondaryLight,
+                    Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ] else ...[
@@ -357,16 +356,18 @@ class _ShiftTypeAddSheetState
                         _saving ? null : _addCustom,
                     style: FilledButton.styleFrom(
                       backgroundColor:
-                          AppColors.primary,
+                          Theme.of(context).colorScheme.primary,
                     ),
                     child: _saving
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
                             child:
                                 CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimary,
                             ),
                           )
                         : const Text('추가'),
@@ -474,8 +475,8 @@ class TemplateTile extends StatelessWidget {
                         template.description,
                         style: theme.textTheme.bodySmall
                             ?.copyWith(
-                          color: AppColors
-                              .textSecondaryLight,
+                          color: theme.colorScheme
+                              .onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -598,7 +599,7 @@ class _ShiftTypeEditSheetState
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.borderLight,
+                color: Theme.of(context).colorScheme.outlineVariant,
                 borderRadius:
                     AppRadius.borderRadiusFull,
               ),
@@ -625,18 +626,20 @@ class _ShiftTypeEditSheetState
           FilledButton(
             onPressed: _saving ? null : _save,
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: Theme.of(context).colorScheme.primary,
               padding: const EdgeInsets.symmetric(
                 vertical: AppSpacing.md,
               ),
             ),
             child: _saving
-                ? const SizedBox(
+                ? SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onPrimary,
                     ),
                   )
                 : const Text('저장'),

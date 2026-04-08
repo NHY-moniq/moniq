@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -140,8 +139,16 @@ class SettingsScreen extends HookConsumerWidget {
             },
           ),
           ListTile(
-            leading: Icon(Icons.delete_forever, color: AppColors.error),
-            title: Text('계정 삭제', style: TextStyle(color: AppColors.error)),
+            leading: Icon(
+              Icons.delete_forever,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            title: Text(
+              '계정 삭제',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
             onTap: () async {
               final confirm = await showDialog<bool>(
                 context: context,
@@ -161,7 +168,9 @@ class SettingsScreen extends HookConsumerWidget {
                       onPressed: () => Navigator.pop(context, true),
                       child: Text(
                         '삭제',
-                        style: TextStyle(color: AppColors.error),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ),
                   ],
@@ -218,7 +227,7 @@ class SettingsScreen extends HookConsumerWidget {
             trailing: Text(
               '1.0.0',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondaryLight,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -281,7 +290,10 @@ class _SectionHeader extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w800,
           letterSpacing: 2.0,
-          color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+          color: Theme.of(context)
+              .colorScheme
+              .onSurfaceVariant
+              .withValues(alpha: 0.5),
         ),
       ),
     );

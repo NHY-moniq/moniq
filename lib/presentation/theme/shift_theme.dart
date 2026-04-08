@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/character_blob.dart';
@@ -27,12 +28,13 @@ class ShiftThemeData {
   final String characterAsset;
   final CharacterType characterType;
 
+  // ── Light mode ──
   static const day = ShiftThemeData(
     primary: Color(0xFFFFD700),
     onPrimary: Color(0xFF2D1F00),
     background: Color(0xFFFCF6E3),
     cardColor: Color(0xFFFFD700),
-    accentText: Color(0xFFB8860B), // dark goldenrod — 밝은 배경에서 잘 보임
+    accentText: Color(0xFFB8860B),
     displayName: 'Day Shift',
     characterAsset: 'assets/images/day.png',
     characterType: CharacterType.yellow,
@@ -43,7 +45,7 @@ class ShiftThemeData {
     onPrimary: Color(0xFFFFFFFF),
     background: Color(0xFFFCF6E3),
     cardColor: Color(0xFFFF8C00),
-    accentText: Color(0xFFE07800), // darker orange
+    accentText: Color(0xFFE07800),
     displayName: 'Evening Shift',
     characterAsset: 'assets/images/evening.png',
     characterType: CharacterType.orange,
@@ -54,7 +56,7 @@ class ShiftThemeData {
     onPrimary: Color(0xFFFFFFFF),
     background: Color(0xFFF8F9FF),
     cardColor: Color(0xFF0061A4),
-    accentText: Color(0xFF0061A4), // same — already dark enough
+    accentText: Color(0xFF0061A4),
     displayName: 'Night Shift',
     characterAsset: 'assets/images/night.png',
     characterType: CharacterType.blue,
@@ -65,14 +67,67 @@ class ShiftThemeData {
     onPrimary: Color(0xFFFFFFFF),
     background: Color(0xFFFCF6E3),
     cardColor: Color(0xFFA0AEC0),
-    accentText: Color(0xFF718096), // darker grey
+    accentText: Color(0xFF718096),
+    displayName: 'OFF',
+    characterAsset: 'assets/images/off.png',
+    characterType: CharacterType.grey,
+  );
+
+  // ── Dark mode ──
+  static const dayDark = ShiftThemeData(
+    primary: Color(0xFFFFD700),
+    onPrimary: Color(0xFF453900),
+    background: Color(0xFF121212),
+    cardColor: Color(0xFFFFD700),
+    accentText: Color(0xFFFFD700),
+    displayName: 'Day Shift',
+    characterAsset: 'assets/images/day.png',
+    characterType: CharacterType.yellow,
+  );
+
+  static const eveningDark = ShiftThemeData(
+    primary: Color(0xFFFF8C00),
+    onPrimary: Color(0xFFFFFFFF),
+    background: Color(0xFF121212),
+    cardColor: Color(0xFFFF8C00),
+    accentText: Color(0xFFFF8C00),
+    displayName: 'Evening Shift',
+    characterAsset: 'assets/images/evening.png',
+    characterType: CharacterType.orange,
+  );
+
+  static const nightDark = ShiftThemeData(
+    primary: Color(0xFF2196F3),
+    onPrimary: Color(0xFFFFFFFF),
+    background: Color(0xFF121212),
+    cardColor: Color(0xFF2196F3),
+    accentText: Color(0xFF2196F3),
+    displayName: 'Night Shift',
+    characterAsset: 'assets/images/night.png',
+    characterType: CharacterType.blue,
+  );
+
+  static const offDark = ShiftThemeData(
+    primary: Color(0xFFA0AEC0),
+    onPrimary: Color(0xFFFFFFFF),
+    background: Color(0xFF121212),
+    cardColor: Color(0xFFA0AEC0),
+    accentText: Color(0xFFA0AEC0),
     displayName: 'OFF',
     characterAsset: 'assets/images/off.png',
     characterType: CharacterType.grey,
   );
 
   /// Map a [CharacterType] to the matching [ShiftThemeData].
-  static ShiftThemeData fromCharacterType(CharacterType type) {
+  static ShiftThemeData fromCharacterType(CharacterType type, {bool isDark = false}) {
+    if (isDark) {
+      return switch (type) {
+        CharacterType.yellow => dayDark,
+        CharacterType.orange => eveningDark,
+        CharacterType.blue => nightDark,
+        CharacterType.grey => offDark,
+      };
+    }
     return switch (type) {
       CharacterType.yellow => day,
       CharacterType.orange => evening,
@@ -91,6 +146,7 @@ class ShiftThemeData {
 final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
   final today = DateTime.now();
   final todayKey = DateTime(today.year, today.month, today.day);
+  final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
 
   // 1. Try server shifts
   final calendarAsync = ref.watch(homeViewModelProvider);
@@ -101,7 +157,7 @@ final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
   if (serverShifts != null && serverShifts.isNotEmpty) {
     final color = parseHexColor(serverShifts.first.shiftType.color);
     final charType = characterTypeFromColor(color);
-    return ShiftThemeData.fromCharacterType(charType);
+    return ShiftThemeData.fromCharacterType(charType, isDark: isDark);
   }
 
   // 2. Fallback to personal calendar (may throw if SharedPreferences not ready)
@@ -121,7 +177,7 @@ final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
       if (matchedType != null) {
         final color = parseHexColor(matchedType.color);
         final charType = characterTypeFromColor(color);
-        return ShiftThemeData.fromCharacterType(charType);
+        return ShiftThemeData.fromCharacterType(charType, isDark: isDark);
       }
     }
   } catch (_) {
@@ -129,5 +185,5 @@ final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
   }
 
   // 3. Off
-  return ShiftThemeData.off;
+  return isDark ? ShiftThemeData.offDark : ShiftThemeData.off;
 });

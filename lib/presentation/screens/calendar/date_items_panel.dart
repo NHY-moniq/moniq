@@ -94,7 +94,7 @@ class DateItemsPanel extends ConsumerWidget {
                       child: Text(
                         '${date.day}',
                         style: theme.textTheme.titleLarge?.copyWith(
-                          color: Colors.white,
+                          color: theme.colorScheme.onPrimary,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -123,7 +123,7 @@ class DateItemsPanel extends ConsumerWidget {
                               ].join(' \u00B7 ')
                             : '\uB4F1\uB85D\uB41C \uD56D\uBAA9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondaryLight,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -134,7 +134,7 @@ class DateItemsPanel extends ConsumerWidget {
                       isExpanded
                           ? Icons.keyboard_arrow_up
                           : Icons.keyboard_arrow_down,
-                      color: AppColors.textSecondaryLight,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ],
                 ],
@@ -170,7 +170,7 @@ class DateItemsPanel extends ConsumerWidget {
                   Text(
                     '+ \uBC84\uD2BC\uC73C\uB85C \uC77C\uC815\uC774\uB098 \uBA54\uBAA8\uB97C \uCD94\uAC00\uD574\uBCF4\uC138\uC694',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondaryLight,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -217,7 +217,7 @@ class DateItemsPanel extends ConsumerWidget {
                       Text(
                         '${s.shiftType.startTime} ~ ${s.shiftType.endTime ?? ''}',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondaryLight,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -226,7 +226,7 @@ class DateItemsPanel extends ConsumerWidget {
                       Text(
                         s.teamName!,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondaryLight,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -281,10 +281,10 @@ class DateItemsPanel extends ConsumerWidget {
               return _buildColorBarCard(
                 theme: theme,
                 context: context,
-                barColor: AppColors.tertiary,
+                barColor: theme.colorScheme.tertiary,
                 trailing: PopupMenuButton<String>(
                   icon: Icon(Icons.more_horiz,
-                      size: 18, color: AppColors.textSecondaryLight),
+                      size: 18, color: theme.colorScheme.onSurfaceVariant),
                   itemBuilder: (_) => [
                     const PopupMenuItem(
                         value: 'edit', child: Text('\uC218\uC815')),
@@ -309,7 +309,7 @@ class DateItemsPanel extends ConsumerWidget {
                       ),
                       decoration: BoxDecoration(
                         color:
-                            AppColors.tertiary.withValues(alpha: 0.12),
+                            theme.colorScheme.tertiary.withValues(alpha: 0.12),
                         borderRadius: AppRadius.borderRadiusSm,
                       ),
                       child: Text(
@@ -317,7 +317,7 @@ class DateItemsPanel extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
-                          color: AppColors.tertiary,
+                          color: theme.colorScheme.tertiary,
                         ),
                       ),
                     ),
@@ -431,7 +431,7 @@ class DateItemsPanel extends ConsumerWidget {
       barColor: eventColor,
       trailing: PopupMenuButton<String>(
         icon: Icon(Icons.more_horiz,
-            size: 18, color: AppColors.textSecondaryLight),
+            size: 18, color: theme.colorScheme.onSurfaceVariant),
         itemBuilder: (_) => [
           const PopupMenuItem(value: 'edit', child: Text('\uC218\uC815')),
           const PopupMenuItem(value: 'delete', child: Text('\uC0AD\uC81C')),
@@ -440,7 +440,7 @@ class DateItemsPanel extends ConsumerWidget {
           if (action == 'edit') {
             showEventEditWithShiftTypes(context, ref, date, index, event);
           } else if (action == 'delete') {
-            _deleteEvent(ref, index);
+            _deleteEvent(context, ref, index);
           }
         },
       ),
@@ -479,7 +479,7 @@ class DateItemsPanel extends ConsumerWidget {
                 Expanded(
                   child: Text(event.description!,
                       style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondaryLight),
+                          color: theme.colorScheme.onSurfaceVariant),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                 ),
@@ -491,8 +491,51 @@ class DateItemsPanel extends ConsumerWidget {
     );
   }
 
-  void _deleteEvent(WidgetRef ref, int index) async {
+  void _deleteEvent(BuildContext context, WidgetRef ref, int index) async {
     final ds = ref.read(personalEventDataSourceProvider);
+    final events = ds.getEvents(date);
+    if (index < 0 || index >= events.length) return;
+
+    final event = events[index];
+
+    // 반복 일정이면 선택 다이얼로그
+    if (event.recurrence != null && event.recurrence != 'none') {
+      final ctx = context;
+      final choice = await showDialog<String>(
+        context: ctx,
+        builder: (dCtx) => SimpleDialog(
+          title: const Text('반복 일정 삭제'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dCtx, 'single'),
+              child: const Text('해당 일자 반복일정만 삭제'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dCtx, 'future'),
+              child: const Text('해당일정 이후 일정 모두 삭제'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dCtx, 'cancel'),
+              child: const Text('취소'),
+            ),
+          ],
+        ),
+      );
+
+      if (choice == 'single') {
+        await ds.removeEvent(date, index);
+        refreshAll(ref, date);
+      } else if (choice == 'future') {
+        await ds.removeRecurringEventsFrom(
+          date: date,
+          title: event.title,
+          recurrence: event.recurrence!,
+        );
+        refreshAll(ref, date);
+      }
+      return;
+    }
+
     await ds.removeEvent(date, index);
     refreshAll(ref, date);
   }

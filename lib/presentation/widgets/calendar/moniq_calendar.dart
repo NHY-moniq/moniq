@@ -3,6 +3,9 @@ import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+// Shift colors are mode-invariant, kept from AppColors.
+// All other colors use Theme.of(context).colorScheme.
+
 /// 캘린더 미리보기 데이터
 class CalendarPreview {
   const CalendarPreview({required this.text, this.color, this.isWork = false});
@@ -54,11 +57,14 @@ class MoniqCalendar extends StatelessWidget {
           // Calendar card
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(AppRadius.lg),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.brandOrange.withValues(alpha: 0.06),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .shadow
+                      .withValues(alpha: 0.06),
                   blurRadius: 16,
                   offset: const Offset(0, 4),
                 ),
@@ -87,13 +93,16 @@ class MoniqCalendar extends StatelessWidget {
           daysOfWeekHeight: 28,
           daysOfWeekStyle: DaysOfWeekStyle(
             weekdayStyle: Theme.of(context).textTheme.bodySmall!.copyWith(
-                  color: AppColors.textSecondaryLight,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                   fontSize: 10,
                   letterSpacing: 1.2,
                 ),
             weekendStyle: Theme.of(context).textTheme.bodySmall!.copyWith(
-                  color: AppColors.error.withValues(alpha: 0.7),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .error
+                      .withValues(alpha: 0.7),
                   fontWeight: FontWeight.w600,
                   fontSize: 10,
                   letterSpacing: 1.2,
@@ -106,14 +115,15 @@ class MoniqCalendar extends StatelessWidget {
           ),
           calendarBuilders: CalendarBuilders<dynamic>(
             dowBuilder: (context, day) {
+              final cs = Theme.of(context).colorScheme;
               final text = _dowLabel(day.weekday).toUpperCase();
               Color color;
               if (day.weekday == DateTime.sunday) {
-                color = AppColors.error.withValues(alpha: 0.7);
+                color = cs.error.withValues(alpha: 0.7);
               } else if (day.weekday == DateTime.saturday) {
-                color = AppColors.brandBlue;
+                color = cs.tertiary;
               } else {
-                color = AppColors.textSecondaryLight;
+                color = cs.onSurfaceVariant;
               }
               return Center(
                 child: Text(
@@ -171,13 +181,18 @@ class MoniqCalendar extends StatelessWidget {
                   padding: const EdgeInsets.all(6),
                   margin: const EdgeInsets.only(right: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.calendar_today,
                     size: 16,
-                    color: AppColors.onPrimaryContainer,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onPrimaryContainer,
                   ),
                 ),
               ),
@@ -190,7 +205,9 @@ class MoniqCalendar extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerHigh,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHigh,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.chevron_left, size: 18),
@@ -206,7 +223,9 @@ class MoniqCalendar extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerHigh,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHigh,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.chevron_right, size: 18),
@@ -218,36 +237,53 @@ class MoniqCalendar extends StatelessWidget {
         // 범례
         Row(
           children: [
-            _legendDot(AppColors.shiftDay, 'DAY'),
+            _legendDot(context, AppColors.shiftDay, 'DAY'),
             const SizedBox(width: 12),
-            _legendDot(AppColors.shiftEvening, 'EVENING'),
+            _legendDot(
+              context,
+              AppColors.shiftEvening,
+              'EVENING',
+            ),
             const SizedBox(width: 12),
-            _legendDot(AppColors.shiftNight, 'NIGHT'),
+            _legendDot(
+              context,
+              AppColors.shiftNight,
+              'NIGHT',
+            ),
             const SizedBox(width: 12),
-            _legendDot(AppColors.shiftOff, 'OFF'),
+            _legendDot(context, AppColors.shiftOff, 'OFF'),
           ],
         ),
       ],
     );
   }
 
-  Widget _legendDot(Color color, String label) {
+  Widget _legendDot(
+    BuildContext context,
+    Color color,
+    String label,
+  ) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
         ),
         const SizedBox(width: 3),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
-            color: AppColors.onSurfaceVariant,
+            color: Theme.of(context)
+                .colorScheme
+                .onSurfaceVariant,
           ),
         ),
       ],
@@ -257,25 +293,25 @@ class MoniqCalendar extends StatelessWidget {
 
   Widget _buildCell(
       BuildContext context, DateTime day, bool isToday, bool isSelected) {
-    final theme = Theme.of(context);
+    final cs = Theme.of(context).colorScheme;
     final events = eventLoader?.call(day) ?? [];
     final previews = previewBuilder?.call(day) ?? [];
 
     Color textColor;
     if (isToday) {
-      textColor = Colors.white;
+      textColor = cs.onPrimary;
     } else if (isSelected) {
-      textColor = AppColors.primary;
+      textColor = cs.primary;
     } else if (day.weekday == DateTime.sunday) {
-      textColor = AppColors.error.withValues(alpha: 0.7);
+      textColor = cs.error.withValues(alpha: 0.7);
     } else if (day.weekday == DateTime.saturday) {
-      textColor = AppColors.brandBlue;
+      textColor = cs.tertiary;
     } else {
-      textColor = theme.textTheme.bodyMedium?.color ?? Colors.black;
+      textColor = cs.onSurface;
     }
 
     // Today blob color from first work preview
-    Color todayColor = AppColors.primary;
+    Color todayColor = cs.primary;
     if (isToday && previews.isNotEmpty) {
       final firstWork = previews.where((p) => p.isWork).firstOrNull;
       if (firstWork?.color != null) {
@@ -301,10 +337,10 @@ class MoniqCalendar extends StatelessWidget {
               child: Container(
                 margin: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
+                  color: cs.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.3),
+                    color: cs.primary.withValues(alpha: 0.3),
                     width: 1.5,
                   ),
                 ),
@@ -379,8 +415,10 @@ class MoniqCalendar extends StatelessWidget {
                 children: previews
                     .take(2)
                     .map((p) => Padding(
-                          padding: const EdgeInsets.only(bottom: 1),
-                          child: _buildTag(p),
+                          padding: const EdgeInsets.only(
+                            bottom: 1,
+                          ),
+                          child: _buildTag(context, p),
                         ))
                     .toList(),
               ),
@@ -390,8 +428,9 @@ class MoniqCalendar extends StatelessWidget {
     );
   }
 
-  Widget _buildTag(CalendarPreview preview) {
-    final tagColor = preview.color ?? AppColors.textSecondaryLight;
+  Widget _buildTag(BuildContext context, CalendarPreview preview) {
+    final tagColor = preview.color ??
+        Theme.of(context).colorScheme.onSurfaceVariant;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1.5),
@@ -467,25 +506,38 @@ class MoniqCalendar extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       onTap: () =>
                           setDialogState(() => selectedMonth = m),
-                      child: Container(
-                        width: 56,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: isSel ? AppColors.primary : null,
-                          borderRadius: BorderRadius.circular(8),
-                          border: isSel
-                              ? Border.all(
-                                  color: AppColors.primary, width: 1.5)
-                              : null,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '$m월',
-                          style: style.copyWith(
-                            color: isSel ? Colors.white : null,
-                            fontSize: 14,
-                          ),
-                        ),
+                      child: Builder(
+                        builder: (innerCtx) {
+                          final dcs =
+                              Theme.of(innerCtx).colorScheme;
+                          return Container(
+                            width: 56,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: isSel
+                                  ? dcs.primary
+                                  : null,
+                              borderRadius:
+                                  BorderRadius.circular(8),
+                              border: isSel
+                                  ? Border.all(
+                                      color: dcs.primary,
+                                      width: 1.5,
+                                    )
+                                  : null,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '$m월',
+                              style: style.copyWith(
+                                color: isSel
+                                    ? dcs.onPrimary
+                                    : null,
+                                fontSize: 14,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     );
                   }),

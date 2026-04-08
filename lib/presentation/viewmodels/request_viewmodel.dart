@@ -2,6 +2,9 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/request_model.dart';
 import 'package:moniq/data/providers/request_providers.dart';
+import 'package:moniq/data/providers/shift_providers.dart';
+import 'package:moniq/data/providers/supabase_providers.dart';
+import 'package:moniq/data/providers/team_providers.dart';
 
 part 'request_viewmodel.freezed.dart';
 
@@ -31,9 +34,24 @@ class RequestListViewModel
       requests = await repo.getTeamRequests(teamId);
     } catch (_) {}
 
+    // 관리자 여부 확인
+    bool isAdmin = false;
+    try {
+      final authState = ref.watch(authStateChangesProvider);
+      final userId =
+          authState.whenOrNull(data: (auth) => auth.session?.user.id);
+      if (userId != null) {
+        final teamRepo = ref.watch(teamRepositoryProvider);
+        final members = await teamRepo.getTeamMembers(teamId);
+        isAdmin = members.any(
+            (m) => m.userId == userId && m.role == 'admin' && !m.isDeleted);
+      }
+    } catch (_) {}
+
     return RequestListState(
       teamId: teamId,
       requests: requests,
+      isAdmin: isAdmin,
     );
   }
 

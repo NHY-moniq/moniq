@@ -3,7 +3,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/providers/team_providers.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
@@ -68,7 +67,9 @@ class TeamJoinScreen extends HookConsumerWidget {
                 Text(
                   '팀 관리자에게 받은\n초대 코드를 입력해주세요',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondaryLight,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurfaceVariant,
                       ),
                   textAlign: TextAlign.center,
                 ),
@@ -79,7 +80,11 @@ class TeamJoinScreen extends HookConsumerWidget {
                   SelectableText.rich(
                     TextSpan(
                       text: errorMessage.value,
-                      style: const TextStyle(color: AppColors.error),
+                      style: TextStyle(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .error,
+                      ),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -110,12 +115,14 @@ class TeamJoinScreen extends HookConsumerWidget {
                 ElevatedButton(
                   onPressed: isLoading.value ? null : handleJoin,
                   child: isLoading.value
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimary,
                           ),
                         )
                       : const Text('참여하기'),

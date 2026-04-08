@@ -57,7 +57,9 @@ class CalendarScreen extends HookConsumerWidget {
                           onTap: () => Navigator.pop(ctx),
                           child: CircleAvatar(
                             radius: 100,
-                            backgroundColor: AppColors.primaryContainer,
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .primaryContainer,
                             backgroundImage:
                                 CachedNetworkImageProvider(avatarUrl),
                           ),
@@ -71,25 +73,32 @@ class CalendarScreen extends HookConsumerWidget {
               height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.primaryContainer,
-                border: Border.all(color: Colors.white, width: 2),
+                color: Theme.of(context).colorScheme.primaryContainer,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  width: 2,
+                ),
               ),
               child: avatarUrl != null && avatarUrl.isNotEmpty
                   ? ClipOval(
                       child: CachedNetworkImage(
                         imageUrl: avatarUrl,
                         fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => const Icon(
+                        errorWidget: (_, __, ___) => Icon(
                           Icons.person,
                           size: 20,
-                          color: AppColors.onPrimaryContainer,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onPrimaryContainer,
                         ),
                       ),
                     )
-                  : const Icon(
+                  : Icon(
                       Icons.person,
                       size: 20,
-                      color: AppColors.onPrimaryContainer,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onPrimaryContainer,
                     ),
             ),
           ),
@@ -104,7 +113,7 @@ class CalendarScreen extends HookConsumerWidget {
                   fontSize: 9,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 2.0,
-                  color: AppColors.secondary,
+                  color: Theme.of(context).colorScheme.secondary,
                 ),
               ),
               Text(
@@ -142,9 +151,11 @@ class CalendarScreen extends HookConsumerWidget {
         final dateEvents = ref.watch(dateEventsProvider(state.selectedDate));
 
         return Scaffold(
-          backgroundColor: AppColors.surfaceContainerLow,
+          backgroundColor:
+              Theme.of(context).colorScheme.surfaceContainerLow,
           appBar: AppBar(
-            backgroundColor: AppColors.surfaceContainerLow,
+            backgroundColor:
+                Theme.of(context).colorScheme.surfaceContainerLow,
             title: buildAppBarTitle(),
             actions: [
               Builder(
@@ -161,10 +172,11 @@ class CalendarScreen extends HookConsumerWidget {
           ),
           floatingActionButton: Padding(
             padding: const EdgeInsets.only(bottom: 72),
-            child: FloatingActionButton(
+            child: FloatingActionButton.small(
               onPressed: () => showAddMenu(context, ref, state.selectedDate),
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor:
+                  Theme.of(context).colorScheme.onPrimary,
               elevation: 3,
               child: const Icon(Icons.add),
             ),
@@ -241,28 +253,17 @@ class CalendarScreen extends HookConsumerWidget {
                   previewBuilder: (day) {
                     final key = DateTime(day.year, day.month, day.day);
                     final result = <CalendarPreview>[];
-                    // Server shifts
-                    final dayShifts = state.monthlyShifts[key];
-                    if (dayShifts != null && dayShifts.isNotEmpty) {
-                      for (final s in dayShifts) {
-                        if (result.length >= 3) break;
-                        result.add(CalendarPreview(
-                          text: s.shiftType.name,
-                          color: parseHexColor(s.shiftType.color),
-                          isWork: true,
-                        ));
-                      }
-                    }
-                    // Personal events — 근무 유형 매칭은 dot으로만, 비근무만 태그
+                    final shiftTypeNames = ref
+                        .read(personalShiftTypesProvider)
+                        .map((st) => st.name)
+                        .toSet();
+
+                    // Server shifts — dot으로만 표시 (previewBuilder 스킵)
+                    // Personal events — 근무 유형 매칭은 스킵, 비근무만 태그
                     final evts = monthlyEvents[key];
                     if (evts != null && evts.isNotEmpty) {
-                      final shiftTypeNames = ref
-                          .read(personalShiftTypesProvider)
-                          .map((st) => st.name)
-                          .toSet();
                       for (final e in evts) {
                         if (result.length >= 3) break;
-                        // 근무 유형 매칭 → 스킵 (dot으로만 표시됨)
                         if (shiftTypeNames.contains(e.title)) continue;
                         result.add(CalendarPreview(
                           text: e.title,

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/models/shift_rule_model.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/presentation/screens/team/shift_types_list_widgets.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -19,8 +19,7 @@ class TeamSettingsScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final detailAsync =
-        ref.watch(teamDetailViewModelProvider(teamId));
+    final detailAsync = ref.watch(teamDetailViewModelProvider(teamId));
 
     return Scaffold(
       appBar: AppBar(title: const Text('팀 상세 설정')),
@@ -57,15 +56,19 @@ class _SettingsBody extends ConsumerStatefulWidget {
   final bool isAdmin;
 
   @override
-  ConsumerState<_SettingsBody> createState() =>
-      _SettingsBodyState();
+  ConsumerState<_SettingsBody> createState() => _SettingsBodyState();
 }
 
 class _SettingsBodyState extends ConsumerState<_SettingsBody> {
+  // 인력 설정
+  late Map<String, int> _minStaffing;
+  late int _maxMonthlyShifts;
+  late int _maxMonthlyNightShifts;
+
+  // 고정 규칙
   late int _maxConsecutiveWorkDays;
   late int _maxConsecutiveNightShifts;
   late int _minWeeklyOffDays;
-  late bool _noNightThenDay;
   late bool _noNightThenEvening;
   late bool _noEveningThenDay;
 
@@ -83,6 +86,27 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
       for (final r in widget.rules) r.ruleType: r.ruleValue,
     };
 
+    // 인력 설정 로드
+    final minCountsRaw =
+        (ruleMap['min_staffing'] ?? {})['counts'] as Map? ?? {};
+
+    _minStaffing = {};
+    for (final t in widget.shiftTypes) {
+      _minStaffing[t.id] =
+          (minCountsRaw[t.id] as num?)?.toInt() ?? 0;
+    }
+
+    _maxMonthlyShifts =
+        ((ruleMap['max_monthly_shifts'] ?? {})['count'] as num?)
+                ?.toInt() ??
+            25;
+    _maxMonthlyNightShifts =
+        ((ruleMap['max_monthly_night_shifts'] ?? {})['count']
+                    as num?)
+                ?.toInt() ??
+            8;
+
+    // 고정 규칙 로드
     _maxConsecutiveWorkDays =
         ((ruleMap['max_consecutive_work_days'] ??
                     {})['days'] as num?)
@@ -94,14 +118,9 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
                 ?.toInt() ??
             5;
     _minWeeklyOffDays =
-        ((ruleMap['min_weekly_off_days'] ??
-                    {})['days'] as num?)
+        ((ruleMap['min_weekly_off_days'] ?? {})['days'] as num?)
                 ?.toInt() ??
             2;
-    _noNightThenDay =
-        ((ruleMap['no_night_then_day'] ??
-                {})['enabled'] as bool?) ??
-            true;
     _noNightThenEvening =
         ((ruleMap['no_night_then_evening'] ??
                 {})['enabled'] as bool?) ??
@@ -119,6 +138,20 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
     );
 
     await Future.wait([
+      // 인력 설정 저장
+      notifier.upsertRule(
+        'min_staffing',
+        {'counts': {for (final e in _minStaffing.entries) e.key: e.value}},
+      ),
+      notifier.upsertRule(
+        'max_monthly_shifts',
+        {'count': _maxMonthlyShifts},
+      ),
+      notifier.upsertRule(
+        'max_monthly_night_shifts',
+        {'count': _maxMonthlyNightShifts},
+      ),
+      // 고정 규칙 저장
       notifier.upsertRule(
         'max_consecutive_work_days',
         {'days': _maxConsecutiveWorkDays},
@@ -130,10 +163,6 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
       notifier.upsertRule(
         'min_weekly_off_days',
         {'days': _minWeeklyOffDays},
-      ),
-      notifier.upsertRule(
-        'no_night_then_day',
-        {'enabled': _noNightThenDay},
       ),
       notifier.upsertRule(
         'no_night_then_evening',
@@ -164,6 +193,8 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final readOnly = !widget.isAdmin;
+    final activeShiftTypes =
+        widget.shiftTypes.where((t) => t.isActive).toList();
 
     return PopScope(
       canPop: !_isDirty,
@@ -190,6 +221,81 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
 
             const SizedBox(height: AppSpacing.xxxl),
 
+            // ── 인력 설정 섹션 ──
+            SectionHeader(
+              title: '인력 설정',
+              subtitle: '근무 유형별 배치 인원 및 월 근무 횟수를 설정합니다',
+            ),
+            const SizedBox(height: AppSpacing.md),
+
+            if (activeShiftTypes.isNotEmpty) ...[
+              // 근무 유형별 최소 인원
+              RuleCard(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: AppSpacing.xs,
+                      bottom: AppSpacing.xxs,
+                    ),
+                    child: Text(
+                      '근무 유형별 최소 인원',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AppColors.textSecondaryLight,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  ...activeShiftTypes.map((t) {
+                    return _ShiftStaffingRow(
+                      shiftType: t,
+                      value: _minStaffing[t.id] ?? 0,
+                      suffix: '명',
+                      minValue: 0,
+                      readOnly: readOnly,
+                      onChanged: (v) {
+                        setState(() => _minStaffing[t.id] = v);
+                        _markDirty();
+                      },
+                    );
+                  }),
+                ],
+              ),
+
+
+              const SizedBox(height: AppSpacing.lg),
+            ],
+
+            // 월 근무 횟수 설정
+            RuleCard(
+              children: [
+                NumberRuleRow(
+                  label: '월 최대 근무 횟수',
+                  value: _maxMonthlyShifts,
+                  suffix: '회',
+                  minValue: 0,
+                  readOnly: readOnly,
+                  onChanged: (v) {
+                    setState(() => _maxMonthlyShifts = v);
+                    _markDirty();
+                  },
+                ),
+                const Divider(height: 1),
+                NumberRuleRow(
+                  label: '월 최대 야간(N) 횟수',
+                  value: _maxMonthlyNightShifts,
+                  suffix: '회',
+                  minValue: 0,
+                  readOnly: readOnly,
+                  onChanged: (v) {
+                    setState(() => _maxMonthlyNightShifts = v);
+                    _markDirty();
+                  },
+                ),
+              ],
+            ),
+
+            const SizedBox(height: AppSpacing.xxxl),
+
             // ── 고정 규칙 섹션 ──
             SectionHeader(
               title: '고정 규칙',
@@ -208,9 +314,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
                   suffix: '일',
                   readOnly: readOnly,
                   onChanged: (v) {
-                    setState(
-                      () => _maxConsecutiveWorkDays = v,
-                    );
+                    setState(() => _maxConsecutiveWorkDays = v);
                     _markDirty();
                   },
                 ),
@@ -234,9 +338,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
                   suffix: '일',
                   readOnly: readOnly,
                   onChanged: (v) {
-                    setState(
-                      () => _minWeeklyOffDays = v,
-                    );
+                    setState(() => _minWeeklyOffDays = v);
                     _markDirty();
                   },
                 ),
@@ -249,41 +351,23 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
             RuleCard(
               children: [
                 ToggleRuleRow(
-                  label: '야간→주간 금지 (N→D)',
-                  description:
-                      '야간 근무 다음날 주간 근무 불가',
-                  value: _noNightThenDay,
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _noNightThenDay = v);
-                    _markDirty();
-                  },
-                ),
-                const Divider(height: 1),
-                ToggleRuleRow(
                   label: '야간→저녁 금지 (N→E)',
-                  description:
-                      '야간 근무 다음날 저녁 근무 불가',
+                  description: '야간 근무 다음날 저녁 근무 불가',
                   value: _noNightThenEvening,
                   readOnly: readOnly,
                   onChanged: (v) {
-                    setState(
-                      () => _noNightThenEvening = v,
-                    );
+                    setState(() => _noNightThenEvening = v);
                     _markDirty();
                   },
                 ),
                 const Divider(height: 1),
                 ToggleRuleRow(
                   label: '저녁→주간 금지 (E→D)',
-                  description:
-                      '저녁 근무 다음날 주간 근무 불가',
+                  description: '저녁 근무 다음날 주간 근무 불가',
                   value: _noEveningThenDay,
                   readOnly: readOnly,
                   onChanged: (v) {
-                    setState(
-                      () => _noEveningThenDay = v,
-                    );
+                    setState(() => _noEveningThenDay = v);
                     _markDirty();
                   },
                 ),
@@ -316,13 +400,12 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
             if (!widget.isAdmin)
               Center(
                 child: Padding(
-                  padding:
-                      const EdgeInsets.all(AppSpacing.lg),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Text(
                     '관리자만 설정을 수정할 수 있습니다',
                     style: theme.textTheme.bodyMedium
                         ?.copyWith(
-                      color: AppColors.textSecondaryLight,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -340,8 +423,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('저장하지 않은 변경사항'),
-        content:
-            const Text('변경사항을 저장하지 않고 나가시겠습니까?'),
+        content: const Text('변경사항을 저장하지 않고 나가시겠습니까?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -389,7 +471,7 @@ class SectionHeader extends StatelessWidget {
           Text(
             subtitle!,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondaryLight,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -425,6 +507,7 @@ class NumberRuleRow extends StatelessWidget {
     required this.suffix,
     required this.readOnly,
     required this.onChanged,
+    this.minValue = 1,
   });
 
   final String label;
@@ -432,6 +515,7 @@ class NumberRuleRow extends StatelessWidget {
   final String suffix;
   final bool readOnly;
   final ValueChanged<int> onChanged;
+  final int minValue;
 
   @override
   Widget build(BuildContext context) {
@@ -452,7 +536,7 @@ class NumberRuleRow extends StatelessWidget {
               Icons.remove_circle_outline,
               size: 20,
             ),
-            onPressed: readOnly || value <= 1
+            onPressed: readOnly || value <= minValue
                 ? null
                 : () => onChanged(value - 1),
             visualDensity: VisualDensity.compact,
@@ -478,14 +562,16 @@ class NumberRuleRow extends StatelessWidget {
             visualDensity: VisualDensity.compact,
           ),
           SizedBox(
-            width: 24,
+            width: 80,
             child: Text(
               suffix,
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
                   ?.copyWith(
-                    color: AppColors.textSecondaryLight,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant,
                   ),
             ),
           ),
@@ -525,8 +611,7 @@ class ToggleRuleRow extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style:
-                      Theme.of(context).textTheme.bodyMedium,
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 if (description != null)
                   Text(
@@ -535,8 +620,9 @@ class ToggleRuleRow extends StatelessWidget {
                         .textTheme
                         .bodySmall
                         ?.copyWith(
-                          color:
-                              AppColors.textSecondaryLight,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant,
                         ),
                   ),
               ],
@@ -545,7 +631,105 @@ class ToggleRuleRow extends StatelessWidget {
           Switch.adaptive(
             value: value,
             onChanged: readOnly ? null : onChanged,
-            activeColor: AppColors.primary,
+            activeColor: Theme.of(context).colorScheme.primary,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 근무 유형별 인원 설정 행
+class _ShiftStaffingRow extends StatelessWidget {
+  const _ShiftStaffingRow({
+    required this.shiftType,
+    required this.value,
+    required this.suffix,
+    required this.readOnly,
+    required this.onChanged,
+    this.minValue = 0,
+  });
+
+  final ShiftTypeModel shiftType;
+  final int value;
+  final String suffix;
+  final bool readOnly;
+  final ValueChanged<int> onChanged;
+  final int minValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: parseHexColor(shiftType.color),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              shiftType.code,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              shiftType.name,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(
+              Icons.remove_circle_outline,
+              size: 20,
+            ),
+            onPressed: readOnly || value <= minValue
+                ? null
+                : () => onChanged(value - 1),
+            visualDensity: VisualDensity.compact,
+          ),
+          SizedBox(
+            width: 28,
+            child: Text(
+              '$value',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(
+              Icons.add_circle_outline,
+              size: 20,
+            ),
+            onPressed:
+                readOnly ? null : () => onChanged(value + 1),
+            visualDensity: VisualDensity.compact,
+          ),
+          SizedBox(
+            width: 80,
+            child: Text(
+              suffix,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(
+                    color: AppColors.textSecondaryLight,
+                  ),
+            ),
           ),
         ],
       ),

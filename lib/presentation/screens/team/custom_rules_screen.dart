@@ -1,0 +1,607 @@
+import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/data/models/custom_rule_model.dart';
+import 'package:moniq/data/models/shift_type_model.dart';
+import 'package:moniq/data/models/team_member_with_user.dart';
+import 'package:moniq/data/providers/custom_rule_providers.dart';
+import 'package:moniq/data/providers/shift_providers.dart';
+import 'package:moniq/data/providers/supabase_providers.dart';
+import 'package:moniq/data/providers/team_providers.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
+import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
+import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
+
+// ──────────────────────────────────────────────
+// Providers
+// ──────────────────────────────────────────────
+
+final _customRulesProvider =
+    FutureProvider.autoDispose.family<List<CustomRuleModel>, String>(
+  (ref, teamId) => ref.watch(customRuleRepositoryProvider).fetchRules(teamId),
+);
+
+final _shiftTypesProvider =
+    FutureProvider.autoDispose.family<List<ShiftTypeModel>, String>(
+  (ref, teamId) =>
+      ref.watch(shiftRepositoryProvider).getShiftTypes(teamId),
+);
+
+final _teamMembersProvider =
+    FutureProvider.autoDispose.family<List<TeamMemberWithUser>, String>(
+  (ref, teamId) =>
+      ref.watch(teamRepositoryProvider).getTeamMembersWithUsers(teamId),
+);
+
+// ──────────────────────────────────────────────
+// Screen
+// ──────────────────────────────────────────────
+
+class CustomRulesScreen extends ConsumerWidget {
+  const CustomRulesScreen({super.key, required this.teamId});
+
+  final String teamId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rulesAsync = ref.watch(_customRulesProvider(teamId));
+    final shiftTypesAsync = ref.watch(_shiftTypesProvider(teamId));
+    final membersAsync = ref.watch(_teamMembersProvider(teamId));
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('커스텀 규칙')),
+      body: rulesAsync.when(
+        loading: () => const MoniqLoadingView(),
+        error: (e, _) => MoniqErrorView(
+          message: '규칙을 불러올 수 없습니다',
+          onRetry: () => ref.invalidate(_customRulesProvider(teamId)),
+        ),
+        data: (rules) => _RulesBody(
+          teamId: teamId,
+          rules: rules,
+          shiftTypes: shiftTypesAsync.valueOrNull ?? [],
+          members: membersAsync.valueOrNull ?? [],
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────
+// Body
+// ──────────────────────────────────────────────
+
+class _RulesBody extends ConsumerWidget {
+  const _RulesBody({
+    required this.teamId,
+    required this.rules,
+    required this.shiftTypes,
+    required this.members,
+  });
+
+  final String teamId;
+  final List<CustomRuleModel> rules;
+  final List<ShiftTypeModel> shiftTypes;
+  final List<TeamMemberWithUser> members;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      children: [
+        Expanded(
+          child: rules.isEmpty
+              ? _EmptyState(
+                  onAdd: () => _showAddSheet(context, ref),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  itemCount: rules.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSpacing.sm),
+                  itemBuilder: (_, i) => _RuleCard(
+                    rule: rules[i],
+                    onToggle: (val) async {
+                      await ref
+                          .read(customRuleRepositoryProvider)
+                          .toggleActive(rules[i].id, isActive: val);
+                      ref.invalidate(_customRulesProvider(teamId));
+                    },
+                    onDelete: () async {
+                      final ok = await _confirmDelete(context);
+                      if (!ok) return;
+                      await ref
+                          .read(customRuleRepositoryProvider)
+                          .deleteRule(rules[i].id);
+                      ref.invalidate(_customRulesProvider(teamId));
+                    },
+                  ),
+                ),
+        ),
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              0,
+              AppSpacing.md,
+              AppSpacing.md,
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _showAddSheet(context, ref),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('규칙 추가'),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<bool> _confirmDelete(BuildContext context) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('규칙 삭제'),
+            content: const Text('이 규칙을 삭제하시겠습니까?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('취소'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                ),
+                child: const Text('삭제'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  void _showAddSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _AddRuleSheet(
+        teamId: teamId,
+        shiftTypes: shiftTypes,
+        members: members,
+        onSaved: () => ref.invalidate(_customRulesProvider(teamId)),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────
+// Rule card
+// ──────────────────────────────────────────────
+
+class _RuleCard extends StatelessWidget {
+  const _RuleCard({
+    required this.rule,
+    required this.onToggle,
+    required this.onDelete,
+  });
+
+  final CustomRuleModel rule;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isHard = rule.priority == 'hard';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: rule.isActive
+            ? theme.colorScheme.surface
+            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isHard
+              ? AppColors.error.withValues(alpha: 0.5)
+              : AppColors.outlineVariant,
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        leading: Icon(
+          _iconForType(rule.ruleType),
+          color: !rule.isActive
+              ? AppColors.outline
+              : isHard
+                  ? AppColors.error
+                  : AppColors.secondary,
+          size: 22,
+        ),
+        title: Text(
+          rule.originalText,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: rule.isActive ? null : AppColors.outline,
+            decoration: rule.isActive ? null : TextDecoration.lineThrough,
+          ),
+        ),
+        subtitle: Row(
+          children: [
+            _TypeBadge(ruleType: rule.ruleType),
+            const SizedBox(width: AppSpacing.xs),
+            _PriorityBadge(priority: rule.priority),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Switch(
+              value: rule.isActive,
+              onChanged: onToggle,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, size: 20),
+              color: AppColors.error,
+              onPressed: onDelete,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _iconForType(String type) {
+    switch (type) {
+      case 'member_shift_ban':
+        return Icons.block_rounded;
+      case 'anti_pair':
+        return Icons.people_alt_outlined;
+      case 'require_pair':
+        return Icons.supervisor_account_outlined;
+      case 'date_off':
+        return Icons.event_busy_outlined;
+      case 'post_night_off':
+        return Icons.bedtime_outlined;
+      case 'skill_condition':
+        return Icons.workspace_premium_outlined;
+      default:
+        return Icons.notes_rounded;
+    }
+  }
+}
+
+// ──────────────────────────────────────────────
+// Badges
+// ──────────────────────────────────────────────
+
+class _TypeBadge extends StatelessWidget {
+  const _TypeBadge({required this.ruleType});
+
+  final String ruleType;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _label(ruleType);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
+      ),
+    );
+  }
+
+  String _label(String type) {
+    switch (type) {
+      case 'member_shift_ban':
+        return '근무 금지';
+      case 'anti_pair':
+        return '동시 배정 금지';
+      case 'require_pair':
+        return '함께 배정';
+      case 'date_off':
+        return '날짜 오프';
+      case 'post_night_off':
+        return '나이트 후 오프';
+      case 'skill_condition':
+        return '숙련도 조건';
+      default:
+        return '자유형';
+    }
+  }
+}
+
+class _PriorityBadge extends StatelessWidget {
+  const _PriorityBadge({required this.priority});
+
+  final String priority;
+
+  @override
+  Widget build(BuildContext context) {
+    final isHard = priority == 'hard';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: isHard
+            ? AppColors.errorLight
+            : AppColors.primaryContainer,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        isHard ? '하드' : '소프트',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: isHard
+                  ? AppColors.error
+                  : AppColors.onPrimaryContainer,
+              fontWeight: FontWeight.w600,
+            ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────
+// Empty state
+// ──────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.onAdd});
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.rule_rounded, size: 56, color: AppColors.outline),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            '등록된 커스텀 규칙이 없습니다',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '팀 상황에 맞는 규칙을 자연어로 입력하면\nAI가 자동으로 분석합니다.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.outline,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────
+// Add rule bottom sheet
+// ──────────────────────────────────────────────
+
+class _AddRuleSheet extends ConsumerStatefulWidget {
+  const _AddRuleSheet({
+    required this.teamId,
+    required this.shiftTypes,
+    required this.members,
+    required this.onSaved,
+  });
+
+  final String teamId;
+  final List<ShiftTypeModel> shiftTypes;
+  final List<TeamMemberWithUser> members;
+  final VoidCallback onSaved;
+
+  @override
+  ConsumerState<_AddRuleSheet> createState() => _AddRuleSheetState();
+}
+
+class _AddRuleSheetState extends ConsumerState<_AddRuleSheet> {
+  final _controller = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final client = ref.read(supabaseClientProvider);
+
+      // Edge Function 호출 — 자연어 → DSL 파싱
+      final response = await client.functions.invoke(
+        'parse-custom-rule',
+        body: {
+          'text': text,
+          'teamMembers': widget.members
+              .map((m) => {'id': m.userId, 'name': m.displayName})
+              .toList(),
+          'shiftTypes': widget.shiftTypes
+              .map((s) => {'id': s.id, 'name': s.name, 'code': s.code})
+              .toList(),
+        },
+      );
+
+      final data = response.data as Map<String, dynamic>;
+
+      if (data.containsKey('error')) {
+        throw Exception(data['error']);
+      }
+
+      final ruleType = data['rule_type'] as String? ?? 'freeform';
+      final ruleValue =
+          (data['rule_value'] as Map<String, dynamic>?) ?? {'description': text};
+      final parsedDsl = data['parsed_dsl'] as Map<String, dynamic>?;
+      final priority = data['priority'] as String? ?? 'soft';
+
+      await ref.read(customRuleRepositoryProvider).addRule(
+            teamId: widget.teamId,
+            ruleType: ruleType,
+            ruleValue: ruleValue,
+            originalText: text,
+            parsedDsl: parsedDsl,
+            priority: priority,
+          );
+
+      widget.onSaved();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      setState(() {
+        _error = 'AI 파싱 중 오류가 발생했습니다: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            Text('규칙 추가', style: theme.textTheme.titleLarge),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '자연어로 입력하면 AI가 자동으로 분석합니다.',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: AppColors.onSurfaceVariant),
+            ),
+
+            const SizedBox(height: AppSpacing.md),
+
+            // Example chips
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: _examples.map((ex) {
+                return ActionChip(
+                  label: Text(ex, style: theme.textTheme.bodySmall),
+                  onPressed: () {
+                    _controller.text = ex;
+                    _controller.selection = TextSelection.fromPosition(
+                      TextPosition(offset: ex.length),
+                    );
+                  },
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: AppSpacing.md),
+
+            TextField(
+              controller: _controller,
+              maxLength: 200,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: '예: 홍길동은 나이트 서지 않아요',
+                filled: true,
+                fillColor: theme.colorScheme.surfaceContainerHighest,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.primary),
+                ),
+              ),
+              enabled: !_loading,
+            ),
+
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.errorLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _error!,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: AppColors.error),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: AppSpacing.md),
+
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _loading ? null : _submit,
+                child: _loading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('AI로 규칙 등록'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const _examples = [
+    '나이트 3연속이면 2일 쉬어야 해요',
+    'A와 B는 같은 나이트를 서지 않게 해주세요',
+    '데이에 숙련도 3 이상 1명은 꼭 있어야 해요',
+  ];
+}
