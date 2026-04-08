@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/wanted_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
@@ -51,6 +50,7 @@ class _EntryView extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final dateFormat = DateFormat('yyyy.MM.dd');
     final request = state.activeRequest!;
 
@@ -65,8 +65,8 @@ class _EntryView extends HookConsumerWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(AppSpacing.lg),
           color: isExpired
-              ? AppColors.error.withValues(alpha: 0.08)
-              : AppColors.primary.withValues(alpha: 0.08),
+              ? colorScheme.error.withValues(alpha: 0.08)
+              : colorScheme.primary.withValues(alpha: 0.08),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -76,7 +76,9 @@ class _EntryView extends HookConsumerWidget {
                     : '희망 휴무일을 입력해주세요',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: isExpired ? AppColors.error : AppColors.primary,
+                  color: isExpired
+                      ? colorScheme.error
+                      : colorScheme.primary,
                 ),
               ),
               const SizedBox(height: AppSpacing.xs),
@@ -88,7 +90,7 @@ class _EntryView extends HookConsumerWidget {
                 Text(
                   '마감일: ${dateFormat.format(request.deadline!)}',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.error,
+                    color: colorScheme.error,
                   ),
                 ),
             ],
@@ -102,15 +104,17 @@ class _EntryView extends HookConsumerWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.calendar_today,
-                          size: 48,
-                          color: AppColors.onSurfaceVariant
-                              .withValues(alpha: 0.3)),
+                      Icon(
+                        Icons.calendar_today,
+                        size: 48,
+                        color: colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.3),
+                      ),
                       const SizedBox(height: AppSpacing.md),
                       Text(
                         '아래 버튼으로 희망 휴무일을 추가하세요',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: AppColors.onSurfaceVariant,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -129,15 +133,19 @@ class _EntryView extends HookConsumerWidget {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color:
-                                AppColors.primary.withValues(alpha: 0.1),
+                            color: colorScheme.primary
+                                .withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.event,
-                              color: AppColors.primary, size: 20),
+                          child: Icon(
+                            Icons.event,
+                            color: colorScheme.primary,
+                            size: 20,
+                          ),
                         ),
                         title: Text(
-                            dateFormat.format(entry.wantedDate)),
+                          dateFormat.format(entry.wantedDate),
+                        ),
                         subtitle: entry.reason != null &&
                                 entry.reason!.isNotEmpty
                             ? Text(entry.reason!)
@@ -217,21 +225,25 @@ class _EntryView extends HookConsumerWidget {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: AppColors.borderLight,
+                        color: Theme.of(ctx).colorScheme.outlineVariant,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  Text('희망 휴무일 선택',
-                      style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          )),
+                  Text(
+                    '희망 휴무일 선택',
+                    style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     '날짜를 탭하여 여러 날을 선택할 수 있습니다',
                     style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                          color: AppColors.onSurfaceVariant,
+                          color: Theme.of(ctx)
+                              .colorScheme
+                              .onSurfaceVariant,
                         ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -264,7 +276,7 @@ class _EntryView extends HookConsumerWidget {
                       child: Text(
                         '${selectedDates.length}일 선택됨',
                         style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                              color: AppColors.primary,
+                              color: Theme.of(ctx).colorScheme.primary,
                               fontWeight: FontWeight.w600,
                             ),
                       ),
@@ -350,11 +362,14 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final dayLabels = ['월', '화', '수', '목', '금', '토', '일'];
 
     // 해당 월의 날짜 계산
-    final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final lastDay = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
+    final firstDay =
+        DateTime(_currentMonth.year, _currentMonth.month, 1);
+    final lastDay =
+        DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
     final startWeekday = firstDay.weekday; // 1=월 ~ 7=일
 
     final days = <DateTime?>[];
@@ -364,7 +379,9 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
     }
     // 실제 날짜
     for (int d = 1; d <= lastDay.day; d++) {
-      days.add(DateTime(_currentMonth.year, _currentMonth.month, d));
+      days.add(
+        DateTime(_currentMonth.year, _currentMonth.month, d),
+      );
     }
 
     return Column(
@@ -377,9 +394,13 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
               icon: const Icon(Icons.chevron_left),
               onPressed: () {
                 final prev = DateTime(
-                    _currentMonth.year, _currentMonth.month - 1);
+                  _currentMonth.year,
+                  _currentMonth.month - 1,
+                );
                 final periodMonth = DateTime(
-                    widget.periodStart.year, widget.periodStart.month);
+                  widget.periodStart.year,
+                  widget.periodStart.month,
+                );
                 if (!prev.isBefore(periodMonth)) {
                   setState(() => _currentMonth = prev);
                 }
@@ -395,11 +416,19 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
               icon: const Icon(Icons.chevron_right),
               onPressed: () {
                 final next = DateTime(
-                    _currentMonth.year, _currentMonth.month + 1);
+                  _currentMonth.year,
+                  _currentMonth.month + 1,
+                );
                 final periodEndMonth = DateTime(
-                    widget.periodEnd.year, widget.periodEnd.month);
+                  widget.periodEnd.year,
+                  widget.periodEnd.month,
+                );
                 if (!next.isAfter(
-                    DateTime(periodEndMonth.year, periodEndMonth.month + 1))) {
+                  DateTime(
+                    periodEndMonth.year,
+                    periodEndMonth.month + 1,
+                  ),
+                )) {
                   setState(() => _currentMonth = next);
                 }
               },
@@ -418,8 +447,9 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
                   label,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: isWeekend
-                        ? AppColors.error.withValues(alpha: 0.6)
-                        : AppColors.onSurfaceVariant,
+                        ? colorScheme.error
+                            .withValues(alpha: 0.6)
+                        : colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -433,7 +463,8 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
         Expanded(
           child: GridView.builder(
             controller: widget.scrollController,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            gridDelegate:
+                const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
               childAspectRatio: 1,
             ),
@@ -442,10 +473,13 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
               final day = days[index];
               if (day == null) return const SizedBox();
 
-              final isInPeriod = !day.isBefore(widget.periodStart) &&
-                  !day.isAfter(widget.periodEnd);
-              final isSelected = widget.selectedDates.contains(day);
-              final isExisting = widget.existingDates.contains(day);
+              final isInPeriod =
+                  !day.isBefore(widget.periodStart) &&
+                      !day.isAfter(widget.periodEnd);
+              final isSelected =
+                  widget.selectedDates.contains(day);
+              final isExisting =
+                  widget.existingDates.contains(day);
 
               return GestureDetector(
                 onTap: isInPeriod && !isExisting
@@ -455,33 +489,38 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
                   margin: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppColors.primary
+                        ? colorScheme.primary
                         : isExisting
-                            ? AppColors.onSurfaceVariant
+                            ? colorScheme.onSurfaceVariant
                                 .withValues(alpha: 0.15)
                             : null,
-                    borderRadius: BorderRadius.circular(8),
-                    border: isInPeriod && !isSelected && !isExisting
-                        ? Border.all(
-                            color: AppColors.borderLight,
-                            width: 1,
-                          )
-                        : null,
+                    borderRadius:
+                        BorderRadius.circular(AppRadius.xs),
+                    border:
+                        isInPeriod && !isSelected && !isExisting
+                            ? Border.all(
+                                color:
+                                    colorScheme.outlineVariant,
+                              )
+                            : null,
                   ),
                   child: Center(
                     child: Text(
                       '${day.day}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      style:
+                          theme.textTheme.bodyMedium?.copyWith(
                         color: isSelected
-                            ? Colors.white
+                            ? colorScheme.surface
                             : isExisting
-                                ? AppColors.onSurfaceVariant
+                                ? colorScheme.onSurfaceVariant
                                 : isInPeriod
                                     ? null
-                                    : AppColors.onSurfaceVariant
+                                    : colorScheme
+                                        .onSurfaceVariant
                                         .withValues(alpha: 0.3),
-                        fontWeight:
-                            isSelected ? FontWeight.w700 : null,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : null,
                       ),
                     ),
                   ),

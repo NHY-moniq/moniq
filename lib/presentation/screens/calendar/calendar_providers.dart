@@ -14,6 +14,10 @@ final eventRefreshProvider = StateProvider<int>((ref) => 0);
 final dateExpandedProvider =
     StateProvider.family<bool, DateTime>((ref, date) => true);
 
+/// 메모 접기/펼치기 상태 (키: "date-index", 기본 접힘)
+final noteExpandedProvider =
+    StateProvider.family<bool, String>((ref, key) => false);
+
 final personalNoteDataSourceProvider = Provider<PersonalNoteLocalDataSource>(
   (ref) {
     final userId = ref.watch(currentUserProvider)?.id ?? 'anonymous';

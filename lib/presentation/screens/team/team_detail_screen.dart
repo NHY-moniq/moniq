@@ -171,7 +171,7 @@ class TeamDetailScreen extends HookConsumerWidget {
                 const SizedBox(height: AppSpacing.md),
                 TeamDetailBubbleMenuCard(
                   icon: Icons.delete_sweep_outlined,
-                  iconColor: AppColors.error,
+                  iconColor: Theme.of(context).colorScheme.error,
                   title: '일정 전체 삭제',
                   subtitle: '특정 월의 팀 일정 전체 삭제',
                   onTap: () => showDeleteScheduleSheet(
@@ -194,7 +194,10 @@ class TeamDetailScreen extends HookConsumerWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 2.0,
-                    color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withValues(alpha: 0.6),
                   ),
                 ),
               ),
@@ -227,7 +230,7 @@ class TeamDetailScreen extends HookConsumerWidget {
               const SizedBox(height: AppSpacing.md),
               TeamDetailBubbleMenuCard(
                 icon: Icons.edit_calendar_outlined,
-                iconColor: AppColors.secondary,
+                iconColor: Theme.of(context).colorScheme.secondary,
                 title: '희망 휴무일 입력',
                 subtitle: '내 희망 휴무일 입력하기',
                 onTap: () =>
@@ -236,7 +239,7 @@ class TeamDetailScreen extends HookConsumerWidget {
               const SizedBox(height: AppSpacing.md),
               TeamDetailBubbleMenuCard(
                 icon: Icons.swap_horiz_outlined,
-                iconColor: AppColors.tertiary,
+                iconColor: Theme.of(context).colorScheme.tertiary,
                 title: '교환/변경 요청',
                 subtitle: '근무 교환 및 변경 요청 관리',
                 onTap: () =>

@@ -27,7 +27,7 @@ class HomeScreen extends HookConsumerWidget {
 
     Widget buildAppBar() {
       return AppBar(
-        backgroundColor: shiftTheme.background,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -68,7 +68,7 @@ class HomeScreen extends HookConsumerWidget {
 
     return calendarAsync.when(
       loading: () => Scaffold(
-        backgroundColor: shiftTheme.background,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(kToolbarHeight),
           child: buildAppBar(),
@@ -76,7 +76,7 @@ class HomeScreen extends HookConsumerWidget {
         body: const MoniqLoadingView(),
       ),
       error: (e, _) => Scaffold(
-        backgroundColor: shiftTheme.background,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(kToolbarHeight),
           child: buildAppBar(),
@@ -88,7 +88,7 @@ class HomeScreen extends HookConsumerWidget {
       ),
       data: (state) {
         return Scaffold(
-          backgroundColor: shiftTheme.background,
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
           appBar: PreferredSize(
             preferredSize: const Size.fromHeight(kToolbarHeight),
             child: buildAppBar(),

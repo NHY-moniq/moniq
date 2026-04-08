@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/shift_rule_model.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/schedule_generation_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
@@ -387,10 +386,10 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.rule_rounded,
                         size: 20,
-                        color: AppColors.tertiary,
+                        color: Theme.of(context).colorScheme.tertiary,
                       ),
                       const SizedBox(width: AppSpacing.md),
                       Expanded(
@@ -418,7 +417,9 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
               SelectableText.rich(
                 TextSpan(
                   text: _saveError,
-                  style: const TextStyle(color: AppColors.error),
+                  style: TextStyle(
+                    color: theme.colorScheme.error,
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),

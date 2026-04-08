@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/wanted_viewmodel.dart';
 
@@ -40,6 +39,7 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final dateFormat = DateFormat('yyyy년 MM월 dd일');
 
     return SingleChildScrollView(
@@ -49,18 +49,21 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
         children: [
           // 안내 카드
           Card(
-            color: AppColors.primary.withValues(alpha: 0.08),
+            color: colorScheme.primary.withValues(alpha: 0.08),
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, color: AppColors.primary),
+                  Icon(
+                    Icons.info_outline,
+                    color: colorScheme.primary,
+                  ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
                       '근무표 생성 전 팀원들의 희망 휴무일을 수집합니다.\n요청을 생성하면 팀원들에게 알림이 발송됩니다.',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.primary,
+                        color: colorScheme.primary,
                       ),
                     ),
                   ),
@@ -223,6 +226,7 @@ class WantedRequestActiveView extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final dateFormat = DateFormat('MM.dd');
     final request = state.activeRequest!;
 
@@ -233,7 +237,9 @@ class WantedRequestActiveView extends HookConsumerWidget {
       groupedByUser.putIfAbsent(
         uid,
         () => WantedRequestUserEntryGroup(
-            displayName: ew.displayName, dates: []),
+          displayName: ew.displayName,
+          dates: [],
+        ),
       );
       groupedByUser[uid]!.dates.add(ew.entry.wantedDate);
     }
@@ -249,19 +255,22 @@ class WantedRequestActiveView extends HookConsumerWidget {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(AppSpacing.lg),
-          color: AppColors.primary.withValues(alpha: 0.08),
+          color: colorScheme.primary.withValues(alpha: 0.08),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Icon(Icons.event_note, color: AppColors.primary),
+                  Icon(
+                    Icons.event_note,
+                    color: colorScheme.primary,
+                  ),
                   const SizedBox(width: AppSpacing.sm),
                   Text(
                     '수집 진행중',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                      color: colorScheme.primary,
                     ),
                   ),
                 ],
@@ -299,22 +308,27 @@ class WantedRequestActiveView extends HookConsumerWidget {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.hourglass_empty,
-                                  size: 48,
-                                  color: AppColors.onSurfaceVariant
-                                      .withValues(alpha: 0.3)),
+                              Icon(
+                                Icons.hourglass_empty,
+                                size: 48,
+                                color: colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.3),
+                              ),
                               const SizedBox(height: AppSpacing.md),
                               Text(
                                 '아직 입력된 희망 휴무일이 없습니다',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.onSurfaceVariant,
+                                style: theme.textTheme.bodyMedium
+                                    ?.copyWith(
+                                  color:
+                                      colorScheme.onSurfaceVariant,
                                 ),
                               ),
                               const SizedBox(height: AppSpacing.sm),
                               Text(
                                 '아래로 당겨 새로고침',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: AppColors.onSurfaceVariant
+                                style:
+                                    theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant
                                       .withValues(alpha: 0.5),
                                 ),
                               ),
@@ -344,13 +358,15 @@ class WantedRequestActiveView extends HookConsumerWidget {
                                     width: 36,
                                     height: 36,
                                     decoration: BoxDecoration(
-                                      color: AppColors.primary
+                                      color: colorScheme.primary
                                           .withValues(alpha: 0.1),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.person,
-                                        color: AppColors.primary,
-                                        size: 20),
+                                    child: Icon(
+                                      Icons.person,
+                                      color: colorScheme.primary,
+                                      size: 20,
+                                    ),
                                   ),
                                   const SizedBox(width: AppSpacing.md),
                                   Expanded(
@@ -366,7 +382,7 @@ class WantedRequestActiveView extends HookConsumerWidget {
                                     '${group.dates.length}일',
                                     style: theme.textTheme.bodySmall
                                         ?.copyWith(
-                                      color: AppColors.primary,
+                                      color: colorScheme.primary,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -380,11 +396,14 @@ class WantedRequestActiveView extends HookConsumerWidget {
                                   return Chip(
                                     label: Text(
                                       dateFormat.format(d),
-                                      style: theme.textTheme.bodySmall,
+                                      style:
+                                          theme.textTheme.bodySmall,
                                     ),
-                                    visualDensity: VisualDensity.compact,
-                                    backgroundColor: AppColors.primary
-                                        .withValues(alpha: 0.08),
+                                    visualDensity:
+                                        VisualDensity.compact,
+                                    backgroundColor:
+                                        colorScheme.primary
+                                            .withValues(alpha: 0.08),
                                     side: BorderSide.none,
                                   );
                                 }).toList(),
@@ -478,6 +497,7 @@ class WantedRequestDatePickerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return InkWell(
       onTap: onTap,
@@ -490,13 +510,16 @@ class WantedRequestDatePickerRow extends StatelessWidget {
               Text(
                 date != null ? dateFormat.format(date!) : '선택',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.primary,
+                  color: colorScheme.primary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
-              const Icon(Icons.calendar_today,
-                  size: 18, color: AppColors.primary),
+              Icon(
+                Icons.calendar_today,
+                size: 18,
+                color: colorScheme.primary,
+              ),
             ],
           ),
         ],

@@ -29,6 +29,7 @@ class MoniqCalendar extends StatelessWidget {
     this.previewBuilder,
     this.rowHeight = 52,
     this.onTodayPressed,
+    this.legendItems,
   });
 
   final DateTime focusedDay;
@@ -43,6 +44,8 @@ class MoniqCalendar extends StatelessWidget {
   final List<CalendarPreview> Function(DateTime day)? previewBuilder;
   final double rowHeight;
   final VoidCallback? onTodayPressed;
+  /// 범례 항목 (null이면 기본 DAY/EVENING/NIGHT/OFF)
+  final List<({Color color, String label})>? legendItems;
 
   @override
   Widget build(BuildContext context) {
@@ -235,28 +238,23 @@ class MoniqCalendar extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         // 범례
-        Row(
-          children: [
-            _legendDot(context, AppColors.shiftDay, 'DAY'),
-            const SizedBox(width: 12),
-            _legendDot(
-              context,
-              AppColors.shiftEvening,
-              'EVENING',
-            ),
-            const SizedBox(width: 12),
-            _legendDot(
-              context,
-              AppColors.shiftNight,
-              'NIGHT',
-            ),
-            const SizedBox(width: 12),
-            _legendDot(context, AppColors.shiftOff, 'OFF'),
-          ],
+        Wrap(
+          spacing: 12,
+          runSpacing: 4,
+          children: (legendItems ?? _defaultLegendItems)
+              .map((item) => _legendDot(context, item.color, item.label))
+              .toList(),
         ),
       ],
     );
   }
+
+  static const _defaultLegendItems = [
+    (color: AppColors.shiftDay, label: 'DAY'),
+    (color: AppColors.shiftEvening, label: 'EVENING'),
+    (color: AppColors.shiftNight, label: 'NIGHT'),
+    (color: AppColors.shiftOff, label: 'OFF'),
+  ];
 
   Widget _legendDot(
     BuildContext context,

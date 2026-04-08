@@ -23,11 +23,13 @@ class MemberTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final skillLabel = _skillLabel(member.member.skillLevel);
 
     return ListTile(
       leading: CircleAvatar(
-        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+        backgroundColor:
+            colorScheme.primary.withValues(alpha: 0.1),
         backgroundImage: member.user.avatarUrl != null
             ? NetworkImage(member.user.avatarUrl!)
             : null,
@@ -36,8 +38,8 @@ class MemberTile extends StatelessWidget {
                 member.displayName.isNotEmpty
                     ? member.displayName[0].toUpperCase()
                     : '?',
-                style: const TextStyle(
-                  color: AppColors.primary,
+                style: TextStyle(
+                  color: colorScheme.primary,
                   fontWeight: FontWeight.w600,
                 ),
               )
@@ -51,7 +53,7 @@ class MemberTile extends StatelessWidget {
             Text(
               '(나)',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondaryLight,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -74,10 +76,10 @@ class MemberTile extends StatelessWidget {
         children: [
           MemberRoleBadge(role: member.role),
           if (isAdmin && !isSelf)
-            const Icon(
+            Icon(
               Icons.chevron_right,
               size: 18,
-              color: AppColors.textSecondaryLight,
+              color: colorScheme.onSurfaceVariant,
             ),
         ],
       ),
@@ -108,6 +110,7 @@ class MemberRoleBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isAdmin = role == 'admin';
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -116,25 +119,22 @@ class MemberRoleBadge extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: isAdmin
-            ? Theme.of(context)
-                .colorScheme
-                .primary
-                .withValues(alpha: 0.1)
-            : Theme.of(context)
-                .colorScheme
-                .onSurfaceVariant
+            ? colorScheme.primary.withValues(alpha: 0.1)
+            : colorScheme.onSurfaceVariant
                 .withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Text(
         isAdmin ? '관리자' : '멤버',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: isAdmin
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
+        style: Theme.of(context)
+            .textTheme
+            .labelSmall
+            ?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: isAdmin
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
+            ),
       ),
     );
   }
@@ -152,7 +152,7 @@ class MemberSkillChip extends StatelessWidget {
   final String label;
   final String? skillLevel;
 
-  Color get _color {
+  Color _color(BuildContext context) {
     switch (skillLevel) {
       case 'junior':
         return AppColors.shiftDay;
@@ -161,13 +161,13 @@ class MemberSkillChip extends StatelessWidget {
       case 'senior':
         return AppColors.shiftNight;
       default:
-        return AppColors.tertiary;
+        return Theme.of(context).colorScheme.tertiary;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final color = _color;
+    final color = _color(context);
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.xs,
@@ -175,15 +175,18 @@ class MemberSkillChip extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.xs),
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 10,
-          color: color,
-          fontWeight: FontWeight.w600,
-        ),
+        style: Theme.of(context)
+            .textTheme
+            .labelSmall
+            ?.copyWith(
+              fontSize: 10,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
       ),
     );
   }

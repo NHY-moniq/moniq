@@ -36,7 +36,7 @@ class ShiftThemeData {
     cardColor: Color(0xFFFFD700),
     accentText: Color(0xFFB8860B),
     displayName: 'Day Shift',
-    characterAsset: 'assets/images/day.png',
+    characterAsset: 'assets/images/yellow.png',
     characterType: CharacterType.yellow,
   );
 
@@ -47,7 +47,7 @@ class ShiftThemeData {
     cardColor: Color(0xFFFF8C00),
     accentText: Color(0xFFE07800),
     displayName: 'Evening Shift',
-    characterAsset: 'assets/images/evening.png',
+    characterAsset: 'assets/images/orange.png',
     characterType: CharacterType.orange,
   );
 
@@ -58,7 +58,7 @@ class ShiftThemeData {
     cardColor: Color(0xFF0061A4),
     accentText: Color(0xFF0061A4),
     displayName: 'Night Shift',
-    characterAsset: 'assets/images/night.png',
+    characterAsset: 'assets/images/blue.png',
     characterType: CharacterType.blue,
   );
 
@@ -81,7 +81,7 @@ class ShiftThemeData {
     cardColor: Color(0xFFFFD700),
     accentText: Color(0xFFFFD700),
     displayName: 'Day Shift',
-    characterAsset: 'assets/images/day.png',
+    characterAsset: 'assets/images/yellow.png',
     characterType: CharacterType.yellow,
   );
 
@@ -92,7 +92,7 @@ class ShiftThemeData {
     cardColor: Color(0xFFFF8C00),
     accentText: Color(0xFFFF8C00),
     displayName: 'Evening Shift',
-    characterAsset: 'assets/images/evening.png',
+    characterAsset: 'assets/images/orange.png',
     characterType: CharacterType.orange,
   );
 
@@ -103,7 +103,7 @@ class ShiftThemeData {
     cardColor: Color(0xFF2196F3),
     accentText: Color(0xFF2196F3),
     displayName: 'Night Shift',
-    characterAsset: 'assets/images/night.png',
+    characterAsset: 'assets/images/blue.png',
     characterType: CharacterType.blue,
   );
 
@@ -118,6 +118,56 @@ class ShiftThemeData {
     characterType: CharacterType.grey,
   );
 
+  /// 캐릭터 타입별 이미지 에셋 경로
+  static String _assetForType(CharacterType type) => switch (type) {
+        CharacterType.yellow => 'assets/images/yellow.png',
+        CharacterType.orange => 'assets/images/orange.png',
+        CharacterType.blue => 'assets/images/blue.png',
+        CharacterType.grey => 'assets/images/off.png',
+        CharacterType.green => 'assets/images/green.png',
+        CharacterType.pink => 'assets/images/pink.png',
+        CharacterType.purple => 'assets/images/purple.png',
+        CharacterType.coral => 'assets/images/coral.png',
+      };
+
+  /// 커스텀 색상에서 동적으로 테마 생성
+  factory ShiftThemeData.fromColor(Color color, {bool isDark = false, String? displayName}) {
+    final hsl = HSLColor.fromColor(color);
+    final brightness = ThemeData.estimateBrightnessForColor(color);
+    final charType = characterTypeFromColor(color);
+    final asset = _assetForType(charType);
+
+    if (isDark) {
+      return ShiftThemeData(
+        primary: color,
+        onPrimary: brightness == Brightness.dark ? Colors.white : const Color(0xFF121212),
+        background: const Color(0xFF121212),
+        cardColor: color,
+        accentText: color,
+        displayName: displayName ?? 'Shift',
+        characterAsset: asset,
+        characterType: charType,
+      );
+    }
+
+    // 밝은 배경: 채도를 유지하면서 밝기를 올림 (기존 프리셋 #FCF6E3 수준)
+    final lightBg = hsl.withSaturation((hsl.saturation * 0.5).clamp(0, 1))
+        .withLightness(0.92).toColor();
+    // 강조 텍스트: 색상의 밝기를 내림
+    final accent = hsl.withLightness((hsl.lightness * 0.6).clamp(0, 0.5)).toColor();
+
+    return ShiftThemeData(
+      primary: color,
+      onPrimary: brightness == Brightness.dark ? Colors.white : const Color(0xFF2D1F00),
+      background: lightBg,
+      cardColor: color,
+      accentText: accent,
+      displayName: displayName ?? 'Shift',
+      characterAsset: asset,
+      characterType: charType,
+    );
+  }
+
   /// Map a [CharacterType] to the matching [ShiftThemeData].
   static ShiftThemeData fromCharacterType(CharacterType type, {bool isDark = false}) {
     if (isDark) {
@@ -126,6 +176,8 @@ class ShiftThemeData {
         CharacterType.orange => eveningDark,
         CharacterType.blue => nightDark,
         CharacterType.grey => offDark,
+        _ => ShiftThemeData.fromColor(
+              const Color(0xFFA0AEC0), isDark: true),
       };
     }
     return switch (type) {
@@ -133,6 +185,7 @@ class ShiftThemeData {
       CharacterType.orange => evening,
       CharacterType.blue => night,
       CharacterType.grey => off,
+      _ => ShiftThemeData.fromColor(const Color(0xFFA0AEC0)),
     };
   }
 }
@@ -155,9 +208,13 @@ final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
   );
 
   if (serverShifts != null && serverShifts.isNotEmpty) {
+    final code = serverShifts.first.shiftType.code.toUpperCase();
+    if (code == 'OFF') {
+      return isDark ? ShiftThemeData.offDark : ShiftThemeData.off;
+    }
     final color = parseHexColor(serverShifts.first.shiftType.color);
-    final charType = characterTypeFromColor(color);
-    return ShiftThemeData.fromCharacterType(charType, isDark: isDark);
+    return ShiftThemeData.fromColor(color,
+        isDark: isDark, displayName: serverShifts.first.shiftType.name);
   }
 
   // 2. Fallback to personal calendar (may throw if SharedPreferences not ready)
@@ -175,9 +232,12 @@ final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
           .where((st) => st.name == personalShiftEvent.title)
           .firstOrNull;
       if (matchedType != null) {
+        if (matchedType.code.toUpperCase() == 'OFF') {
+          return isDark ? ShiftThemeData.offDark : ShiftThemeData.off;
+        }
         final color = parseHexColor(matchedType.color);
-        final charType = characterTypeFromColor(color);
-        return ShiftThemeData.fromCharacterType(charType, isDark: isDark);
+        return ShiftThemeData.fromColor(color,
+            isDark: isDark, displayName: matchedType.name);
       }
     }
   } catch (_) {

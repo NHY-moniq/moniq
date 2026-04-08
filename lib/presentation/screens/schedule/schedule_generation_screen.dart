@@ -3,7 +3,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/schedule_generation_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -84,6 +83,7 @@ class _SetupView extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final notifier = ref.read(
       scheduleGenerationViewModelProvider(teamId).notifier,
     );
@@ -160,15 +160,24 @@ class _SetupView extends HookConsumerWidget {
                         '${state.members.length - state.excludedMemberIds.length}명 참여',
                     onTap: state.members.isEmpty
                         ? null
-                        : () => _showMembersDialog(context, ref, state, teamId),
+                        : () => _showMembersDialog(
+                              context,
+                              ref,
+                              state,
+                              teamId,
+                            ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   ScheduleTappableInfoRow(
                     icon: Icons.schedule,
                     label: '근무 유형',
                     value: '${state.shiftTypes.length}개',
-                    onTap: () =>
-                        _showShiftTypesDialog(context, ref, state, teamId),
+                    onTap: () => _showShiftTypesDialog(
+                      context,
+                      ref,
+                      state,
+                      teamId,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   ScheduleTappableInfoRow(
@@ -190,11 +199,12 @@ class _SetupView extends HookConsumerWidget {
                         : state.customRules
                                 .where((r) => r.isActive)
                                 .isEmpty
-                        ? '${state.customRules.length}개 (모두 비활성)'
-                        : '${state.customRules.where((r) => r.isActive).length}개 적용 중',
+                            ? '${state.customRules.length}개 (모두 비활성)'
+                            : '${state.customRules.where((r) => r.isActive).length}개 적용 중',
                     onTap: state.customRules.isEmpty
                         ? null
-                        : () => _showCustomRulesDialog(context, state),
+                        : () =>
+                            _showCustomRulesDialog(context, state),
                   ),
                   if (state.shiftTypes.isNotEmpty) ...[
                     const Divider(height: AppSpacing.xxl),
@@ -224,12 +234,14 @@ class _SetupView extends HookConsumerWidget {
           // 희망 휴무 현황
           if (state.wantedEntries.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xxl),
-            Text('희망 휴무 현황',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600)),
+            Text(
+              '희망 휴무 현황',
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: AppSpacing.md),
             Card(
-              color: AppColors.primary.withValues(alpha: 0.05),
+              color: colorScheme.primary.withValues(alpha: 0.05),
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 child: Column(
@@ -251,7 +263,7 @@ class _SetupView extends HookConsumerWidget {
                     Text(
                       '생성 시 희망 휴무일이 자동 반영됩니다',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.primary,
+                        color: colorScheme.primary,
                       ),
                     ),
                   ],
@@ -263,7 +275,7 @@ class _SetupView extends HookConsumerWidget {
           if (state.error != null) ...[
             const SizedBox(height: AppSpacing.lg),
             Card(
-              color: AppColors.primary.withValues(alpha: 0.05),
+              color: colorScheme.primary.withValues(alpha: 0.05),
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 child: Column(
@@ -285,7 +297,7 @@ class _SetupView extends HookConsumerWidget {
                     Text(
                       '생성 시 희망 휴무일이 자동 반영됩니다',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.primary,
+                        color: colorScheme.primary,
                       ),
                     ),
                   ],
@@ -300,7 +312,7 @@ class _SetupView extends HookConsumerWidget {
             SelectableText.rich(
               TextSpan(
                 text: state.error,
-                style: const TextStyle(color: AppColors.error),
+                style: TextStyle(color: colorScheme.error),
               ),
             ),
           ],
@@ -337,14 +349,15 @@ class _SetupView extends HookConsumerWidget {
             ),
           ),
 
-          if (state.members.isEmpty || state.shiftTypes.isEmpty) ...[
+          if (state.members.isEmpty ||
+              state.shiftTypes.isEmpty) ...[
             const SizedBox(height: AppSpacing.md),
             Text(
               state.members.isEmpty
                   ? '멤버를 먼저 추가해주세요'
                   : '근무 유형을 먼저 설정해주세요',
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.error),
+                  ?.copyWith(color: colorScheme.error),
               textAlign: TextAlign.center,
             ),
           ],
@@ -430,32 +443,43 @@ void _showMembersDialog(
   ScheduleGenerationState state,
   String teamId,
 ) {
+  final colorScheme = Theme.of(context).colorScheme;
+
   showDialog<void>(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setState) {
         // 최신 state는 ref에서 읽음 (토글 즉시 반영)
-        final current = ref.read(
-          scheduleGenerationViewModelProvider(teamId),
-        ).valueOrNull ?? state;
+        final current = ref
+                .read(
+                  scheduleGenerationViewModelProvider(teamId),
+                )
+                .valueOrNull ??
+            state;
         final excluded = current.excludedMemberIds;
-        final activeCount = current.members.length - excluded.length;
+        final activeCount =
+            current.members.length - excluded.length;
 
         return AlertDialog(
           title: Row(
             children: [
-              Expanded(child: Text('멤버 (${current.members.length}명)')),
+              Expanded(
+                child: Text(
+                  '멤버 (${current.members.length}명)',
+                ),
+              ),
               Text(
                 '$activeCount명 참여',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: AppColors.textSecondaryLight,
+                  color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.normal,
                 ),
               ),
             ],
           ),
-          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 8),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
@@ -463,15 +487,19 @@ void _showMembersDialog(
               itemCount: current.members.length,
               itemBuilder: (_, i) {
                 final m = current.members[i];
-                final isExcluded = excluded.contains(m.userId);
-                final skillLabel = _skillDisplayLabel(m.member.skillLevel);
+                final isExcluded =
+                    excluded.contains(m.userId);
+                final skillLabel =
+                    _skillDisplayLabel(m.member.skillLevel);
                 return SwitchListTile.adaptive(
                   dense: true,
                   value: !isExcluded,
                   onChanged: (_) {
                     ref
                         .read(
-                          scheduleGenerationViewModelProvider(teamId).notifier,
+                          scheduleGenerationViewModelProvider(
+                            teamId,
+                          ).notifier,
                         )
                         .toggleMemberExclusion(m.userId);
                     setState(() {}); // 다이얼로그 내 즉시 갱신
@@ -480,7 +508,7 @@ void _showMembersDialog(
                     m.displayName,
                     style: TextStyle(
                       color: isExcluded
-                          ? AppColors.textSecondaryLight
+                          ? colorScheme.onSurfaceVariant
                           : null,
                     ),
                   ),
@@ -489,9 +517,8 @@ void _showMembersDialog(
                           skillLabel,
                           style: TextStyle(
                             fontSize: 11,
-                            color: isExcluded
-                                ? AppColors.textSecondaryLight
-                                : AppColors.textSecondaryLight,
+                            color:
+                                colorScheme.onSurfaceVariant,
                           ),
                         )
                       : null,
@@ -538,7 +565,10 @@ const _ruleTypeLabels = <String, String>{
 };
 
 /// null이 포함되는 규칙은 null 반환 -> 다이얼로그에서 숨김
-String? _ruleValueSummary(String ruleType, Map<String, dynamic> rv) {
+String? _ruleValueSummary(
+  String ruleType,
+  Map<String, dynamic> rv,
+) {
   switch (ruleType) {
     case 'max_consecutive_work_days':
       final days = rv['days'];
@@ -591,7 +621,8 @@ void _showRulesDialog(
   // null 요약인 규칙은 숨김
   final visibleRules = state.rules
       .where(
-        (r) => _ruleValueSummary(r.ruleType, r.ruleValue) != null,
+        (r) =>
+            _ruleValueSummary(r.ruleType, r.ruleValue) != null,
       )
       .toList();
 
@@ -611,8 +642,8 @@ void _showRulesDialog(
                 itemCount: visibleRules.length,
                 itemBuilder: (_, i) {
                   final rule = visibleRules[i];
-                  final label =
-                      _ruleTypeLabels[rule.ruleType] ?? rule.ruleType;
+                  final label = _ruleTypeLabels[rule.ruleType] ??
+                      rule.ruleType;
                   final summary = _ruleValueSummary(
                     rule.ruleType,
                     rule.ruleValue,
@@ -639,7 +670,9 @@ void _showCustomRulesDialog(
   BuildContext context,
   ScheduleGenerationState state,
 ) {
-  final active = state.customRules.where((r) => r.isActive).toList();
+  final colorScheme = Theme.of(context).colorScheme;
+  final active =
+      state.customRules.where((r) => r.isActive).toList();
   final inactive =
       state.customRules.where((r) => !r.isActive).toList();
   final all = [...active, ...inactive];
@@ -664,14 +697,16 @@ void _showCustomRulesDialog(
                 size: 18,
                 color: rule.isActive
                     ? (rule.priority == 'hard'
-                        ? AppColors.error
-                        : AppColors.secondary)
-                    : AppColors.outline,
+                        ? colorScheme.error
+                        : colorScheme.secondary)
+                    : colorScheme.outline,
               ),
               title: Text(
                 rule.originalText,
                 style: TextStyle(
-                  color: rule.isActive ? null : AppColors.outline,
+                  color: rule.isActive
+                      ? null
+                      : colorScheme.outline,
                   decoration: rule.isActive
                       ? null
                       : TextDecoration.lineThrough,
