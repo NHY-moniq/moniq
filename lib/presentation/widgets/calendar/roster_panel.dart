@@ -3,10 +3,13 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/models/roster_entry.dart';
+import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/request_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 
 class RosterPanel extends ConsumerWidget {
   const RosterPanel({
@@ -85,6 +88,13 @@ class _ShiftTypeGroup extends ConsumerWidget {
     final color = parseHexColor(entry.shiftType.color);
     final currentUser = ref.watch(currentUserProvider);
     final myUserId = currentUser?.id;
+    final isAdmin = teamId != null
+        ? (ref
+                .watch(teamDetailViewModelProvider(teamId!))
+                .valueOrNull
+                ?.isAdmin ??
+            false)
+        : false;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,16 +141,27 @@ class _ShiftTypeGroup extends ConsumerWidget {
               final isMe = worker.user.id == myUserId;
 
               return GestureDetector(
-                onTap: (teamId != null && !isMe)
-                    ? () => _showSwapSheet(
-                          context,
-                          ref,
-                          targetUserId: worker.user.id,
-                          targetName: name,
-                          targetShiftType: entry.shiftType.name,
-                          targetShiftColor: color,
-                        )
-                    : null,
+                onTap: teamId == null
+                    ? null
+                    : () {
+                        if (isAdmin && worker.shiftId != null) {
+                          _showAdminEditSheet(
+                            context,
+                            ref,
+                            shiftId: worker.shiftId!,
+                            workerName: name,
+                          );
+                        } else if (!isMe) {
+                          _showSwapSheet(
+                            context,
+                            ref,
+                            targetUserId: worker.user.id,
+                            targetName: name,
+                            targetShiftType: entry.shiftType.name,
+                            targetShiftColor: color,
+                          );
+                        }
+                      },
                 child: Chip(
                   label: Text(
                     isMe ? '$name (나)' : name,
@@ -165,6 +186,155 @@ class _ShiftTypeGroup extends ConsumerWidget {
         ),
         const SizedBox(height: AppSpacing.md),
       ],
+    );
+  }
+
+  void _showAdminEditSheet(
+    BuildContext context,
+    WidgetRef ref, {
+    required String shiftId,
+    required String workerName,
+  }) {
+    final tid = teamId!;
+    final dateStr = DateFormat('M월 d일 (E)', 'ko_KR').format(date);
+    // 팀의 전체 shift types (활성만) — teamDetail에서 가져옴
+    final shiftTypes = ref
+            .read(teamDetailViewModelProvider(tid))
+            .valueOrNull
+            ?.shiftTypes
+            .where((t) => t.isActive)
+            .toList() ??
+        <ShiftTypeModel>[];
+
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: AppSpacing.xxl,
+          right: AppSpacing.xxl,
+          top: AppSpacing.xxl,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xxl,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('근무 수정 (관리자)',
+                style: Theme.of(ctx)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: AppSpacing.sm),
+            Text('$dateStr · $workerName',
+                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    )),
+            const SizedBox(height: AppSpacing.xl),
+            Text('근무 유형 변경',
+                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    )),
+            const SizedBox(height: AppSpacing.md),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: shiftTypes.map((t) {
+                final c = parseHexColor(t.color);
+                final isCurrent = t.id == entry.shiftType.id;
+                return ActionChip(
+                  avatar: CircleAvatar(
+                    backgroundColor: c,
+                    child: Text(
+                      t.code,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  label: Text(t.name),
+                  backgroundColor:
+                      isCurrent ? c.withValues(alpha: 0.2) : null,
+                  onPressed: isCurrent
+                      ? null
+                      : () async {
+                          Navigator.pop(ctx);
+                          try {
+                            await ref
+                                .read(teamCalendarViewModelProvider(tid)
+                                    .notifier)
+                                .updateShiftType(shiftId, t.id);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('${t.name}으로 변경되었습니다')),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('변경 실패: $e')),
+                              );
+                            }
+                          }
+                        },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.error,
+              ),
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('이 근무 삭제'),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: ctx,
+                  builder: (dctx) => AlertDialog(
+                    title: const Text('근무 삭제'),
+                    content: Text('$workerName의 $dateStr 근무를 삭제하시겠습니까?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dctx, false),
+                        child: const Text('취소'),
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                            foregroundColor: AppColors.error),
+                        onPressed: () => Navigator.pop(dctx, true),
+                        child: const Text('삭제'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm != true) return;
+                if (ctx.mounted) Navigator.pop(ctx);
+                try {
+                  await ref
+                      .read(teamCalendarViewModelProvider(tid).notifier)
+                      .deleteShift(shiftId);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('근무가 삭제되었습니다')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('삭제 실패: $e')),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 

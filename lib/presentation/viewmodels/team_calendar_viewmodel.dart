@@ -136,6 +136,37 @@ class TeamCalendarViewModel
     }
   }
 
+  /// 관리자: 특정 shift의 shift_type 변경 후 현재 월/선택일 재조회
+  Future<void> updateShiftType(String shiftId, String newShiftTypeId) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    await _shiftRepository.updateShift(shiftId, shiftTypeId: newShiftTypeId);
+    await _reloadCurrent(current);
+  }
+
+  /// 관리자: 특정 shift 삭제 후 재조회
+  Future<void> deleteShift(String shiftId) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    await _shiftRepository.deleteShift(shiftId);
+    await _reloadCurrent(current);
+  }
+
+  Future<void> _reloadCurrent(TeamCalendarState current) async {
+    final monthlyShifts = await _shiftRepository.getTeamMonthlyShifts(
+      teamId: current.teamId,
+      month: current.focusedMonth,
+    );
+    final roster = await _shiftRepository.getTeamRoster(
+      teamId: current.teamId,
+      date: current.selectedDate,
+    );
+    state = AsyncData(current.copyWith(
+      monthlyShifts: monthlyShifts,
+      selectedDateRoster: roster,
+    ));
+  }
+
   void toggleViewMode() {
     final current = state.valueOrNull;
     if (current == null) return;
