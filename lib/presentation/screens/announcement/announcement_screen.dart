@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -127,16 +128,64 @@ class _AnnouncementCreateSheetState
     super.dispose();
   }
 
-  Future<void> _pickFiles() async {
-    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
-    if (result == null) return;
-    setState(() {
-      for (final f in result.files) {
-        if (f.path != null) {
-          _pending.add(_PendingAttachment(name: f.name, path: f.path!));
+  Future<void> _pickAttachment() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('사진 라이브러리에서 선택'),
+              onTap: () => Navigator.pop(ctx, 'photo'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('카메라로 촬영'),
+              onTap: () => Navigator.pop(ctx, 'camera'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.attach_file),
+              title: const Text('파일 선택'),
+              onTap: () => Navigator.pop(ctx, 'file'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null) return;
+
+    if (choice == 'photo') {
+      final picker = ImagePicker();
+      final picked = await picker.pickMultiImage();
+      if (picked.isEmpty) return;
+      setState(() {
+        for (final x in picked) {
+          _pending.add(_PendingAttachment(name: x.name, path: x.path));
         }
-      }
-    });
+      });
+    } else if (choice == 'camera') {
+      final picker = ImagePicker();
+      final x = await picker.pickImage(source: ImageSource.camera);
+      if (x == null) return;
+      setState(() {
+        _pending.add(_PendingAttachment(name: x.name, path: x.path));
+      });
+    } else if (choice == 'file') {
+      final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+      if (result == null) return;
+      setState(() {
+        for (final f in result.files) {
+          if (f.path != null) {
+            _pending.add(_PendingAttachment(name: f.name, path: f.path!));
+          }
+        }
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -222,7 +271,7 @@ class _AnnouncementCreateSheetState
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              onPressed: _saving ? null : _pickFiles,
+              onPressed: _saving ? null : _pickAttachment,
               icon: const Icon(Icons.attach_file, size: 18),
               label: const Text('첨부파일 추가'),
             ),

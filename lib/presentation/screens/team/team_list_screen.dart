@@ -185,37 +185,14 @@ class TeamListScreen extends HookConsumerWidget {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('팀 나가기'),
-          content: Text(
-            '${team.name} 팀의 마지막 멤버입니다.\n'
-            '나가면 팀이 자동으로 삭제됩니다.',
+          title: const Text('팀 나가기 불가'),
+          content: const Text(
+            '혼자 남으셨습니다. 팀 제거를 해주세요.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                try {
-                  await teamRepo.deleteTeam(team.id);
-                  ref.invalidate(teamViewModelProvider);
-                  ref.invalidate(favoriteTeamProvider);
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('실패: $e')),
-                    );
-                  }
-                }
-              },
-              child: Text(
-                '나가기 (팀 삭제)',
-                style: TextStyle(
-                  color: Theme.of(ctx).colorScheme.error,
-                ),
-              ),
+              child: const Text('확인'),
             ),
           ],
         ),

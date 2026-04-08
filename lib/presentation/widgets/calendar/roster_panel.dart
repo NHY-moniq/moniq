@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/models/roster_entry.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
+import 'package:moniq/data/models/user_model.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/request_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
@@ -152,19 +153,21 @@ class _ShiftTypeGroup extends ConsumerWidget {
               final isMe = worker.user.id == myUserId;
 
               return GestureDetector(
-                onTap: teamId == null
+                onTap: (teamId == null || isMe)
                     ? null
                     : () {
                         if (isAdmin && worker.shiftId != null) {
-                          _showAdminEditSheet(
+                          // 관리자: 수정 / 교환 선택 액션시트
+                          _showAdminActionSheet(
                             context,
                             ref,
                             shiftId: worker.shiftId!,
-                            workerName: name,
+                            targetUser: worker.user,
+                            targetName: name,
+                            targetShiftType: entry.shiftType.name,
+                            targetShiftColor: color,
+                            isMe: isMe,
                           );
-                        } else if (isMe) {
-                          // 본인 칩 탭 → 교환 후보 추천 시트
-                          _showRecommendedSwapSheet(context, ref);
                         } else {
                           _showSwapSheet(
                             context,
@@ -200,6 +203,86 @@ class _ShiftTypeGroup extends ConsumerWidget {
         ),
         const SizedBox(height: AppSpacing.md),
       ],
+    );
+  }
+
+  /// 관리자: 근무자 칩 탭 시 "근무 수정" + "근무 교환" 중 선택
+  void _showAdminActionSheet(
+    BuildContext context,
+    WidgetRef ref, {
+    required String shiftId,
+    required UserModel targetUser,
+    required String targetName,
+    required String targetShiftType,
+    required Color targetShiftColor,
+    required bool isMe,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.borderLight,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              '$targetName · $targetShiftType',
+              style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            // 근무 수정
+            ListTile(
+              leading: const Icon(Icons.edit_outlined,
+                  color: AppColors.primary),
+              title: const Text('근무 수정'),
+              subtitle: const Text('근무 유형 변경 또는 삭제 (관리자)'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showAdminEditSheet(
+                  context,
+                  ref,
+                  shiftId: shiftId,
+                  workerName: targetName,
+                );
+              },
+            ),
+            // 근무 교환 (본인 제외)
+            if (!isMe)
+              ListTile(
+                leading: const Icon(Icons.swap_horiz,
+                    color: AppColors.tertiary),
+                title: const Text('근무 교환 요청'),
+                subtitle: const Text('본인 근무와 교환 요청 제출'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showSwapSheet(
+                    context,
+                    ref,
+                    targetUserId: targetUser.id,
+                    targetName: targetName,
+                    targetShiftType: targetShiftType,
+                    targetShiftColor: targetShiftColor,
+                  );
+                },
+              ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+        ),
+      ),
     );
   }
 

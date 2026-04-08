@@ -60,12 +60,16 @@ class WantedRemoteDataSource {
     return WantedRequestModel.fromJson(rows.first);
   }
 
-  /// 수집 요청 마감
+  /// 수집 요청 마감 — update가 실제로 적용됐는지 검증.
   Future<void> closeWantedRequest(String requestId) async {
-    await _client
+    final result = await _client
         .from('wanted_requests')
         .update({'status': 'closed'})
-        .eq('id', requestId);
+        .eq('id', requestId)
+        .select();
+    if ((result as List).isEmpty) {
+      throw Exception('수집 마감 실패: 권한이 없거나 요청을 찾을 수 없습니다');
+    }
   }
 
   /// 수집 요청이 아직 입력 가능한 상태인지 확인. 마감 또는 상태가 collecting이 아니면 예외.
@@ -78,13 +82,13 @@ class WantedRemoteDataSource {
 
     final status = req['status'] as String?;
     if (status != 'collecting') {
-      throw Exception('희망 휴무 수집이 마감되었습니다');
+      throw Exception('이미 수집이 완료되어 입력할 수 없습니다');
     }
     final deadlineStr = req['deadline'] as String?;
     if (deadlineStr != null) {
       final deadline = DateTime.parse(deadlineStr);
       if (DateTime.now().isAfter(deadline)) {
-        throw Exception('희망 휴무 수집 마감일이 지났습니다');
+        throw Exception('수집 마감일이 지나 입력할 수 없습니다');
       }
     }
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
@@ -16,10 +17,27 @@ class WantedDayOffScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 화면 진입 시 최신 활성 요청 재조회 (관리자가 새 요청 생성 후 캐시 반영)
+    useEffect(() {
+      Future.microtask(
+          () => ref.invalidate(wantedMemberViewModelProvider(teamId)));
+      return null;
+    }, const []);
+
     final stateAsync = ref.watch(wantedMemberViewModelProvider(teamId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('희망 휴무일 입력')),
+      appBar: AppBar(
+        title: const Text('희망 휴무일 입력'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: '새로고침',
+            onPressed: () =>
+                ref.invalidate(wantedMemberViewModelProvider(teamId)),
+          ),
+        ],
+      ),
       body: stateAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
@@ -29,10 +47,19 @@ class WantedDayOffScreen extends HookConsumerWidget {
         ),
         data: (state) {
           if (state.activeRequest == null) {
-            return const MoniqEmptyState(
-              icon: Icons.event_busy,
-              message: '현재 진행 중인 희망 휴무 수집이 없습니다',
-              description: '관리자가 수집을 시작하면 여기서 입력할 수 있습니다',
+            return RefreshIndicator(
+              onRefresh: () async =>
+                  ref.invalidate(wantedMemberViewModelProvider(teamId)),
+              child: ListView(
+                children: const [
+                  SizedBox(height: 120),
+                  MoniqEmptyState(
+                    icon: Icons.event_busy,
+                    message: '현재 진행 중인 희망 휴무 수집이 없습니다',
+                    description: '관리자가 수집을 시작하면 여기서 입력할 수 있습니다',
+                  ),
+                ],
+              ),
             );
           }
           return _EntryView(teamId: teamId, state: state);
@@ -211,6 +238,7 @@ class _EntryView extends HookConsumerWidget {
     final selectedDates = <DateTime, int>{};
     int currentPriority = 1;
     String reason = '';
+    String? sheetError;
 
     showModalBottomSheet(
       context: context,
@@ -324,6 +352,38 @@ class _EntryView extends HookConsumerWidget {
                     maxLines: 1,
                   ),
 
+                  if (sheetError != null) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(
+                            color: AppColors.error.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline,
+                              color: AppColors.error, size: 18),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              sheetError!,
+                              style: Theme.of(ctx)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: AppColors.error,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   const SizedBox(height: AppSpacing.lg),
 
                   ElevatedButton(
@@ -347,10 +407,14 @@ class _EntryView extends HookConsumerWidget {
                                   .read(wantedMemberViewModelProvider(teamId))
                                   .valueOrNull
                                   ?.error;
-                              if (err != null) {
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                  SnackBar(content: Text(err)),
-                                );
+                              setSheetState(() {
+                                sheetError = err ?? '저장에 실패했습니다';
+                              });
+                              // 마감/완료 상태면 활성 요청도 갱신
+                              if (err != null &&
+                                  (err.contains('마감') || err.contains('완료'))) {
+                                ref.invalidate(
+                                    wantedMemberViewModelProvider(teamId));
                               }
                             }
                           },

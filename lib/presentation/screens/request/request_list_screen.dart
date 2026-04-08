@@ -10,22 +10,111 @@ import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
-class RequestListScreen extends HookConsumerWidget {
+class RequestListScreen extends ConsumerStatefulWidget {
   const RequestListScreen({super.key, required this.teamId});
 
   final String teamId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RequestListScreen> createState() => _RequestListScreenState();
+}
+
+class _RequestListScreenState extends ConsumerState<RequestListScreen> {
+  bool _selectionMode = false;
+  final Set<String> _selectedIds = {};
+
+  void _toggleSelection(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    if (_selectedIds.isEmpty) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('선택 삭제'),
+        content: Text('선택한 ${_selectedIds.length}건을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await ref
+          .read(requestListViewModelProvider(widget.teamId).notifier)
+          .deleteRequests(_selectedIds.toList());
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('삭제 실패: $e')),
+        );
+      }
+    }
+    _exitSelectionMode();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final teamId = widget.teamId;
     final stateAsync = ref.watch(requestListViewModelProvider(teamId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('변경 요청')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/teams/$teamId/requests/create'),
-        icon: const Icon(Icons.add),
-        label: const Text('요청하기'),
+      appBar: AppBar(
+        title: Text(_selectionMode
+            ? '${_selectedIds.length}건 선택됨'
+            : '변경 요청'),
+        leading: _selectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _exitSelectionMode,
+              )
+            : null,
+        actions: [
+          if (_selectionMode)
+            IconButton(
+              icon: const Icon(Icons.delete_outline,
+                  color: AppColors.error),
+              onPressed:
+                  _selectedIds.isEmpty ? null : _deleteSelected,
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.checklist_rounded),
+              tooltip: '선택 모드',
+              onPressed: () => setState(() => _selectionMode = true),
+            ),
+        ],
       ),
+      floatingActionButton: _selectionMode
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () =>
+                  context.push('/teams/$teamId/requests/create'),
+              icon: const Icon(Icons.add),
+              label: const Text('요청하기'),
+            ),
       body: stateAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
@@ -74,6 +163,14 @@ class RequestListScreen extends HookConsumerWidget {
                             .read(requestListViewModelProvider(teamId)
                                 .notifier)
                             .setFilter('rejected')),
+                    const SizedBox(width: AppSpacing.sm),
+                    _FilterChip(
+                        label: '취소',
+                        selected: state.filter == 'cancelled',
+                        onTap: () => ref
+                            .read(requestListViewModelProvider(teamId)
+                                .notifier)
+                            .setFilter('cancelled')),
                   ],
                 ),
               ),
@@ -93,6 +190,7 @@ class RequestListScreen extends HookConsumerWidget {
 
   Widget _buildList(
       BuildContext context, WidgetRef ref, RequestListState state) {
+    final teamId = widget.teamId;
     final filtered = state.filter == 'all'
         ? state.requests
         : state.requests.where((r) => r.status == state.filter).toList();
@@ -114,10 +212,75 @@ class RequestListScreen extends HookConsumerWidget {
         separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
         itemBuilder: (context, index) {
           final request = filtered[index];
-          return _RequestCard(
+          final canDelete = request.status == 'cancelled';
+          final isSelected = _selectedIds.contains(request.id);
+
+          final card = _RequestCard(
             request: request,
-            onTap: () =>
-                _showRequestDetail(context, ref, request, state.isAdmin),
+            selectionMode: _selectionMode && canDelete,
+            selected: isSelected,
+            onTap: () {
+              if (_selectionMode && canDelete) {
+                _toggleSelection(request.id);
+              } else {
+                _showRequestDetail(
+                    context, ref, request, state.isAdmin);
+              }
+            },
+          );
+
+          if (!canDelete) return card;
+
+          return Dismissible(
+            key: ValueKey(request.id),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xl),
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                borderRadius: AppRadius.borderRadiusMd,
+              ),
+              child: const Icon(Icons.delete,
+                  color: Colors.white, size: 28),
+            ),
+            confirmDismiss: (_) async {
+              return await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('요청 삭제'),
+                      content: const Text('이 취소된 요청을 삭제하시겠습니까?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('취소'),
+                        ),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                              foregroundColor: AppColors.error),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('삭제'),
+                        ),
+                      ],
+                    ),
+                  ) ??
+                  false;
+            },
+            onDismissed: (_) async {
+              try {
+                await ref
+                    .read(requestListViewModelProvider(teamId).notifier)
+                    .deleteRequest(request.id);
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('삭제 실패: $e')),
+                  );
+                }
+              }
+            },
+            child: card,
           );
         },
       ),
@@ -126,6 +289,7 @@ class RequestListScreen extends HookConsumerWidget {
 
   void _showRequestDetail(
       BuildContext context, WidgetRef ref, RequestModel request, bool isAdmin) {
+    final teamId = widget.teamId;
     final theme = Theme.of(context);
     final dateFormat = DateFormat('yyyy.MM.dd HH:mm');
 
@@ -270,10 +434,17 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _RequestCard extends StatelessWidget {
-  const _RequestCard({required this.request, required this.onTap});
+  const _RequestCard({
+    required this.request,
+    required this.onTap,
+    this.selectionMode = false,
+    this.selected = false,
+  });
 
   final RequestModel request;
   final VoidCallback onTap;
+  final bool selectionMode;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -281,6 +452,9 @@ class _RequestCard extends StatelessWidget {
     final dateFormat = DateFormat('MM.dd');
 
     return Card(
+      color: selected
+          ? AppColors.primary.withValues(alpha: 0.08)
+          : null,
       child: InkWell(
         onTap: onTap,
         borderRadius: AppRadius.borderRadiusMd,
@@ -288,6 +462,15 @@ class _RequestCard extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Row(
             children: [
+              if (selectionMode) ...[
+                Icon(
+                  selected
+                      ? Icons.check_box
+                      : Icons.check_box_outline_blank,
+                  color: selected ? AppColors.primary : null,
+                ),
+                const SizedBox(width: AppSpacing.md),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

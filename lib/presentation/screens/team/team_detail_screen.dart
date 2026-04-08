@@ -129,46 +129,6 @@ class TeamDetailScreen extends HookConsumerWidget {
                 onTap: () =>
                     context.push('/teams/$teamId/schedule-rules'),
               ),
-              const SizedBox(height: AppSpacing.md),
-              Opacity(
-                opacity: state.isAdmin ? 1.0 : 0.5,
-                child: TeamDetailBubbleMenuCard(
-                  icon: Icons.campaign_outlined,
-                  iconColor: AppColors.brandOrange,
-                  title: '팀 공지사항',
-                  subtitle: state.isAdmin
-                      ? '공지사항 작성 및 관리'
-                      : '팀 관리자만 사용 가능',
-                  onTap: () {
-                    if (state.isAdmin) {
-                      context.push('/teams/$teamId/announcements');
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('팀 관리자만 사용 가능한 기능입니다.'),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ),
-
-              if (state.isAdmin) ...[
-                const SizedBox(height: AppSpacing.md),
-                TeamDetailBubbleMenuCard(
-                  icon: Icons.delete_sweep_outlined,
-                  iconColor: AppColors.error,
-                  title: '일정 전체 삭제',
-                  subtitle: '특정 월의 팀 일정 전체 삭제',
-                  onTap: () => showDeleteScheduleSheet(
-                    context: context,
-                    ref: ref,
-                    teamId: teamId,
-                    state: state,
-                  ),
-                ),
-              ],
-
               const SizedBox(height: AppSpacing.xxxl),
 
               // Section header - 근무표 관리

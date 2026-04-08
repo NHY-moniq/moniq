@@ -45,6 +45,7 @@ _$WantedEntryModelImpl _$$WantedEntryModelImplFromJson(
   userId: json['user_id'] as String,
   wantedDate: DateTime.parse(json['wanted_date'] as String),
   reason: json['reason'] as String?,
+  priority: (json['priority'] as num?)?.toInt() ?? 1,
   createdAt: json['created_at'] == null
       ? null
       : DateTime.parse(json['created_at'] as String),
@@ -59,5 +60,6 @@ Map<String, dynamic> _$$WantedEntryModelImplToJson(
   'user_id': instance.userId,
   'wanted_date': instance.wantedDate.toIso8601String(),
   'reason': instance.reason,
+  'priority': instance.priority,
   'created_at': instance.createdAt?.toIso8601String(),
 };

@@ -31,23 +31,26 @@ class RequestListViewModel
   Future<RequestListState> build(String teamId) async {
     final repo = ref.watch(requestRepositoryProvider);
 
-    List<RequestModel> requests = [];
-    try {
-      requests = await repo.getTeamRequests(teamId);
-    } catch (_) {}
-
     // 관리자 여부 확인
     bool isAdmin = false;
+    String? userId;
     try {
       final authState = ref.watch(authStateChangesProvider);
-      final userId =
-          authState.whenOrNull(data: (auth) => auth.session?.user.id);
+      userId = authState.whenOrNull(data: (auth) => auth.session?.user.id);
       if (userId != null) {
         final teamRepo = ref.watch(teamRepositoryProvider);
         final members = await teamRepo.getTeamMembers(teamId);
         isAdmin = members.any(
             (m) => m.userId == userId && m.role == 'admin' && !m.isDeleted);
       }
+    } catch (_) {}
+
+    // 관리자: 팀 전체 / 팀원: 본인 요청만
+    List<RequestModel> requests = [];
+    try {
+      requests = isAdmin
+          ? await repo.getTeamRequests(teamId)
+          : await repo.getMyRequests(teamId);
     } catch (_) {}
 
     return RequestListState(
@@ -89,6 +92,18 @@ class RequestListViewModel
   Future<void> cancelRequest(String requestId) async {
     final repo = ref.read(requestRepositoryProvider);
     await repo.cancelRequest(requestId);
+    ref.invalidateSelf();
+  }
+
+  Future<void> deleteRequest(String requestId) async {
+    final repo = ref.read(requestRepositoryProvider);
+    await repo.deleteRequest(requestId);
+    ref.invalidateSelf();
+  }
+
+  Future<void> deleteRequests(List<String> requestIds) async {
+    final repo = ref.read(requestRepositoryProvider);
+    await repo.deleteRequests(requestIds);
     ref.invalidateSelf();
   }
 

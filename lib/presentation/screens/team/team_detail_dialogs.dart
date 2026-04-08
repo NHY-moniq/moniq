@@ -6,6 +6,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/data/providers/schedule_providers.dart';
+import 'package:moniq/data/repositories/schedule_repository.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
@@ -52,44 +53,18 @@ void showConfirmLeaveDialog({
       );
 
     case LeaveResult.onlyMember:
-      // 혼자 남은 팀 -> 나가면 팀 삭제
+      // 혼자 남은 팀 -> 삭제 시도하지 않고 안내만
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('팀 나가기'),
-          content: Text(
-            '${state.team.name} 팀의 마지막 멤버입니다.\n'
-            '나가면 팀이 자동으로 삭제됩니다.',
+          title: const Text('팀 나가기 불가'),
+          content: const Text(
+            '혼자 남으셨습니다. 팀 제거를 해주세요.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                try {
-                  await notifier.leaveAndDeleteTeam();
-                  ref.invalidate(teamViewModelProvider);
-                  ref.invalidate(favoriteTeamProvider);
-                  if (context.mounted) context.go('/teams');
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('팀 나가기에 실패했습니다: $e'),
-                      ),
-                    );
-                  }
-                }
-              },
-              child: Text(
-                '나가기 (팀 삭제)',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
-                ),
-              ),
+              child: const Text('확인'),
             ),
           ],
         ),
@@ -191,10 +166,14 @@ void showConfirmDeleteDialog({
 /// Delete schedule by month bottom sheet
 void showDeleteScheduleSheet({
   required BuildContext context,
-  required WidgetRef ref,
+  WidgetRef? ref,
+  ScheduleRepository? scheduleRepo,
   required String teamId,
   required TeamDetailState state,
 }) {
+  // ref 또는 scheduleRepo 중 하나는 반드시 제공되어야 함
+  final ScheduleRepository repo =
+      scheduleRepo ?? ref!.read(scheduleRepositoryProvider);
   final now = DateTime.now();
   DateTime selectedDate = DateTime(now.year, now.month);
 
@@ -256,9 +235,7 @@ void showDeleteScheduleSheet({
                     if (confirm != true) return;
 
                     try {
-                      final scheduleRepo =
-                          ref.read(scheduleRepositoryProvider);
-                      await scheduleRepo.deleteSchedulesByMonth(
+                      await repo.deleteSchedulesByMonth(
                         teamId: teamId,
                         year: year,
                         month: month,
