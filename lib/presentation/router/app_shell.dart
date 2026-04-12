@@ -52,7 +52,7 @@ class AppShell extends ConsumerWidget {
   }
 }
 
-// ── 웹 레이아웃: 고정 사이드바 + 호버 시 우측 컨텍스트 패널 ──
+// ── 웹 레이아웃: 고정 사이드바 + 호버 시 우측 flyout ──
 
 class _WebShell extends ConsumerStatefulWidget {
   const _WebShell({
@@ -69,35 +69,11 @@ class _WebShell extends ConsumerStatefulWidget {
 
 class _WebShellState extends ConsumerState<_WebShell> {
   bool _hovered = false;
-  // 터치 기기에서 탭으로 flyout 고정 (hover 미지원 시 사용)
-  bool _pinned = false;
 
-  // 사이드바 너비: 축소(아이콘만) / 확장(아이콘+레이블)
-  static const double _sidebarCollapsedWidth = 72.0;
-  static const double _sidebarWidth = 200.0;
-  // 우측 컨텍스트 패널 너비
+  static const double _sidebarWidth = 220.0;
   static const double _flyoutWidth = 220.0;
 
-  bool get _active => _hovered || _pinned;
-  bool get _flyoutVisible => _active && _hasContextItems;
-
-  void _onTabSelect(int index) {
-    final hasContext = index == 1 || index == 2;
-    setState(() {
-      if (hasContext) {
-        // 같은 탭 재탭 → toggle, 다른 탭 → 열기
-        _pinned = (index == widget.navigationShell.currentIndex)
-            ? !_pinned
-            : true;
-      } else {
-        _pinned = false;
-      }
-    });
-    widget.navigationShell.goBranch(
-      index,
-      initialLocation: index == widget.navigationShell.currentIndex,
-    );
-  }
+  bool get _flyoutVisible => _hovered && _hasContextItems;
 
   bool get _hasContextItems {
     final idx = widget.navigationShell.currentIndex;
@@ -112,53 +88,40 @@ class _WebShellState extends ConsumerState<_WebShell> {
     return Scaffold(
       body: Row(
         children: [
-          // ── 사이드바 + 우측 flyout 묶음 ──
-          TapRegion(
-            onTapOutside: (_) => setState(() => _pinned = false),
-            child: MouseRegion(
-              onEnter: (_) => setState(() => _hovered = true),
-              onExit: (_) => setState(() {
-                _hovered = false;
-                _pinned = false;
-              }),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // 사이드바: 기본 아이콘만, hover/탭 시 레이블 포함으로 확장
-                  AnimatedContainer(
-                      width: _active ? _sidebarWidth : _sidebarCollapsedWidth,
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeInOut,
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerLow,
-                        border: Border(
-                          right: BorderSide(
-                            color: colorScheme.outlineVariant,
-                            width: 1,
-                          ),
-                        ),
+          // ── 사이드바 + flyout 묶음 ──
+          MouseRegion(
+            onEnter: (_) => setState(() => _hovered = true),
+            onExit: (_) => setState(() => _hovered = false),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 사이드바: 항상 220px 고정
+                Container(
+                  width: _sidebarWidth,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerLow,
+                    border: Border(
+                      right: BorderSide(
+                        color: colorScheme.outlineVariant,
+                        width: 1,
                       ),
-                      child: ClipRect(
-                        child: OverflowBox(
-                          maxWidth: _sidebarWidth,
-                          alignment: Alignment.centerLeft,
-                          child: SizedBox(
-                            width: _sidebarWidth,
-                            child: _FixedSidebar(
-                              currentIndex: currentIndex,
-                              expanded: _active,
-                              shiftTheme: widget.shiftTheme,
-                              onTabSelect: _onTabSelect,
-                            ),
-                          ),
-                        ),
-                      ),
+                    ),
                   ),
+                  child: _FixedSidebar(
+                    currentIndex: currentIndex,
+                    shiftTheme: widget.shiftTheme,
+                    onTabSelect: (index) => widget.navigationShell.goBranch(
+                      index,
+                      initialLocation:
+                          index == widget.navigationShell.currentIndex,
+                    ),
+                  ),
+                ),
 
-                  // 컨텍스트 flyout (hover 또는 탭 시 오른쪽에 슬라이드)
-                  AnimatedContainer(
-                    width: _flyoutVisible ? _flyoutWidth : 0,
-                  duration: const Duration(milliseconds: 200),
+                // 컨텍스트 flyout: hover 시에만 슬라이드
+                AnimatedContainer(
+                  width: _flyoutVisible ? _flyoutWidth : 0,
+                  duration: const Duration(milliseconds: 180),
                   curve: Curves.easeInOut,
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainer,
@@ -183,7 +146,6 @@ class _WebShellState extends ConsumerState<_WebShell> {
               ],
             ),
           ),
-          ),
 
           // ── 메인 콘텐츠 ──
           Expanded(child: widget.navigationShell),
@@ -193,18 +155,16 @@ class _WebShellState extends ConsumerState<_WebShell> {
   }
 }
 
-// ── 고정 사이드바 (아이콘 + 레이블 항상 표시) ──
+// ── 고정 사이드바 ──
 
 class _FixedSidebar extends StatelessWidget {
   const _FixedSidebar({
     required this.currentIndex,
-    required this.expanded,
     required this.shiftTheme,
     required this.onTabSelect,
   });
 
   final int currentIndex;
-  final bool expanded;
   final ShiftThemeData shiftTheme;
   final ValueChanged<int> onTabSelect;
 
@@ -213,60 +173,71 @@ class _FixedSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: AppSpacing.xl),
-
-        // 로고
+        // 로고 영역
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
           child: Row(
             children: [
-              Image.asset(
-                'assets/images/logo.png',
+              Container(
                 width: 36,
                 height: 36,
-                errorBuilder: (_, __, ___) =>
-                    const SizedBox(width: 36, height: 36),
-              ),
-              if (expanded) ...[
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  'Moniq',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        color: colorScheme.primary,
-                      ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ],
+                clipBehavior: Clip.antiAlias,
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  width: 36,
+                  height: 36,
+                  errorBuilder: (_, __, ___) =>
+                      const SizedBox(width: 36, height: 36),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Moniq',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: colorScheme.primary,
+                  letterSpacing: -0.3,
+                ),
+              ),
             ],
           ),
         ),
 
-        const SizedBox(height: AppSpacing.xl),
+        // 구분선
+        Divider(
+          height: 1,
+          color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+          indent: 16,
+          endIndent: 16,
+        ),
+        const SizedBox(height: 12),
 
-        // 메인 네비게이션
+        // 네비게이션 항목
         ...List.generate(_navItems.length, (index) {
           final item = _navItems[index];
           final isActive = index == currentIndex;
-          final activeColor = shiftTheme.primary;
-          final inactiveColor = colorScheme.onSurface.withValues(alpha: 0.6);
 
           return _SidebarNavTile(
             icon: isActive ? item.activeIcon : item.icon,
             label: item.label,
-            showLabel: expanded,
             isActive: isActive,
-            activeColor: activeColor,
-            inactiveColor: inactiveColor,
+            activeColor: shiftTheme.primary,
             onTap: () => onTabSelect(index),
           );
         }),
 
         const Spacer(),
-        const SizedBox(height: AppSpacing.xl),
+
+        // 하단 여백
+        const SizedBox(height: 24),
       ],
     );
   }
@@ -364,6 +335,13 @@ class _TeamContextItems extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _FlyoutSectionLabel(label: '팀'),
+        if (favoriteTeam != null)
+          _FlyoutTile(
+            icon: Icons.star_rounded,
+            label: favoriteTeam.name,
+            iconColor: Colors.amber,
+            onTap: () => context.push('/teams/${favoriteTeam.id}/detail'),
+          ),
         _FlyoutTile(
           icon: Icons.groups_outlined,
           label: '팀 목록',
@@ -466,64 +444,94 @@ class _TeamContextItems extends ConsumerWidget {
   }
 }
 
-// ── 공통 사이드바 타일 (고정 사이드바용, 항상 레이블 표시) ──
+// ── 사이드바 네비게이션 타일 ──
 
-class _SidebarNavTile extends StatelessWidget {
+class _SidebarNavTile extends StatefulWidget {
   const _SidebarNavTile({
     required this.icon,
     required this.label,
     required this.onTap,
-    this.showLabel = true,
     this.isActive = false,
     this.activeColor,
-    this.inactiveColor,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  final bool showLabel;
   final bool isActive;
   final Color? activeColor;
-  final Color? inactiveColor;
+
+  @override
+  State<_SidebarNavTile> createState() => _SidebarNavTileState();
+}
+
+class _SidebarNavTileState extends State<_SidebarNavTile> {
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final effectiveActiveColor = activeColor ?? colorScheme.primary;
-    final effectiveInactiveColor =
-        inactiveColor ?? colorScheme.onSurface.withValues(alpha: 0.6);
-    final iconColor = isActive ? effectiveActiveColor : effectiveInactiveColor;
+    final activeColor = widget.activeColor ?? colorScheme.primary;
+    final iconColor = widget.isActive
+        ? activeColor
+        : _hovered
+            ? colorScheme.onSurface.withValues(alpha: 0.75)
+            : colorScheme.onSurface.withValues(alpha: 0.5);
+    final textColor = widget.isActive
+        ? activeColor
+        : colorScheme.onSurface.withValues(alpha: 0.75);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        hoverColor: colorScheme.onSurface.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              Icon(icon, color: iconColor, size: 22),
-              if (showLabel) ...[
-                const SizedBox(width: AppSpacing.md),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: widget.isActive
+                  ? activeColor.withValues(alpha: 0.10)
+                  : _hovered
+                      ? colorScheme.onSurface.withValues(alpha: 0.05)
+                      : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                // 아이콘
+                Icon(widget.icon, color: iconColor, size: 20),
+                const SizedBox(width: 12),
+                // 레이블
                 Expanded(
                   child: Text(
-                    label,
+                    widget.label,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight:
-                              isActive ? FontWeight.w700 : FontWeight.w500,
-                          color: isActive
-                              ? effectiveActiveColor
-                              : colorScheme.onSurface.withValues(alpha: 0.85),
+                          fontWeight: widget.isActive
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: textColor,
                         ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
                 ),
+                // 액티브 인디케이터 도트
+                if (widget.isActive)
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: activeColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -549,33 +557,36 @@ class _FlyoutTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final color = iconColor ?? colorScheme.onSurface.withValues(alpha: 0.7);
+    final color = iconColor ?? colorScheme.onSurface.withValues(alpha: 0.65);
+    final disabled = onTap == null;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        hoverColor: colorScheme.onSurface.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          child: Row(
-            children: [
-              Icon(icon, color: color, size: 19),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color:
-                            colorScheme.onSurface.withValues(alpha: 0.85),
-                      ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
+    return Opacity(
+      opacity: disabled ? 0.45 : 1.0,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          hoverColor: colorScheme.onSurface.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              children: [
+                Icon(icon, color: color, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.onSurface.withValues(alpha: 0.82),
+                        ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -590,16 +601,16 @@ class _FlyoutSectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 2),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 4),
       child: Text(
         label.toUpperCase(),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: Theme.of(context)
                   .colorScheme
                   .onSurface
-                  .withValues(alpha: 0.4),
+                  .withValues(alpha: 0.38),
               fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
+              letterSpacing: 1.1,
             ),
       ),
     );

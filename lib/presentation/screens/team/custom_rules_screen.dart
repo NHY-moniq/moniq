@@ -49,7 +49,7 @@ class CustomRulesScreen extends ConsumerWidget {
         ),
         data: (rules) => Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
+            constraints: const BoxConstraints(maxWidth: 720),
             child: CustomRulesBody(
               teamId: teamId,
               rules: rules,

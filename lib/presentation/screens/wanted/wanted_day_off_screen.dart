@@ -86,7 +86,10 @@ class _EntryView extends HookConsumerWidget {
     final isExpired = request.deadline != null &&
         DateTime.now().isAfter(request.deadline!);
 
-    return Column(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640),
+        child: Column(
       children: [
         // 안내 배너
         Container(
@@ -231,6 +234,8 @@ class _EntryView extends HookConsumerWidget {
           ),
         ),
       ],
+        ),
+      ),
     );
   }
 
