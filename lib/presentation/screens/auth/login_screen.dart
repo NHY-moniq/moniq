@@ -4,6 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/auth_error_utils.dart';
+import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
 
@@ -75,8 +76,19 @@ class LoginScreen extends HookConsumerWidget {
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: Form(
+                padding: EdgeInsets.symmetric(
+                  horizontal: AdaptiveLayout.isWide(context) ? 0 : 28,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal:
+                            AdaptiveLayout.isWide(context) ? 0 : 0,
+                        vertical: AdaptiveLayout.isWide(context) ? 32 : 0,
+                      ),
+                      child: Form(
                   key: formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -270,6 +282,9 @@ class LoginScreen extends HookConsumerWidget {
                       ),
                       const SizedBox(height: AppSpacing.xxl),
                     ],
+                  ),
+                      ),
+                    ),
                   ),
                 ),
               ),
