@@ -50,7 +50,7 @@ class MembersScreen extends HookConsumerWidget {
                     member: m,
                     isSelf: isSelf,
                     isAdmin: state.isAdmin,
-                    onTap: state.isAdmin && !isSelf
+                    onTap: state.isAdmin
                         ? () => _showMemberSheet(
                               context,
                               ref,
@@ -91,6 +91,7 @@ class MembersScreen extends HookConsumerWidget {
           teamId: teamId,
           member: m,
           state: state,
+          isSelf: m.userId == state.currentUserId,
           scrollController: scrollController,
         ),
       ),

@@ -50,12 +50,14 @@ class MemberEditSheet extends ConsumerStatefulWidget {
     required this.teamId,
     required this.member,
     required this.state,
+    this.isSelf = false,
     this.scrollController,
   });
 
   final String teamId;
   final TeamMemberWithUser member;
   final TeamDetailState state;
+  final bool isSelf;
   final ScrollController? scrollController;
 
   @override
@@ -254,21 +256,22 @@ class _MemberEditSheetState
 
             const Divider(height: AppSpacing.lg),
 
-            // 역할 변경
-            ListTile(
-              enabled: !_saving,
-              leading: const Icon(Icons.swap_horiz),
-              title: Text(newRoleLabel),
-              subtitle: Text(
-                m.role == 'admin'
-                    ? '현재: 관리자'
-                    : '현재: 일반 멤버',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondaryLight,
+            // 역할 변경 (본인은 제외)
+            if (!widget.isSelf)
+              ListTile(
+                enabled: !_saving,
+                leading: const Icon(Icons.swap_horiz),
+                title: Text(newRoleLabel),
+                subtitle: Text(
+                  m.role == 'admin'
+                      ? '현재: 관리자'
+                      : '현재: 일반 멤버',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondaryLight,
+                  ),
                 ),
+                onTap: _saving ? null : _changeRole,
               ),
-              onTap: _saving ? null : _changeRole,
-            ),
 
             // 숙련도 섹션
             Padding(
@@ -399,21 +402,22 @@ class _MemberEditSheetState
               activeColor: AppColors.shiftDay,
             ),
 
-            const Divider(height: AppSpacing.lg),
-
-            // 멤버 제거
-            ListTile(
-              enabled: !_saving,
-              leading: const Icon(
-                Icons.person_remove,
-                color: AppColors.error,
+            // 멤버 제거 (본인은 제외)
+            if (!widget.isSelf) ...[
+              const Divider(height: AppSpacing.lg),
+              ListTile(
+                enabled: !_saving,
+                leading: const Icon(
+                  Icons.person_remove,
+                  color: AppColors.error,
+                ),
+                title: const Text(
+                  '멤버 제거',
+                  style: TextStyle(color: AppColors.error),
+                ),
+                onTap: _saving ? null : _confirmRemove,
               ),
-              title: const Text(
-                '멤버 제거',
-                style: TextStyle(color: AppColors.error),
-              ),
-              onTap: _saving ? null : _confirmRemove,
-            ),
+            ],
           ],
         ),
       ),
