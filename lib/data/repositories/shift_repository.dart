@@ -81,17 +81,35 @@ class ShiftRepository {
       end: date,
     );
 
-    if (shifts.isEmpty) return [];
-
     final shiftTypes = await _dataSource.getShiftTypes(teamId);
     final users = await _dataSource.getTeamUsers(teamId);
+
+    // 근무가 하나도 없으면 전원 Off
+    if (shifts.isEmpty) {
+      if (users.isEmpty) return [];
+      return [
+        RosterEntry(
+          shiftType: const ShiftTypeModel(
+            id: '_off',
+            teamId: '',
+            name: 'Off',
+            code: 'OFF',
+            color: '#A0AEC0',
+            displayOrder: 9999,
+          ),
+          workers: users.map((u) => RosterWorker(user: u)).toList(),
+        ),
+      ];
+    }
     final userMap = {for (final u in users) u.id: u};
 
     // 근무 유형별로 그룹핑
     final grouped = <String, List<RosterWorker>>{};
+    final assignedUserIds = <String>{};
     for (final shift in shifts) {
       final user = userMap[shift.userId];
       if (user == null) continue;
+      assignedUserIds.add(shift.userId);
       grouped.putIfAbsent(shift.shiftTypeId, () => []).add(
             RosterWorker(user: user, shiftId: shift.id, note: shift.note),
           );
@@ -105,6 +123,26 @@ class ShiftRepository {
         entries.add(RosterEntry(shiftType: shiftType, workers: workers));
       }
     }
+
+    // 근무가 배정되지 않은 팀원은 Off 그룹에 추가
+    final unassignedWorkers = users
+        .where((u) => !assignedUserIds.contains(u.id))
+        .map((u) => RosterWorker(user: u))
+        .toList();
+    if (unassignedWorkers.isNotEmpty) {
+      entries.add(RosterEntry(
+        shiftType: const ShiftTypeModel(
+          id: '_off',
+          teamId: '',
+          name: 'Off',
+          code: 'OFF',
+          color: '#A0AEC0',
+          displayOrder: 9999,
+        ),
+        workers: unassignedWorkers,
+      ));
+    }
+
     return entries;
   }
 

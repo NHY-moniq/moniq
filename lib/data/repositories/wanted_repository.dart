@@ -12,12 +12,14 @@ class WantedRepository {
     required DateTime periodStart,
     required DateTime periodEnd,
     DateTime? deadline,
+    String wantedType = 'day_off',
   }) {
     return _dataSource.createWantedRequest(
       teamId: teamId,
       periodStart: periodStart,
       periodEnd: periodEnd,
       deadline: deadline,
+      wantedType: wantedType,
     );
   }
 
@@ -25,8 +27,15 @@ class WantedRepository {
     return _dataSource.getWantedRequests(teamId);
   }
 
-  Future<WantedRequestModel?> getActiveWantedRequest(String teamId) {
-    return _dataSource.getActiveWantedRequest(teamId);
+  Future<WantedRequestModel?> getActiveWantedRequest(
+    String teamId, {
+    String? wantedType,
+  }) {
+    return _dataSource.getActiveWantedRequest(teamId, wantedType: wantedType);
+  }
+
+  Future<List<WantedRequestModel>> getActiveWantedRequests(String teamId) {
+    return _dataSource.getActiveWantedRequests(teamId);
   }
 
   Future<void> closeWantedRequest(String requestId) {
@@ -39,6 +48,7 @@ class WantedRepository {
     required DateTime wantedDate,
     String? reason,
     int priority = 1,
+    String? shiftTypeId,
   }) {
     return _dataSource.addWantedEntry(
       wantedRequestId: wantedRequestId,
@@ -46,6 +56,7 @@ class WantedRepository {
       wantedDate: wantedDate,
       reason: reason,
       priority: priority,
+      shiftTypeId: shiftTypeId,
     );
   }
 

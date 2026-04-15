@@ -17,6 +17,7 @@ _$WantedRequestModelImpl _$$WantedRequestModelImplFromJson(
       ? null
       : DateTime.parse(json['deadline'] as String),
   status: json['status'] as String? ?? 'collecting',
+  wantedType: json['wanted_type'] as String? ?? 'day_off',
   createdBy: json['created_by'] as String,
   createdAt: json['created_at'] == null
       ? null
@@ -32,6 +33,7 @@ Map<String, dynamic> _$$WantedRequestModelImplToJson(
   'period_end': instance.periodEnd.toIso8601String(),
   'deadline': instance.deadline?.toIso8601String(),
   'status': instance.status,
+  'wanted_type': instance.wantedType,
   'created_by': instance.createdBy,
   'created_at': instance.createdAt?.toIso8601String(),
 };
@@ -46,6 +48,7 @@ _$WantedEntryModelImpl _$$WantedEntryModelImplFromJson(
   wantedDate: DateTime.parse(json['wanted_date'] as String),
   reason: json['reason'] as String?,
   priority: (json['priority'] as num?)?.toInt() ?? 1,
+  shiftTypeId: json['shift_type_id'] as String?,
   createdAt: json['created_at'] == null
       ? null
       : DateTime.parse(json['created_at'] as String),
@@ -61,5 +64,6 @@ Map<String, dynamic> _$$WantedEntryModelImplToJson(
   'wanted_date': instance.wantedDate.toIso8601String(),
   'reason': instance.reason,
   'priority': instance.priority,
+  'shift_type_id': instance.shiftTypeId,
   'created_at': instance.createdAt?.toIso8601String(),
 };

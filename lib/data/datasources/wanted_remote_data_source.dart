@@ -8,12 +8,13 @@ class WantedRemoteDataSource {
 
   String? get _userId => _client.auth.currentUser?.id;
 
-  /// 희망 휴무 수집 요청 생성 (관리자)
+  /// 수집 요청 생성 (관리자)
   Future<WantedRequestModel> createWantedRequest({
     required String teamId,
     required DateTime periodStart,
     required DateTime periodEnd,
     DateTime? deadline,
+    String wantedType = 'day_off',
   }) async {
     if (_userId == null) throw Exception('Not authenticated');
 
@@ -25,6 +26,7 @@ class WantedRemoteDataSource {
           'period_end': _dateStr(periodEnd),
           'deadline': deadline?.toIso8601String(),
           'status': 'collecting',
+          'wanted_type': wantedType,
           'created_by': _userId,
         })
         .select()
@@ -46,18 +48,42 @@ class WantedRemoteDataSource {
         .toList();
   }
 
-  /// 활성 수집 요청 (collecting 상태)
-  Future<WantedRequestModel?> getActiveWantedRequest(String teamId) async {
-    final rows = await _client
+  /// 활성 수집 요청 (collecting 상태). wantedType을 지정하면 해당 타입만 조회.
+  Future<WantedRequestModel?> getActiveWantedRequest(
+    String teamId, {
+    String? wantedType,
+  }) async {
+    var query = _client
         .from('wanted_requests')
         .select()
         .eq('team_id', teamId)
-        .eq('status', 'collecting')
+        .eq('status', 'collecting');
+
+    if (wantedType != null) {
+      query = query.eq('wanted_type', wantedType);
+    }
+
+    final rows = await query
         .order('created_at', ascending: false)
         .limit(1);
 
     if ((rows as List).isEmpty) return null;
     return WantedRequestModel.fromJson(rows.first);
+  }
+
+  /// 팀의 모든 활성 수집 요청 목록 (타입별)
+  Future<List<WantedRequestModel>> getActiveWantedRequests(
+      String teamId) async {
+    final rows = await _client
+        .from('wanted_requests')
+        .select()
+        .eq('team_id', teamId)
+        .eq('status', 'collecting')
+        .order('created_at', ascending: false);
+
+    return (rows as List)
+        .map((r) => WantedRequestModel.fromJson(r as Map<String, dynamic>))
+        .toList();
   }
 
   /// 수집 요청 마감 — update가 실제로 적용됐는지 검증.
@@ -93,27 +119,31 @@ class WantedRemoteDataSource {
     }
   }
 
-  /// 희망 휴무일 입력 (팀원)
+  /// 엔트리 입력 (팀원)
   Future<WantedEntryModel> addWantedEntry({
     required String wantedRequestId,
     required String teamId,
     required DateTime wantedDate,
     String? reason,
     int priority = 1,
+    String? shiftTypeId,
   }) async {
     if (_userId == null) throw Exception('Not authenticated');
     await _ensureCollecting(wantedRequestId);
 
+    final data = {
+      'wanted_request_id': wantedRequestId,
+      'team_id': teamId,
+      'user_id': _userId,
+      'wanted_date': _dateStr(wantedDate),
+      'reason': reason,
+      'priority': priority,
+    };
+    if (shiftTypeId != null) data['shift_type_id'] = shiftTypeId;
+
     final row = await _client
         .from('wanted_entries')
-        .insert({
-          'wanted_request_id': wantedRequestId,
-          'team_id': teamId,
-          'user_id': _userId,
-          'wanted_date': _dateStr(wantedDate),
-          'reason': reason,
-          'priority': priority,
-        })
+        .insert(data)
         .select()
         .single();
 

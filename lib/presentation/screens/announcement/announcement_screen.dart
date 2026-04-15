@@ -161,7 +161,11 @@ class _AnnouncementCreateSheetState
 
     if (choice == 'photo') {
       final picker = ImagePicker();
-      final picked = await picker.pickMultiImage();
+      // 업로드 시간 단축: 리사이즈 + 품질 85
+      final picked = await picker.pickMultiImage(
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
       if (picked.isEmpty) return;
       setState(() {
         for (final x in picked) {
@@ -170,7 +174,11 @@ class _AnnouncementCreateSheetState
       });
     } else if (choice == 'camera') {
       final picker = ImagePicker();
-      final x = await picker.pickImage(source: ImageSource.camera);
+      final x = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
       if (x == null) return;
       setState(() {
         _pending.add(_PendingAttachment(name: x.name, path: x.path));
@@ -194,16 +202,12 @@ class _AnnouncementCreateSheetState
     setState(() => _saving = true);
     try {
       final repo = ref.read(announcementRepositoryProvider);
-      // 첨부 업로드
-      final urls = <String>[];
-      for (final p in _pending) {
-        final url = await repo.uploadAttachment(
-          teamId: widget.teamId,
-          file: File(p.path),
-          filename: p.name,
-        );
-        urls.add(url);
-      }
+      // 첨부 업로드 — 병렬
+      final urls = await Future.wait(_pending.map((p) => repo.uploadAttachment(
+            teamId: widget.teamId,
+            file: File(p.path),
+            filename: p.name,
+          )));
       await repo.create(
         teamId: widget.teamId,
         title: title,
@@ -459,6 +463,31 @@ class _AnnouncementDetailPageState
     super.dispose();
   }
 
+  void _openImageViewer(BuildContext context, String url) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: Image.network(
+                url,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                    Icons.broken_image_outlined, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _addComment() async {
     final text = _commentC.text.trim();
     if (text.isEmpty) return;
@@ -611,36 +640,127 @@ class _AnnouncementDetailPageState
                             .titleSmall
                             ?.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: AppSpacing.sm),
-                    Wrap(
-                      spacing: AppSpacing.sm,
-                      runSpacing: AppSpacing.xs,
-                      children: a.attachmentUrls.map((url) {
-                        final filename = url.split('/').last;
-                        return ActionChip(
-                          avatar: const Icon(Icons.attach_file, size: 16),
-                          label: Text(filename,
-                              style: const TextStyle(fontSize: 12)),
-                          onPressed: () async {
-                            final uri = Uri.tryParse(url);
-                            if (uri != null &&
-                                await canLaunchUrl(uri)) {
-                              await launchUrl(uri,
-                                  mode: LaunchMode.externalApplication);
-                            } else {
-                              await Clipboard.setData(
-                                  ClipboardData(text: url));
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content:
-                                        Text('파일 링크가 클립보드에 복사되었습니다'),
-                                  ),
-                                );
-                              }
-                            }
-                          },
+                    // 이미지는 미리보기, 비이미지는 chip
+                    Builder(
+                      builder: (context) {
+                        const imgExts = [
+                          '.png',
+                          '.jpg',
+                          '.jpeg',
+                          '.gif',
+                          '.webp',
+                          '.heic',
+                          '.heif',
+                          '.bmp',
+                        ];
+                        bool isImage(String url) {
+                          final lower =
+                              url.split('?').first.toLowerCase();
+                          return imgExts.any((e) => lower.endsWith(e));
+                        }
+
+                        final images = a.attachmentUrls
+                            .where(isImage)
+                            .toList();
+                        final files = a.attachmentUrls
+                            .where((u) => !isImage(u))
+                            .toList();
+
+                        return Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            if (images.isNotEmpty)
+                              Wrap(
+                                spacing: AppSpacing.sm,
+                                runSpacing: AppSpacing.sm,
+                                children: images.map((url) {
+                                  return GestureDetector(
+                                    onTap: () => _openImageViewer(
+                                        context, url),
+                                    child: ClipRRect(
+                                      borderRadius:
+                                          BorderRadius.circular(
+                                              AppRadius.md),
+                                      child: Image.network(
+                                        url,
+                                        width: 140,
+                                        height: 140,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            Container(
+                                          width: 140,
+                                          height: 140,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .surfaceContainerHighest,
+                                          child: const Icon(
+                                              Icons.broken_image_outlined),
+                                        ),
+                                        loadingBuilder:
+                                            (ctx, child, progress) {
+                                          if (progress == null) {
+                                            return child;
+                                          }
+                                          return Container(
+                                            width: 140,
+                                            height: 140,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .surfaceContainerHigh,
+                                            child: const Center(
+                                              child:
+                                                  CircularProgressIndicator(
+                                                      strokeWidth: 2),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            if (images.isNotEmpty && files.isNotEmpty)
+                              const SizedBox(height: AppSpacing.sm),
+                            if (files.isNotEmpty)
+                              Wrap(
+                                spacing: AppSpacing.sm,
+                                runSpacing: AppSpacing.xs,
+                                children: files.map((url) {
+                                  final filename = url.split('/').last;
+                                  return ActionChip(
+                                    avatar: const Icon(Icons.attach_file,
+                                        size: 16),
+                                    label: Text(filename,
+                                        style: const TextStyle(
+                                            fontSize: 12)),
+                                    onPressed: () async {
+                                      final uri = Uri.tryParse(url);
+                                      if (uri != null &&
+                                          await canLaunchUrl(uri)) {
+                                        await launchUrl(uri,
+                                            mode: LaunchMode
+                                                .externalApplication);
+                                      } else {
+                                        await Clipboard.setData(
+                                            ClipboardData(text: url));
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                  '파일 링크가 클립보드에 복사되었습니다'),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                          ],
                         );
-                      }).toList(),
+                      },
                     ),
                   ],
 

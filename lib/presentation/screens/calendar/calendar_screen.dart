@@ -235,10 +235,16 @@ class CalendarScreen extends HookConsumerWidget {
                         .read(personalShiftTypesProvider)
                         .map((st) => st.name)
                         .toSet();
-                    // 서버 근무만 dot
+                    final overrides = ref
+                            .watch(personalShiftOverridesProvider)
+                            .valueOrNull ??
+                        const {};
+                    // 서버 근무만 dot (오버라이드 색상 적용)
                     for (final s
                         in events.whereType<ShiftWithType>().take(2)) {
-                      dots.add(_shiftDot(parseHexColor(s.shiftType.color)));
+                      final ov = overrides[s.shift.id];
+                      final colorHex = ov?.color ?? s.shiftType.color;
+                      dots.add(_shiftDot(parseHexColor(colorHex)));
                     }
                     // 개인 일정 중 근무 유형 매칭만 dot
                     for (final e in events.whereType<PersonalEvent>()) {
@@ -290,6 +296,7 @@ class CalendarScreen extends HookConsumerWidget {
                   shifts: state.selectedDateShifts ?? [],
                   events: dateEvents,
                   notes: dateNotes,
+                  hasTeamSchedule: state.monthlyShifts.isNotEmpty,
                 ),
 
                 const SizedBox(height: 120),

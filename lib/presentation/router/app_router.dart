@@ -308,23 +308,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // Wanted (희망 휴무)
-      GoRoute(
-        path: '/teams/:teamId/wanted',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => WantedRequestScreen(
-          teamId: state.pathParameters['teamId']!,
-          teamName: state.uri.queryParameters['teamName'] ?? '',
-        ),
-      ),
-      GoRoute(
-        path: '/teams/:teamId/wanted/entry',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => WantedDayOffScreen(
-          teamId: state.pathParameters['teamId']!,
-        ),
-      ),
-
       // Requests (교환/변경 요청)
       GoRoute(
         path: '/teams/:teamId/requests',
