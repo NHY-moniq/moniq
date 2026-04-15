@@ -355,14 +355,14 @@ class ScheduleGenerationViewModel
       // ── 커스텀 룰 위반 감지 (이미 generate()에서 계산됨) ──
       final customRuleViolations = current.customRuleViolations;
 
-      // 특별 속성 멤버
+      // 특별 속성 멤버 (속성이 있는 멤버만 포함하여 토큰 절약)
       final members = current.members.map((m) {
         final attrs = <String>[];
         if (m.member.nightDedicated) attrs.add('나이트전담');
         if (m.member.nightExempt) attrs.add('야간제외');
         if (m.member.dayOnly) attrs.add('데이전용');
         return {'name': m.displayName, 'attributes': attrs};
-      }).toList();
+      }).where((m) => (m['attributes'] as List).isNotEmpty).toList();
 
       // ── 전체 근무 배정표 (compact) ──
       // { memberName: { "YYYY-MM-DD": "D"|"E"|"N"|"O" } }
@@ -402,9 +402,11 @@ class ScheduleGenerationViewModel
         hardRuleLines.add('커스텀(하드): ${cr.originalText}');
       }
 
-      final periodLabel = current.periodStart != null
-          ? '${current.periodStart!.year}년 ${current.periodStart!.month}월'
-          : '';
+      final periodLabel = current.periodStart != null && current.periodEnd != null
+          ? '${current.periodStart!.year}년 ${current.periodStart!.month}월 ${current.periodStart!.day}일 ~ ${current.periodEnd!.month}월 ${current.periodEnd!.day}일'
+          : current.periodStart != null
+              ? '${current.periodStart!.year}년 ${current.periodStart!.month}월'
+              : '기간 미지정';
 
       final response = await client.functions.invoke(
         'schedule-analyze',
@@ -435,7 +437,7 @@ class ScheduleGenerationViewModel
       state = AsyncData(
         current.copyWith(
           isAnalyzing: false,
-          aiAnalysis: 'AI 분석 중 오류가 발생했습니다.',
+          aiAnalysis: 'AI 분석 중 오류가 발생했습니다: $e',
         ),
       );
     }
