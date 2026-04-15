@@ -55,18 +55,26 @@ class AuthViewModel extends AsyncNotifier<User?> {
     });
   }
 
+  Future<AuthResponse> signUpWithEmailRaw({
+    required String email,
+    required String password,
+    required String displayName,
+  }) {
+    return _repository.signUpWithEmail(
+      email: email,
+      password: password,
+      displayName: displayName,
+    );
+  }
+
+  Future<void> resendVerificationEmail(String email) async {
+    await _repository.resendVerificationEmail(email);
+  }
+
   Future<void> signInWithGoogle() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final response = await _repository.signInWithGoogle();
-      return response.user;
-    });
-  }
-
-  Future<void> signInWithApple() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      final response = await _repository.signInWithApple();
       return response.user;
     });
   }
