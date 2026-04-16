@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/core/utils/time_utils.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_note_local_data_source.dart';
+import 'package:moniq/data/datasources/personal_shift_override_remote_data_source.dart';
+import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
+import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 
@@ -19,12 +23,15 @@ class DateItemsPanel extends ConsumerWidget {
     required this.shifts,
     required this.events,
     required this.notes,
+    this.hasTeamSchedule = false,
   });
 
   final DateTime date;
   final List<ShiftWithType> shifts;
   final List<PersonalEvent> events;
   final List<PersonalNote> notes;
+  /// 이번 달에 팀 근무 스케줄이 존재하는지 (true면 근무 없는 날 = 오프)
+  final bool hasTeamSchedule;
 
   static const _weekdays = ['\uC6D4', '\uD654', '\uC218', '\uBAA9', '\uAE08', '\uD1A0', '\uC77C'];
 
@@ -45,10 +52,13 @@ class DateItemsPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final events = _sortedEvents;
+    // 팀 스케줄이 있는데 이 날 근무가 없으면 오프로 간주
+    final isTeamOff = hasTeamSchedule && shifts.isEmpty;
     final hasItems =
-        shifts.isNotEmpty || events.isNotEmpty || notes.isNotEmpty;
+        shifts.isNotEmpty || isTeamOff || events.isNotEmpty || notes.isNotEmpty;
     final weekday = _weekdays[date.weekday - 1];
-    final totalItems = shifts.length + events.length + notes.length;
+    final offCount = isTeamOff ? 1 : 0;
+    final totalItems = shifts.length + offCount + events.length + notes.length;
     final dateKey = DateTime(date.year, date.month, date.day);
     final isExpanded = ref.watch(dateExpandedProvider(dateKey));
 
@@ -201,21 +211,56 @@ class DateItemsPanel extends ConsumerWidget {
           ],
 
           // ── 근무 일정 섹션 ──
-          if ((shifts.isNotEmpty || shiftEvents.isNotEmpty) && isExpanded) ...[
+          if ((shifts.isNotEmpty || shiftEvents.isNotEmpty || isTeamOff) && isExpanded) ...[
             const SizedBox(height: AppSpacing.lg),
             _buildSectionHeader(theme, '근무 일정'),
             const SizedBox(height: AppSpacing.sm),
-            // 서버 근무
+            // 팀 스케줄 있는데 근무 없으면 오프 표시
+            if (isTeamOff)
+              _buildShiftCard(
+                theme: theme,
+                shiftColor: AppColors.onSurfaceVariant,
+                code: 'OFF',
+                name: 'Off',
+              ),
+            // 서버 근무 (원격 오버라이드 적용)
             ...shifts.map((s) {
-              final shiftColor = parseHexColor(s.shiftType.color);
+              final overrides = ref
+                      .watch(personalShiftOverridesProvider)
+                      .valueOrNull ??
+                  const <String, PersonalShiftOverrideRemote>{};
+              final override = overrides[s.shift.id];
+              final code = override?.code ?? s.shiftType.code;
+              final name = override?.name ?? s.shiftType.name;
+              final colorHex = override?.color ?? s.shiftType.color;
+              final startTime = override?.startTime ?? s.shiftType.startTime;
+              final endTime = override?.endTime ?? s.shiftType.endTime;
+              final shiftColor = parseHexColor(colorHex);
               return _buildShiftCard(
                 theme: theme,
                 shiftColor: shiftColor,
-                code: s.shiftType.code,
-                name: s.shiftType.name,
-                startTime: s.shiftType.startTime,
-                endTime: s.shiftType.endTime,
+                code: code,
+                name: name,
+                startTime: formatTimeString(startTime),
+                endTime: formatTimeString(endTime),
                 teamName: s.teamName,
+                trailing: PopupMenuButton<String>(
+                  icon: Icon(Icons.more_horiz,
+                      size: 18, color: theme.colorScheme.onSurfaceVariant),
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(value: 'edit', child: Text('수정')),
+                    if (override != null)
+                      const PopupMenuItem(
+                          value: 'reset', child: Text('팀 근무로 복원')),
+                  ],
+                  onSelected: (action) {
+                    if (action == 'edit') {
+                      _editTeamShiftAsPersonal(context, ref, date, s);
+                    } else if (action == 'reset') {
+                      _resetShiftOverride(ref, s.shift.id, date);
+                    }
+                  },
+                ),
               );
             }),
             // 개인 캘린더 근무
@@ -616,6 +661,125 @@ class DateItemsPanel extends ConsumerWidget {
   void _deleteNote(WidgetRef ref, int index) async {
     final ds = ref.read(personalNoteDataSourceProvider);
     await ds.removeNote(date, index);
+    refreshAll(ref, date);
+  }
+
+  /// 팀 캘린더 근무를 팀 근무 유형 중 하나로 변경 (팀 shift 레코드 직접 수정)
+  Future<void> _editTeamShiftAsPersonal(BuildContext context, WidgetRef ref,
+      DateTime date, ShiftWithType shift) async {
+    final shiftRepo = ref.read(shiftRepositoryProvider);
+    final List<ShiftTypeModel> types = await shiftRepo
+        .getShiftTypes(shift.shift.teamId)
+        .catchError((_) => <ShiftTypeModel>[]);
+
+    if (!context.mounted) return;
+
+    final selected = await showModalBottomSheet<ShiftTypeModel>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Text(
+                '근무 유형 변경',
+                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
+            const Divider(height: 1),
+            if (types.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(AppSpacing.lg),
+                child: Text('등록된 근무 유형이 없습니다'),
+              )
+            else
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: types.map((t) {
+                    final color = parseHexColor(t.color);
+                    final isCurrent = t.id == shift.shift.shiftTypeId;
+                    return ListTile(
+                      leading: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.15),
+                          borderRadius:
+                              BorderRadius.circular(AppRadius.sm),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          t.code,
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      title: Text(t.name),
+                      subtitle: (t.startTime != null &&
+                              t.endTime != null &&
+                              t.startTime!.isNotEmpty &&
+                              t.endTime!.isNotEmpty)
+                          ? Text(
+                              '${formatTimeString(t.startTime)} ~ ${formatTimeString(t.endTime)}')
+                          : null,
+                      trailing: isCurrent
+                          ? const Icon(Icons.check, size: 18)
+                          : null,
+                      enabled: !isCurrent,
+                      onTap: () => Navigator.pop(ctx, t),
+                    );
+                  }).toList(),
+                ),
+              ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+        ),
+      ),
+    );
+
+    if (selected == null || !context.mounted) return;
+
+    // 팀 근무는 그대로 두고 Supabase에 오버라이드 upsert (기기 간 동기화)
+    try {
+      await ref.read(personalShiftOverrideRemoteProvider).upsert(
+            PersonalShiftOverrideRemote(
+              shiftId: shift.shift.id,
+              shiftTypeId: selected.id,
+              code: selected.code,
+              name: selected.name,
+              color: selected.color,
+              startTime: selected.startTime,
+              endTime: selected.endTime,
+            ),
+          );
+      refreshAll(ref, date);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('"${selected.name}"(으)로 변경되었습니다')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('변경 실패: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _resetShiftOverride(
+      WidgetRef ref, String shiftId, DateTime date) async {
+    await ref.read(personalShiftOverrideRemoteProvider).remove(shiftId);
     refreshAll(ref, date);
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:moniq/data/models/wanted_request_model.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
@@ -75,7 +76,7 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
-                      '근무표 생성 전 팀원들의 희망 휴무일을 수집합니다.\n요청을 생성하면 팀원들에게 알림이 발송됩니다.',
+                      '근무표 생성 전 팀원들의 희망사항을 수집합니다.\n요청을 생성하면 팀원들에게 알림이 발송됩니다.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.primary,
                       ),
@@ -200,20 +201,25 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
                           _hasValidationError
                       ? null
                       : () async {
-                          final success = await ref
-                              .read(wantedAdminViewModelProvider(widget.teamId)
-                                  .notifier)
-                              .createWantedRequest(
-                                periodStart: _periodStart!,
-                                periodEnd: _periodEnd!,
-                                deadline: _deadline,
-                                teamName: widget.teamName,
-                              );
-                          if (success && context.mounted) {
+                          final notifier = ref.read(
+                              wantedAdminViewModelProvider(widget.teamId)
+                                  .notifier);
+                          var allOk = true;
+                          for (final type in WantedType.values) {
+                            final ok = await notifier.createWantedRequest(
+                              periodStart: _periodStart!,
+                              periodEnd: _periodEnd!,
+                              deadline: _deadline,
+                              teamName: widget.teamName,
+                              wantedType: type.value,
+                            );
+                            if (!ok) allOk = false;
+                          }
+                          if (allOk && context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                    '희망 휴무 수집 요청이 생성되고 알림이 발송되었습니다'),
+                                    '전체 수집 유형 요청이 생성되고 알림이 발송되었습니다'),
                               ),
                             );
                           }
@@ -225,7 +231,7 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.send),
-                  label: Text(isCreating ? '생성 중...' : '수집 요청 생성 및 알림 발송'),
+                  label: Text(isCreating ? '생성 중...' : '희망 근무 요청 생성'),
                 );
               },
             ),
@@ -289,7 +295,7 @@ class WantedRequestActiveView extends HookConsumerWidget {
                   Icon(Icons.event_note, color: colorScheme.primary),
                   const SizedBox(width: AppSpacing.sm),
                   Text(
-                    '수집 진행중',
+                    '${WantedType.fromString(request.wantedType).label} 수집 진행중',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: colorScheme.primary,

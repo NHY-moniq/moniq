@@ -45,12 +45,13 @@ class WantedAdminViewModel
     );
   }
 
-  /// 희망 휴무 수집 요청 생성 + 로컬 푸시 알림 발송
+  /// 수집 요청 생성 + 로컬 푸시 알림 발송
   Future<bool> createWantedRequest({
     required DateTime periodStart,
     required DateTime periodEnd,
     DateTime? deadline,
     required String teamName,
+    String wantedType = 'day_off',
   }) async {
     final current = state.valueOrNull;
     if (current == null) return false;
@@ -64,6 +65,7 @@ class WantedAdminViewModel
         periodStart: periodStart,
         periodEnd: periodEnd,
         deadline: deadline,
+        wantedType: wantedType,
       );
 
       // 로컬 푸시 알림 발송
@@ -88,6 +90,8 @@ class WantedAdminViewModel
         isCreating: false,
         activeRequest: request,
       ));
+      // 멤버 입력 화면(같은 팀)도 최신 활성 요청 반영하도록 invalidate
+      ref.invalidate(wantedMemberViewModelProvider(current.teamId));
       return true;
     } catch (e) {
       state = AsyncData(current.copyWith(
@@ -122,6 +126,7 @@ class WantedMemberState with _$WantedMemberState {
   const factory WantedMemberState({
     required String teamId,
     WantedRequestModel? activeRequest,
+    @Default([]) List<WantedRequestModel> activeRequests,
     @Default([]) List<WantedEntryModel> myEntries,
     @Default(false) bool isSubmitting,
     String? error,
@@ -138,7 +143,14 @@ class WantedMemberViewModel
   @override
   Future<WantedMemberState> build(String teamId) async {
     final repo = ref.watch(wantedRepositoryProvider);
-    final activeRequest = await repo.getActiveWantedRequest(teamId);
+    final activeRequests = await repo.getActiveWantedRequests(teamId);
+    // 타입 순서 정렬: day_off → preferred_shift → night_dedicated
+    const order = ['day_off', 'preferred_shift', 'night_dedicated'];
+    activeRequests.sort((a, b) =>
+        order.indexOf(a.wantedType).compareTo(order.indexOf(b.wantedType)));
+
+    final activeRequest =
+        activeRequests.isEmpty ? null : activeRequests.first;
 
     List<WantedEntryModel> myEntries = [];
     if (activeRequest != null) {
@@ -148,8 +160,34 @@ class WantedMemberViewModel
     return WantedMemberState(
       teamId: teamId,
       activeRequest: activeRequest,
+      activeRequests: activeRequests,
       myEntries: myEntries,
     );
+  }
+
+  /// 활성 요청 타입 전환 — 해당 타입의 내 엔트리를 로드
+  Future<void> selectType(String wantedType) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final target = current.activeRequests
+        .where((r) => r.wantedType == wantedType)
+        .cast<WantedRequestModel?>()
+        .firstWhere((_) => true, orElse: () => null);
+    if (target == null) return;
+
+    state = AsyncData(current.copyWith(
+      activeRequest: target,
+      myEntries: [],
+      error: null,
+    ));
+
+    try {
+      final repo = ref.read(wantedRepositoryProvider);
+      final my = await repo.getMyEntries(target.id);
+      state = AsyncData(state.value!.copyWith(myEntries: my));
+    } catch (e) {
+      state = AsyncData(state.value!.copyWith(error: '로드 중 오류: $e'));
+    }
   }
 
   /// 희망 휴무일 추가
@@ -189,6 +227,7 @@ class WantedMemberViewModel
   Future<bool> addWantedDates({
     required Map<DateTime, int> datesWithPriority,
     String? reason,
+    String? shiftTypeId,
   }) async {
     final current = state.valueOrNull;
     if (current == null || current.activeRequest == null) return false;
@@ -216,6 +255,7 @@ class WantedMemberViewModel
           wantedDate: date,
           reason: reason,
           priority: priority,
+          shiftTypeId: shiftTypeId,
         );
         newEntries.add(added);
       }

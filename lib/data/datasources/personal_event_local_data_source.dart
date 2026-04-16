@@ -94,19 +94,32 @@ class PersonalEventLocalDataSource {
 
   static const _keyPrefix = 'personal_events';
 
+  /// 사용자별 키 생성 (읽기/쓰기 통일)
+  String _userDateKey(DateTime date) =>
+      '$_keyPrefix:$_userId:${_dateKey(date)}';
+
   /// Supabase에서 사용자 이벤트 전부를 가져와 로컬 캐시를 재구축한다.
   /// 로그인 직후 / 인증 변경 시 호출.
   Future<void> pullFromRemote() async {
     try {
       final remoteEvents = await _remote.fetchAll();
-      // 기존 로컬 캐시 비우기 (이 prefix만)
-      final keys = _prefs.getKeys().where((k) => k.startsWith('$_keyPrefix:'));
+      // 기존 로컬 캐시 비우기 (이 사용자 prefix만)
+      final userPrefix = '$_keyPrefix:$_userId:';
+      final keys = _prefs.getKeys().where((k) => k.startsWith(userPrefix));
       for (final k in keys) {
+        await _prefs.remove(k);
+      }
+      // 레거시 키(userId 없는 형식)도 정리
+      final legacyKeys = _prefs.getKeys().where((k) =>
+          k.startsWith('$_keyPrefix:') &&
+          !k.startsWith(userPrefix) &&
+          k.split(':').length == 2);
+      for (final k in legacyKeys) {
         await _prefs.remove(k);
       }
       // 새로 채움
       for (final e in remoteEvents) {
-        final key = '$_keyPrefix:${_dateKey(e.date)}';
+        final key = _userDateKey(e.date);
         final list = _prefs.getStringList(key) ?? [];
         list.add(jsonEncode(e.toJson()));
         await _prefs.setStringList(key, list);
@@ -120,7 +133,7 @@ class PersonalEventLocalDataSource {
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   List<PersonalEvent> getEvents(DateTime date) {
-    final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
+    final key = _userDateKey(date);
     final raw = _prefs.getStringList(key);
     if (raw == null || raw.isEmpty) return [];
     return raw
@@ -161,7 +174,7 @@ class PersonalEventLocalDataSource {
         final saved = await _remote.insert(e);
         e = saved;
       } catch (_) {}
-      final key = '$_keyPrefix:${_dateKey(date)}';
+      final key = _userDateKey(date);
       final existing = _prefs.getStringList(key) ?? [];
       existing.add(jsonEncode(e.toJson()));
       await _prefs.setStringList(key, existing);
@@ -200,7 +213,7 @@ class PersonalEventLocalDataSource {
   }
 
   Future<void> removeEvent(DateTime date, int index) async {
-    final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
+    final key = _userDateKey(date);
     final existing = _prefs.getStringList(key) ?? [];
     if (index >= 0 && index < existing.length) {
       // Supabase에서도 삭제 (id 있는 경우)
@@ -231,7 +244,7 @@ class PersonalEventLocalDataSource {
     DateTime current = date;
 
     while (!current.isAfter(maxDate)) {
-      final key = '$_keyPrefix:${_dateKey(current)}';
+      final key = _userDateKey(current);
       final existing = _prefs.getStringList(key);
       if (existing != null && existing.isNotEmpty) {
         final kept = <String>[];
@@ -260,7 +273,7 @@ class PersonalEventLocalDataSource {
   }
 
   Future<void> updateEvent(DateTime date, int index, PersonalEvent event) async {
-    final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
+    final key = _userDateKey(date);
     final existing = _prefs.getStringList(key) ?? [];
     if (index >= 0 && index < existing.length) {
       // 기존 id 보존 후 remote update
