@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/schedule_generation_viewmodel.dart';
@@ -91,7 +92,9 @@ class _SetupView extends HookConsumerWidget {
 
     return SingleChildScrollView(
       padding: AppSpacing.screenAll,
-      child: Column(
+      child: MaxWidthLayout(
+        maxWidth: 640,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // -- 단계 표시 --
@@ -378,6 +381,7 @@ class _SetupView extends HookConsumerWidget {
             ),
           ],
         ],
+      ),
       ),
     );
   }

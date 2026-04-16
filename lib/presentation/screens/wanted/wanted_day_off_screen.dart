@@ -102,7 +102,10 @@ class _EntryView extends HookConsumerWidget {
     final isExpired = request.deadline != null &&
         DateTime.now().isAfter(request.deadline!);
 
-    return Column(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640),
+        child: Column(
       children: [
         // 타입 전환 칩 (여러 활성 요청이 있을 때만 표시)
         if (state.activeRequests.length > 1)
