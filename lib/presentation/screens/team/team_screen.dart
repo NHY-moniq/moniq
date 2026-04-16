@@ -8,6 +8,7 @@ import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/schedule_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
+import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
@@ -187,15 +188,18 @@ class _TeamCalendarView extends HookConsumerWidget {
           ],
         ),
         actions: [
-          Builder(
-            builder: (ctx) => IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+          if (!AdaptiveLayout.isWide(context))
+            Builder(
+              builder: (ctx) => IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+              ),
             ),
-          ),
         ],
       ),
-      endDrawer: _TeamDrawer(teams: teams, currentTeamId: team.id, scaffoldContext: context),
+      endDrawer: AdaptiveLayout.isWide(context)
+          ? null
+          : _TeamDrawer(teams: teams, currentTeamId: team.id, scaffoldContext: context),
       body: calendarAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(

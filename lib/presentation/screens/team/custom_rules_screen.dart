@@ -47,11 +47,16 @@ class CustomRulesScreen extends ConsumerWidget {
           message: '규칙을 불러올 수 없습니다',
           onRetry: () => ref.invalidate(customRulesProvider(teamId)),
         ),
-        data: (rules) => CustomRulesBody(
-          teamId: teamId,
-          rules: rules,
-          shiftTypes: shiftTypesAsync.valueOrNull ?? [],
-          members: membersAsync.valueOrNull ?? [],
+        data: (rules) => Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: CustomRulesBody(
+              teamId: teamId,
+              rules: rules,
+              shiftTypes: shiftTypesAsync.valueOrNull ?? [],
+              members: membersAsync.valueOrNull ?? [],
+            ),
+          ),
         ),
       ),
     );

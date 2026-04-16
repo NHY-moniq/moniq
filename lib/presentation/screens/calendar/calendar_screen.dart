@@ -6,6 +6,7 @@ import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
+import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
@@ -158,18 +159,21 @@ class CalendarScreen extends HookConsumerWidget {
                 Theme.of(context).colorScheme.surfaceContainerLow,
             title: buildAppBarTitle(),
             actions: [
-              Builder(
-                builder: (ctx) => IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+              if (!AdaptiveLayout.isWide(context))
+                Builder(
+                  builder: (ctx) => IconButton(
+                    icon: const Icon(Icons.menu),
+                    onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+                  ),
                 ),
-              ),
             ],
           ),
-          endDrawer: CalendarDrawer(
-            onImportCalendar: () => importDeviceCalendar(context, ref),
-            onExportCalendar: () => exportCalendar(context, ref, state),
-          ),
+          endDrawer: AdaptiveLayout.isWide(context)
+              ? null
+              : CalendarDrawer(
+                  onImportCalendar: () => importDeviceCalendar(context, ref),
+                  onExportCalendar: () => exportCalendar(context, ref, state),
+                ),
           floatingActionButton: Padding(
             padding: const EdgeInsets.only(bottom: 72),
             child: FloatingActionButton.small(
