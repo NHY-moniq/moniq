@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthRemoteDataSource {
@@ -78,37 +77,24 @@ class AuthRemoteDataSource {
     );
   }
 
-  // Apple Sign-In
-  Future<AuthResponse> signInWithApple() async {
-    final credential = await SignInWithApple.getAppleIDCredential(
-      scopes: [
-        AppleIDAuthorizationScopes.email,
-        AppleIDAuthorizationScopes.fullName,
-      ],
-    );
-
-    final idToken = credential.identityToken;
-    if (idToken == null) {
-      throw const AuthException('Apple ID 토큰을 가져올 수 없습니다');
-    }
-
-    return _auth.signInWithIdToken(
-      provider: OAuthProvider.apple,
-      idToken: idToken,
-    );
-  }
-
   // Kakao Sign-In (via Edge Function)
   // Supabase OAuth 기반. 실제 동작에는 Supabase Dashboard의 Kakao provider 설정이 필요하다.
   Future<void> signInWithKakao() async {
     final launched = await _auth.signInWithOAuth(
       OAuthProvider.kakao,
-      redirectTo: kIsWeb ? '${Uri.base.origin}/login' : null,
+      redirectTo: kIsWeb
+          ? '${Uri.base.origin}/login'
+          : 'com.moniq.moniq://login-callback',
     );
 
     if (!launched) {
       throw const AuthException('카카오 로그인 페이지를 열 수 없습니다');
     }
+  }
+
+  // Email verification
+  Future<void> resendVerificationEmail(String email) async {
+    await _auth.resend(type: OtpType.signup, email: email);
   }
 
   // Account deletion

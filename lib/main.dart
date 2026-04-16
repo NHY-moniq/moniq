@@ -54,9 +54,6 @@ Future<void> main() async {
     debugPrint('Firebase init failed (push disabled): $e');
   }
 
-  // TODO: Kakao SDK 호환 버전 나오면 복원
-  // KakaoSdk.init(nativeAppKey: SupabaseConstants.kakaoNativeKey);
-
   runApp(
     ProviderScope(
       overrides: [

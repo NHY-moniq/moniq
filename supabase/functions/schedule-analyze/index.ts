@@ -17,8 +17,8 @@ interface AnalyzeRequest {
   customRuleViolations: string[];
   members: { name: string; attributes: string[] }[];
   activeRules: string[];
-  memberSchedules: Record<string, Record<string, string>>; // { 멤버명: { 날짜: 근무코드 } }
-  hardRules: string[]; // 절대 지켜야 할 하드룰 목록
+  memberSchedules: Record<string, Record<string, string>>;
+  hardRules: string[];
 }
 
 serve(async (req) => {
@@ -42,7 +42,6 @@ serve(async (req) => {
         ? Math.round((body.wantedSatisfied / body.wantedTotal) * 100)
         : 100;
 
-
     // 소프트 기피 패턴 위반 요약
     const softViol = body.softViolations ?? {};
     const softLines: string[] = [];
@@ -57,12 +56,22 @@ serve(async (req) => {
       ? customViol.map((v) => `  - ${v}`).join('\n')
       : '  - 없음';
 
+    // 위반 0건 — AI 호출 없이 즉시 양호 응답
+    const totalSoftCount = Object.values(softViol).reduce((a, b) => a + b, 0);
+    const totalIssues = (body.hardViolations?.length ?? 0) + (body.understaffedCount ?? 0);
+    if (totalIssues === 0 && totalSoftCount === 0 && customViol.length === 0) {
+      const quickAnalysis = `종합 평가: 양호\n희망 반영률: ${wantedPct}%${wantedPct < 100 ? ` (미반영 ${body.wantedTotal - body.wantedSatisfied}건)` : ''}\n심각한 위반 없이 규칙을 잘 준수한 근무표입니다.`;
+      return new Response(JSON.stringify({ analysis: quickAnalysis }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // 전체 근무 배정표 compact 문자열
     const scheduleLines = Object.entries(body.memberSchedules ?? {})
       .map(([name, days]) => {
         const sorted = Object.entries(days)
           .sort(([a], [b]) => a.localeCompare(b))
-          .map(([date, code]) => `${date.slice(5)}=${code}`)  // MM-DD=X
+          .map(([date, code]) => `${date.slice(5)}=${code}`)
           .join(', ');
         return `${name}: ${sorted}`;
       })
@@ -70,41 +79,58 @@ serve(async (req) => {
 
     const hardRulesSummary = (body.hardRules ?? []).map((r) => `  - ${r}`).join('\n');
 
-    const prompt = `당신은 병원 근무표 분석 전문가입니다. 아래 전체 근무표와 하드룰을 기반으로 **검증된 해결 방안**만 제시해주세요.
+    // System prompt — 역할 + 검증 원칙
+    const systemPrompt = `당신은 병원 3교대 근무표 검증 전문가입니다.
+역할: 위반 사항을 분석하고, 하드룰을 절대 위반하지 않는 교체 방안만 제시합니다.
 
-## 절대 지켜야 할 하드룰 (제안 전 반드시 확인)
+허용되는 해결 방안:
+- 같은 날 두 멤버 간 근무 교환 (예: A의 D ↔ B의 E)
+- 다른 날짜 간 근무 교환 (예: A의 4/3 D ↔ A의 4/5 E)
+- 반드시 1:1 교환이어야 하며, 교환 후 양쪽 모두 위반이 없어야 함
+
+절대 금지되는 제안:
+- 근무를 OFF로 변경 (총 근무 수 감소 — 불공정)
+- OFF를 근무로 변경 (총 근무 수 증가 — 불공정)
+- 특정 멤버에게만 불이익이 가는 일방적 변경
+
+검증 원칙:
+- 교체 제안 시 반드시 해당 멤버의 전후 3일 근무를 배정표에서 직접 확인
+- 교체로 인해 새로운 위반이 생기면 해당 방안은 제외
+- N→D, NOD, N→E, E→D 등 시퀀스 룰은 변경일 전후를 반드시 확인
+- 안전한 방안이 없으면 "안전한 교환 방안을 찾지 못했습니다"로 명시
+- 추측하지 말고, 배정표에 있는 데이터만 근거로 사용`;
+
+    // User prompt — 위반 유형별 구조화
+    const userPrompt = `## 팀: ${body.teamName} | 기간: ${body.periodLabel}
+
+## 하드룰
 ${hardRulesSummary}
 
-## 전체 근무 배정표 (D=데이, E=이브닝, N=나이트, O=오프)
+## 배정표 (D=데이, E=이브닝, N=나이트, O=오프)
 ${scheduleLines}
 
-## 위반 현황
-- 인원 부족: ${body.understaffedCount}건
-- 원티드 반영: ${body.wantedSatisfied}/${body.wantedTotal} (${wantedPct}%)
-- 하드 위반: ${body.hardViolations.length}건
+## 위반 분석 요청
+### 심각 (하드 위반) — ${body.hardViolations.length}건
 ${body.hardViolations.length > 0 ? body.hardViolations.map((v) => `  - ${v}`).join('\n') : '  - 없음'}
-- 기피패턴: ${softSummary}
-- 커스텀 룰 위반:
+
+### 인원 부족 — ${body.understaffedCount}건
+
+### 희망 반영 — ${body.wantedSatisfied}/${body.wantedTotal} (${wantedPct}%)
+
+### 기피 패턴 — ${softSummary}
+
+### 커스텀 룰 위반
 ${customViolSummary}
 
-## 해결 방안 제안 절차 (반드시 이 순서로 실행)
-1. 위 전체 배정표에서 관련 멤버의 해당 월 전체 근무를 확인하세요
-2. 변경/교체하려는 날짜의 앞뒤 모든 날짜를 배정표에서 직접 읽어서 하드룰 위반 여부를 검증하세요
-   - N→D: 변경일 전날이 N이면 해당 멤버에게 D 배정 불가
-   - NOD: 변경일 전날이 오프이고 전전날이 N이면 해당 멤버에게 D 배정 불가
-   - N→E: 전날이 N이면 E 배정 불가 (해당 룰 활성 시)
-   - E→D: 전날이 E이면 D 배정 불가 (해당 룰 활성 시)
-   - 연속 근무: 변경으로 인해 연속 근무일이 최대치 초과하는지 확인
-   - 월 최대 근무: 변경 멤버의 월 총 근무 횟수 초과 여부 확인
-3. 검증을 통과한 방안만 제안하세요. 하나도 없으면 "안전한 해결 방안을 찾지 못했습니다"라고 하세요
-
-다음 형식으로 응답 (마크다운 없이 plain text, 전체 350자 이내):
-1. 한줄 요약
-2. 문제점 (있는 경우만, 최대 2개)
-3. 해결 방안 (최대 2개, 검증 근거 간략 포함)
-   예: "A의 MM/DD를 D→O로 변경하면 해결됩니다 (전날=O, 전전날=E이므로 시퀀스 위반 없음)"
+## 응답 형식 (plain text, 500자 이내, 마크다운 금지)
+1. 종합 평가 (한줄)
+2. 심각한 문제 (하드 위반 우선, 최대 3개)
+3. 교환 방안 (1:1 교환만 허용, 최대 3개)
+   형식: "{멤버A}의 {MM/DD} {근무} ↔ {멤버B}의 {MM/DD} {근무} (근거: 교환 후 양쪽 전후 시퀀스 위반 없음)"
 
 없는 항목은 생략하세요.`;
+
+    const model = Deno.env.get('OPENAI_MODEL') ?? 'gpt-4o-mini';
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -113,9 +139,12 @@ ${customViolSummary}
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: 512,
-        messages: [{ role: 'user', content: prompt }],
+        model,
+        max_tokens: 700,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
       }),
     });
 
