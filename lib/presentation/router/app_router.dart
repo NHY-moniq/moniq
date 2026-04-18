@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moniq/presentation/router/app_shell.dart';
 import 'package:moniq/presentation/screens/auth/forgot_password_screen.dart';
 import 'package:moniq/presentation/screens/auth/login_screen.dart';
+import 'package:moniq/presentation/screens/auth/email_verification_screen.dart';
 import 'package:moniq/presentation/screens/auth/signup_screen.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_screen.dart';
 import 'package:moniq/presentation/screens/home/home_screen.dart';
@@ -58,7 +59,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final isAuthRoute = state.matchedLocation == '/login' ||
           state.matchedLocation == '/signup' ||
-          state.matchedLocation == '/forgot-password';
+          state.matchedLocation == '/forgot-password' ||
+          state.matchedLocation == '/verify-email';
 
       if (!isLoggedIn && !isAuthRoute) {
         return '/login';
@@ -86,6 +88,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/forgot-password',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/verify-email',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => EmailVerificationScreen(
+          email: state.extra as String? ?? '',
+        ),
       ),
 
       // App Shell with bottom navigation
@@ -304,23 +313,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/teams/:teamId/schedule/generate',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => ScheduleGenerationScreen(
-          teamId: state.pathParameters['teamId']!,
-        ),
-      ),
-
-      // Wanted (희망 휴무)
-      GoRoute(
-        path: '/teams/:teamId/wanted',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => WantedRequestScreen(
-          teamId: state.pathParameters['teamId']!,
-          teamName: state.uri.queryParameters['teamName'] ?? '',
-        ),
-      ),
-      GoRoute(
-        path: '/teams/:teamId/wanted/entry',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => WantedDayOffScreen(
           teamId: state.pathParameters['teamId']!,
         ),
       ),

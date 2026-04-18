@@ -355,14 +355,14 @@ class ScheduleGenerationViewModel
       // ── 커스텀 룰 위반 감지 (이미 generate()에서 계산됨) ──
       final customRuleViolations = current.customRuleViolations;
 
-      // 특별 속성 멤버
+      // 특별 속성 멤버 (속성이 있는 멤버만 포함하여 토큰 절약)
       final members = current.members.map((m) {
         final attrs = <String>[];
         if (m.member.nightDedicated) attrs.add('나이트전담');
         if (m.member.nightExempt) attrs.add('야간제외');
         if (m.member.dayOnly) attrs.add('데이전용');
         return {'name': m.displayName, 'attributes': attrs};
-      }).toList();
+      }).where((m) => (m['attributes'] as List).isNotEmpty).toList();
 
       // ── 전체 근무 배정표 (compact) ──
       // { memberName: { "YYYY-MM-DD": "D"|"E"|"N"|"O" } }
@@ -402,9 +402,11 @@ class ScheduleGenerationViewModel
         hardRuleLines.add('커스텀(하드): ${cr.originalText}');
       }
 
-      final periodLabel = current.periodStart != null
-          ? '${current.periodStart!.year}년 ${current.periodStart!.month}월'
-          : '';
+      final periodLabel = current.periodStart != null && current.periodEnd != null
+          ? '${current.periodStart!.year}년 ${current.periodStart!.month}월 ${current.periodStart!.day}일 ~ ${current.periodEnd!.month}월 ${current.periodEnd!.day}일'
+          : current.periodStart != null
+              ? '${current.periodStart!.year}년 ${current.periodStart!.month}월'
+              : '기간 미지정';
 
       final response = await client.functions.invoke(
         'schedule-analyze',
@@ -435,7 +437,7 @@ class ScheduleGenerationViewModel
       state = AsyncData(
         current.copyWith(
           isAnalyzing: false,
-          aiAnalysis: 'AI 분석 중 오류가 발생했습니다.',
+          aiAnalysis: 'AI 분석 중 오류가 발생했습니다: $e',
         ),
       );
     }
@@ -621,8 +623,13 @@ class ScheduleGenerationViewModel
     final nodDisabled =
         (ruleMap['nod_disabled']?['enabled'] as bool?) ?? true;
 
-    // 소프트 기피 패턴
-    final avoidNood = (ruleMap['avoid_nood']?['enabled'] as bool?) ?? true;
+    // 나이트 전담 월간 목표 나이트 수 (기본 14)
+    final nightDedicatedMonthlyTarget =
+        (ruleMap['max_night_dedicated_shifts']?['count'] as num?)?.toInt() ?? 14;
+
+    // 소프트 기피 패턴 (기본 false — 팀 설정에서 켜야 활성화)
+    // avoidNood=true(하드 시): NOOD 차단 시 실제 스케줄 재현이 어려울 수 있음
+    final avoidNood = (ruleMap['avoid_nood']?['enabled'] as bool?) ?? false;
     final avoidNoe = (ruleMap['avoid_noe']?['enabled'] as bool?) ?? false;
     final avoidEod = (ruleMap['avoid_eod']?['enabled'] as bool?) ?? false;
 
@@ -846,18 +853,41 @@ class ScheduleGenerationViewModel
           if (noEveningThenDay && isDay && isYesterday && prevCode0 == 'E') return false;
           // NOD 하드 금지: 2일전=N, 어제=O, 오늘=D
           if (nodDisabled && isDay && prevCode0 == null && prevCode1 == 'N') return false;
-          // NOOD 하드 금지: 3일전=N, 2일전=O, 어제=O, 오늘=D
-          // avoidNood가 On이면 하드 규칙으로 격상
+          // NOE 하드 금지: 2일전=N, 어제=O, 오늘=E (NOD와 동일 원리 — 이브닝도 1일 오프 불충분)
+          if (nodDisabled && isEvening && prevCode0 == null && prevCode1 == 'N') return false;
+          // NOOD 하드 금지: 3일전=N, 2일전=O, 어제=O, 오늘=D (avoidNood 설정 시)
           if (avoidNood && isDay && prevCode0 == null && prevCode1 == null && prevCode2 == 'N') return false;
 
-          // 월 최대 근무
-          if ((shiftCount[uid] ?? 0) >= maxMonthlyShifts) return false;
-          // 월 최대 야간
-          if (isNight && (nightCount[uid] ?? 0) >= maxMonthlyNightShifts) return false;
+          // 월 최대 근무 (나이트 전담은 면제 — 14나이트 전용 목표 적용)
+          if (!m.member.nightDedicated && (shiftCount[uid] ?? 0) >= maxMonthlyShifts) return false;
+          // 월 최대 야간 (나이트 전담은 별도 목표 14으로 관리, 일반 멤버만 적용)
+          if (isNight && !m.member.nightDedicated &&
+              (nightCount[uid] ?? 0) >= maxMonthlyNightShifts) return false;
+          // 나이트 전담 월간 나이트 상한 (기본 14)
+          if (m.member.nightDedicated && isNight &&
+              (nightCount[uid] ?? 0) >= nightDedicatedMonthlyTarget) return false;
+
           // 최대 연속 근무일
-          if ((consecutiveWork[uid] ?? 0) >= maxConsecutiveDays) return false;
-          // 최대 연속 야간
-          if (isNight && (consecutiveNight[uid] ?? 0) >= maxConsecutiveNights) return false;
+          // isYesterday=true일 때만 체크: 어제 쉬었으면 스트릭이 이미 끊긴 것이므로
+          // (consecutiveWork는 배정 시에만 갱신되어, 쉰 날 이후에도 이전 값 유지 — 직접 계산)
+          if (isYesterday && (consecutiveWork[uid] ?? 0) >= maxConsecutiveDays) return false;
+          // 최대 연속 야간 (나이트 전담은 제외 — 주간 5나이트 상한으로 관리됨)
+          // 어제가 나이트였을 때만 체크: 오프 후 복귀 시에는 스트릭 초기화
+          if (isNight && !m.member.nightDedicated && isYesterday &&
+              prevCode0 == 'N' &&
+              (consecutiveNight[uid] ?? 0) >= maxConsecutiveNights) return false;
+
+          // ── 나이트 전담 전용 하드 규칙 ──
+          // 1) 나이트 블록 후 최소 2오프: 어제=오프, 2일전=N이면 오늘도 오프 필요
+          if (m.member.nightDedicated && isNight &&
+              prevCode0 == null && prevCode1 == 'N') return false;
+          // 2) 주간 최대 5나이트 (7일 롤링 윈도우)
+          if (m.member.nightDedicated && isNight) {
+            final recentDates7 = recentWorkDates[uid]!;
+            final sevenDaysAgoNd = date.subtract(const Duration(days: 7));
+            final recentNights = recentDates7.where((dt) => dt.isAfter(sevenDaysAgoNd)).length;
+            if (recentNights >= 5) return false;
+          }
 
           // 주간 최소 오프: 최근 7일 중 근무일이 (7 - minWeeklyOffDays) 이상이면 오프 필요
           final recentDates = recentWorkDates[uid]!;
@@ -878,11 +908,12 @@ class ScheduleGenerationViewModel
           if (forcedOffDates[uid]?.contains(dateStr) == true) return false;
 
           // post_night_off: 나이트 N연속 후 최소 오프 강제
-          for (final rule in postNightOffRules) {
-            if ((consecutiveNight[uid] ?? 0) >= rule.consecutiveNights) {
-              // consecutive nights reached — need minOffDays off
-              // block all work shifts until off gap met
-              return false;
+          // 나이트 전담은 자체 최소 2오프 규칙으로 관리되므로 이 커스텀 룰 적용 제외
+          if (!m.member.nightDedicated) {
+            for (final rule in postNightOffRules) {
+              if ((consecutiveNight[uid] ?? 0) >= rule.consecutiveNights) {
+                return false;
+              }
             }
           }
 
@@ -927,22 +958,70 @@ class ScheduleGenerationViewModel
           final prevCode2 = prevCodes[uid]![2];
 
           // ── 페이싱 기반 공평 배분 ──
-          // 목표값 = 실제 1인당 예상 근무수 (max_monthly_shifts가 아님!)
-          // 예: 31일 × 3유형 × 1명 / 멤버10명 = 9.3회
-          // max를 쓰면 빈 멤버 부채가 폭발해서 초반 일한 멤버가 한달 내내 밀림.
-          final totalSlotsNeeded =
-              dayCount * workShiftTypes.length.toDouble();
-          final targetPerMember = totalSlotsNeeded / members.length;
-          final expectedShifts = targetPerMember * progressRatio;
-          final shiftDebt = expectedShifts - (shiftCount[uid] ?? 0);
-          s += (shiftDebt * 20).round();
+          if (m.member.nightDedicated) {
+            // 나이트 전담: 월 14나이트 목표로만 페이싱 (야간 페이싱 섹션에서 처리)
+            // 여기서는 제외 (별도 야간 섹션에서 강한 보너스 적용)
+          } else {
+            // 일반 멤버: 전체 슬롯 기반 목표
+            // 목표값 = 실제 1인당 예상 근무수 (max_monthly_shifts가 아님!)
+            final nonDedicatedMembers = members.where((m) => !m.member.nightDedicated).length;
+            final totalSlotsNeeded = dayCount * workShiftTypes.length.toDouble();
+            final targetPerMember = nonDedicatedMembers > 0
+                ? totalSlotsNeeded / nonDedicatedMembers
+                : totalSlotsNeeded / members.length;
+            final expectedShifts = targetPerMember * progressRatio;
+            final shiftDebt = expectedShifts - (shiftCount[uid] ?? 0);
+            s += (shiftDebt * 20).round();
+          }
 
-          // 야간 페이싱 균등 (나이트 전용 목표)
+          // 야간 페이싱
           if (isNight) {
-            final nightSlots = dayCount * progressRatio;
-            final nightTarget = nightSlots / members.length;
-            final nightDebt = nightTarget - (nightCount[uid] ?? 0);
-            s += (nightDebt * 25).round();
+            if (m.member.nightDedicated) {
+              // 나이트 전담: 월 14나이트 고정 목표로 페이싱
+              final targetByNow = nightDedicatedMonthlyTarget * progressRatio;
+              final nightDebt = targetByNow - (nightCount[uid] ?? 0);
+              s += (nightDebt * 40).round();
+
+              // 오프 과다 방지: 실제 오프 일수로 N 복귀 유도 (최대 6오프 기준)
+              // prevCode 3슬롯 범위를 넘는 4~6일 오프도 lastWorkedDate로 감지
+              final daysSinceLastN = lastWorkedDate[uid] != null
+                  ? date.difference(lastWorkedDate[uid]!).inDays
+                  : 0;
+              if (daysSinceLastN >= 6) {
+                s += 100; // 6일 오프 → 매우 강하게 N 유도 (상한선 도달)
+              } else if (daysSinceLastN >= 4) {
+                s += 60;  // 4~5일 오프 → 강하게 유도
+              } else if (daysSinceLastN >= 3) {
+                s += 30;  // 3일 오프 (최소 2오프 직후) → 복귀 유도
+              }
+            } else {
+              // 일반 멤버: 전체 슬롯 기반 목표
+              final nightSlots = dayCount * progressRatio;
+              final nightTarget = nightSlots / members.length;
+              final nightDebt = nightTarget - (nightCount[uid] ?? 0);
+              s += (nightDebt * 25).round();
+            }
+          }
+
+          // ── 블록 연속성 보너스 (실제 병동의 핵심 패턴) ──
+          // 3~4일 블록이 표준, 5일은 인원 부족 시 부득이하게만 허용
+          if (isYesterday && prevCode0 == shiftCode) {
+            final consec = consecutiveWork[uid] ?? 0;
+            if (consec < 3) {
+              s += 70; // 1~2일 연속 → 3일 블록 완성 강한 유도
+            } else if (consec < 4) {
+              s += 20; // 3일 연속 → 4일까지는 허용 (약한 보너스)
+            } else {
+              s -= 60; // 4일 이후 → 5일 연장은 강하게 억제 (최후의 수단)
+            }
+          }
+          // 1일 오프 후 같은 유형 복귀 (O 삽입 블록: D D O D 등) — 부드러운 보너스
+          if (!isYesterday && prevCode0 == null && prevCode1 == shiftCode) {
+            s += 20;
+          }
+          // 오프 없이 다른 근무 유형으로 바로 전환 시 패널티 (D→E, E→N 직접 전환 등)
+          if (isYesterday && prevCode0 != null && prevCode0 != shiftCode) {
+            s -= 40; // 오프 없는 유형 전환 억제
           }
 
           // ── 생체리듬 흐름 보너스 (D→E→N 순방향 선호) ──
@@ -950,8 +1029,8 @@ class ScheduleGenerationViewModel
           if (isEvening && isYesterday && prevCode0 == 'D') s += 30;
           // E→N: 순방향
           if (isNight && isYesterday && prevCode0 == 'E') s += 30;
-          // N→O→E: N 후 하루 쉬고 E (완충)
-          if (isEvening && !isYesterday && prevCode0 == null && prevCode1 == 'N') s += 20;
+          // N→O→O→D/E: 표준 회복 후 복귀 (NOOD/NOOE) — 약한 보너스
+          if ((isDay || isEvening) && prevCode0 == null && prevCode1 == null && prevCode2 == 'N') s += 15;
 
           // 역방향 패널티
           // D→N 직접: E 건너뜀
@@ -978,15 +1057,17 @@ class ScheduleGenerationViewModel
             if (skill == 'mid' || skill == 'senior') s += 30;
           }
 
-          // 소프트 기피 패턴 페널티 (페이싱 보너스 압도할 만큼 강하게)
-          // NOE: 2일전=N, 어제=O, 오늘=E  (N→O→E)
-          if (avoidNoe && isEvening && prevCode0 == null && prevCode1 == 'N') s -= 150;
-          // EOD: 2일전=E, 어제=O, 오늘=D  (E→O→D)
-          if (avoidEod && isDay && prevCode0 == null && prevCode1 == 'E') s -= 120;
-          // NOOD (하드로 격상했으니 여기는 NOD 소프트 페널티: 2일전=N, 어제=O, 오늘=D)
+          // 소프트 기피 패턴 페널티 (동일 가중치 -150, 우선순위는 사용자 설정 예정)
+          // NOD (N→O→D, avoidNood=false일 때만; true이면 이미 하드 차단)
           if (!avoidNood && isDay && prevCode0 == null && prevCode1 == 'N') s -= 150;
-          // NOOE: 3일전=N, 2일전=O, 어제=O, 오늘=E
-          if (isEvening && prevCode0 == null && prevCode1 == null && prevCode2 == 'N') s -= 120;
+          // NOOD (N→O→O→D, avoidNood=false일 때 소프트 페널티)
+          if (!avoidNood && isDay && prevCode0 == null && prevCode1 == null && prevCode2 == 'N') s -= 150;
+          // NOE (N→O→E, avoidNoe 설정 시; nodDisabled=true이면 이미 하드 차단됨)
+          if (avoidNoe && isEvening && prevCode0 == null && prevCode1 == 'N') s -= 150;
+          // NOOE (N→O→O→E)
+          if (avoidNoe && isEvening && prevCode0 == null && prevCode1 == null && prevCode2 == 'N') s -= 150;
+          // EOD (E→O→D)
+          if (avoidEod && isDay && prevCode0 == null && prevCode1 == 'E') s -= 150;
 
           // ── 커스텀 소프트 룰 ──
 

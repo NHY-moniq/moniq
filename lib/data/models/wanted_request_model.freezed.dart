@@ -30,6 +30,8 @@ mixin _$WantedRequestModel {
   DateTime get periodEnd => throw _privateConstructorUsedError;
   DateTime? get deadline => throw _privateConstructorUsedError;
   String get status => throw _privateConstructorUsedError; // collecting, closed
+  @JsonKey(name: 'wanted_type')
+  String get wantedType => throw _privateConstructorUsedError;
   @JsonKey(name: 'created_by')
   String get createdBy => throw _privateConstructorUsedError;
   @JsonKey(name: 'created_at')
@@ -59,6 +61,7 @@ abstract class $WantedRequestModelCopyWith<$Res> {
     @JsonKey(name: 'period_end') DateTime periodEnd,
     DateTime? deadline,
     String status,
+    @JsonKey(name: 'wanted_type') String wantedType,
     @JsonKey(name: 'created_by') String createdBy,
     @JsonKey(name: 'created_at') DateTime? createdAt,
   });
@@ -85,6 +88,7 @@ class _$WantedRequestModelCopyWithImpl<$Res, $Val extends WantedRequestModel>
     Object? periodEnd = null,
     Object? deadline = freezed,
     Object? status = null,
+    Object? wantedType = null,
     Object? createdBy = null,
     Object? createdAt = freezed,
   }) {
@@ -113,6 +117,10 @@ class _$WantedRequestModelCopyWithImpl<$Res, $Val extends WantedRequestModel>
             status: null == status
                 ? _value.status
                 : status // ignore: cast_nullable_to_non_nullable
+                      as String,
+            wantedType: null == wantedType
+                ? _value.wantedType
+                : wantedType // ignore: cast_nullable_to_non_nullable
                       as String,
             createdBy: null == createdBy
                 ? _value.createdBy
@@ -144,6 +152,7 @@ abstract class _$$WantedRequestModelImplCopyWith<$Res>
     @JsonKey(name: 'period_end') DateTime periodEnd,
     DateTime? deadline,
     String status,
+    @JsonKey(name: 'wanted_type') String wantedType,
     @JsonKey(name: 'created_by') String createdBy,
     @JsonKey(name: 'created_at') DateTime? createdAt,
   });
@@ -169,6 +178,7 @@ class __$$WantedRequestModelImplCopyWithImpl<$Res>
     Object? periodEnd = null,
     Object? deadline = freezed,
     Object? status = null,
+    Object? wantedType = null,
     Object? createdBy = null,
     Object? createdAt = freezed,
   }) {
@@ -198,6 +208,10 @@ class __$$WantedRequestModelImplCopyWithImpl<$Res>
             ? _value.status
             : status // ignore: cast_nullable_to_non_nullable
                   as String,
+        wantedType: null == wantedType
+            ? _value.wantedType
+            : wantedType // ignore: cast_nullable_to_non_nullable
+                  as String,
         createdBy: null == createdBy
             ? _value.createdBy
             : createdBy // ignore: cast_nullable_to_non_nullable
@@ -221,6 +235,7 @@ class _$WantedRequestModelImpl implements _WantedRequestModel {
     @JsonKey(name: 'period_end') required this.periodEnd,
     this.deadline,
     this.status = 'collecting',
+    @JsonKey(name: 'wanted_type') this.wantedType = 'day_off',
     @JsonKey(name: 'created_by') required this.createdBy,
     @JsonKey(name: 'created_at') this.createdAt,
   });
@@ -246,6 +261,9 @@ class _$WantedRequestModelImpl implements _WantedRequestModel {
   final String status;
   // collecting, closed
   @override
+  @JsonKey(name: 'wanted_type')
+  final String wantedType;
+  @override
   @JsonKey(name: 'created_by')
   final String createdBy;
   @override
@@ -254,7 +272,7 @@ class _$WantedRequestModelImpl implements _WantedRequestModel {
 
   @override
   String toString() {
-    return 'WantedRequestModel(id: $id, teamId: $teamId, periodStart: $periodStart, periodEnd: $periodEnd, deadline: $deadline, status: $status, createdBy: $createdBy, createdAt: $createdAt)';
+    return 'WantedRequestModel(id: $id, teamId: $teamId, periodStart: $periodStart, periodEnd: $periodEnd, deadline: $deadline, status: $status, wantedType: $wantedType, createdBy: $createdBy, createdAt: $createdAt)';
   }
 
   @override
@@ -271,6 +289,8 @@ class _$WantedRequestModelImpl implements _WantedRequestModel {
             (identical(other.deadline, deadline) ||
                 other.deadline == deadline) &&
             (identical(other.status, status) || other.status == status) &&
+            (identical(other.wantedType, wantedType) ||
+                other.wantedType == wantedType) &&
             (identical(other.createdBy, createdBy) ||
                 other.createdBy == createdBy) &&
             (identical(other.createdAt, createdAt) ||
@@ -287,6 +307,7 @@ class _$WantedRequestModelImpl implements _WantedRequestModel {
     periodEnd,
     deadline,
     status,
+    wantedType,
     createdBy,
     createdAt,
   );
@@ -316,6 +337,7 @@ abstract class _WantedRequestModel implements WantedRequestModel {
     @JsonKey(name: 'period_end') required final DateTime periodEnd,
     final DateTime? deadline,
     final String status,
+    @JsonKey(name: 'wanted_type') final String wantedType,
     @JsonKey(name: 'created_by') required final String createdBy,
     @JsonKey(name: 'created_at') final DateTime? createdAt,
   }) = _$WantedRequestModelImpl;
@@ -338,6 +360,9 @@ abstract class _WantedRequestModel implements WantedRequestModel {
   DateTime? get deadline;
   @override
   String get status; // collecting, closed
+  @override
+  @JsonKey(name: 'wanted_type')
+  String get wantedType;
   @override
   @JsonKey(name: 'created_by')
   String get createdBy;
@@ -370,6 +395,8 @@ mixin _$WantedEntryModel {
   DateTime get wantedDate => throw _privateConstructorUsedError;
   String? get reason => throw _privateConstructorUsedError;
   int get priority => throw _privateConstructorUsedError; // 1=최우선, 2=차선, 3=가능하면
+  @JsonKey(name: 'shift_type_id')
+  String? get shiftTypeId => throw _privateConstructorUsedError;
   @JsonKey(name: 'created_at')
   DateTime? get createdAt => throw _privateConstructorUsedError;
 
@@ -398,6 +425,7 @@ abstract class $WantedEntryModelCopyWith<$Res> {
     @JsonKey(name: 'wanted_date') DateTime wantedDate,
     String? reason,
     int priority,
+    @JsonKey(name: 'shift_type_id') String? shiftTypeId,
     @JsonKey(name: 'created_at') DateTime? createdAt,
   });
 }
@@ -424,6 +452,7 @@ class _$WantedEntryModelCopyWithImpl<$Res, $Val extends WantedEntryModel>
     Object? wantedDate = null,
     Object? reason = freezed,
     Object? priority = null,
+    Object? shiftTypeId = freezed,
     Object? createdAt = freezed,
   }) {
     return _then(
@@ -456,6 +485,10 @@ class _$WantedEntryModelCopyWithImpl<$Res, $Val extends WantedEntryModel>
                 ? _value.priority
                 : priority // ignore: cast_nullable_to_non_nullable
                       as int,
+            shiftTypeId: freezed == shiftTypeId
+                ? _value.shiftTypeId
+                : shiftTypeId // ignore: cast_nullable_to_non_nullable
+                      as String?,
             createdAt: freezed == createdAt
                 ? _value.createdAt
                 : createdAt // ignore: cast_nullable_to_non_nullable
@@ -483,6 +516,7 @@ abstract class _$$WantedEntryModelImplCopyWith<$Res>
     @JsonKey(name: 'wanted_date') DateTime wantedDate,
     String? reason,
     int priority,
+    @JsonKey(name: 'shift_type_id') String? shiftTypeId,
     @JsonKey(name: 'created_at') DateTime? createdAt,
   });
 }
@@ -508,6 +542,7 @@ class __$$WantedEntryModelImplCopyWithImpl<$Res>
     Object? wantedDate = null,
     Object? reason = freezed,
     Object? priority = null,
+    Object? shiftTypeId = freezed,
     Object? createdAt = freezed,
   }) {
     return _then(
@@ -540,6 +575,10 @@ class __$$WantedEntryModelImplCopyWithImpl<$Res>
             ? _value.priority
             : priority // ignore: cast_nullable_to_non_nullable
                   as int,
+        shiftTypeId: freezed == shiftTypeId
+            ? _value.shiftTypeId
+            : shiftTypeId // ignore: cast_nullable_to_non_nullable
+                  as String?,
         createdAt: freezed == createdAt
             ? _value.createdAt
             : createdAt // ignore: cast_nullable_to_non_nullable
@@ -560,6 +599,7 @@ class _$WantedEntryModelImpl implements _WantedEntryModel {
     @JsonKey(name: 'wanted_date') required this.wantedDate,
     this.reason,
     this.priority = 1,
+    @JsonKey(name: 'shift_type_id') this.shiftTypeId,
     @JsonKey(name: 'created_at') this.createdAt,
   });
 
@@ -587,12 +627,15 @@ class _$WantedEntryModelImpl implements _WantedEntryModel {
   final int priority;
   // 1=최우선, 2=차선, 3=가능하면
   @override
+  @JsonKey(name: 'shift_type_id')
+  final String? shiftTypeId;
+  @override
   @JsonKey(name: 'created_at')
   final DateTime? createdAt;
 
   @override
   String toString() {
-    return 'WantedEntryModel(id: $id, wantedRequestId: $wantedRequestId, teamId: $teamId, userId: $userId, wantedDate: $wantedDate, reason: $reason, priority: $priority, createdAt: $createdAt)';
+    return 'WantedEntryModel(id: $id, wantedRequestId: $wantedRequestId, teamId: $teamId, userId: $userId, wantedDate: $wantedDate, reason: $reason, priority: $priority, shiftTypeId: $shiftTypeId, createdAt: $createdAt)';
   }
 
   @override
@@ -610,6 +653,8 @@ class _$WantedEntryModelImpl implements _WantedEntryModel {
             (identical(other.reason, reason) || other.reason == reason) &&
             (identical(other.priority, priority) ||
                 other.priority == priority) &&
+            (identical(other.shiftTypeId, shiftTypeId) ||
+                other.shiftTypeId == shiftTypeId) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt));
   }
@@ -625,6 +670,7 @@ class _$WantedEntryModelImpl implements _WantedEntryModel {
     wantedDate,
     reason,
     priority,
+    shiftTypeId,
     createdAt,
   );
 
@@ -654,6 +700,7 @@ abstract class _WantedEntryModel implements WantedEntryModel {
     @JsonKey(name: 'wanted_date') required final DateTime wantedDate,
     final String? reason,
     final int priority,
+    @JsonKey(name: 'shift_type_id') final String? shiftTypeId,
     @JsonKey(name: 'created_at') final DateTime? createdAt,
   }) = _$WantedEntryModelImpl;
 
@@ -678,6 +725,9 @@ abstract class _WantedEntryModel implements WantedEntryModel {
   String? get reason;
   @override
   int get priority; // 1=최우선, 2=차선, 3=가능하면
+  @override
+  @JsonKey(name: 'shift_type_id')
+  String? get shiftTypeId;
   @override
   @JsonKey(name: 'created_at')
   DateTime? get createdAt;

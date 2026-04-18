@@ -121,8 +121,10 @@ class AnnouncementRemoteDataSource {
     final teamMap = <String, String>{};
     for (final r in (memberRows as List)) {
       final teamId = r['team_id'] as String;
-      final teamName =
-          (r['teams'] as Map<String, dynamic>?)?['name'] as String? ?? '';
+      final teamJoin = r['teams'] as Map<String, dynamic>?;
+      // 팀이 삭제됐거나 조회 실패한 멤버십은 제외 (is_deleted 누락 방어)
+      if (teamJoin == null) continue;
+      final teamName = teamJoin['name'] as String? ?? '';
       teamMap[teamId] = teamName;
     }
     if (teamMap.isEmpty) return [];

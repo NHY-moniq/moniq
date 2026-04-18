@@ -6,6 +6,7 @@ import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
+import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
@@ -158,18 +159,21 @@ class CalendarScreen extends HookConsumerWidget {
                 Theme.of(context).colorScheme.surfaceContainerLow,
             title: buildAppBarTitle(),
             actions: [
-              Builder(
-                builder: (ctx) => IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+              if (!AdaptiveLayout.isWide(context))
+                Builder(
+                  builder: (ctx) => IconButton(
+                    icon: const Icon(Icons.menu),
+                    onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+                  ),
                 ),
-              ),
             ],
           ),
-          endDrawer: CalendarDrawer(
-            onImportCalendar: () => importDeviceCalendar(context, ref),
-            onExportCalendar: () => exportCalendar(context, ref, state),
-          ),
+          endDrawer: AdaptiveLayout.isWide(context)
+              ? null
+              : CalendarDrawer(
+                  onImportCalendar: () => importDeviceCalendar(context, ref),
+                  onExportCalendar: () => exportCalendar(context, ref, state),
+                ),
           floatingActionButton: Padding(
             padding: const EdgeInsets.only(bottom: 72),
             child: FloatingActionButton.small(
@@ -235,10 +239,16 @@ class CalendarScreen extends HookConsumerWidget {
                         .read(personalShiftTypesProvider)
                         .map((st) => st.name)
                         .toSet();
-                    // 서버 근무만 dot
+                    final overrides = ref
+                            .watch(personalShiftOverridesProvider)
+                            .valueOrNull ??
+                        const {};
+                    // 서버 근무만 dot (오버라이드 색상 적용)
                     for (final s
                         in events.whereType<ShiftWithType>().take(2)) {
-                      dots.add(_shiftDot(parseHexColor(s.shiftType.color)));
+                      final ov = overrides[s.shift.id];
+                      final colorHex = ov?.color ?? s.shiftType.color;
+                      dots.add(_shiftDot(parseHexColor(colorHex)));
                     }
                     // 개인 일정 중 근무 유형 매칭만 dot
                     for (final e in events.whereType<PersonalEvent>()) {
@@ -290,6 +300,7 @@ class CalendarScreen extends HookConsumerWidget {
                   shifts: state.selectedDateShifts ?? [],
                   events: dateEvents,
                   notes: dateNotes,
+                  hasTeamSchedule: state.monthlyShifts.isNotEmpty,
                 ),
 
                 const SizedBox(height: 120),

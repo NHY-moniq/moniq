@@ -1,9 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/auth_error_utils.dart';
+import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
 
@@ -75,8 +75,19 @@ class LoginScreen extends HookConsumerWidget {
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: Form(
+                padding: EdgeInsets.symmetric(
+                  horizontal: AdaptiveLayout.isWide(context) ? 0 : 28,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal:
+                            AdaptiveLayout.isWide(context) ? 0 : 0,
+                        vertical: AdaptiveLayout.isWide(context) ? 32 : 0,
+                      ),
+                      child: Form(
                   key: formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -214,31 +225,18 @@ class LoginScreen extends HookConsumerWidget {
                             ),
                           ),
                           const SizedBox(width: AppSpacing.lg),
-                          if (defaultTargetPlatform == TargetPlatform.iOS)
-                            Expanded(
-                              child: _SocialPillButton(
-                                onPressed: () => handleSocialLogin(
-                                  ref
-                                      .read(authViewModelProvider.notifier)
-                                      .signInWithApple,
-                                ),
-                                icon: Icons.apple,
-                                label: 'Apple',
+                          Expanded(
+                            child: _SocialPillButton(
+                              onPressed: () => handleSocialLogin(
+                                ref
+                                    .read(authViewModelProvider.notifier)
+                                    .signInWithKakao,
                               ),
-                            )
-                          else
-                            Expanded(
-                              child: _SocialPillButton(
-                                onPressed: () => handleSocialLogin(
-                                  ref
-                                      .read(authViewModelProvider.notifier)
-                                      .signInWithKakao,
-                                ),
-                                icon: Icons.chat_bubble,
-                                label: '카카오',
-                                backgroundColor: const Color(0xFFFEE500),
-                              ),
+                              icon: Icons.chat_bubble,
+                              label: '카카오',
+                              backgroundColor: const Color(0xFFFEE500),
                             ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: AppSpacing.xxxl),
@@ -270,6 +268,9 @@ class LoginScreen extends HookConsumerWidget {
                       ),
                       const SizedBox(height: AppSpacing.xxl),
                     ],
+                  ),
+                      ),
+                    ),
                   ),
                 ),
               ),

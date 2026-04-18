@@ -1,7 +1,9 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_note_local_data_source.dart';
+import 'package:moniq/data/datasources/personal_shift_override_remote_data_source.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
+import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 
@@ -52,6 +54,22 @@ final personalShiftTypeDataSourceProvider =
 final personalShiftTypesProvider = Provider<List<PersonalShiftType>>(
   (ref) => ref.watch(personalShiftTypeDataSourceProvider).getAll(),
 );
+
+final personalShiftOverrideRemoteProvider =
+    Provider<PersonalShiftOverrideRemoteDataSource>(
+  (ref) => PersonalShiftOverrideRemoteDataSource(
+    client: ref.watch(supabaseClientProvider),
+  ),
+);
+
+/// shiftId → override (Supabase에서 로드)
+final personalShiftOverridesProvider =
+    FutureProvider<Map<String, PersonalShiftOverrideRemote>>((ref) async {
+  ref.watch(eventRefreshProvider);
+  // 인증 상태 변경 시 재조회
+  ref.watch(currentUserProvider);
+  return ref.read(personalShiftOverrideRemoteProvider).fetchMine();
+});
 
 final monthlyNotesProvider =
     Provider.family<Map<DateTime, List<PersonalNote>>, DateTime>(

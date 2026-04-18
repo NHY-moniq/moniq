@@ -30,8 +30,6 @@ dependencies:
 
   # Social auth
   google_sign_in: ^6.2.2
-  sign_in_with_apple: ^6.1.4
-  # kakao_flutter_sdk_user: ^1.9.7  # TODO: 호환 버전 나오면 복원
 
   # Calendar
   table_calendar: ^3.1.2

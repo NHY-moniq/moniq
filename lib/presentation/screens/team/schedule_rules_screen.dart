@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/shift_rule_model.dart';
+import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/schedule_generation_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
@@ -237,10 +238,11 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
       },
       child: SingleChildScrollView(
         padding: AppSpacing.screenAll,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── 하드 패턴 금지 ──
+        child: MaxWidthLayout(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── 하드 패턴 금지 ──
             ScheduleRuleSectionHeader(
               title: '패턴 금지 (필수)',
               subtitle: '위반 시 해당 배정을 절대 허용하지 않습니다',
@@ -479,7 +481,8 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
             ),
 
             const SizedBox(height: AppSpacing.xxxl),
-          ],
+            ],
+          ),
         ),
       ),
     );

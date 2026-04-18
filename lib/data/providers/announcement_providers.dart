@@ -20,6 +20,11 @@ final announcementRepositoryProvider = Provider<AnnouncementRepository>(
 /// 내 팀 공지사항 (홈 화면용, 팀 이름 포함)
 final myAnnouncementsProvider =
     FutureProvider<List<AnnouncementWithTeam>>((ref) async {
+  // 로그인/로그아웃 시 캐시 폐기하고 재조회
+  ref.watch(authStateChangesProvider);
+  final userId =
+      ref.watch(supabaseClientProvider).auth.currentUser?.id;
+  if (userId == null) return [];
   final repo = ref.watch(announcementRepositoryProvider);
   return repo.getMyTeamsAnnouncements();
 });
@@ -27,6 +32,10 @@ final myAnnouncementsProvider =
 /// 특정 팀 공지사항
 final teamAnnouncementsProvider =
     FutureProvider.family<List<AnnouncementModel>, String>((ref, teamId) async {
+  ref.watch(authStateChangesProvider);
+  final userId =
+      ref.watch(supabaseClientProvider).auth.currentUser?.id;
+  if (userId == null) return [];
   final repo = ref.watch(announcementRepositoryProvider);
   return repo.getByTeam(teamId);
 });

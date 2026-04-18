@@ -5,7 +5,7 @@ import 'package:moniq/presentation/viewmodels/wanted_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
-/// 관리자: 희망 휴무 수집 요청 생성 및 현황 관리
+/// 관리자: 원티드 수집 요청 생성 및 현황 관리
 class WantedRequestScreen extends HookConsumerWidget {
   const WantedRequestScreen({
     super.key,
@@ -21,7 +21,7 @@ class WantedRequestScreen extends HookConsumerWidget {
     final stateAsync = ref.watch(wantedAdminViewModelProvider(teamId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('희망 휴무 수집')),
+      appBar: AppBar(title: const Text('원티드 수집')),
       body: stateAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(

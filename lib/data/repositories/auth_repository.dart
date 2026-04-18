@@ -37,12 +37,12 @@ class AuthRepository {
     return _dataSource.signInWithGoogle();
   }
 
-  Future<AuthResponse> signInWithApple() {
-    return _dataSource.signInWithApple();
-  }
-
   Future<void> signInWithKakao() {
     return _dataSource.signInWithKakao();
+  }
+
+  Future<void> resendVerificationEmail(String email) {
+    return _dataSource.resendVerificationEmail(email);
   }
 
   Future<void> signOut() {

@@ -8,6 +8,7 @@ import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/schedule_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
+import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
@@ -37,14 +38,22 @@ class TeamScreen extends HookConsumerWidget {
 
     if (teamsAsync.isLoading || favoriteTeamAsync.isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('팀')),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+          title: const Text('팀'),
+        ),
         body: const MoniqLoadingView(),
       );
     }
 
     if (teamsAsync.hasError) {
       return Scaffold(
-        appBar: AppBar(title: const Text('팀')),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+          title: const Text('팀'),
+        ),
         body: MoniqErrorView(
           message: '팀 정보를 불러올 수 없습니다',
           onRetry: () => ref.read(teamViewModelProvider.notifier).refresh(),
@@ -54,7 +63,11 @@ class TeamScreen extends HookConsumerWidget {
 
     if (favoriteTeamAsync.hasError) {
       return Scaffold(
-        appBar: AppBar(title: const Text('팀')),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+          title: const Text('팀'),
+        ),
         body: MoniqErrorView(
           message: '즐겨찾기 팀을 불러올 수 없습니다',
           onRetry: () => ref.invalidate(favoriteTeamProvider),
@@ -67,7 +80,11 @@ class TeamScreen extends HookConsumerWidget {
 
     if (teams.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('팀')),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+          title: const Text('팀'),
+        ),
         body: MoniqEmptyState(
           icon: Icons.groups_outlined,
           character: CharacterType.orange,
@@ -100,7 +117,11 @@ class _NoFavoriteView extends HookConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('팀')),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        title: const Text('팀'),
+      ),
       body: Padding(
         padding: AppSpacing.screenAll,
         child: Column(
@@ -166,7 +187,9 @@ class _TeamCalendarView extends HookConsumerWidget {
         : StartingDayOfWeek.monday;
 
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
       appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
         title: Row(
           children: [
             TeamProfileAvatar(icon: team.icon, radius: 16),
@@ -187,15 +210,18 @@ class _TeamCalendarView extends HookConsumerWidget {
           ],
         ),
         actions: [
-          Builder(
-            builder: (ctx) => IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+          if (!AdaptiveLayout.isWide(context))
+            Builder(
+              builder: (ctx) => IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+              ),
             ),
-          ),
         ],
       ),
-      endDrawer: _TeamDrawer(teams: teams, currentTeamId: team.id, scaffoldContext: context),
+      endDrawer: AdaptiveLayout.isWide(context)
+          ? null
+          : _TeamDrawer(teams: teams, currentTeamId: team.id, scaffoldContext: context),
       body: calendarAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
@@ -329,32 +355,73 @@ class _TeamDrawer extends HookConsumerWidget {
     final teamDetail = ref.watch(teamDetailViewModelProvider(currentTeamId));
     final isAdmin = teamDetail.valueOrNull?.isAdmin ?? false;
 
+    final cs = theme.colorScheme;
+
     return Drawer(
-      width: MediaQuery.of(context).size.width * 0.66,
+      width: 280,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topRight: Radius.circular(AppRadius.xl),
+          bottomRight: Radius.circular(AppRadius.xl),
+        ),
+      ),
+      elevation: 16,
       child: SafeArea(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            Padding(
-              padding: AppSpacing.screenAll,
-              child: Text(
-                '팀 메뉴',
-                style: theme.textTheme.titleLarge,
-              ),
-            ),
-
-            // ── 팀 ──
-            _drawerSection(theme, '팀'),
-            _drawerTile(
-              icon: Icons.star,
-              iconColor: Colors.amber,
-              title: '현재 즐겨찾는 팀',
-              trailingText: currentTeam.name,
+            // ── 상단 팀 프로필 (탭 → 팀 설정) ──
+            InkWell(
               onTap: () {
                 Navigator.pop(context);
                 context.push('/teams/$currentTeamId/detail');
               },
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xxl,
+                  AppSpacing.xxl,
+                  AppSpacing.xxl,
+                  AppSpacing.lg,
+                ),
+                child: Row(
+                  children: [
+                    TeamProfileAvatar(icon: currentTeam.icon, radius: 24),
+                    const SizedBox(width: AppSpacing.lg),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            currentTeam.name,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '팀 관리',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
             ),
+            const Divider(height: 1),
+
+            // ── 팀 ──
+            _drawerSection(theme, '팀'),
             _drawerTile(
               icon: Icons.groups_outlined,
               title: '팀 목록',
@@ -362,6 +429,26 @@ class _TeamDrawer extends HookConsumerWidget {
               onTap: () {
                 Navigator.pop(context);
                 context.push('/teams/list');
+              },
+            ),
+
+            // ── 소통 (팀 목록 바로 밑) ──
+            _drawerSection(theme, '소통'),
+            _drawerTile(
+              icon: Icons.campaign_outlined,
+              iconColor: AppColors.brandOrange,
+              title: '팀 공지사항',
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/teams/$currentTeamId/announcements');
+              },
+            ),
+            _drawerTile(
+              icon: Icons.swap_horiz,
+              title: '변경 요청',
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/teams/$currentTeamId/requests');
               },
             ),
 
@@ -383,44 +470,47 @@ class _TeamDrawer extends HookConsumerWidget {
                 });
               },
             ),
-            _drawerTile(
-              icon: Icons.description_outlined,
-              title: 'Excel 샘플 양식',
-              onTap: () {
-                final ctx = scaffoldContext;
-                final shiftRepo = ref.read(shiftRepositoryProvider);
-                Navigator.pop(context);
-                Future.delayed(const Duration(milliseconds: 300), () {
-                  exportSampleTemplate(
-                    ctx,
-                    shiftRepo: shiftRepo,
-                    teamId: currentTeamId,
-                  );
-                });
-              },
-            ),
-            _drawerTile(
-              icon: Icons.upload_file_outlined,
-              title: 'Excel 일정 가져오기',
-              onTap: () {
-                final ctx = scaffoldContext;
-                final shiftRepo = ref.read(shiftRepositoryProvider);
-                final scheduleRepo = ref.read(scheduleRepositoryProvider);
-                final teamRepo = ref.read(teamRepositoryProvider);
-                Navigator.pop(context);
-                Future.delayed(const Duration(milliseconds: 300), () {
-                  importTeamExcel(
-                    ctx,
-                    teamId: currentTeamId,
-                    shiftRepo: shiftRepo,
-                    scheduleRepo: scheduleRepo,
-                    teamRepo: teamRepo,
-                  );
-                });
-              },
-            ),
+            // Excel 관련 메뉴는 관리자만 표시
+            if (isAdmin) ...[
+              _drawerTile(
+                icon: Icons.description_outlined,
+                title: 'Excel 샘플 양식',
+                onTap: () {
+                  final ctx = scaffoldContext;
+                  final shiftRepo = ref.read(shiftRepositoryProvider);
+                  Navigator.pop(context);
+                  Future.delayed(const Duration(milliseconds: 300), () {
+                    exportSampleTemplate(
+                      ctx,
+                      shiftRepo: shiftRepo,
+                      teamId: currentTeamId,
+                    );
+                  });
+                },
+              ),
+              _drawerTile(
+                icon: Icons.upload_file_outlined,
+                title: 'Excel 일정 가져오기',
+                onTap: () {
+                  final ctx = scaffoldContext;
+                  final shiftRepo = ref.read(shiftRepositoryProvider);
+                  final scheduleRepo = ref.read(scheduleRepositoryProvider);
+                  final teamRepo = ref.read(teamRepositoryProvider);
+                  Navigator.pop(context);
+                  Future.delayed(const Duration(milliseconds: 300), () {
+                    importTeamExcel(
+                      ctx,
+                      teamId: currentTeamId,
+                      shiftRepo: shiftRepo,
+                      scheduleRepo: scheduleRepo,
+                      teamRepo: teamRepo,
+                    );
+                  });
+                },
+              ),
+            ],
 
-            // ── 관리 (관리자만) ──
+            // ── 일정 전체 삭제 (관리자만, 맨 하단) ──
             if (isAdmin) ...[
               _drawerSection(theme, '관리'),
               _drawerTile(
@@ -431,7 +521,6 @@ class _TeamDrawer extends HookConsumerWidget {
                   final state = teamDetail.valueOrNull;
                   if (state == null) return;
                   final ctx = scaffoldContext;
-                  // 드로어 dispose 전에 repo 캡처
                   final scheduleRepo =
                       ref.read(scheduleRepositoryProvider);
                   Navigator.pop(context);
@@ -446,26 +535,6 @@ class _TeamDrawer extends HookConsumerWidget {
                 },
               ),
             ],
-
-            // ── 소통 ──
-            _drawerSection(theme, '소통'),
-            _drawerTile(
-              icon: Icons.campaign_outlined,
-              iconColor: AppColors.brandOrange,
-              title: '팀 공지사항',
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/teams/$currentTeamId/announcements');
-              },
-            ),
-            _drawerTile(
-              icon: Icons.swap_horiz,
-              title: '변경 요청',
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/teams/$currentTeamId/requests');
-              },
-            ),
             const SizedBox(height: AppSpacing.lg),
           ],
         ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:moniq/data/models/wanted_request_model.dart';
+import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/wanted_viewmodel.dart';
@@ -55,7 +57,9 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
 
     return SingleChildScrollView(
       padding: AppSpacing.screenAll,
-      child: Column(
+      child: MaxWidthLayout(
+        maxWidth: 640,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 안내 카드
@@ -72,7 +76,7 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
-                      '근무표 생성 전 팀원들의 희망 휴무일을 수집합니다.\n요청을 생성하면 팀원들에게 알림이 발송됩니다.',
+                      '근무표 생성 전 팀원들의 희망사항을 수집합니다.\n요청을 생성하면 팀원들에게 알림이 발송됩니다.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.primary,
                       ),
@@ -197,20 +201,25 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
                           _hasValidationError
                       ? null
                       : () async {
-                          final success = await ref
-                              .read(wantedAdminViewModelProvider(widget.teamId)
-                                  .notifier)
-                              .createWantedRequest(
-                                periodStart: _periodStart!,
-                                periodEnd: _periodEnd!,
-                                deadline: _deadline,
-                                teamName: widget.teamName,
-                              );
-                          if (success && context.mounted) {
+                          final notifier = ref.read(
+                              wantedAdminViewModelProvider(widget.teamId)
+                                  .notifier);
+                          var allOk = true;
+                          for (final type in WantedType.values) {
+                            final ok = await notifier.createWantedRequest(
+                              periodStart: _periodStart!,
+                              periodEnd: _periodEnd!,
+                              deadline: _deadline,
+                              teamName: widget.teamName,
+                              wantedType: type.value,
+                            );
+                            if (!ok) allOk = false;
+                          }
+                          if (allOk && context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                    '희망 휴무 수집 요청이 생성되고 알림이 발송되었습니다'),
+                                    '전체 수집 유형 요청이 생성되고 알림이 발송되었습니다'),
                               ),
                             );
                           }
@@ -222,12 +231,13 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.send),
-                  label: Text(isCreating ? '생성 중...' : '수집 요청 생성 및 알림 발송'),
+                  label: Text(isCreating ? '생성 중...' : '희망 근무 요청 생성'),
                 );
               },
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -272,10 +282,8 @@ class WantedRequestActiveView extends HookConsumerWidget {
     }
     final userGroups = groupedByUser.values.toList();
 
-    return Column(
-      children: [
-        // 상태 배너
-        Container(
+    // 상태 배너 (공통)
+    Widget statusBanner() => Container(
           width: double.infinity,
           padding: const EdgeInsets.all(AppSpacing.lg),
           color: colorScheme.primary.withValues(alpha: 0.08),
@@ -284,13 +292,10 @@ class WantedRequestActiveView extends HookConsumerWidget {
             children: [
               Row(
                 children: [
-                  Icon(
-                    Icons.event_note,
-                    color: colorScheme.primary,
-                  ),
+                  Icon(Icons.event_note, color: colorScheme.primary),
                   const SizedBox(width: AppSpacing.sm),
                   Text(
-                    '수집 진행중',
+                    '${WantedType.fromString(request.wantedType).label} 수집 진행중',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: colorScheme.primary,
@@ -314,7 +319,162 @@ class WantedRequestActiveView extends HookConsumerWidget {
               ),
             ],
           ),
-        ),
+        );
+
+    // 하단 버튼 (공통)
+    Widget bottomButtons() => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('수집 마감'),
+                          content: const Text('희망 휴무 수집을 마감하시겠습니까?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('취소'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('마감'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await ref
+                            .read(wantedAdminViewModelProvider(teamId).notifier)
+                            .closeRequest();
+                      }
+                    },
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('수집 마감'),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () =>
+                        context.push('/teams/$teamId/schedule/generate'),
+                    icon: const Icon(Icons.auto_awesome),
+                    label: const Text('스케줄 생성'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+
+    // ── 웹: 2-column (좌: 상태+버튼, 우: DataTable) ──
+    if (AdaptiveLayout.isWide(context)) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 왼쪽: 상태 + 버튼
+          Container(
+            width: 320,
+            decoration: BoxDecoration(
+              border: Border(
+                right: BorderSide(color: colorScheme.outlineVariant, width: 1),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                statusBanner(),
+                const Spacer(),
+                bottomButtons(),
+              ],
+            ),
+          ),
+          // 오른쪽: 응답 목록 DataTable
+          Expanded(
+            child: state.allEntries.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.hourglass_empty,
+                            size: 48,
+                            color: colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.3)),
+                        const SizedBox(height: AppSpacing.md),
+                        Text('아직 입력된 희망 휴무일이 없습니다',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant)),
+                      ],
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      children: userGroups.map((group) {
+                        return Padding(
+                          padding:
+                              const EdgeInsets.only(bottom: AppSpacing.md),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 100,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                      top: AppSpacing.xs),
+                                  child: Text(
+                                    group.displayName,
+                                    style: theme.textTheme.bodyMedium
+                                        ?.copyWith(
+                                            fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Wrap(
+                                  spacing: AppSpacing.xs,
+                                  runSpacing: AppSpacing.xs,
+                                  children: group.dates.map((d) {
+                                    return Chip(
+                                      label: Text(dateFormat.format(d),
+                                          style: theme.textTheme.bodySmall),
+                                      visualDensity: VisualDensity.compact,
+                                      backgroundColor: colorScheme.primary
+                                          .withValues(alpha: 0.08),
+                                      side: BorderSide.none,
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                    top: AppSpacing.xs, left: AppSpacing.sm),
+                                child: Text(
+                                  '${group.dates.length}일',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.primary,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+          ),
+        ],
+      );
+    }
+
+    // ── 모바일 레이아웃 (기존) ──
+    return Column(
+      children: [
+        statusBanner(),
 
         // 엔트리 목록 (항상 RefreshIndicator로 감싸 새로고침 가능)
         Expanded(
@@ -440,57 +600,7 @@ class WantedRequestActiveView extends HookConsumerWidget {
           ),
         ),
 
-        // 하단 마감 버튼
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('수집 마감'),
-                          content:
-                              const Text('희망 휴무 수집을 마감하시겠습니까?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('취소'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('마감'),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (confirm == true) {
-                        await ref
-                            .read(wantedAdminViewModelProvider(teamId)
-                                .notifier)
-                            .closeRequest();
-                      }
-                    },
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('수집 마감'),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => context.push(
-                        '/teams/$teamId/schedule/generate'),
-                    icon: const Icon(Icons.auto_awesome),
-                    label: const Text('스케줄 생성'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        bottomButtons(),
       ],
     );
   }

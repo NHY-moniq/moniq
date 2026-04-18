@@ -19,33 +19,32 @@ class SignupScreen extends HookConsumerWidget {
     final isLoading = useState(false);
     final errorMessage = useState<String?>(null);
 
-    ref.listen(authViewModelProvider, (prev, next) {
-      next.whenOrNull(
-        data: (user) {
-          if (user != null) {
-            context.go('/home');
-          }
-        },
-        error: (error, _) {
-          errorMessage.value = friendlyAuthError(error);
-        },
-      );
-    });
-
     Future<void> handleSignup() async {
       if (!formKey.currentState!.validate()) return;
       errorMessage.value = null;
       isLoading.value = true;
       try {
-        await ref
+        final response = await ref
             .read(authViewModelProvider.notifier)
-            .signUpWithEmail(
+            .signUpWithEmailRaw(
               email: emailController.text.trim(),
               password: passwordController.text,
               displayName: nameController.text.trim(),
             );
+        if (!context.mounted) return;
+        final user = response.user;
+        // Supabase returns empty identities for already-existing emails
+        if (user != null && (user.identities == null || user.identities!.isEmpty)) {
+          errorMessage.value = '이미 가입된 이메일입니다. 로그인 화면에서 로그인해주세요.';
+          return;
+        }
+        if (user != null && user.emailConfirmedAt == null) {
+          context.go('/verify-email', extra: emailController.text.trim());
+        } else {
+          context.go('/home');
+        }
       } catch (e) {
-        errorMessage.value = e.toString();
+        errorMessage.value = friendlyAuthError(e);
       } finally {
         isLoading.value = false;
       }

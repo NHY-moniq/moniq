@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/shift_rule_model.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
+import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/screens/team/shift_types_list_widgets.dart';
 import 'package:moniq/presentation/screens/team/team_settings_widgets.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
@@ -204,7 +205,8 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
       },
       child: SingleChildScrollView(
         padding: AppSpacing.screenAll,
-        child: Column(
+        child: MaxWidthLayout(
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── 근무 유형 섹션 ──
@@ -413,6 +415,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
 
             const SizedBox(height: AppSpacing.xxxl),
           ],
+        ),
         ),
       ),
     );

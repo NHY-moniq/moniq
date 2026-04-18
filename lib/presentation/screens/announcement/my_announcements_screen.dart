@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/announcement_model.dart';
+import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/announcement_providers.dart';
 import 'package:moniq/presentation/screens/announcement/announcement_screen.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
@@ -18,6 +21,11 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('팀 공지사항')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _onCreateTap(context, ref),
+        icon: const Icon(Icons.add),
+        label: const Text('공지 작성'),
+      ),
       body: announcementsAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
@@ -56,6 +64,62 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Future<void> _onCreateTap(BuildContext context, WidgetRef ref) async {
+    // 로그인 직후 첫 클릭 시 아직 로드 안 됐을 수 있으므로 future를 await
+    List<TeamModel> teams;
+    try {
+      teams = await ref.read(teamViewModelProvider.future);
+    } catch (_) {
+      teams = [];
+    }
+    if (!context.mounted) return;
+    if (teams.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('가입된 팀이 없습니다')),
+      );
+      return;
+    }
+    String? teamId;
+    if (teams.length == 1) {
+      teamId = teams.first.id;
+    } else {
+      teamId = await _pickTeam(context, teams);
+    }
+    if (teamId == null || !context.mounted) return;
+    context.push('/teams/$teamId/announcements');
+  }
+
+  Future<String?> _pickTeam(BuildContext context, List<TeamModel> teams) {
+    return showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Text(
+                '공지를 작성할 팀 선택',
+                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
+            const Divider(height: 1),
+            ...teams.map(
+              (t) => ListTile(
+                leading: const Icon(Icons.groups_outlined),
+                title: Text(t.name),
+                onTap: () => Navigator.pop(ctx, t.id),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+        ),
       ),
     );
   }
