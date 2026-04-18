@@ -106,7 +106,7 @@ class _EntryView extends HookConsumerWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 640),
         child: Column(
-      children: [
+          children: [
         // 타입 전환 칩 (여러 활성 요청이 있을 때만 표시)
         if (state.activeRequests.length > 1)
           Padding(
@@ -186,7 +186,9 @@ class _EntryView extends HookConsumerWidget {
             child: _buildActionButton(context, ref, isExpired),
           ),
         ),
-      ],
+          ],
+        ),
+      ),
     );
   }
 
