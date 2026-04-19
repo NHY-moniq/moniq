@@ -88,11 +88,27 @@ class AnnouncementScreen extends HookConsumerWidget {
 
   void _showDetail(
       BuildContext context, WidgetRef ref, AnnouncementModel a) {
+    final myUserId = ref.read(currentUserProvider)?.id;
+    final isMine = myUserId != null && a.createdBy == myUserId;
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => AnnouncementDetailPage(
+        builder: (detailContext) => AnnouncementDetailPage(
           announcement: a,
+          onEdit: isMine
+              ? () async {
+                  final updated = await showAnnouncementEditSheet(
+                      detailContext, a);
+                  if (updated == true) {
+                    ref.invalidate(teamAnnouncementsProvider(teamId));
+                    ref.invalidate(myAnnouncementsProvider);
+                    if (detailContext.mounted) {
+                      Navigator.pop(detailContext);
+                    }
+                  }
+                }
+              : null,
           onDelete: () async {
             final repo = ref.read(announcementRepositoryProvider);
             await repo.delete(a.id);
@@ -320,6 +336,156 @@ class _PendingAttachment {
   final String path;
 }
 
+/// 공지 수정 바텀시트를 띄운다. 저장 성공 시 true, 취소/변경 없음은 null/false.
+Future<bool?> showAnnouncementEditSheet(
+  BuildContext context,
+  AnnouncementModel announcement,
+) {
+  return showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+    ),
+    builder: (_) => _AnnouncementEditSheet(announcement: announcement),
+  );
+}
+
+class _AnnouncementEditSheet extends ConsumerStatefulWidget {
+  const _AnnouncementEditSheet({required this.announcement});
+  final AnnouncementModel announcement;
+
+  @override
+  ConsumerState<_AnnouncementEditSheet> createState() =>
+      _AnnouncementEditSheetState();
+}
+
+class _AnnouncementEditSheetState
+    extends ConsumerState<_AnnouncementEditSheet> {
+  late final TextEditingController _titleC;
+  late final TextEditingController _contentC;
+  late bool _isPinned;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleC = TextEditingController(text: widget.announcement.title);
+    _contentC = TextEditingController(text: widget.announcement.content ?? '');
+    _isPinned = widget.announcement.isPinned;
+  }
+
+  @override
+  void dispose() {
+    _titleC.dispose();
+    _contentC.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final title = _titleC.text.trim();
+    if (title.isEmpty) return;
+
+    final content = _contentC.text.trim();
+    final originalContent = widget.announcement.content ?? '';
+
+    final titleChanged = title != widget.announcement.title;
+    final contentChanged = content != originalContent;
+    final pinChanged = _isPinned != widget.announcement.isPinned;
+    if (!titleChanged && !contentChanged && !pinChanged) {
+      Navigator.pop(context, false);
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      await ref.read(announcementRepositoryProvider).update(
+            widget.announcement.id,
+            title: titleChanged ? title : null,
+            content: contentChanged ? content : null,
+            isPinned: pinChanged ? _isPinned : null,
+          );
+      if (mounted) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('공지사항이 수정되었습니다')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('수정 실패: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: AppSpacing.xxl,
+        right: AppSpacing.xxl,
+        top: AppSpacing.xxl,
+        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.xxl,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('공지사항 수정',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: AppSpacing.xxl),
+          TextField(
+            controller: _titleC,
+            decoration: const InputDecoration(
+              hintText: '제목',
+              prefixIcon: Icon(Icons.title),
+            ),
+            maxLength: 50,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            controller: _contentC,
+            decoration: const InputDecoration(
+              hintText: '내용 (선택)',
+              prefixIcon: Icon(Icons.notes),
+            ),
+            maxLines: 6,
+            maxLength: 2000,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('상단 고정'),
+            secondary: const Icon(Icons.push_pin_outlined),
+            value: _isPinned,
+            onChanged: _saving
+                ? null
+                : (v) => setState(() => _isPinned = v),
+          ),
+          const SizedBox(height: AppSpacing.xxl),
+          ElevatedButton(
+            onPressed: _saving ? null : _submit,
+            child: _saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('저장'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ══════════════════════════════════════════════
 // 공용 위젯들 (팀 관리 + 홈탭 공유)
 // ══════════════════════════════════════════════
@@ -441,11 +607,13 @@ class AnnouncementDetailPage extends ConsumerStatefulWidget {
     required this.announcement,
     this.teamName,
     this.onDelete,
+    this.onEdit,
   });
 
   final AnnouncementModel announcement;
   final String? teamName;
   final Future<void> Function()? onDelete;
+  final Future<void> Function()? onEdit;
 
   @override
   ConsumerState<AnnouncementDetailPage> createState() =>
@@ -539,6 +707,11 @@ class _AnnouncementDetailPageState
       appBar: AppBar(
         title: Text(widget.teamName ?? '공지사항'),
         actions: [
+          if (widget.onEdit != null)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => widget.onEdit!(),
+            ),
           if (widget.onDelete != null)
             IconButton(
               icon: const Icon(Icons.delete_outline),
