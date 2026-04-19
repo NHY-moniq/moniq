@@ -150,22 +150,32 @@ class ScheduleGenerationViewModel
     if (current == null) return;
     if (current.periodStart == null || current.periodEnd == null) return;
 
-    state = AsyncData(current.copyWith(isGenerating: true, error: null));
+    // 이전 프리뷰가 남아있더라도 생성 시작 시 초기화하여
+    // 항상 새 생성 플로우로 진입한다.
+    final generatingState = current.copyWith(
+      isGenerating: true,
+      error: null,
+      generatedSchedule: null,
+      previewShifts: null,
+      validationWarnings: null,
+      understaffedCount: 0,
+    );
+    state = AsyncData(generatingState);
 
     try {
       final scheduleRepo = ref.read(scheduleRepositoryProvider);
-      final feedbackTuning = await _loadFeedbackTuning(current.teamId);
+      final feedbackTuning = await _loadFeedbackTuning(generatingState.teamId);
 
       // 1. 스케줄 레코드 생성
       final schedule = await scheduleRepo.createSchedule(
-        teamId: current.teamId,
-        periodStart: current.periodStart!,
-        periodEnd: current.periodEnd!,
+        teamId: generatingState.teamId,
+        periodStart: generatingState.periodStart!,
+        periodEnd: generatingState.periodEnd!,
       );
 
       // 2. 자동 배정 알고리즘 실행 (희망 휴무 반영, 제외된 멤버 필터)
-      final activeMembers = current.members
-          .where((m) => !current.excludedMemberIds.contains(m.userId))
+      final activeMembers = generatingState.members
+          .where((m) => !generatingState.excludedMemberIds.contains(m.userId))
           .toList();
       // 2. 자동 배정 알고리즘 실행 (피드백 반영 다중 시도 후 최적안 선택)
       final baseSeed = DateTime.now().microsecondsSinceEpoch;
@@ -175,14 +185,14 @@ class ScheduleGenerationViewModel
       for (var i = 0; i < attemptCount; i++) {
         final candidate = _generateShifts(
           members: activeMembers,
-          shiftTypes: current.shiftTypes,
-          rules: current.rules,
-          customRules: current.customRules,
-          start: current.periodStart!,
-          end: current.periodEnd!,
+          shiftTypes: generatingState.shiftTypes,
+          rules: generatingState.rules,
+          customRules: generatingState.customRules,
+          start: generatingState.periodStart!,
+          end: generatingState.periodEnd!,
           scheduleId: schedule.id,
-          teamId: current.teamId,
-          wantedEntries: current.wantedEntries,
+          teamId: generatingState.teamId,
+          wantedEntries: generatingState.wantedEntries,
           seed: baseSeed + (i * 7919),
           tuning: feedbackTuning,
         );
@@ -203,8 +213,9 @@ class ScheduleGenerationViewModel
       // 4. 미리보기 조회
       final previewShifts = await scheduleRepo.getShiftsBySchedule(schedule.id);
 
-      final stateAfterGen = current.copyWith(
+      final stateAfterGen = generatingState.copyWith(
         isGenerating: false,
+        error: null,
         generatedSchedule: schedule,
         previewShifts: previewShifts,
         validationWarnings: result.warnings,
@@ -221,8 +232,128 @@ class ScheduleGenerationViewModel
       );
     } catch (e) {
       state = AsyncData(
-        current.copyWith(isGenerating: false, error: '스케줄 생성 중 오류가 발생했습니다: $e'),
+        generatingState.copyWith(
+          isGenerating: false,
+          error: '스케줄 생성 중 오류가 발생했습니다: $e',
+        ),
       );
+    }
+  }
+
+  Future<bool> updatePreviewDayAssignments({
+    required DateTime date,
+    required Map<String, String?> assignmentsByUserId,
+  }) async {
+    final current = state.valueOrNull;
+    if (current == null || current.generatedSchedule == null) return false;
+
+    final scheduleRepo = ref.read(scheduleRepositoryProvider);
+    final shiftRepo = ref.read(shiftRepositoryProvider);
+    final scheduleId = current.generatedSchedule!.id;
+    final targetDate = DateTime(date.year, date.month, date.day);
+    final dateStr = _dateStr(targetDate);
+    final previewShifts = current.previewShifts ?? const <ShiftModel>[];
+
+    final existingByUser = <String, ShiftModel>{};
+    for (final shift in previewShifts) {
+      if (_isSameDate(shift.shiftDate, targetDate)) {
+        existingByUser[shift.userId] = shift;
+      }
+    }
+
+    var changed = false;
+
+    for (final entry in assignmentsByUserId.entries) {
+      final userId = entry.key;
+      final nextShiftTypeId = entry.value;
+      final existing = existingByUser[userId];
+
+      if (nextShiftTypeId == null) {
+        if (existing != null) {
+          await shiftRepo.deleteShift(existing.id);
+          changed = true;
+        }
+        continue;
+      }
+
+      if (existing != null) {
+        if (existing.shiftTypeId != nextShiftTypeId) {
+          await shiftRepo.updateShift(
+            existing.id,
+            shiftTypeId: nextShiftTypeId,
+          );
+          changed = true;
+        }
+      } else {
+        await scheduleRepo.insertShifts([
+          {
+            'schedule_id': scheduleId,
+            'team_id': current.teamId,
+            'user_id': userId,
+            'shift_date': dateStr,
+            'shift_type_id': nextShiftTypeId,
+          },
+        ]);
+        changed = true;
+      }
+    }
+
+    if (!changed) return true;
+
+    final updatedPreview = await scheduleRepo.getShiftsBySchedule(scheduleId);
+    final updated = current.copyWith(previewShifts: updatedPreview);
+    final customViolations = _computeCustomRuleViolations(updated);
+    state = AsyncData(updated.copyWith(customRuleViolations: customViolations));
+    return true;
+  }
+
+  Future<bool> saveEditedPreviewAsNewVersion() async {
+    final current = state.valueOrNull;
+    if (current == null || current.generatedSchedule == null) return false;
+    if (current.periodStart == null || current.periodEnd == null) return false;
+
+    final previewShifts = current.previewShifts ?? const <ShiftModel>[];
+    if (previewShifts.isEmpty) return false;
+
+    state = AsyncData(current.copyWith(isGenerating: true, error: null));
+
+    try {
+      final scheduleRepo = ref.read(scheduleRepositoryProvider);
+      final newSchedule = await scheduleRepo.createSchedule(
+        teamId: current.teamId,
+        periodStart: current.periodStart!,
+        periodEnd: current.periodEnd!,
+      );
+
+      final payload = previewShifts
+          .map(
+            (s) => {
+              'schedule_id': newSchedule.id,
+              'team_id': current.teamId,
+              'user_id': s.userId,
+              'shift_date': _dateStr(s.shiftDate),
+              'shift_type_id': s.shiftTypeId,
+            },
+          )
+          .toList();
+
+      await scheduleRepo.insertShifts(payload);
+      final refreshed = await scheduleRepo.getShiftsBySchedule(newSchedule.id);
+      final nextState = current.copyWith(
+        isGenerating: false,
+        generatedSchedule: newSchedule,
+        previewShifts: refreshed,
+      );
+      final customViolations = _computeCustomRuleViolations(nextState);
+      state = AsyncData(
+        nextState.copyWith(customRuleViolations: customViolations),
+      );
+      return true;
+    } catch (e) {
+      state = AsyncData(
+        current.copyWith(isGenerating: false, error: '수정본 저장 중 오류가 발생했습니다: $e'),
+      );
+      return false;
     }
   }
 
@@ -380,6 +511,9 @@ class ScheduleGenerationViewModel
 
   bool _isSameDate(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
+
+  String _dateStr(DateTime dt) =>
+      '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
 
   Future<_FeedbackGenerationTuning> _loadFeedbackTuning(String teamId) async {
     try {

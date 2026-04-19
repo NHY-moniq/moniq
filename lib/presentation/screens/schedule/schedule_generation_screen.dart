@@ -20,26 +20,32 @@ import 'widgets/schedule_preview_widgets.dart';
 /// Step 2 — 미리보기 (날짜별 그룹)
 /// Step 3 — 발행 완료 (피드백 바텀시트)
 class ScheduleGenerationScreen extends HookConsumerWidget {
-  const ScheduleGenerationScreen({
-    super.key,
-    required this.teamId,
-  });
+  const ScheduleGenerationScreen({super.key, required this.teamId});
 
   final String teamId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final bootstrapping = useState(true);
+
     // 화면 진입 시마다 항상 fresh state로 시작
-    // addPostFrameCallback으로 미뤄야 HookState.initState 에러 방지
     useEffect(() {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.invalidate(scheduleGenerationViewModelProvider(teamId));
+      bootstrapping.value = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          final _ = await ref.refresh(
+            scheduleGenerationViewModelProvider(teamId).future,
+          );
+        } finally {
+          if (context.mounted) {
+            bootstrapping.value = false;
+          }
+        }
       });
       return null;
-    }, const []);
+    }, [teamId]);
 
-    final stateAsync =
-        ref.watch(scheduleGenerationViewModelProvider(teamId));
+    final stateAsync = ref.watch(scheduleGenerationViewModelProvider(teamId));
 
     return Scaffold(
       appBar: AppBar(
@@ -48,27 +54,29 @@ class ScheduleGenerationScreen extends HookConsumerWidget {
           IconButton(
             icon: const Icon(Icons.history_rounded),
             tooltip: '이전 버전',
-            onPressed: () =>
-                context.push('/teams/$teamId/schedule/history'),
+            onPressed: () => context.push('/teams/$teamId/schedule/history'),
           ),
         ],
       ),
-      body: stateAsync.when(
-        loading: () => const MoniqLoadingView(),
-        error: (e, _) => MoniqErrorView(
-          message: '정보를 불러올 수 없습니다',
-          onRetry: () => ref.invalidate(
-            scheduleGenerationViewModelProvider(teamId),
-          ),
-        ),
-        data: (state) {
-          if (state.generatedSchedule != null &&
-              state.previewShifts != null) {
-            return PreviewView(teamId: teamId, state: state);
-          }
-          return _SetupView(teamId: teamId, state: state);
-        },
-      ),
+      body: bootstrapping.value
+          ? const MoniqLoadingView()
+          : stateAsync.when(
+              skipLoadingOnRefresh: false,
+              skipLoadingOnReload: false,
+              loading: () => const MoniqLoadingView(),
+              error: (e, _) => MoniqErrorView(
+                message: '정보를 불러올 수 없습니다',
+                onRetry: () =>
+                    ref.invalidate(scheduleGenerationViewModelProvider(teamId)),
+              ),
+              data: (state) {
+                if (state.generatedSchedule != null &&
+                    state.previewShifts != null) {
+                  return PreviewView(teamId: teamId, state: state);
+                }
+                return _SetupView(teamId: teamId, state: state);
+              },
+            ),
     );
   }
 }
@@ -96,278 +104,261 @@ class _SetupView extends HookConsumerWidget {
       child: MaxWidthLayout(
         maxWidth: 640,
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // -- 단계 표시 --
-          const ScheduleStepIndicator(currentStep: 0, totalSteps: 3),
-          const SizedBox(height: AppSpacing.xxl),
-
-          // -- 기간 설정 --
-          Text(
-            '생성 기간',
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                children: [
-                  ScheduleDatePickerRow(
-                    label: '시작일',
-                    date: state.periodStart,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now()
-                        .add(const Duration(days: 365)),
-                    onPicked: (picked) => notifier.setPeriod(
-                      picked,
-                      state.periodEnd ?? picked,
-                    ),
-                  ),
-                  const Divider(height: AppSpacing.xxl),
-                  ScheduleDatePickerRow(
-                    label: '종료일',
-                    date: state.periodEnd,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now()
-                        .add(const Duration(days: 365)),
-                    onPicked: (picked) => notifier.setPeriod(
-                      state.periodStart ?? picked,
-                      picked,
-                    ),
-                  ),
-                  if (state.periodStart != null &&
-                      state.periodEnd != null &&
-                      state.periodEnd!.isBefore(state.periodStart!)) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '시작 일자가 마감 일자 이후입니다',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: AppColors.error),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: AppSpacing.xxl),
-
-          // -- 적용 규칙 요약 --
-          Text(
-            '적용 규칙 요약',
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ScheduleTappableInfoRow(
-                    icon: Icons.people,
-                    label: '멤버',
-                    value:
-                        '${state.members.length - state.excludedMemberIds.length}명 참여',
-                    onTap: state.members.isEmpty
-                        ? null
-                        : () => _showMembersDialog(
-                              context,
-                              ref,
-                              state,
-                              teamId,
-                            ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  ScheduleTappableInfoRow(
-                    icon: Icons.schedule,
-                    label: '근무 유형',
-                    value: '${state.shiftTypes.length}개',
-                    onTap: () => _showShiftTypesDialog(
-                      context,
-                      ref,
-                      state,
-                      teamId,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  ScheduleTappableInfoRow(
-                    icon: Icons.rule,
-                    label: '규칙',
-                    value: state.rules.isEmpty
-                        ? '기본 규칙 적용'
-                        : '${state.rules.length}개 규칙',
-                    onTap: state.rules.isEmpty
-                        ? null
-                        : () => _showRulesDialog(context, state),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  ScheduleTappableInfoRow(
-                    icon: Icons.tune_rounded,
-                    label: '커스텀 규칙',
-                    value: state.customRules.isEmpty
-                        ? '없음'
-                        : state.customRules
-                                .where((r) => r.isActive)
-                                .isEmpty
-                            ? '${state.customRules.length}개 (모두 비활성)'
-                            : '${state.customRules.where((r) => r.isActive).length}개 적용 중',
-                    onTap: state.customRules.isEmpty
-                        ? null
-                        : () =>
-                            _showCustomRulesDialog(context, state),
-                  ),
-                  if (state.shiftTypes.isNotEmpty) ...[
-                    const Divider(height: AppSpacing.xxl),
-                    Wrap(
-                      spacing: AppSpacing.sm,
-                      runSpacing: AppSpacing.sm,
-                      children: state.shiftTypes
-                          .map(
-                            (t) => Chip(
-                              avatar: CircleAvatar(
-                                backgroundColor:
-                                    parseHexColor(t.color),
-                                radius: 8,
-                              ),
-                              label: Text(t.name),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          // 원티드 현황
-          if (state.wantedEntries.isNotEmpty) ...[
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // -- 단계 표시 --
+            const ScheduleStepIndicator(currentStep: 0, totalSteps: 3),
             const SizedBox(height: AppSpacing.xxl),
+
+            // -- 기간 설정 --
             Text(
-              '원티드 현황',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
+              '생성 기간',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
-            InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => _showWantedDetailSheet(context, state),
-              child: Card(
-                color: colorScheme.primary.withValues(alpha: 0.05),
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                ScheduleInfoRow(
-                                  icon: Icons.event_note,
-                                  label: '수집된 원티드',
-                                  value: '${state.wantedEntries.length}건',
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                ScheduleInfoRow(
-                                  icon: Icons.people,
-                                  label: '입력 인원',
-                                  value:
-                                      '${state.wantedEntries.map((e) => e.userId).toSet().length}명',
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(
-                            Icons.chevron_right,
-                            color: colorScheme.primary.withValues(alpha: 0.6),
-                          ),
-                        ],
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  children: [
+                    ScheduleDatePickerRow(
+                      label: '시작일',
+                      date: state.periodStart,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                      onPicked: (picked) =>
+                          notifier.setPeriod(picked, state.periodEnd ?? picked),
+                    ),
+                    const Divider(height: AppSpacing.xxl),
+                    ScheduleDatePickerRow(
+                      label: '종료일',
+                      date: state.periodEnd,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                      onPicked: (picked) => notifier.setPeriod(
+                        state.periodStart ?? picked,
+                        picked,
                       ),
+                    ),
+                    if (state.periodStart != null &&
+                        state.periodEnd != null &&
+                        state.periodEnd!.isBefore(state.periodStart!)) ...[
                       const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        '생성 시 원티드가 자동 반영됩니다',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.primary,
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '시작 일자가 마감 일자 이후입니다',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.error,
+                          ),
                         ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
               ),
             ),
-          ],
 
-          // -- 에러 표시 --
-          if (state.error != null) ...[
-            const SizedBox(height: AppSpacing.lg),
-            SelectableText.rich(
-              TextSpan(
-                text: state.error,
-                style: TextStyle(color: colorScheme.error),
-              ),
-            ),
-          ],
+            const SizedBox(height: AppSpacing.xxl),
 
-          const SizedBox(height: AppSpacing.xxxl),
-
-          // -- 생성 버튼 --
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: state.isGenerating ||
-                      state.members.isEmpty ||
-                      state.shiftTypes.isEmpty ||
-                      state.periodStart == null ||
-                      state.periodEnd == null ||
-                      state.periodEnd!.isBefore(state.periodStart!)
-                  ? null
-                  : () => ref
-                      .read(
-                        scheduleGenerationViewModelProvider(
-                          teamId,
-                        ).notifier,
-                      )
-                      .generate(),
-              icon: state.isGenerating
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Icon(Icons.auto_awesome),
-              label: Text(
-                state.isGenerating ? '생성 중...' : '스케줄 생성',
-              ),
-            ),
-          ),
-
-          if (state.members.isEmpty ||
-              state.shiftTypes.isEmpty) ...[
-            const SizedBox(height: AppSpacing.md),
+            // -- 적용 규칙 요약 --
             Text(
-              state.members.isEmpty
-                  ? '멤버를 먼저 추가해주세요'
-                  : '근무 유형을 먼저 설정해주세요',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: colorScheme.error),
-              textAlign: TextAlign.center,
+              '적용 규칙 요약',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
+            const SizedBox(height: AppSpacing.md),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ScheduleTappableInfoRow(
+                      icon: Icons.people,
+                      label: '멤버',
+                      value:
+                          '${state.members.length - state.excludedMemberIds.length}명 참여',
+                      onTap: state.members.isEmpty
+                          ? null
+                          : () =>
+                                _showMembersDialog(context, ref, state, teamId),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    ScheduleTappableInfoRow(
+                      icon: Icons.schedule,
+                      label: '근무 유형',
+                      value: '${state.shiftTypes.length}개',
+                      onTap: () =>
+                          _showShiftTypesDialog(context, ref, state, teamId),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    ScheduleTappableInfoRow(
+                      icon: Icons.rule,
+                      label: '규칙',
+                      value: state.rules.isEmpty
+                          ? '기본 규칙 적용'
+                          : '${state.rules.length}개 규칙',
+                      onTap: state.rules.isEmpty
+                          ? null
+                          : () => _showRulesDialog(context, state),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    ScheduleTappableInfoRow(
+                      icon: Icons.tune_rounded,
+                      label: '커스텀 규칙',
+                      value: state.customRules.isEmpty
+                          ? '없음'
+                          : state.customRules.where((r) => r.isActive).isEmpty
+                          ? '${state.customRules.length}개 (모두 비활성)'
+                          : '${state.customRules.where((r) => r.isActive).length}개 적용 중',
+                      onTap: state.customRules.isEmpty
+                          ? null
+                          : () => _showCustomRulesDialog(context, state),
+                    ),
+                    if (state.shiftTypes.isNotEmpty) ...[
+                      const Divider(height: AppSpacing.xxl),
+                      Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        children: state.shiftTypes
+                            .map(
+                              (t) => Chip(
+                                avatar: CircleAvatar(
+                                  backgroundColor: parseHexColor(t.color),
+                                  radius: 8,
+                                ),
+                                label: Text(t.name),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+            // 원티드 현황
+            if (state.wantedEntries.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.xxl),
+              Text(
+                '원티드 현황',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _showWantedDetailSheet(context, state),
+                child: Card(
+                  color: colorScheme.primary.withValues(alpha: 0.05),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  ScheduleInfoRow(
+                                    icon: Icons.event_note,
+                                    label: '수집된 원티드',
+                                    value: '${state.wantedEntries.length}건',
+                                  ),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  ScheduleInfoRow(
+                                    icon: Icons.people,
+                                    label: '입력 인원',
+                                    value:
+                                        '${state.wantedEntries.map((e) => e.userId).toSet().length}명',
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.chevron_right,
+                              color: colorScheme.primary.withValues(alpha: 0.6),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '생성 시 원티드가 자동 반영됩니다',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
+            // -- 에러 표시 --
+            if (state.error != null) ...[
+              const SizedBox(height: AppSpacing.lg),
+              SelectableText.rich(
+                TextSpan(
+                  text: state.error,
+                  style: TextStyle(color: colorScheme.error),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: AppSpacing.xxxl),
+
+            // -- 생성 버튼 --
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed:
+                    state.isGenerating ||
+                        state.members.isEmpty ||
+                        state.shiftTypes.isEmpty ||
+                        state.periodStart == null ||
+                        state.periodEnd == null ||
+                        state.periodEnd!.isBefore(state.periodStart!)
+                    ? null
+                    : () => ref
+                          .read(
+                            scheduleGenerationViewModelProvider(
+                              teamId,
+                            ).notifier,
+                          )
+                          .generate(),
+                icon: state.isGenerating
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome),
+                label: Text(state.isGenerating ? '생성 중...' : '스케줄 생성'),
+              ),
+            ),
+
+            if (state.members.isEmpty || state.shiftTypes.isEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                state.members.isEmpty ? '멤버를 먼저 추가해주세요' : '근무 유형을 먼저 설정해주세요',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.error,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ],
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -415,9 +406,11 @@ void _showShiftTypesDialog(
             Navigator.pop(ctx);
             context
                 .push('/teams/$teamId/shift-types')
-                .then((_) => ref.invalidate(
-                      scheduleGenerationViewModelProvider(teamId),
-                    ));
+                .then(
+                  (_) => ref.invalidate(
+                    scheduleGenerationViewModelProvider(teamId),
+                  ),
+                );
           },
           child: const Text('근무 유형 설정'),
         ),
@@ -456,24 +449,16 @@ void _showMembersDialog(
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setState) {
         // 최신 state는 ref에서 읽음 (토글 즉시 반영)
-        final current = ref
-                .read(
-                  scheduleGenerationViewModelProvider(teamId),
-                )
-                .valueOrNull ??
+        final current =
+            ref.read(scheduleGenerationViewModelProvider(teamId)).valueOrNull ??
             state;
         final excluded = current.excludedMemberIds;
-        final activeCount =
-            current.members.length - excluded.length;
+        final activeCount = current.members.length - excluded.length;
 
         return AlertDialog(
           title: Row(
             children: [
-              Expanded(
-                child: Text(
-                  '멤버 (${current.members.length}명)',
-                ),
-              ),
+              Expanded(child: Text('멤버 (${current.members.length}명)')),
               Text(
                 '$activeCount명 참여',
                 style: TextStyle(
@@ -484,8 +469,7 @@ void _showMembersDialog(
               ),
             ],
           ),
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 8),
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
@@ -493,19 +477,15 @@ void _showMembersDialog(
               itemCount: current.members.length,
               itemBuilder: (_, i) {
                 final m = current.members[i];
-                final isExcluded =
-                    excluded.contains(m.userId);
-                final skillLabel =
-                    _skillDisplayLabel(m.member.skillLevel);
+                final isExcluded = excluded.contains(m.userId);
+                final skillLabel = _skillDisplayLabel(m.member.skillLevel);
                 return SwitchListTile.adaptive(
                   dense: true,
                   value: !isExcluded,
                   onChanged: (_) {
                     ref
                         .read(
-                          scheduleGenerationViewModelProvider(
-                            teamId,
-                          ).notifier,
+                          scheduleGenerationViewModelProvider(teamId).notifier,
                         )
                         .toggleMemberExclusion(m.userId);
                     setState(() {}); // 다이얼로그 내 즉시 갱신
@@ -513,9 +493,7 @@ void _showMembersDialog(
                   title: Text(
                     m.displayName,
                     style: TextStyle(
-                      color: isExcluded
-                          ? colorScheme.onSurfaceVariant
-                          : null,
+                      color: isExcluded ? colorScheme.onSurfaceVariant : null,
                     ),
                   ),
                   subtitle: skillLabel != null
@@ -523,8 +501,7 @@ void _showMembersDialog(
                           skillLabel,
                           style: TextStyle(
                             fontSize: 11,
-                            color:
-                                colorScheme.onSurfaceVariant,
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         )
                       : null,
@@ -571,10 +548,7 @@ const _ruleTypeLabels = <String, String>{
 };
 
 /// null이 포함되는 규칙은 null 반환 -> 다이얼로그에서 숨김
-String? _ruleValueSummary(
-  String ruleType,
-  Map<String, dynamic> rv,
-) {
+String? _ruleValueSummary(String ruleType, Map<String, dynamic> rv) {
   switch (ruleType) {
     case 'max_consecutive_work_days':
       final days = rv['days'];
@@ -602,17 +576,16 @@ String? _ruleValueSummary(
       // {'counts': {shiftTypeId: count}}
       final counts = rv['counts'] as Map?;
       if (counts == null || counts.isEmpty) return null;
-      final total = counts.values
-          .whereType<num>()
-          .fold<int>(0, (s, v) => s + v.toInt());
+      final total = counts.values.whereType<num>().fold<int>(
+        0,
+        (s, v) => s + v.toInt(),
+      );
       if (total == 0) return null;
       return '${_ruleTypeLabels[ruleType]}: 합계 ${total}명';
     case 'wanted_priority_order':
       final order = rv['order'] as List?;
       if (order == null || order.isEmpty) return null;
-      return order
-          .map((k) => _priorityKeyLabels[k] ?? k)
-          .join(' > ');
+      return order.map((k) => _priorityKeyLabels[k] ?? k).join(' > ');
     default:
       final enabled = rv['enabled'];
       if (enabled == null) return null;
@@ -620,16 +593,10 @@ String? _ruleValueSummary(
   }
 }
 
-void _showRulesDialog(
-  BuildContext context,
-  ScheduleGenerationState state,
-) {
+void _showRulesDialog(BuildContext context, ScheduleGenerationState state) {
   // null 요약인 규칙은 숨김
   final visibleRules = state.rules
-      .where(
-        (r) =>
-            _ruleValueSummary(r.ruleType, r.ruleValue) != null,
-      )
+      .where((r) => _ruleValueSummary(r.ruleType, r.ruleValue) != null)
       .toList();
 
   showDialog<void>(
@@ -648,8 +615,7 @@ void _showRulesDialog(
                 itemCount: visibleRules.length,
                 itemBuilder: (_, i) {
                   final rule = visibleRules[i];
-                  final label = _ruleTypeLabels[rule.ruleType] ??
-                      rule.ruleType;
+                  final label = _ruleTypeLabels[rule.ruleType] ?? rule.ruleType;
                   final summary = _ruleValueSummary(
                     rule.ruleType,
                     rule.ruleValue,
@@ -677,10 +643,8 @@ void _showCustomRulesDialog(
   ScheduleGenerationState state,
 ) {
   final colorScheme = Theme.of(context).colorScheme;
-  final active =
-      state.customRules.where((r) => r.isActive).toList();
-  final inactive =
-      state.customRules.where((r) => !r.isActive).toList();
+  final active = state.customRules.where((r) => r.isActive).toList();
+  final inactive = state.customRules.where((r) => !r.isActive).toList();
   final all = [...active, ...inactive];
 
   showDialog<void>(
@@ -703,19 +667,15 @@ void _showCustomRulesDialog(
                 size: 18,
                 color: rule.isActive
                     ? (rule.priority == 'hard'
-                        ? colorScheme.error
-                        : colorScheme.secondary)
+                          ? colorScheme.error
+                          : colorScheme.secondary)
                     : colorScheme.outline,
               ),
               title: Text(
                 rule.originalText,
                 style: TextStyle(
-                  color: rule.isActive
-                      ? null
-                      : colorScheme.outline,
-                  decoration: rule.isActive
-                      ? null
-                      : TextDecoration.lineThrough,
+                  color: rule.isActive ? null : colorScheme.outline,
+                  decoration: rule.isActive ? null : TextDecoration.lineThrough,
                 ),
               ),
               subtitle: Text(
@@ -740,18 +700,16 @@ void _showWantedDetailSheet(
   ScheduleGenerationState state,
 ) {
   // userId → displayName 맵
-  final nameMap = {
-    for (final m in state.members) m.userId: m.displayName,
-  };
+  final nameMap = {for (final m in state.members) m.userId: m.displayName};
   // shiftTypeId → ShiftTypeModel 맵
-  final shiftTypeMap = {
-    for (final t in state.shiftTypes) t.id: t,
-  };
+  final shiftTypeMap = {for (final t in state.shiftTypes) t.id: t};
 
   // userId별 엔트리 그루핑
   final grouped = <String, List<_WantedEntryRow>>{};
   for (final e in state.wantedEntries) {
-    grouped.putIfAbsent(e.userId, () => []).add(
+    grouped
+        .putIfAbsent(e.userId, () => [])
+        .add(
           _WantedEntryRow(
             date: e.wantedDate,
             priority: e.priority,
@@ -764,8 +722,7 @@ void _showWantedDetailSheet(
   }
 
   final sortedUserIds = grouped.keys.toList()
-    ..sort((a, b) =>
-        (nameMap[a] ?? a).compareTo(nameMap[b] ?? b));
+    ..sort((a, b) => (nameMap[a] ?? a).compareTo(nameMap[b] ?? b));
 
   final priorityColors = {
     1: AppColors.error,
@@ -815,8 +772,9 @@ void _showWantedDetailSheet(
                 children: [
                   Text(
                     '원티드 현황',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const Spacer(),
                   Text(
@@ -852,17 +810,25 @@ void _showWantedDetailSheet(
                                 width: 32,
                                 height: 32,
                                 decoration: BoxDecoration(
-                                  color: colorScheme.primary.withValues(alpha: 0.1),
+                                  color: colorScheme.primary.withValues(
+                                    alpha: 0.1,
+                                  ),
                                   shape: BoxShape.circle,
                                 ),
-                                child: Icon(Icons.person,
-                                    color: colorScheme.primary, size: 18),
+                                child: Icon(
+                                  Icons.person,
+                                  color: colorScheme.primary,
+                                  size: 18,
+                                ),
                               ),
                               const SizedBox(width: AppSpacing.md),
                               Expanded(
-                                child: Text(name,
-                                    style: theme.textTheme.titleSmall
-                                        ?.copyWith(fontWeight: FontWeight.w600)),
+                                child: Text(
+                                  name,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                               Text(
                                 '${entries.length}건',
@@ -887,14 +853,16 @@ void _showWantedDetailSheet(
                                 color = parseHexColor(shiftType.color);
                                 avatarLabel = shiftType.code;
                               } else {
-                                color = priorityColors[e.priority] ??
+                                color =
+                                    priorityColors[e.priority] ??
                                     colorScheme.primary;
                                 avatarLabel = '${e.priority}';
                               }
                               return Chip(
                                 avatar: CircleAvatar(
-                                  backgroundColor:
-                                      color.withValues(alpha: 0.25),
+                                  backgroundColor: color.withValues(
+                                    alpha: 0.25,
+                                  ),
                                   child: Text(
                                     avatarLabel,
                                     style: TextStyle(
@@ -906,13 +874,15 @@ void _showWantedDetailSheet(
                                 ),
                                 label: Text(
                                   dateFormat.format(e.date),
-                                  style: theme.textTheme.labelSmall
-                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 visualDensity: VisualDensity.compact,
                                 backgroundColor: color.withValues(alpha: 0.08),
                                 side: BorderSide(
-                                    color: color.withValues(alpha: 0.2)),
+                                  color: color.withValues(alpha: 0.2),
+                                ),
                                 padding: EdgeInsets.zero,
                               );
                             }).toList(),
@@ -932,7 +902,11 @@ void _showWantedDetailSheet(
 }
 
 class _WantedEntryRow {
-  _WantedEntryRow({required this.date, required this.priority, this.shiftTypeId});
+  _WantedEntryRow({
+    required this.date,
+    required this.priority,
+    this.shiftTypeId,
+  });
   final DateTime date;
   final int priority;
   final String? shiftTypeId;

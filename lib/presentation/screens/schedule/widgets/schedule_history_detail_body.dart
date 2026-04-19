@@ -49,12 +49,43 @@ class ScheduleHistoryDetailBody extends StatelessWidget {
 
     // 근무 유형 → 표시 코드 (D/E/N/O로 정규화)
     String canonicalCode(ShiftTypeModel t) {
-      final c = t.code.toUpperCase();
+      final c = t.code.trim().toUpperCase();
       final n = t.name;
       if (c == 'N' || n.contains('야간') || n.contains('나이트')) return 'N';
       if (c == 'E' || n.contains('이브닝') || n.contains('저녁')) return 'E';
       if (c == 'D' || n.contains('데이') || n.contains('주간')) return 'D';
-      return c; // 그 외는 원래 코드 유지
+      if (c.isNotEmpty) return c; // 그 외는 원래 코드 유지
+      return n.isNotEmpty ? n.substring(0, 1).toUpperCase() : '?';
+    }
+
+    int codePriority(String code) {
+      switch (code) {
+        case 'D':
+          return 0;
+        case 'E':
+          return 1;
+        case 'N':
+          return 2;
+        default:
+          return 99;
+      }
+    }
+
+    final orderedShiftTypes = [...shiftTypes]
+      ..sort((a, b) {
+        final pa = codePriority(canonicalCode(a));
+        final pb = codePriority(canonicalCode(b));
+        if (pa != pb) return pa.compareTo(pb);
+        return a.displayOrder.compareTo(b.displayOrder);
+      });
+    final orderedCodes = <String>[];
+    final codeColors = <String, Color>{};
+    for (final type in orderedShiftTypes) {
+      final code = canonicalCode(type);
+      if (!orderedCodes.contains(code)) {
+        orderedCodes.add(code);
+      }
+      codeColors.putIfAbsent(code, () => parseHexColor(type.color));
     }
 
     // ── 멤버별 근무 횟수 집계 ──
@@ -80,7 +111,8 @@ class ScheduleHistoryDetailBody extends StatelessWidget {
         final shiftTypeId = grid[day]?[m.userId];
         final type = shiftTypeId != null ? typeMap[shiftTypeId] : null;
         if (type != null) {
-          counts[type.code] = (counts[type.code] ?? 0) + 1;
+          final code = canonicalCode(type);
+          counts[code] = (counts[code] ?? 0) + 1;
         }
       }
       dayShiftCounts[day] = counts;
@@ -110,7 +142,7 @@ class ScheduleHistoryDetailBody extends StatelessWidget {
       }
       final st = typeMap[shiftTypeId];
       final color = st != null ? parseHexColor(st.color) : AppColors.shiftOff;
-      final code = st?.code ?? '?';
+      final code = st != null ? canonicalCode(st) : '?';
       return Container(
         width: 44,
         height: 36,
@@ -134,152 +166,156 @@ class ScheduleHistoryDetailBody extends StatelessWidget {
 
     // ── 멤버 이름 고정 열 ──
     Widget memberColumn() => Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 40),
-            ...members.map((m) {
-              final counts = memberShiftCounts[m.userId] ?? {};
-              final countParts = <String>[];
-              for (final t in shiftTypes) {
-                final code = canonicalCode(t);
-                final cnt = counts[code] ?? 0;
-                if (cnt > 0) countParts.add('$code$cnt');
-              }
-              final countText = countParts.join(' ');
-              return SizedBox(
-                width: memberColWidth,
-                height: memberRowHeight,
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        m.displayName.length > 4
-                            ? m.displayName.substring(0, 4)
-                            : m.displayName,
-                        style: theme.textTheme.labelSmall
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const SizedBox(height: 40),
+        ...members.map((m) {
+          final counts = memberShiftCounts[m.userId] ?? {};
+          final countParts = <String>[];
+          for (final code in orderedCodes) {
+            final cnt = counts[code] ?? 0;
+            if (cnt > 0) countParts.add('$code:$cnt');
+          }
+          final countText = countParts.join(' ');
+          return SizedBox(
+            width: memberColWidth,
+            height: memberRowHeight,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    m.displayName.length > 4
+                        ? m.displayName.substring(0, 4)
+                        : m.displayName,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                  if (countText.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      countText,
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1,
                       ),
-                      if (countText.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          countText,
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: colorScheme.onSurfaceVariant,
-                            height: 1,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              );
-            }),
-            // 합계 행 레이블
-            Container(
-              width: memberColWidth,
-              height: summaryRowHeight,
-              decoration: BoxDecoration(
-                border: Border(
-                    top: BorderSide(color: colorScheme.outlineVariant)),
-              ),
-              child: Center(
-                child: Text(
-                  '합계',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ],
               ),
             ),
-          ],
-        );
+          );
+        }),
+        // 합계 행 레이블
+        Container(
+          width: memberColWidth,
+          height: summaryRowHeight,
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
+          ),
+          child: Center(
+            child: Text(
+              '합계',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
 
     // ── 날짜 그리드 (가로 스크롤) ──
     Widget dateGrid() => SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 날짜 헤더
-              Row(
-                children: sortedDays
-                    .map(
-                      (day) => SizedBox(
-                        width: 48,
-                        height: 40,
-                        child: Center(
-                          child: Text(
-                            dateFormat.format(day),
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              height: 1.2,
-                            ),
-                          ),
+      scrollDirection: Axis.horizontal,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 날짜 헤더
+          Row(
+            children: sortedDays
+                .map(
+                  (day) => SizedBox(
+                    width: 48,
+                    height: 40,
+                    child: Center(
+                      child: Text(
+                        dateFormat.format(day),
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.2,
                         ),
                       ),
-                    )
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          // 멤버 행
+          ...members.map(
+            (m) => SizedBox(
+              height: memberRowHeight,
+              child: Row(
+                children: sortedDays
+                    .map((day) => buildCell(grid[day]?[m.userId]))
                     .toList(),
               ),
-              // 멤버 행
-              ...members.map(
-                (m) => SizedBox(
-                  height: memberRowHeight,
-                  child: Row(
-                    children: sortedDays
-                        .map((day) => buildCell(grid[day]?[m.userId]))
+            ),
+          ),
+          // 일자별 합계 행
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: colorScheme.outlineVariant),
+              ),
+            ),
+            child: Row(
+              children: sortedDays.map((day) {
+                final counts = dayShiftCounts[day] ?? {};
+                final entries = <(String, int, Color)>[];
+                for (final code in orderedCodes) {
+                  final count = counts[code] ?? 0;
+                  if (count > 0) {
+                    entries.add((
+                      code,
+                      count,
+                      codeColors[code] ?? AppColors.onSurfaceVariant,
+                    ));
+                  }
+                }
+                return SizedBox(
+                  width: 48,
+                  height: summaryRowHeight,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: entries
+                        .map(
+                          (e) => Text(
+                            '${e.$1}:${e.$2}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: e.$3,
+                              height: 1.3,
+                            ),
+                          ),
+                        )
                         .toList(),
                   ),
-                ),
-              ),
-              // 일자별 합계 행
-              Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                      top: BorderSide(color: colorScheme.outlineVariant)),
-                ),
-                child: Row(
-                  children: sortedDays.map((day) {
-                    final counts = dayShiftCounts[day] ?? {};
-                    final entries = <(String, int, Color)>[];
-                    for (final t in shiftTypes) {
-                      final count = counts[t.code] ?? 0;
-                      if (count > 0) {
-                        entries.add((t.code, count, parseHexColor(t.color)));
-                      }
-                    }
-                    return SizedBox(
-                      width: 48,
-                      height: summaryRowHeight,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: entries
-                            .map(
-                              (e) => Text(
-                                '${e.$1}:${e.$2}',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: e.$3,
-                                  height: 1.3,
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
+                );
+              }).toList(),
+            ),
           ),
-        );
+        ],
+      ),
+    );
 
     return SingleChildScrollView(
       child: Row(
