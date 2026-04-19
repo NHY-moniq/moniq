@@ -3,7 +3,7 @@ import 'package:moniq/data/models/wanted_request_model.dart';
 
 class WantedRepository {
   WantedRepository({required WantedRemoteDataSource dataSource})
-      : _dataSource = dataSource;
+    : _dataSource = dataSource;
 
   final WantedRemoteDataSource _dataSource;
 
@@ -42,6 +42,10 @@ class WantedRepository {
     return _dataSource.closeWantedRequest(requestId);
   }
 
+  Future<void> reopenWantedRequest(String requestId) {
+    return _dataSource.reopenWantedRequest(requestId);
+  }
+
   Future<WantedEntryModel> addWantedEntry({
     required String wantedRequestId,
     required String teamId,
@@ -66,6 +70,12 @@ class WantedRepository {
 
   Future<List<WantedEntryWithUser>> getAllEntries(String wantedRequestId) {
     return _dataSource.getAllEntries(wantedRequestId);
+  }
+
+  Future<List<WantedEntryModel>> getEntriesByRequestIds(
+    List<String> requestIds,
+  ) {
+    return _dataSource.getEntriesByRequestIds(requestIds);
   }
 
   Future<void> deleteWantedEntry(String entryId) {

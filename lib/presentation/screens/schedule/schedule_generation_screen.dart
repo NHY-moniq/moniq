@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
@@ -247,76 +248,61 @@ class _SetupView extends HookConsumerWidget {
             ),
           ),
 
-          // 희망 휴무 현황
+          // 원티드 현황
           if (state.wantedEntries.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xxl),
             Text(
-              '희망 휴무 현황',
+              '원티드 현황',
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSpacing.md),
-            Card(
-              color: colorScheme.primary.withValues(alpha: 0.05),
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ScheduleInfoRow(
-                      icon: Icons.event_note,
-                      label: '수집된 희망 휴무',
-                      value: '${state.wantedEntries.length}건',
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    ScheduleInfoRow(
-                      icon: Icons.people,
-                      label: '입력 인원',
-                      value:
-                          '${state.wantedEntries.map((e) => e.userId).toSet().length}명',
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      '생성 시 희망 휴무일이 자동 반영됩니다',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.primary,
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _showWantedDetailSheet(context, state),
+              child: Card(
+                color: colorScheme.primary.withValues(alpha: 0.05),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ScheduleInfoRow(
+                                  icon: Icons.event_note,
+                                  label: '수집된 원티드',
+                                  value: '${state.wantedEntries.length}건',
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                ScheduleInfoRow(
+                                  icon: Icons.people,
+                                  label: '입력 인원',
+                                  value:
+                                      '${state.wantedEntries.map((e) => e.userId).toSet().length}명',
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right,
+                            color: colorScheme.primary.withValues(alpha: 0.6),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-
-          if (state.error != null) ...[
-            const SizedBox(height: AppSpacing.lg),
-            Card(
-              color: colorScheme.primary.withValues(alpha: 0.05),
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ScheduleInfoRow(
-                      icon: Icons.event_note,
-                      label: '수집된 희망 휴무',
-                      value: '${state.wantedEntries.length}건',
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    ScheduleInfoRow(
-                      icon: Icons.people,
-                      label: '입력 인원',
-                      value:
-                          '${state.wantedEntries.map((e) => e.userId).toSet().length}명',
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      '생성 시 희망 휴무일이 자동 반영됩니다',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.primary,
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        '생성 시 원티드가 자동 반영됩니다',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.primary,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -747,6 +733,209 @@ void _showCustomRulesDialog(
       ],
     ),
   );
+}
+
+void _showWantedDetailSheet(
+  BuildContext context,
+  ScheduleGenerationState state,
+) {
+  // userId → displayName 맵
+  final nameMap = {
+    for (final m in state.members) m.userId: m.displayName,
+  };
+  // shiftTypeId → ShiftTypeModel 맵
+  final shiftTypeMap = {
+    for (final t in state.shiftTypes) t.id: t,
+  };
+
+  // userId별 엔트리 그루핑
+  final grouped = <String, List<_WantedEntryRow>>{};
+  for (final e in state.wantedEntries) {
+    grouped.putIfAbsent(e.userId, () => []).add(
+          _WantedEntryRow(
+            date: e.wantedDate,
+            priority: e.priority,
+            shiftTypeId: e.shiftTypeId,
+          ),
+        );
+  }
+  for (final entries in grouped.values) {
+    entries.sort((a, b) => a.date.compareTo(b.date));
+  }
+
+  final sortedUserIds = grouped.keys.toList()
+    ..sort((a, b) =>
+        (nameMap[a] ?? a).compareTo(nameMap[b] ?? b));
+
+  final priorityColors = {
+    1: AppColors.error,
+    2: AppColors.brandOrange,
+    3: AppColors.success,
+  };
+
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) {
+      final theme = Theme.of(ctx);
+      final colorScheme = theme.colorScheme;
+      final dateFormat = DateFormat('MM.dd');
+
+      return DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        maxChildSize: 1.0,
+        minChildSize: 0.3,
+        snapSizes: const [0.6, 1.0],
+        snap: true,
+        builder: (_, controller) => Column(
+          children: [
+            // 핸들
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.sm,
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    '원티드 현황',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${state.wantedEntries.length}건 · ${grouped.length}명',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView.builder(
+                controller: controller,
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                itemCount: sortedUserIds.length,
+                itemBuilder: (_, i) {
+                  final uid = sortedUserIds[i];
+                  final name = nameMap[uid] ?? uid;
+                  final entries = grouped[uid]!;
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.person,
+                                    color: colorScheme.primary, size: 18),
+                              ),
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: Text(name,
+                                    style: theme.textTheme.titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w600)),
+                              ),
+                              Text(
+                                '${entries.length}건',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          Wrap(
+                            spacing: AppSpacing.xs,
+                            runSpacing: AppSpacing.xs,
+                            children: entries.map((e) {
+                              final shiftType = e.shiftTypeId != null
+                                  ? shiftTypeMap[e.shiftTypeId]
+                                  : null;
+                              final Color color;
+                              final String avatarLabel;
+                              if (shiftType != null) {
+                                color = parseHexColor(shiftType.color);
+                                avatarLabel = shiftType.code;
+                              } else {
+                                color = priorityColors[e.priority] ??
+                                    colorScheme.primary;
+                                avatarLabel = '${e.priority}';
+                              }
+                              return Chip(
+                                avatar: CircleAvatar(
+                                  backgroundColor:
+                                      color.withValues(alpha: 0.25),
+                                  child: Text(
+                                    avatarLabel,
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      color: color,
+                                    ),
+                                  ),
+                                ),
+                                label: Text(
+                                  dateFormat.format(e.date),
+                                  style: theme.textTheme.labelSmall
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                                backgroundColor: color.withValues(alpha: 0.08),
+                                side: BorderSide(
+                                    color: color.withValues(alpha: 0.2)),
+                                padding: EdgeInsets.zero,
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class _WantedEntryRow {
+  _WantedEntryRow({required this.date, required this.priority, this.shiftTypeId});
+  final DateTime date;
+  final int priority;
+  final String? shiftTypeId;
 }
 
 String _customRuleTypeLabel(String type) {

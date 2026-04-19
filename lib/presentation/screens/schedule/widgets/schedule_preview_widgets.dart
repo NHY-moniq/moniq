@@ -52,6 +52,41 @@ class PreviewView extends ConsumerWidget {
     // 근무유형 맵
     final shiftTypeMap = {for (final t in state.shiftTypes) t.id: t};
 
+    // ── 레이아웃 상수 ──
+    const double memberRowHeight = 52.0;
+    const double memberColWidth = 80.0;
+    const double summaryRowHeight = 56.0;
+
+    // ── 멤버별 근무 횟수 집계 ──
+    final memberShiftCounts = <String, Map<String, int>>{};
+    for (final m in members) {
+      final counts = <String, int>{};
+      for (final day in sortedDays) {
+        final shiftTypeId = grid[day]?[m.userId];
+        final type = shiftTypeId != null ? shiftTypeMap[shiftTypeId] : null;
+        if (type != null) {
+          final label = type.name.substring(0, 1);
+          counts[label] = (counts[label] ?? 0) + 1;
+        }
+      }
+      memberShiftCounts[m.userId] = counts;
+    }
+
+    // ── 날짜별 근무 인원 집계 ──
+    final dayShiftCounts = <DateTime, Map<String, int>>{};
+    for (final day in sortedDays) {
+      final counts = <String, int>{};
+      for (final m in members) {
+        final shiftTypeId = grid[day]?[m.userId];
+        final type = shiftTypeId != null ? shiftTypeMap[shiftTypeId] : null;
+        if (type != null) {
+          final label = type.name.substring(0, 1);
+          counts[label] = (counts[label] ?? 0) + 1;
+        }
+      }
+      dayShiftCounts[day] = counts;
+    }
+
     // 통계 계산
     final hardCount = (state.validationWarnings ?? []).length;
     final customViolCount = state.customRuleViolations.length;
@@ -280,25 +315,65 @@ class PreviewView extends ConsumerWidget {
 
     // ── 멤버 이름 고정 열 ──
     Widget memberColumn() => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 40),
-            ...members.map(
-              (m) => SizedBox(
-                width: 72,
-                height: 44,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      m.displayName.length > 4
-                          ? m.displayName.substring(0, 4)
-                          : m.displayName,
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+            ...members.map((m) {
+              final counts = memberShiftCounts[m.userId] ?? {};
+              final countParts = <String>[];
+              for (final t in state.shiftTypes) {
+                final label = t.name.substring(0, 1);
+                final cnt = counts[label] ?? 0;
+                if (cnt > 0) countParts.add('$label$cnt');
+              }
+              final countText = countParts.join(' ');
+              return SizedBox(
+                width: memberColWidth,
+                height: memberRowHeight,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        m.displayName.length > 4
+                            ? m.displayName.substring(0, 4)
+                            : m.displayName,
+                        style: theme.textTheme.labelSmall
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                      if (countText.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          countText,
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }),
+            // 합계 행 레이블
+            Container(
+              width: memberColWidth,
+              height: summaryRowHeight,
+              decoration: BoxDecoration(
+                border: Border(
+                    top: BorderSide(color: colorScheme.outlineVariant)),
+              ),
+              child: Center(
+                child: Text(
+                  '합계',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -312,6 +387,7 @@ class PreviewView extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 날짜 헤더
               Row(
                 children: sortedDays
                     .map(
@@ -332,14 +408,55 @@ class PreviewView extends ConsumerWidget {
                     )
                     .toList(),
               ),
+              // 멤버 행
               ...members.map(
                 (m) => SizedBox(
-                  height: 44,
+                  height: memberRowHeight,
                   child: Row(
                     children: sortedDays
                         .map((day) => buildCell(grid[day]?[m.userId]))
                         .toList(),
                   ),
+                ),
+              ),
+              // 일자별 합계 행
+              Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                      top: BorderSide(color: colorScheme.outlineVariant)),
+                ),
+                child: Row(
+                  children: sortedDays.map((day) {
+                    final counts = dayShiftCounts[day] ?? {};
+                    final entries = <(String, int, Color)>[];
+                    for (final t in state.shiftTypes) {
+                      final label = t.name.substring(0, 1);
+                      final count = counts[label] ?? 0;
+                      if (count > 0) {
+                        entries.add((label, count, parseHexColor(t.color)));
+                      }
+                    }
+                    return SizedBox(
+                      width: 48,
+                      height: summaryRowHeight,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: entries
+                            .map(
+                              (e) => Text(
+                                '${e.$1}:${e.$2}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: e.$3,
+                                  height: 1.3,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
             ],

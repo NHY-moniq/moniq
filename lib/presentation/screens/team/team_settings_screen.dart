@@ -66,6 +66,10 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
   late int _maxMonthlyShifts;
   late int _maxMonthlyNightShifts;
 
+  // 원티드 설정
+  late int _wantedP1Limit; // 0 = 제한 없음
+  late int _wantedP2Limit;
+
   // 고정 규칙
   late int _maxConsecutiveWorkDays;
   late int _maxConsecutiveNightShifts;
@@ -130,6 +134,11 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
         ((ruleMap['no_evening_then_day'] ??
                 {})['enabled'] as bool?) ??
             true;
+
+    _wantedP1Limit =
+        ((ruleMap['wanted_p1_limit'] ?? {})['count'] as num?)?.toInt() ?? 0;
+    _wantedP2Limit =
+        ((ruleMap['wanted_p2_limit'] ?? {})['count'] as num?)?.toInt() ?? 0;
   }
 
   Future<void> _save() async {
@@ -138,42 +147,20 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
       teamDetailViewModelProvider(widget.teamId).notifier,
     );
 
-    await Future.wait([
-      // 인력 설정 저장
-      notifier.upsertRule(
-        'min_staffing',
-        {'counts': {for (final e in _minStaffing.entries) e.key: e.value}},
-      ),
-      notifier.upsertRule(
-        'max_monthly_shifts',
-        {'count': _maxMonthlyShifts},
-      ),
-      notifier.upsertRule(
-        'max_monthly_night_shifts',
-        {'count': _maxMonthlyNightShifts},
-      ),
-      // 고정 규칙 저장
-      notifier.upsertRule(
-        'max_consecutive_work_days',
-        {'days': _maxConsecutiveWorkDays},
-      ),
-      notifier.upsertRule(
-        'max_consecutive_night_shifts',
-        {'days': _maxConsecutiveNightShifts},
-      ),
-      notifier.upsertRule(
-        'min_weekly_off_days',
-        {'days': _minWeeklyOffDays},
-      ),
-      notifier.upsertRule(
-        'no_night_then_evening',
-        {'enabled': _noNightThenEvening},
-      ),
-      notifier.upsertRule(
-        'no_evening_then_day',
-        {'enabled': _noEveningThenDay},
-      ),
-    ]);
+    // 순차 저장: 병렬 시 ref.invalidateSelf() 충돌로 hang 발생
+    await notifier.upsertRule(
+      'min_staffing',
+      {'counts': {for (final e in _minStaffing.entries) e.key: e.value}},
+    );
+    await notifier.upsertRule('max_monthly_shifts', {'count': _maxMonthlyShifts});
+    await notifier.upsertRule('max_monthly_night_shifts', {'count': _maxMonthlyNightShifts});
+    await notifier.upsertRule('max_consecutive_work_days', {'days': _maxConsecutiveWorkDays});
+    await notifier.upsertRule('max_consecutive_night_shifts', {'days': _maxConsecutiveNightShifts});
+    await notifier.upsertRule('min_weekly_off_days', {'days': _minWeeklyOffDays});
+    await notifier.upsertRule('no_night_then_evening', {'enabled': _noNightThenEvening});
+    await notifier.upsertRule('no_evening_then_day', {'enabled': _noEveningThenDay});
+    await notifier.upsertRule('wanted_p1_limit', {'count': _wantedP1Limit});
+    await notifier.upsertRule('wanted_p2_limit', {'count': _wantedP2Limit});
 
     setState(() {
       _saving = false;
@@ -370,6 +357,43 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
                   readOnly: readOnly,
                   onChanged: (v) {
                     setState(() => _noEveningThenDay = v);
+                    _markDirty();
+                  },
+                ),
+              ],
+            ),
+
+            const SizedBox(height: AppSpacing.xxxl),
+
+            // ── 원티드 설정 섹션 ──
+            SectionHeader(
+              title: '원티드 설정',
+              subtitle: '인원별 원티드 신청 개수를 제한합니다 (0 = 제한 없음)',
+            ),
+            const SizedBox(height: AppSpacing.md),
+
+            RuleCard(
+              children: [
+                NumberRuleRow(
+                  label: '1순위 최대 신청 수',
+                  value: _wantedP1Limit,
+                  suffix: '개',
+                  minValue: 0,
+                  readOnly: readOnly,
+                  onChanged: (v) {
+                    setState(() => _wantedP1Limit = v);
+                    _markDirty();
+                  },
+                ),
+                const Divider(height: 1),
+                NumberRuleRow(
+                  label: '2순위 최대 신청 수',
+                  value: _wantedP2Limit,
+                  suffix: '개',
+                  minValue: 0,
+                  readOnly: readOnly,
+                  onChanged: (v) {
+                    setState(() => _wantedP2Limit = v);
                     _markDirty();
                   },
                 ),
