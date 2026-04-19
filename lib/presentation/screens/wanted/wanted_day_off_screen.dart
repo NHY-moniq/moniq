@@ -251,108 +251,11 @@ class _EntryView extends HookConsumerWidget {
                 ),
               )
             else
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.md,
-                ),
-                decoration: BoxDecoration(
-                  color: (daysLeft != null && daysLeft <= 3
-                          ? AppColors.brandOrange
-                          : colorScheme.primary)
-                      .withValues(alpha: 0.06),
-                  border: Border(
-                    bottom: BorderSide(
-                      color: (daysLeft != null && daysLeft <= 3
-                              ? AppColors.brandOrange
-                              : colorScheme.primary)
-                          .withValues(alpha: 0.15),
-                    ),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _isNightView
-                                ? '나이트 전담을 신청해주세요'
-                                : '원티드 정보를 입력해주세요',
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (daysLeft != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: (daysLeft <= 3
-                                      ? AppColors.brandOrange
-                                      : colorScheme.primary)
-                                  .withValues(alpha: 0.12),
-                              borderRadius:
-                                  BorderRadius.circular(AppRadius.full),
-                            ),
-                            child: Text(
-                              daysLeft == 0 ? 'D-Day' : 'D-$daysLeft',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: daysLeft <= 3
-                                    ? AppColors.brandOrange
-                                    : colorScheme.primary,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      '기간: ${dateFormat.format(displayRequest.periodStart)}'
-                      ' ~ ${dateFormat.format(displayRequest.periodEnd)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (displayRequest.deadline != null)
-                      Text(
-                        '마감: ${dateFormat.format(displayRequest.deadline!)}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: daysLeft != null && daysLeft <= 3
-                              ? AppColors.brandOrange
-                              : colorScheme.onSurfaceVariant,
-                          fontWeight: daysLeft != null && daysLeft <= 3
-                              ? FontWeight.w600
-                              : null,
-                        ),
-                      ),
-                    // 우선순위 범례 (비나이트 뷰에서만)
-                    if (!_isNightView) ...[
-                      const SizedBox(height: AppSpacing.xs),
-                      const Wrap(
-                        spacing: AppSpacing.sm,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          _PriorityLegendDot(
-                            label: '1순위 필수',
-                            color: AppColors.error,
-                          ),
-                          _PriorityLegendDot(
-                            label: '2순위 희망',
-                            color: AppColors.brandOrange,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
+              // P1-1: 활성 배너 재구성
+              _ActiveBanner(
+                displayRequest: displayRequest,
+                daysLeft: daysLeft,
+                isNightView: _isNightView,
               ),
 
             // ── 본문 ──
@@ -389,7 +292,8 @@ class _EntryView extends HookConsumerWidget {
   ) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final dateFormat = DateFormat('yyyy.MM.dd');
+    // P0-2: 날짜 + 요일 포맷
+    final dateFormat = DateFormat('yyyy.MM.dd E', 'ko');
 
     // 나이트 전담 뷰
     if (_isNightView) {
@@ -461,7 +365,7 @@ class _EntryView extends HookConsumerWidget {
             : null;
         final isOff = entry.shiftTypeId == null;
 
-        // Color determination
+        // 카드 좌측 바·아바타·shadow 용 색상 (기존 유지)
         final Color entryColor;
         if (isOff) {
           entryColor = AppColors.shiftOff;
@@ -471,9 +375,14 @@ class _EntryView extends HookConsumerWidget {
           entryColor = AppColors.primary;
         }
 
+        // P0-1: 순위 pill 전용 색상
+        final Color priorityColor =
+            entry.priority == 1 ? AppColors.error : AppColors.brandOrange;
+
+        final String shiftCode = isOff ? 'O' : (shiftType?.code ?? '?');
+        final String shiftName = isOff ? '오프' : (shiftType?.name ?? '');
         final subtitleParts = [
-          if (!isOff && shiftType != null) shiftType.name,
-          if (isOff) '오프',
+          shiftName,
           if (entry.reason != null && entry.reason!.isNotEmpty)
             _reasonLabel(entry.reason),
         ];
@@ -486,76 +395,89 @@ class _EntryView extends HookConsumerWidget {
           child: IntrinsicHeight(
             child: Row(
               children: [
+                // P0-2: 좌측 컬러바 유지
                 Container(width: 4, color: entryColor),
+                // P0-2: ListTile 제거 → Padding+Column
                 Expanded(
-                  child: ListTile(
-                    leading: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: entryColor.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        isOff ? 'O' : (shiftType?.code ?? '?'),
-                        style: TextStyle(
-                          color: entryColor,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                        ),
-                      ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.md,
                     ),
-                    title: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            dateFormat.format(entry.wantedDate),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
+                        // 상단 Row: 날짜+요일 / 순위 pill / X 버튼
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                dateFormat.format(entry.wantedDate),
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
-                          ),
+                            // P0-1: priorityColor 사용
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: priorityColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.full,
+                                ),
+                              ),
+                              child: Text(
+                                '${entry.priority}순위',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: priorityColor,
+                                ),
+                              ),
+                            ),
+                            // P0-2: X 버튼 44px SizedBox
+                            SizedBox(
+                              width: 44,
+                              child: isBlocked
+                                  ? null
+                                  : IconButton(
+                                      icon: Icon(
+                                        Icons.close,
+                                        size: 18,
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                      onPressed: () => _removeEntry(
+                                        context,
+                                        ref,
+                                        entry.id,
+                                      ),
+                                    ),
+                            ),
+                          ],
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: entryColor.withValues(alpha: 0.12),
-                            borderRadius:
-                                BorderRadius.circular(AppRadius.full),
-                          ),
-                          child: Text(
-                            '${entry.priority}순위',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
+                        const SizedBox(height: AppSpacing.xs),
+                        // 하단 Row: ShiftCodeBadge + subtitle
+                        Row(
+                          children: [
+                            _ShiftCodeBadge(
+                              code: shiftCode,
                               color: entryColor,
                             ),
-                          ),
+                            const SizedBox(width: AppSpacing.xs),
+                            Text(
+                              subtitleParts.join(' · '),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    subtitle: subtitleParts.isNotEmpty
-                        ? Text(
-                            subtitleParts.join(' · '),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          )
-                        : null,
-                    trailing: isBlocked
-                        ? null
-                        : IconButton(
-                            icon: Icon(
-                              Icons.close,
-                              size: 18,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            onPressed: () =>
-                                _removeEntry(context, ref, entry.id),
-                          ),
                   ),
                 ),
               ],
@@ -721,11 +643,6 @@ class _EntryView extends HookConsumerWidget {
       return c;
     }
 
-    const canonicalLabels = <String, String>{
-      'D': '데이',
-      'E': '이브닝',
-      'N': '나이트',
-    };
     final dType = shiftTypes
         .where((t) => canonicalCode(t) == 'D')
         .cast<ShiftTypeModel?>()
@@ -754,6 +671,7 @@ class _EntryView extends HookConsumerWidget {
             (shiftTypes.isNotEmpty ? shiftTypes.first.id : null));
     int currentPriority = 1;
     String otherReason = ''; // D/E/N 공통 사유 (선택)
+    String? currentOffReason; // P1-4: 오프 사유 인라인 상태
     String? sheetError;
 
     final selectedDates = <DateTime, _DayOffSel>{};
@@ -767,100 +685,45 @@ class _EntryView extends HookConsumerWidget {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
-          // ── OFF 사유 다이얼로그 (날짜별 호출) ──
-          void showCustomReasonDialog(DateTime date) {
-            String customText = '';
-            showDialog<bool>(
-              context: ctx,
-              builder: (dCtx) => AlertDialog(
-                title: const Text('사유 직접 입력'),
-                content: TextField(
-                  autofocus: true,
-                  onChanged: (v) => customText = v,
-                  decoration: const InputDecoration(hintText: '사유를 입력하세요'),
-                  textInputAction: TextInputAction.done,
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(dCtx),
-                    child: const Text('취소'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(dCtx, true),
-                    child: const Text('확인'),
-                  ),
-                ],
+          // P1-2: 타입 셀렉터 아이템 목록 구성
+          final typeItems = <_TypeItem>[
+            if (hasDayOff)
+              const _TypeItem(
+                id: null,
+                label: '오프',
+                code: 'O',
+                color: AppColors.shiftOff,
               ),
-            ).then((ok) {
-              if (ok != true || !ctx.mounted) return;
-              setSheetState(() {
-                selectedDates[date] = _DayOffSel(
-                  priority: currentPriority,
-                  reason: customText.isNotEmpty ? customText : null,
-                );
-              });
-            });
-          }
-
-          void showOffReasonDialog(DateTime date) {
-            final fmt = DateFormat('M월 d일 (E)', 'ko');
-            showDialog<String?>(
-              context: ctx,
-              barrierDismissible: true,
-              builder: (dCtx) => AlertDialog(
-                title: Text(fmt.format(date)),
-                titleTextStyle:
-                    Theme.of(dCtx).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                contentPadding: EdgeInsets.zero,
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (currentPriority == 1) ...[
-                      ListTile(
-                        title: const Text('생리휴가',
-                            style: TextStyle(fontWeight: FontWeight.w600)),
-                        onTap: () => Navigator.pop(dCtx, '#생리휴가'),
-                      ),
-                      const Divider(height: 1, indent: 16, endIndent: 16),
-                      ListTile(
-                        title: const Text('연차',
-                            style: TextStyle(fontWeight: FontWeight.w600)),
-                        onTap: () => Navigator.pop(dCtx, '#연차'),
-                      ),
-                      const Divider(height: 1, indent: 16, endIndent: 16),
-                    ],
-                    ListTile(
-                      leading: const Icon(Icons.edit_outlined,
-                          color: Colors.grey),
-                      title: const Text('직접 입력',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
-                      onTap: () => Navigator.pop(dCtx, 'custom'),
-                    ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(dCtx),
-                    child: const Text('취소'),
-                  ),
-                ],
+            if (hasPrefShift && dType != null)
+              _TypeItem(
+                id: dType.id,
+                label: '데이',
+                code: 'D',
+                color: parseHexColor(dType.color),
               ),
-            ).then((result) {
-              if (result == null || !ctx.mounted) return;
-              if (result == 'custom') {
-                showCustomReasonDialog(date);
-              } else {
-                setSheetState(() {
-                  selectedDates[date] = _DayOffSel(
-                    priority: currentPriority,
-                    reason: result,
-                  );
-                });
-              }
-            });
-          }
+            if (hasPrefShift && eType != null)
+              _TypeItem(
+                id: eType.id,
+                label: '이브닝',
+                code: 'E',
+                color: parseHexColor(eType.color),
+              ),
+            if (hasPrefShift && nType != null)
+              _TypeItem(
+                id: nType.id,
+                label: '나이트',
+                code: 'N',
+                color: parseHexColor(nType.color),
+              ),
+            ...otherShiftTypes.map(
+              (t) => _TypeItem(
+                id: t.id,
+                label: t.name,
+                code: t.code,
+                color: parseHexColor(t.color),
+              ),
+            ),
+          ];
 
           return DraggableScrollableSheet(
             initialChildSize: 0.92,
@@ -904,93 +767,18 @@ class _EntryView extends HookConsumerWidget {
                   ),
                   const SizedBox(height: AppSpacing.md),
 
-                  // ── 근무 유형 드롭다운 ──
-                  InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: '근무 유형',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
+                  // ── P1-2: 근무 유형 타일 셀렉터 ──
+                  if (typeItems.isNotEmpty)
+                    _WantedTypeSelector(
+                      items: typeItems,
+                      selectedId: currentShiftTypeId,
+                      onSelected: (v) =>
+                          setSheetState(() => currentShiftTypeId = v),
                     ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String?>(
-                        value: currentShiftTypeId,
-                        isDense: true,
-                        isExpanded: true,
-                        onChanged: (v) =>
-                            setSheetState(() => currentShiftTypeId = v),
-                        items: [
-                      if (hasDayOff)
-                        DropdownMenuItem<String?>(
-                          value: null,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 12,
-                                height: 12,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.shiftOff,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Text('오프'),
-                            ],
-                          ),
-                        ),
-                      if (hasPrefShift)
-                        for (final entry in [
-                          ('D', dType),
-                          ('E', eType),
-                          ('N', nType),
-                        ])
-                          if (entry.$2 != null)
-                            DropdownMenuItem<String?>(
-                              value: entry.$2!.id,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 12,
-                                    height: 12,
-                                    decoration: BoxDecoration(
-                                      color:
-                                          parseHexColor(entry.$2!.color),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(canonicalLabels[entry.$1] ??
-                                      entry.$2!.name),
-                                ],
-                              ),
-                            ),
-                      if (hasPrefShift)
-                        for (final t in otherShiftTypes)
-                          DropdownMenuItem<String?>(
-                            value: t.id,
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 12,
-                                  height: 12,
-                                  decoration: BoxDecoration(
-                                    color: parseHexColor(t.color),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(t.name),
-                              ],
-                            ),
-                          ),
-                    ],
-                  ),
-                    ),
-                  ),
 
                   const SizedBox(height: AppSpacing.md),
 
-                  // ── 우선순위 선택 ──
+                  // ── P1-3: 우선순위 라디오 스타일 ──
                   Text(
                     '우선순위',
                     style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
@@ -1001,45 +789,148 @@ class _EntryView extends HookConsumerWidget {
                   const SizedBox(height: AppSpacing.xs),
                   Row(
                     children: [1, 2].map((p) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: AppSpacing.sm),
-                        child: ChoiceChip(
-                          label: Text('$p순위'),
-                          selected: currentPriority == p,
-                          onSelected: (_) =>
+                      final isSelected = currentPriority == p;
+                      final color = p == 1
+                          ? AppColors.error
+                          : AppColors.brandOrange;
+                      final label = p == 1 ? '1순위 필수' : '2순위 희망';
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () =>
                               setSheetState(() => currentPriority = p),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.md,
+                            ),
+                            margin: EdgeInsets.only(
+                              right: p == 1 ? AppSpacing.sm : 0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? color.withValues(alpha: 0.08)
+                                  : null,
+                              border: Border.all(
+                                color: isSelected
+                                    ? color
+                                    : Theme.of(ctx)
+                                        .colorScheme
+                                        .outlineVariant,
+                                width: isSelected ? 1.5 : 1,
+                              ),
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.sm),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  isSelected
+                                      ? Icons.radio_button_checked
+                                      : Icons.radio_button_unchecked,
+                                  size: 16,
+                                  color: isSelected
+                                      ? color
+                                      : Theme.of(ctx)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                ),
+                                const SizedBox(width: AppSpacing.xs),
+                                Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w700
+                                        : FontWeight.w400,
+                                    color: isSelected
+                                        ? color
+                                        : Theme.of(ctx)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       );
                     }).toList(),
                   ),
 
-                  // ── 사유 안내 ──
+                  // ── P1-4: 오프 사유 인라인 칩 / D·E·N 공통 사유 텍스트 ──
                   if (currentShiftTypeId == null) ...[
                     const SizedBox(height: AppSpacing.sm),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.xs,
                       children: [
-                        Icon(
-                          Icons.touch_app_outlined,
-                          size: 14,
-                          color: Theme.of(ctx)
-                              .colorScheme
-                              .onSurfaceVariant,
-                        ),
-                        const SizedBox(width: AppSpacing.xs),
-                        Expanded(
-                          child: Text(
-                            '날짜를 탭하면 사유(생리휴가 · 연차 · 직접입력)를 선택할 수 있어요',
-                            style:
-                                Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                                      color: Theme.of(ctx)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                    ),
+                        if (currentPriority == 1) ...[
+                          _OffReasonChip(
+                            label: '생리휴가',
+                            value: '#생리휴가',
+                            selected: currentOffReason == '#생리휴가',
+                            onTap: () => setSheetState(
+                              () => currentOffReason =
+                                  currentOffReason == '#생리휴가'
+                                      ? null
+                                      : '#생리휴가',
+                            ),
+                          ),
+                          _OffReasonChip(
+                            label: '연차',
+                            value: '#연차',
+                            selected: currentOffReason == '#연차',
+                            onTap: () => setSheetState(
+                              () => currentOffReason =
+                                  currentOffReason == '#연차'
+                                      ? null
+                                      : '#연차',
+                            ),
+                          ),
+                        ],
+                        _OffReasonChip(
+                          label: '직접 입력',
+                          value: 'custom',
+                          selected: currentOffReason != null &&
+                              currentOffReason != '#생리휴가' &&
+                              currentOffReason != '#연차',
+                          onTap: () => setSheetState(
+                            () {
+                              // 직접입력 칩 토글: 이미 커스텀이면 해제
+                              if (currentOffReason != null &&
+                                  currentOffReason != '#생리휴가' &&
+                                  currentOffReason != '#연차') {
+                                currentOffReason = null;
+                              } else {
+                                // 빈 문자열로 초기화하여 텍스트필드 노출
+                                currentOffReason = '';
+                              }
+                            },
                           ),
                         ),
                       ],
                     ),
+                    // 직접입력 선택 시 텍스트필드 인라인
+                    if (currentOffReason != null &&
+                        currentOffReason != '#생리휴가' &&
+                        currentOffReason != '#연차') ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        autofocus: true,
+                        onChanged: (v) => setSheetState(
+                          () => currentOffReason =
+                              v.isNotEmpty ? v : '',
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: '사유를 입력하세요',
+                          isDense: true,
+                        ),
+                        textInputAction: TextInputAction.done,
+                        textCapitalization: TextCapitalization.none,
+                        keyboardType: TextInputType.text,
+                      ),
+                    ],
                   ] else ...[
                     // D/E/N: 공통 사유 텍스트 (선택)
                     const SizedBox(height: AppSpacing.sm),
@@ -1067,12 +958,22 @@ class _EntryView extends HookConsumerWidget {
                       shiftTypes: shiftTypes,
                       existingDates: existingDates,
                       onToggle: (date) {
+                        // P1-4: OFF 날짜 탭 시 인라인 사유 적용
                         if (currentShiftTypeId == null) {
-                          // 오프: 이미 선택됐으면 해제, 아니면 사유 다이얼로그
                           if (selectedDates.containsKey(date)) {
-                            setSheetState(() => selectedDates.remove(date));
+                            setSheetState(
+                              () => selectedDates.remove(date),
+                            );
                           } else {
-                            showOffReasonDialog(date);
+                            setSheetState(() {
+                              selectedDates[date] = _DayOffSel(
+                                priority: currentPriority,
+                                reason: (currentOffReason != null &&
+                                        currentOffReason!.isNotEmpty)
+                                    ? currentOffReason
+                                    : null,
+                              );
+                            });
                           }
                         } else {
                           // D/E/N: 즉시 토글
@@ -1202,6 +1103,152 @@ class _EntryView extends HookConsumerWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+// ─── _ActiveBanner (P1-1) ─────────────────────────────────────────────────────
+
+class _ActiveBanner extends StatelessWidget {
+  const _ActiveBanner({
+    required this.displayRequest,
+    required this.daysLeft,
+    required this.isNightView,
+  });
+
+  final WantedRequestModel displayRequest;
+  final int? daysLeft;
+  final bool isNightView;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final dateFormat = DateFormat('yyyy.MM.dd');
+    final bannerColor = (daysLeft != null && daysLeft! <= 3)
+        ? AppColors.brandOrange
+        : colorScheme.primary;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: bannerColor.withValues(alpha: 0.06),
+        border: Border(
+          bottom: BorderSide(
+            color: bannerColor.withValues(alpha: 0.15),
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 상단 Row: 수집 중 pill + D-N pill
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppRadius.full),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppColors.success,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '수집 중',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.success,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              if (daysLeft != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: bannerColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                  ),
+                  child: Text(
+                    daysLeft == 0 ? 'D-Day' : 'D-$daysLeft',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: bannerColor,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          // 타이틀
+          Text(
+            isNightView ? '나이트 전담을 신청해주세요' : '원티드 정보를 입력해주세요',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          // 근무 기간 _InfoRow
+          _InfoRow(
+            label: '근무 기간',
+            value:
+                '${dateFormat.format(displayRequest.periodStart)}'
+                ' ~ ${dateFormat.format(displayRequest.periodEnd)}',
+          ),
+          // 마감 _InfoRow
+          if (displayRequest.deadline != null)
+            _InfoRow(
+              label: '마감',
+              value: dateFormat.format(displayRequest.deadline!),
+              valueColor: (daysLeft != null && daysLeft! <= 3)
+                  ? AppColors.brandOrange
+                  : null,
+            ),
+          // 구분선
+          if (!isNightView) ...[
+            Divider(height: AppSpacing.md),
+            // 범례
+            const Wrap(
+              spacing: AppSpacing.sm,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _PriorityLegendDot(
+                  label: '1순위 필수',
+                  color: AppColors.error,
+                ),
+                _PriorityLegendDot(
+                  label: '2순위 희망',
+                  color: AppColors.brandOrange,
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -1360,14 +1407,14 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
         ),
         const SizedBox(height: AppSpacing.sm),
 
-        // 날짜 그리드
+        // P1-5: 날짜 그리드 childAspectRatio 0.85
         Expanded(
           child: GridView.builder(
             controller: widget.scrollController,
             gridDelegate:
                 const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              childAspectRatio: 1,
+              childAspectRatio: 0.85,
             ),
             itemCount: days.length,
             itemBuilder: (context, index) {
@@ -1404,74 +1451,79 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
                       : (typeMap[sel.shiftTypeId]?.code ?? '?'))
                   : null;
 
+              // P1-5: 기간 외 셀 opacity 처리
+              Widget cellWidget = Container(
+                margin: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? selColor
+                      : isExisting
+                          ? colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.15)
+                          : null,
+                  borderRadius:
+                      BorderRadius.circular(AppRadius.xs),
+                  border: isInPeriod && !isSelected && !isExisting
+                      ? Border.all(color: colorScheme.outlineVariant)
+                      : null,
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Text(
+                        '${day.day}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: isSelected
+                              ? Colors.white
+                              : isExisting
+                                  ? AppColors.onSurfaceVariant
+                                  : isInPeriod
+                                      ? null
+                                      : colorScheme.onSurface
+                                          .withValues(alpha: 0.25),
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : null,
+                        ),
+                      ),
+                    ),
+                    if (priorityBadge != null)
+                      Positioned(
+                        top: 2,
+                        left: 2,
+                        child: Text(
+                          priorityBadge,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    if (typeBadge != null)
+                      Positioned(
+                        top: 2,
+                        right: 2,
+                        child: Text(
+                          typeBadge,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+
               return GestureDetector(
                 onTap: isInPeriod && !isExisting
                     ? () => widget.onToggle(day)
                     : null,
-                child: Container(
-                  margin: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? selColor
-                        : isExisting
-                            ? colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.15)
-                            : null,
-                    borderRadius:
-                        BorderRadius.circular(AppRadius.xs),
-                    border: isInPeriod && !isSelected && !isExisting
-                        ? Border.all(color: colorScheme.outlineVariant)
-                        : null,
-                  ),
-                  child: Stack(
-                    children: [
-                      Center(
-                        child: Text(
-                          '${day.day}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: isSelected
-                                ? Colors.white
-                                : isExisting
-                                    ? AppColors.onSurfaceVariant
-                                    : isInPeriod
-                                        ? null
-                                        : AppColors.onSurfaceVariant
-                                            .withValues(alpha: 0.3),
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : null,
-                          ),
-                        ),
-                      ),
-                      if (priorityBadge != null)
-                        Positioned(
-                          top: 2,
-                          left: 2,
-                          child: Text(
-                            priorityBadge,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      if (typeBadge != null)
-                        Positioned(
-                          top: 2,
-                          right: 2,
-                          child: Text(
-                            typeBadge,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+                child: isInPeriod
+                    ? cellWidget
+                    : Opacity(opacity: 0.35, child: cellWidget),
               );
             },
           ),
@@ -1512,6 +1564,230 @@ class _PriorityLegendDot extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── _ShiftCodeBadge (P0-2) ───────────────────────────────────────────────────
+
+class _ShiftCodeBadge extends StatelessWidget {
+  const _ShiftCodeBadge({required this.code, required this.color});
+
+  final String code;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 20,
+      height: 20,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        code,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: color,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── _InfoRow (P1-1) ──────────────────────────────────────────────────────────
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 52,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: valueColor ?? cs.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── _WantedTypeSelector (P1-2) ───────────────────────────────────────────────
+
+class _TypeItem {
+  const _TypeItem({
+    required this.id,
+    required this.label,
+    required this.code,
+    required this.color,
+  });
+
+  final String? id; // null = 오프
+  final String label;
+  final String code;
+  final Color color;
+}
+
+class _WantedTypeSelector extends StatelessWidget {
+  const _WantedTypeSelector({
+    required this.items,
+    required this.selectedId,
+    required this.onSelected,
+  });
+
+  final List<_TypeItem> items;
+  final String? selectedId;
+  final ValueChanged<String?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final tiles = items.map((item) {
+      final isSelected = selectedId == item.id;
+      return GestureDetector(
+        onTap: () => onSelected(item.id),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 68,
+          height: 60,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? item.color.withValues(alpha: 0.15)
+                : colorScheme.surfaceContainerHigh,
+            border: Border.all(
+              color: isSelected ? item.color : colorScheme.outlineVariant,
+              width: isSelected ? 2 : 1,
+            ),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _ShiftCodeBadge(code: item.code, color: item.color),
+              const SizedBox(height: 4),
+              Text(
+                item.label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                  color: isSelected
+                      ? item.color
+                      : colorScheme.onSurfaceVariant,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      );
+    }).toList();
+
+    if (items.length >= 5) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (int i = 0; i < tiles.length; i++) ...[
+              tiles[i],
+              if (i < tiles.length - 1)
+                const SizedBox(width: AppSpacing.sm),
+            ],
+          ],
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      children: tiles,
+    );
+  }
+}
+
+// ─── _OffReasonChip (P1-4) ────────────────────────────────────────────────────
+
+class _OffReasonChip extends StatelessWidget {
+  const _OffReasonChip({
+    required this.label,
+    required this.value,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: selected
+              ? colorScheme.primary.withValues(alpha: 0.12)
+              : colorScheme.surfaceContainerHigh,
+          border: Border.all(
+            color: selected ? colorScheme.primary : colorScheme.outlineVariant,
+            width: selected ? 1.5 : 1,
+          ),
+          borderRadius: BorderRadius.circular(AppRadius.full),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+            color: selected
+                ? colorScheme.primary
+                : colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
     );
   }
 }
