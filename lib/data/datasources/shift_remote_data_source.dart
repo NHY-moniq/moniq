@@ -206,6 +206,12 @@ class ShiftRemoteDataSource {
     await _client.from('shifts').delete().eq('id', shiftId);
   }
 
+  /// shifts 일괄 삽입 (단건도 가능). RLS에서 본인 user_id만 INSERT 허용.
+  Future<void> insertShifts(List<Map<String, dynamic>> shifts) async {
+    if (shifts.isEmpty) return;
+    await _client.from('shifts').insert(shifts);
+  }
+
   /// 근무 유형 삭제. 해당 유형으로 배정된 근무가 있으면 삭제 불가 예외.
   Future<void> deleteShiftType(String id) async {
     final referenced = await _client

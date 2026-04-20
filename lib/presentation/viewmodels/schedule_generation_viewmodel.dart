@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/data/datasources/push_service.dart';
 import 'package:moniq/data/models/custom_rule_model.dart';
 import 'package:moniq/data/models/schedule_model.dart';
 import 'package:moniq/data/models/shift_model.dart';
@@ -189,6 +190,30 @@ class ScheduleGenerationViewModel
       final scheduleRepo = ref.read(scheduleRepositoryProvider);
       await scheduleRepo.publishSchedule(current.generatedSchedule!.id);
       state = AsyncData(current.copyWith(isPublishing: false));
+
+      // 팀원 전체에 새 근무 발행 푸시 (관리자 본인 제외, 실패 침묵)
+      try {
+        final teamRepo = ref.read(teamRepositoryProvider);
+        final team = await teamRepo.getTeamById(current.teamId);
+        final start = current.periodStart;
+        final end = current.periodEnd;
+        final period = (start != null && end != null)
+            ? '${start.month}/${start.day}~${end.month}/${end.day}'
+            : '';
+        await PushService.instance.sendToTeam(
+          teamId: current.teamId,
+          title: '[${team.name}] 새 근무표가 등록되었습니다',
+          body: period.isNotEmpty
+              ? '$period 근무표를 확인해주세요'
+              : '신규 근무표를 확인해주세요',
+          data: {
+            'type': 'schedule_published',
+            'team_id': current.teamId,
+            'schedule_id': current.generatedSchedule!.id,
+          },
+        );
+      } catch (_) {}
+
       return true;
     } catch (e) {
       state = AsyncData(current.copyWith(

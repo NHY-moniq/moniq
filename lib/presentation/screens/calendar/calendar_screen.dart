@@ -185,11 +185,18 @@ class CalendarScreen extends HookConsumerWidget {
               child: const Icon(Icons.add),
             ),
           ),
-          body: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: AppSpacing.sm),
+          body: RefreshIndicator(
+            onRefresh: () async {
+              await ref.read(homeViewModelProvider.notifier).refresh();
+              // 개인 일정/노트/오버라이드 등도 함께 갱신
+              ref.read(eventRefreshProvider.notifier).state++;
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: AppSpacing.sm),
 
                 // ── Calendar (범례는 개인 근무유형에서 동적 생성) ──
                 MoniqCalendar(
@@ -305,6 +312,7 @@ class CalendarScreen extends HookConsumerWidget {
 
                 const SizedBox(height: 120),
               ],
+            ),
             ),
           ),
         );

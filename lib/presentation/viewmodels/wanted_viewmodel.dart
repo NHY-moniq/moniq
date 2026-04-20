@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/datasources/notification_service.dart';
 import 'package:moniq/data/datasources/push_service.dart';
 import 'package:moniq/data/models/wanted_request_model.dart';
+import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/data/providers/wanted_providers.dart';
 
 part 'wanted_viewmodel.freezed.dart';
@@ -68,13 +69,15 @@ class WantedAdminViewModel
         wantedType: wantedType,
       );
 
-      // 로컬 푸시 알림 발송
+      // 타입별 메시지 (day_off / preferred_shift / night_dedicated)
       final startStr =
           '${periodStart.month}/${periodStart.day}';
       final endStr =
           '${periodEnd.month}/${periodEnd.day}';
+      final typeLabel = _wantedTypeLabel(wantedType);
+      final body =
+          '$startStr~$endStr 기간의 $typeLabel을(를) 입력해주세요.';
 
-      final body = '$startStr~$endStr 기간의 희망 휴무일을 입력해주세요.';
       await NotificationService.instance.showScheduleChangeNotification(
         teamName: teamName,
         message: body,
@@ -82,8 +85,13 @@ class WantedAdminViewModel
       // 팀원 전체에게 FCM 푸시 (관리자 본인 제외)
       await PushService.instance.sendToTeam(
         teamId: current.teamId,
-        title: '[$teamName] 희망 휴무 수집',
+        title: '[$teamName] $typeLabel 수집 시작',
         body: body,
+        data: {
+          'type': 'wanted_open',
+          'team_id': current.teamId,
+          'wanted_type': wantedType,
+        },
       );
 
       state = AsyncData(current.copyWith(
@@ -107,15 +115,48 @@ class WantedAdminViewModel
     final current = state.valueOrNull;
     if (current == null || current.activeRequest == null) return;
 
+    final closingRequest = current.activeRequest!;
+
     try {
       final repo = ref.read(wantedRepositoryProvider);
-      await repo.closeWantedRequest(current.activeRequest!.id);
+      await repo.closeWantedRequest(closingRequest.id);
       state = AsyncData(current.copyWith(activeRequest: null, allEntries: []));
+
+      // 팀원 전체에게 종료 알림 (관리자 본인 제외)
+      try {
+        final team = await ref
+            .read(teamRepositoryProvider)
+            .getTeamById(current.teamId);
+        final typeLabel = _wantedTypeLabel(closingRequest.wantedType);
+        await PushService.instance.sendToTeam(
+          teamId: current.teamId,
+          title: '[${team.name}] $typeLabel 수집 종료',
+          body: '$typeLabel 수집이 마감되었습니다.',
+          data: {
+            'type': 'wanted_close',
+            'team_id': current.teamId,
+            'wanted_type': closingRequest.wantedType,
+          },
+        );
+      } catch (_) {}
     } catch (_) {}
   }
 
   Future<void> refresh() async {
     ref.invalidateSelf();
+  }
+}
+
+/// wanted_type → 한글 라벨
+String _wantedTypeLabel(String wantedType) {
+  switch (wantedType) {
+    case 'preferred_shift':
+      return '희망 근무';
+    case 'night_dedicated':
+      return '나이트 전담';
+    case 'day_off':
+    default:
+      return '희망 휴무';
   }
 }
 

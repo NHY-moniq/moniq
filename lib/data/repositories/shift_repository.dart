@@ -204,6 +204,11 @@ class ShiftRepository {
     return _dataSource.deleteShift(shiftId);
   }
 
+  /// 단건/여러 건 shift 삽입. 본인 OFF → 새 근무 추가에서 사용.
+  Future<void> insertShifts(List<Map<String, dynamic>> shifts) {
+    return _dataSource.insertShifts(shifts);
+  }
+
   Future<void> reorderShiftTypes(String teamId, List<String> orderedIds) {
     return _dataSource.reorderShiftTypes(teamId, orderedIds);
   }

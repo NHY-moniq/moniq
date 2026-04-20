@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -10,7 +11,6 @@ import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_drawer.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_export.dart';
 import 'package:moniq/presentation/screens/team/team_excel_import.dart';
-import 'package:moniq/presentation/screens/team/team_detail_dialogs.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
@@ -348,59 +348,46 @@ class _TeamContextItems extends ConsumerWidget {
           onTap: () => context.push('/teams/list'),
         ),
         if (teamId != null) ...[
-          const _FlyoutSectionLabel(label: '가져오기 · 내보내기'),
-          _FlyoutTile(
-            icon: Icons.ios_share_outlined,
-            label: '팀 캘린더 내보내기',
-            onTap: () async {
-              final calAsync =
-                  ref.read(teamCalendarViewModelProvider(teamId));
-              final teamRepo = ref.read(teamRepositoryProvider);
-              calAsync.whenData((calState) {
+          // Excel 기능은 웹 + 관리자에게만 노출 (내보내기/일정 전체 삭제는 메인 화면 AppBar로 이동)
+          if (kIsWeb && isAdmin) ...[
+            const _FlyoutSectionLabel(label: '가져오기'),
+            _FlyoutTile(
+              icon: Icons.description_outlined,
+              label: 'Excel 샘플 양식',
+              onTap: () async {
+                final shiftRepo = ref.read(shiftRepositoryProvider);
                 Future.delayed(const Duration(milliseconds: 100), () {
                   if (context.mounted) {
-                    exportTeamCalendarStandalone(context, calState, teamRepo);
+                    exportSampleTemplate(
+                      context,
+                      shiftRepo: shiftRepo,
+                      teamId: teamId,
+                    );
                   }
                 });
-              });
-            },
-          ),
-          _FlyoutTile(
-            icon: Icons.description_outlined,
-            label: 'Excel 샘플 양식',
-            onTap: () async {
-              final shiftRepo = ref.read(shiftRepositoryProvider);
-              Future.delayed(const Duration(milliseconds: 100), () {
-                if (context.mounted) {
-                  exportSampleTemplate(
-                    context,
-                    shiftRepo: shiftRepo,
-                    teamId: teamId,
-                  );
-                }
-              });
-            },
-          ),
-          _FlyoutTile(
-            icon: Icons.upload_file_outlined,
-            label: 'Excel 일정 가져오기',
-            onTap: () async {
-              final shiftRepo = ref.read(shiftRepositoryProvider);
-              final scheduleRepo = ref.read(scheduleRepositoryProvider);
-              final teamRepo = ref.read(teamRepositoryProvider);
-              Future.delayed(const Duration(milliseconds: 100), () {
-                if (context.mounted) {
-                  importTeamExcel(
-                    context,
-                    teamId: teamId,
-                    shiftRepo: shiftRepo,
-                    scheduleRepo: scheduleRepo,
-                    teamRepo: teamRepo,
-                  );
-                }
-              });
-            },
-          ),
+              },
+            ),
+            _FlyoutTile(
+              icon: Icons.upload_file_outlined,
+              label: 'Excel 일정 가져오기',
+              onTap: () async {
+                final shiftRepo = ref.read(shiftRepositoryProvider);
+                final scheduleRepo = ref.read(scheduleRepositoryProvider);
+                final teamRepo = ref.read(teamRepositoryProvider);
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (context.mounted) {
+                    importTeamExcel(
+                      context,
+                      teamId: teamId,
+                      shiftRepo: shiftRepo,
+                      scheduleRepo: scheduleRepo,
+                      teamRepo: teamRepo,
+                    );
+                  }
+                });
+              },
+            ),
+          ],
           const _FlyoutSectionLabel(label: '소통'),
           _FlyoutTile(
             icon: Icons.campaign_outlined,
@@ -413,31 +400,6 @@ class _TeamContextItems extends ConsumerWidget {
             label: '변경 요청',
             onTap: () => context.push('/teams/$teamId/requests'),
           ),
-          if (isAdmin) ...[
-            const _FlyoutSectionLabel(label: '관리'),
-            _FlyoutTile(
-              icon: Icons.delete_sweep_outlined,
-              label: '일정 전체 삭제',
-              iconColor: AppColors.error,
-              onTap: () async {
-                final state = ref
-                    .read(teamDetailViewModelProvider(teamId))
-                    .valueOrNull;
-                if (state == null) return;
-                final scheduleRepo = ref.read(scheduleRepositoryProvider);
-                Future.delayed(const Duration(milliseconds: 100), () {
-                  if (context.mounted) {
-                    showDeleteScheduleSheet(
-                      context: context,
-                      scheduleRepo: scheduleRepo,
-                      teamId: teamId,
-                      state: state,
-                    );
-                  }
-                });
-              },
-            ),
-          ],
         ],
       ],
     );

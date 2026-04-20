@@ -15,7 +15,8 @@ class FcmTokenService {
   StreamSubscription<String>? _refreshSub;
 
   /// 알림 권한 요청 + 토큰 발급 + DB 저장.
-  /// 로그인되지 않은 상태면 스킵.
+  /// 로그인되지 않은 상태면 스킵. 시뮬레이터에서 APNs 토큰이 영원히 안 와서
+  /// hang하는 경우를 대비해 모든 await에 timeout을 둔다.
   Future<void> syncTokenForCurrentUser() async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
@@ -23,19 +24,27 @@ class FcmTokenService {
 
       final messaging = FirebaseMessaging.instance;
 
-      // iOS 알림 권한
-      await messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-
-      // APNs 토큰이 준비될 때까지 잠시 대기 (iOS)
+      // iOS 알림 권한 (다이얼로그) — timeout 5초
       try {
-        await messaging.getAPNSToken();
+        await messaging
+            .requestPermission(alert: true, badge: true, sound: true)
+            .timeout(const Duration(seconds: 5));
       } catch (_) {}
 
-      final token = await messaging.getToken();
+      // APNs 토큰 (시뮬레이터에선 절대 안 옴 → timeout 3초)
+      try {
+        await messaging
+            .getAPNSToken()
+            .timeout(const Duration(seconds: 3));
+      } catch (_) {}
+
+      // FCM 토큰 — timeout 5초
+      String? token;
+      try {
+        token = await messaging
+            .getToken()
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {}
       if (token == null || token.isEmpty) return;
 
       await _saveToken(user.id, token);
