@@ -13,6 +13,7 @@ class RequestRepository {
     String? sourceShiftId,
     DateTime? requestedDate,
     String? requestedShiftTypeId,
+    String? targetUserId,
     String? reason,
     String? note,
   }) {
@@ -22,9 +23,14 @@ class RequestRepository {
       sourceShiftId: sourceShiftId,
       requestedDate: requestedDate,
       requestedShiftTypeId: requestedShiftTypeId,
+      targetUserId: targetUserId,
       reason: reason,
       note: note,
     );
+  }
+
+  Future<void> applyRequest(String requestId) {
+    return _dataSource.applyRequest(requestId);
   }
 
   Future<List<RequestModel>> getTeamRequests(String teamId) {

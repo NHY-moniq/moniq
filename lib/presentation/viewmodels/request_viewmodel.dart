@@ -78,6 +78,11 @@ class RequestListViewModel
   Future<void> approveRequest(String requestId) async {
     final repo = ref.read(requestRepositoryProvider);
     await repo.updateRequestStatus(requestId, 'approved');
+    // 승인 후 shifts에 자동 반영 (day_off / shift_change / swap)
+    // 자동 적용 실패는 침묵 — 관리자가 수동으로 처리 가능
+    try {
+      await repo.applyRequest(requestId);
+    } catch (_) {}
     await _notifyStatusChange(requestId, '승인');
     ref.invalidateSelf();
   }

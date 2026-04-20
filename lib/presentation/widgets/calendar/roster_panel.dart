@@ -1030,6 +1030,7 @@ class _ShiftTypeGroup extends ConsumerWidget {
                     teamId: teamId!,
                     changeType: 'swap',
                     requestedDate: date,
+                    targetUserId: targetUserId,
                     reason: reason.isNotEmpty
                         ? '$targetName 근무($targetShiftType)와 교환 요청. $reason'
                         : '$targetName 근무($targetShiftType)와 교환 요청',
@@ -1298,6 +1299,7 @@ class _SwapSuggestSheetState extends ConsumerState<_SwapSuggestSheet> {
           teamId: widget.teamId,
           changeType: 'swap',
           requestedDate: widget.myShiftDate,
+          targetUserId: t.userId,
           reason:
               '${t.displayName} 님의 ${widget.dateStr} ${t.shiftTypeName} 근무와 교환 요청 (1:N 후보)',
         );
@@ -1790,6 +1792,7 @@ class _MultiDateSwapSheetState extends ConsumerState<_MultiDateSwapSheet> {
           teamId: widget.teamId,
           changeType: 'swap',
           requestedDate: d,
+          targetUserId: t.userId,
           reason:
               '$dateLabel ${widget.currentShiftTypeName} → ${_codeLabel(desired)}: ${t.shiftTypeName} (${t.displayName.substring(0, t.displayName.length.clamp(0, 6))}...)와 교환',
         );

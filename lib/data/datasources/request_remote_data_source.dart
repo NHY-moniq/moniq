@@ -15,6 +15,7 @@ class RequestRemoteDataSource {
     String? sourceShiftId,
     DateTime? requestedDate,
     String? requestedShiftTypeId,
+    String? targetUserId,
     String? reason,
     String? note,
   }) async {
@@ -29,6 +30,7 @@ class RequestRemoteDataSource {
           'source_shift_id': sourceShiftId,
           'requested_date': requestedDate != null ? _dateStr(requestedDate) : null,
           'requested_shift_type_id': requestedShiftTypeId,
+          'target_user_id': targetUserId,
           'reason': reason,
           'note': note,
           'status': 'pending',
@@ -37,6 +39,12 @@ class RequestRemoteDataSource {
         .single();
 
     return RequestModel.fromJson(row);
+  }
+
+  /// 승인된 요청을 shifts에 적용 (apply_request RPC).
+  /// 호출 전에 status가 'approved'여야 함.
+  Future<void> applyRequest(String requestId) async {
+    await _client.rpc('apply_request', params: {'p_request_id': requestId});
   }
 
   /// 팀의 요청 목록
@@ -52,7 +60,8 @@ class RequestRemoteDataSource {
         .toList();
   }
 
-  /// 내 요청 목록
+  /// 내가 신청자이거나 target_user로 포함된 요청 목록.
+  /// (본인이 관여된 모든 요청 — 내가 교환 대상자로 지정된 1:1/1:N swap 포함)
   Future<List<RequestModel>> getMyRequests(String teamId) async {
     if (_userId == null) throw Exception('Not authenticated');
 
@@ -60,7 +69,7 @@ class RequestRemoteDataSource {
         .from('requests')
         .select()
         .eq('team_id', teamId)
-        .eq('requester_user_id', _userId!)
+        .or('requester_user_id.eq.$_userId,target_user_id.eq.$_userId')
         .order('created_at', ascending: false);
 
     return (rows as List)

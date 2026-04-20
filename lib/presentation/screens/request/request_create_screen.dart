@@ -437,6 +437,7 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
               teamId: widget.teamId,
               changeType: 'swap',
               requestedDate: item.date,
+              targetUserId: item.userId,
               reason:
                   '$itemDateLabel ${item.shiftTypeName} ${item.userName} 님과 근무 교환 (1:N). $_reason',
               note: noteText,
@@ -480,6 +481,7 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
         changeType: _changeType,
         requestedDate: _requestedDate,
         requestedShiftTypeId: _selectedShiftTypeId,
+        targetUserId: _changeType == 'swap' ? _selectedSwapUserId : null,
         reason: reasonText,
         note: noteText,
       );
