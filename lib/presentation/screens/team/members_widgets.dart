@@ -75,7 +75,7 @@ class MemberTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           MemberRoleBadge(role: member.role),
-          if (isAdmin && !isSelf)
+          if (onTap != null)
             Icon(
               Icons.chevron_right,
               size: 18,

@@ -63,9 +63,7 @@ class WantedRemoteDataSource {
       query = query.eq('wanted_type', wantedType);
     }
 
-    final rows = await query
-        .order('created_at', ascending: false)
-        .limit(1);
+    final rows = await query.order('created_at', ascending: false).limit(1);
 
     if ((rows as List).isEmpty) return null;
     return WantedRequestModel.fromJson(rows.first);
@@ -73,7 +71,8 @@ class WantedRemoteDataSource {
 
   /// 팀의 모든 활성 수집 요청 목록 (타입별)
   Future<List<WantedRequestModel>> getActiveWantedRequests(
-      String teamId) async {
+    String teamId,
+  ) async {
     final rows = await _client
         .from('wanted_requests')
         .select()
@@ -98,13 +97,26 @@ class WantedRemoteDataSource {
     }
   }
 
+  /// 마감된 수집 요청 재개 — status를 'collecting'으로 되돌림
+  Future<void> reopenWantedRequest(String requestId) async {
+    final result = await _client
+        .from('wanted_requests')
+        .update({'status': 'collecting'})
+        .eq('id', requestId)
+        .select();
+    if ((result as List).isEmpty) {
+      throw Exception('수집 재개 실패: 권한이 없거나 요청을 찾을 수 없습니다');
+    }
+  }
+
   /// 수집 요청이 아직 입력 가능한 상태인지 확인. 마감 또는 상태가 collecting이 아니면 예외.
   Future<void> _ensureCollecting(String wantedRequestId) async {
     final req = await _client
         .from('wanted_requests')
         .select('status, deadline')
         .eq('id', wantedRequestId)
-        .single();
+        .maybeSingle();
+    if (req == null) throw Exception('수집 요청을 찾을 수 없습니다');
 
     final status = req['status'] as String?;
     if (status != 'collecting') {
@@ -167,7 +179,9 @@ class WantedRemoteDataSource {
   }
 
   /// 수집 요청의 모든 엔트리 (관리자 조회, 사용자 이름 포함)
-  Future<List<WantedEntryWithUser>> getAllEntries(String wantedRequestId) async {
+  Future<List<WantedEntryWithUser>> getAllEntries(
+    String wantedRequestId,
+  ) async {
     final rows = await _client
         .from('wanted_entries')
         .select('*, users!inner(display_name)')
@@ -178,12 +192,29 @@ class WantedRemoteDataSource {
       final map = r as Map<String, dynamic>;
       final displayName =
           (map['users'] as Map<String, dynamic>?)?['display_name'] as String? ??
-              '알 수 없음';
+          '알 수 없음';
       return WantedEntryWithUser(
         entry: WantedEntryModel.fromJson(map),
         displayName: displayName,
       );
     }).toList();
+  }
+
+  /// 여러 수집 요청의 엔트리 일괄 조회 (스케줄 생성용)
+  Future<List<WantedEntryModel>> getEntriesByRequestIds(
+    List<String> requestIds,
+  ) async {
+    if (requestIds.isEmpty) return const [];
+
+    final rows = await _client
+        .from('wanted_entries')
+        .select()
+        .inFilter('wanted_request_id', requestIds)
+        .order('wanted_date');
+
+    return (rows as List)
+        .map((r) => WantedEntryModel.fromJson(r as Map<String, dynamic>))
+        .toList();
   }
 
   /// 희망 휴무일 삭제 (수집 진행 중일 때만)
@@ -192,7 +223,8 @@ class WantedRemoteDataSource {
         .from('wanted_entries')
         .select('wanted_request_id')
         .eq('id', entryId)
-        .single();
+        .maybeSingle();
+    if (entry == null) return; // 이미 삭제됨 — 무시
     final requestId = entry['wanted_request_id'] as String?;
     if (requestId == null) {
       throw Exception('엔트리 데이터가 올바르지 않습니다');
@@ -220,8 +252,7 @@ class WantedRemoteDataSource {
   }
 
   /// 팀 멤버의 FCM 토큰 목록 조회 (푸시 알림용)
-  Future<List<Map<String, dynamic>>> getTeamMemberTokens(
-      String teamId) async {
+  Future<List<Map<String, dynamic>>> getTeamMemberTokens(String teamId) async {
     final rows = await _client
         .from('team_members')
         .select('user_id, users!inner(fcm_token)')

@@ -124,10 +124,7 @@ class _MobileLayout extends StatelessWidget {
                 member: m,
                 isSelf: m.userId == state.currentUserId,
                 isAdmin: state.isAdmin,
-                onTap:
-                    state.isAdmin && m.userId != state.currentUserId
-                        ? () => onTapMember(m)
-                        : null,
+                onTap: state.isAdmin ? () => onTapMember(m) : null,
               );
             },
           ),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
+import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -17,27 +18,32 @@ class SettingsScreen extends HookConsumerWidget {
 
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLow,
-      appBar: AppBar(
-        backgroundColor: colorScheme.surfaceContainerLow,
-        title: const Text('설정'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xxl,
-          vertical: AppSpacing.sm,
+      appBar: AdaptiveLayout.isWide(context)
+          ? null
+          : AppBar(
+              backgroundColor: colorScheme.surfaceContainerLow,
+              title: const Text('설정'),
+            ),
+      body: MaxWidthLayout(
+        maxWidth: 680,
+        child: ListView(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xxl,
+            vertical: AppSpacing.sm,
+          ),
+          children: const [
+            _ProfileHeader(),
+            SizedBox(height: AppSpacing.xxxl),
+            _AppSettingsCard(),
+            SizedBox(height: AppSpacing.xxl),
+            _NotificationsCard(),
+            SizedBox(height: AppSpacing.xxl),
+            _AccountCard(),
+            SizedBox(height: AppSpacing.xxl),
+            _InfoCard(),
+            SizedBox(height: AppSpacing.massive),
+          ],
         ),
-        children: const [
-          _ProfileHeader(),
-          SizedBox(height: AppSpacing.xxxl),
-          _AppSettingsCard(),
-          SizedBox(height: AppSpacing.xxl),
-          _NotificationsCard(),
-          SizedBox(height: AppSpacing.xxl),
-          _AccountCard(),
-          SizedBox(height: AppSpacing.xxl),
-          _InfoCard(),
-          SizedBox(height: AppSpacing.massive),
-        ],
       ),
     );
   }

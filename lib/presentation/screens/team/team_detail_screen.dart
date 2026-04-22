@@ -168,9 +168,9 @@ class TeamDetailScreen extends HookConsumerWidget {
                 child: TeamDetailBubbleMenuCard(
                   icon: Icons.event_note_outlined,
                   iconColor: AppColors.brandOrange,
-                  title: '희망 휴무 수집',
+                  title: '원티드 수집',
                   subtitle: state.isAdmin
-                      ? '근무표 생성 전 팀원 희망 수집'
+                      ? '근무표 생성 전 팀원 원티드 수집'
                       : '팀 관리자만 사용 가능',
                   onTap: () {
                     if (state.isAdmin) {
@@ -191,8 +191,8 @@ class TeamDetailScreen extends HookConsumerWidget {
               TeamDetailBubbleMenuCard(
                 icon: Icons.edit_calendar_outlined,
                 iconColor: Theme.of(context).colorScheme.secondary,
-                title: '희망 휴무일 입력',
-                subtitle: '내 희망 휴무일 입력하기',
+                title: '원티드 입력',
+                subtitle: '내 원티드 날짜 입력하기',
                 onTap: () =>
                     context.push('/teams/$teamId/wanted/entry'),
               ),

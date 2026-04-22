@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
+import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
@@ -69,18 +70,22 @@ class HomeScreen extends HookConsumerWidget {
     return calendarAsync.when(
       loading: () => Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight),
-          child: buildAppBar(),
-        ),
+        appBar: AdaptiveLayout.isWide(context)
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(kToolbarHeight),
+                child: buildAppBar(),
+              ),
         body: const MoniqLoadingView(),
       ),
       error: (e, _) => Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight),
-          child: buildAppBar(),
-        ),
+        appBar: AdaptiveLayout.isWide(context)
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(kToolbarHeight),
+                child: buildAppBar(),
+              ),
         body: MoniqErrorView(
           message: '일정을 불러올 수 없습니다',
           onRetry: () => ref.read(homeViewModelProvider.notifier).refresh(),
@@ -89,10 +94,12 @@ class HomeScreen extends HookConsumerWidget {
       data: (state) {
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-          appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(kToolbarHeight),
-            child: buildAppBar(),
-          ),
+          appBar: AdaptiveLayout.isWide(context)
+              ? null
+              : PreferredSize(
+                  preferredSize: const Size.fromHeight(kToolbarHeight),
+                  child: buildAppBar(),
+                ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.only(bottom: 120),
             child: Column(
