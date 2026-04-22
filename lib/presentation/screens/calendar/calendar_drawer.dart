@@ -102,7 +102,6 @@ class CalendarDrawer extends HookConsumerWidget {
                     icon: Icons.schedule_outlined,
                     label: '내 근무 유형 설정',
                     badge: '${shiftTypes.length}',
-                    isActive: true,
                     onTap: () {
                       Navigator.pop(context);
                       _showPersonalShiftTypeManager(context);

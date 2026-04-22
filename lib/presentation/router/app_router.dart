@@ -9,6 +9,7 @@ import 'package:moniq/presentation/screens/auth/login_screen.dart';
 import 'package:moniq/presentation/screens/auth/email_verification_screen.dart';
 import 'package:moniq/presentation/screens/auth/signup_screen.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_screen.dart';
+import 'package:moniq/presentation/screens/notifications/notifications_screen.dart';
 import 'package:moniq/presentation/screens/home/home_screen.dart';
 import 'package:moniq/presentation/screens/request/request_create_screen.dart';
 import 'package:moniq/presentation/screens/request/request_list_screen.dart';
@@ -224,6 +225,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const MyAnnouncementsScreen(),
       ),
 
+      // 알림 히스토리 (홈 종 아이콘에서 진입)
+      GoRoute(
+        path: '/notifications',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const NotificationsScreen(),
+      ),
+
       // Team Announcements (팀 관리에서 진입)
       GoRoute(
         path: '/teams/:teamId/announcements',
@@ -297,6 +305,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/announcements',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const MyAnnouncementsScreen(),
+      ),
+
+      // 알림 히스토리 (홈 종 아이콘에서 진입)
+      GoRoute(
+        path: '/notifications',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const NotificationsScreen(),
       ),
 
       // Team Announcements (팀 관리에서 진입)

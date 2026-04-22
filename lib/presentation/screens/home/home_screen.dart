@@ -1,7 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
+import 'package:moniq/data/providers/notification_providers.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
@@ -55,13 +57,7 @@ class HomeScreen extends HookConsumerWidget {
           ],
         ),
         actions: [
-          IconButton(
-            icon: Icon(
-              Icons.notifications_outlined,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            onPressed: () {},
-          ),
+          _NotificationsBellButton(),
           const SizedBox(width: 4),
         ],
       );
@@ -133,6 +129,60 @@ class HomeScreen extends HookConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 홈 AppBar의 종 아이콘 — 읽지 않은 알림 수 뱃지 + 탭 시 /notifications 이동.
+class _NotificationsBellButton extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
+    final cs = Theme.of(context).colorScheme;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        IconButton(
+          icon: Icon(
+            Icons.notifications_outlined,
+            color: cs.onSurfaceVariant,
+          ),
+          onPressed: () {
+            context.push('/notifications');
+          },
+        ),
+        if (unread > 0)
+          Positioned(
+            right: 6,
+            top: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 5,
+                vertical: 1,
+              ),
+              decoration: BoxDecoration(
+                color: cs.error,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 16,
+              ),
+              child: Text(
+                unread > 99 ? '99+' : '$unread',
+                style: TextStyle(
+                  color: cs.onError,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

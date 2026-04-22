@@ -5,8 +5,10 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:moniq/app.dart';
 import 'package:moniq/core/constants/supabase_constants.dart';
+import 'package:moniq/data/datasources/fcm_messaging_handler.dart';
 import 'package:moniq/data/datasources/fcm_token_service.dart';
 import 'package:moniq/data/datasources/notification_service.dart';
+import 'package:moniq/firebase_options.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,32 +29,39 @@ Future<void> main() async {
 
   await NotificationService.instance.initialize();
 
-  // Firebase 초기화 (firebase_options.dart 또는 native config 필요).
-  // 미설정 환경에서도 앱이 죽지 않도록 try/catch.
+  // Firebase 초기화 — 시뮬에서 hang 방지를 위해 timeout으로 감싼다.
+  // init 실패해도 앱 진입은 절대 막지 않음.
   try {
-    await Firebase.initializeApp();
+    debugPrint('[boot] Firebase.initializeApp 시작');
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    ).timeout(const Duration(seconds: 8));
+    debugPrint('[boot] Firebase.initializeApp 완료');
+
+    // 메시지 핸들러는 fire-and-forget — 시뮬에서 hang하더라도 앱 시작 막지 않음
+    FcmMessagingHandler.instance.initialize().catchError((e) {
+      debugPrint('[boot] FcmMessagingHandler.initialize 실패: $e');
+    });
+
     FcmTokenService.instance.listenForRefresh();
-    // 로그인 상태면 즉시 토큰 + 개인 일정 동기화 (비로그인은 로그인 후 별도 호출)
-    await FcmTokenService.instance.syncTokenForCurrentUser();
+    // FCM 토큰 동기화는 fire-and-forget — 시뮬레이터에서 hang해도 앱 시작 막지 않음
+    FcmTokenService.instance.syncTokenForCurrentUser();
     if (Supabase.instance.client.auth.currentUser != null) {
-      // fire-and-forget — 캐시 hydrate
       PersonalEventLocalDataSource(prefs: prefs).pullFromRemote();
     }
-    // 이후 인증 상태 변경 시마다 재시도
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (data.event == AuthChangeEvent.signedIn ||
           data.event == AuthChangeEvent.tokenRefreshed) {
         FcmTokenService.instance.syncTokenForCurrentUser();
-        // 개인 일정 Supabase → 로컬 캐시 동기화
         PersonalEventLocalDataSource(prefs: prefs).pullFromRemote();
       } else if (data.event == AuthChangeEvent.signedOut) {
         FcmTokenService.instance.clearTokenForCurrentUser();
       }
     });
   } catch (e) {
-    // Firebase 미설정 또는 초기화 실패 — 푸시 비활성으로 진행
-    debugPrint('Firebase init failed (push disabled): $e');
+    debugPrint('[boot] Firebase init 실패 (앱은 푸시 없이 진행): $e');
   }
+  debugPrint('[boot] runApp 호출');
 
   runApp(
     ProviderScope(

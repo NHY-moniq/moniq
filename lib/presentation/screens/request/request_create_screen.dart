@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:moniq/data/datasources/push_service.dart';
 import 'package:moniq/data/models/roster_entry.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
@@ -43,6 +44,12 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
   String? _swapDesiredShiftTypeId;
   String? _selectedSwapUserId;
   String? _selectedSwapUserName;
+  // 1:1 (single) | 1:N (multi)
+  String _swapMode = 'one';
+  final Set<String> _selectedSwapUserIds = {};
+  final Map<String, String> _swapUserNames = {};
+  // 1:N 모드 — 교환할 (팀원, 날짜, 근무) 항목들
+  final List<MultiSwapItem> _multiSwapItems = [];
   String _reason = '';
   String _note = '';
   bool _isSubmitting = false;
@@ -111,7 +118,10 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
     if (_changeType == 'shift_change' && _selectedShiftTypeId == null) {
       return false;
     }
-    if (_changeType == 'swap' && _selectedSwapUserId == null) return false;
+    if (_changeType == 'swap') {
+      if (_swapMode == 'one' && _selectedSwapUserId == null) return false;
+      if (_swapMode == 'many' && _multiSwapItems.isEmpty) return false;
+    }
     return true;
   }
 
@@ -234,20 +244,53 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
               roster: _roster,
               shiftTypes: _shiftTypes,
               myUserId: ref.read(currentUserProvider)?.id,
+              teamId: widget.teamId,
               desiredShiftTypeId: _swapDesiredShiftTypeId,
               onDesiredShiftTypeSelected: (id) => setState(() {
                 _swapDesiredShiftTypeId = id;
-                // 이전 선택한 상대가 더 이상 추천에 맞지 않으면 초기화
                 _selectedSwapUserId = null;
                 _selectedSwapUserName = null;
+                _selectedSwapUserIds.clear();
+                _swapUserNames.clear();
+                _multiSwapItems.clear();
               }),
+              swapMode: _swapMode,
+              onSwapModeChanged: (mode) {
+                setState(() {
+                  _swapMode = mode;
+                  _selectedSwapUserId = null;
+                  _selectedSwapUserName = null;
+                  _selectedSwapUserIds.clear();
+                  _swapUserNames.clear();
+                  _multiSwapItems.clear();
+                });
+              },
               selectedSwapUserId: _selectedSwapUserId,
               selectedSwapUserName: _selectedSwapUserName,
+              selectedSwapUserIds: _selectedSwapUserIds,
               onSwapUserSelected: (userId, userName) {
                 setState(() {
-                  _selectedSwapUserId = userId;
-                  _selectedSwapUserName = userName;
+                  if (userId == null) {
+                    _selectedSwapUserId = null;
+                    _selectedSwapUserName = null;
+                  } else {
+                    _selectedSwapUserId = userId;
+                    _selectedSwapUserName = userName;
+                  }
                 });
+              },
+              multiSwapItems: _multiSwapItems,
+              onMultiItemAdded: (item) {
+                setState(() {
+                  // 같은 (userId, date) 중복 방지
+                  _multiSwapItems.removeWhere(
+                    (e) => e.userId == item.userId && e.date == item.date,
+                  );
+                  _multiSwapItems.add(item);
+                });
+              },
+              onMultiItemRemoved: (index) {
+                setState(() => _multiSwapItems.removeAt(index));
               },
             ),
           ],
@@ -267,7 +310,8 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
               return ChoiceChip(
                 label: Text(reason),
                 selected: selected,
-                onSelected: (_) => setState(() => _reason = reason),
+                onSelected: (_) =>
+                    setState(() => _reason = selected ? '' : reason),
                 selectedColor:
                     theme.colorScheme.primary.withValues(alpha: 0.15),
               );
@@ -375,11 +419,61 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
       final repo = ref.read(requestRepositoryProvider);
 
       String? noteText = _note.isNotEmpty ? _note : null;
-      String reasonText = _reason;
+      final myName = ref
+              .read(currentUserProvider)
+              ?.userMetadata?['display_name'] as String? ??
+          '동료';
+      final dateLabel = _requestedDate != null
+          ? DateFormat('M/d', 'ko_KR').format(_requestedDate!)
+          : '';
 
+      // 1:N 교환은 _multiSwapItems 각 항목마다 별도 createRequest + 푸시
+      if (_changeType == 'swap' && _swapMode == 'many') {
+        int success = 0;
+        for (final item in _multiSwapItems) {
+          final itemDateLabel = DateFormat('M/d', 'ko_KR').format(item.date);
+          try {
+            await repo.createRequest(
+              teamId: widget.teamId,
+              changeType: 'swap',
+              requestedDate: item.date,
+              targetUserId: item.userId,
+              reason:
+                  '$itemDateLabel ${item.shiftTypeName} ${item.userName} 님과 근무 교환 (1:N). $_reason',
+              note: noteText,
+            );
+            try {
+              await PushService.instance.sendToUsers(
+                userIds: [item.userId],
+                title: '근무 교환 요청',
+                body:
+                    '$myName 님이 $itemDateLabel ${item.shiftTypeName} 근무 교환을 요청했습니다',
+                data: {
+                  'type': 'swap_request',
+                  'team_id': widget.teamId,
+                },
+              );
+            } catch (_) {}
+            success++;
+          } catch (_) {}
+        }
+        ref.invalidate(requestListViewModelProvider(widget.teamId));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text('$success/${_multiSwapItems.length}건 교환 요청 발송'),
+            ),
+          );
+          context.pop();
+        }
+        return;
+      }
+
+      // 1:1 또는 다른 changeType
+      String reasonText = _reason;
       if (_changeType == 'swap' && _selectedSwapUserName != null) {
-        reasonText =
-            '$_selectedSwapUserName 님과 근무 교환. $_reason';
+        reasonText = '$_selectedSwapUserName 님과 근무 교환. $_reason';
       }
 
       await repo.createRequest(
@@ -387,9 +481,24 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
         changeType: _changeType,
         requestedDate: _requestedDate,
         requestedShiftTypeId: _selectedShiftTypeId,
+        targetUserId: _changeType == 'swap' ? _selectedSwapUserId : null,
         reason: reasonText,
         note: noteText,
       );
+
+      if (_changeType == 'swap' && _selectedSwapUserId != null) {
+        try {
+          await PushService.instance.sendToUsers(
+            userIds: [_selectedSwapUserId!],
+            title: '근무 교환 요청',
+            body: '$myName 님이 $dateLabel 근무 교환을 요청했습니다',
+            data: {
+              'type': 'swap_request',
+              'team_id': widget.teamId,
+            },
+          );
+        } catch (_) {}
+      }
 
       ref.invalidate(
         requestListViewModelProvider(widget.teamId),

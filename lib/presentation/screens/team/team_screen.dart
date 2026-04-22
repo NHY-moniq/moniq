@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -200,6 +201,11 @@ class _TeamCalendarView extends HookConsumerWidget {
     final startingDay = calendarStartDay == 'sunday'
         ? StartingDayOfWeek.sunday
         : StartingDayOfWeek.monday;
+    final isAdmin = ref
+            .watch(teamDetailViewModelProvider(team.id))
+            .valueOrNull
+            ?.isAdmin ??
+        false;
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -239,6 +245,51 @@ class _TeamCalendarView extends HookConsumerWidget {
                 ),
               ],
             ),
+          ],
+        ),
+        actions: [
+          // 캘린더 내보내기 (메인 UI에 직접 노출)
+          IconButton(
+            icon: const Icon(Icons.ios_share_outlined),
+            tooltip: '캘린더 내보내기',
+            onPressed: () {
+              final calState = calendarAsync.valueOrNull;
+              if (calState == null) return;
+              final teamRepo = ref.read(teamRepositoryProvider);
+              exportTeamCalendarStandalone(context, calState, teamRepo);
+            },
+          ),
+          // 일정 전체 삭제 (관리자 전용, 메인 UI에 직접 노출, 파괴적 액션 명시)
+          if (isAdmin)
+            IconButton(
+              icon: Icon(
+                Icons.delete_sweep_outlined,
+                color: AppColors.error,
+              ),
+              tooltip: '일정 전체 삭제',
+              onPressed: () {
+                final state = ref
+                    .read(teamDetailViewModelProvider(team.id))
+                    .valueOrNull;
+                if (state == null) return;
+                final scheduleRepo = ref.read(scheduleRepositoryProvider);
+                showDeleteScheduleSheet(
+                  context: context,
+                  scheduleRepo: scheduleRepo,
+                  teamId: team.id,
+                  state: state,
+                );
+              },
+            ),
+          if (!AdaptiveLayout.isWide(context))
+            Builder(
+              builder: (ctx) => IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+              ),
+            ),
+        ],
+      ),
       endDrawer: AdaptiveLayout.isWide(context)
           ? null
           : _TeamDrawer(teams: teams, currentTeamId: team.id, scaffoldContext: context),
@@ -249,19 +300,24 @@ class _TeamCalendarView extends HookConsumerWidget {
           onRetry: () =>
               ref.invalidate(teamCalendarViewModelProvider(team.id)),
         ),
-        data: (state) => SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // View mode toggle
-              Center(
-                child: ViewModeToggle(
-                  currentMode: state.viewMode,
-                  onChanged: (_) => ref
-                      .read(teamCalendarViewModelProvider(team.id).notifier)
-                      .toggleViewMode(),
+        data: (state) => RefreshIndicator(
+          onRefresh: () => ref
+              .read(teamCalendarViewModelProvider(team.id).notifier)
+              .refresh(),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // View mode toggle
+                Center(
+                  child: ViewModeToggle(
+                    currentMode: state.viewMode,
+                    onChanged: (_) => ref
+                        .read(teamCalendarViewModelProvider(team.id).notifier)
+                        .toggleViewMode(),
+                  ),
                 ),
-              ),
 
               // Calendar
               MoniqCalendar(
@@ -288,23 +344,32 @@ class _TeamCalendarView extends HookConsumerWidget {
                 markerBuilder: (context, day, events) {
                   if (events.isEmpty) return null;
                   final shifts = events.cast<ShiftWithType>();
-                  // 근무유형별 인원수 집계
+                  // 근무유형별 인원수 집계 (교육은 동그라미 표시에서 제외)
                   final typeCount = <String, _ShiftTypeInfo>{};
                   for (final s in shifts) {
+                    if (_isEducation(s.shiftType.code, s.shiftType.name)) {
+                      continue;
+                    }
                     final key = s.shiftType.id;
                     typeCount.putIfAbsent(
                       key,
                       () => _ShiftTypeInfo(
                         code: s.shiftType.code,
+                        name: s.shiftType.name,
                         color: s.shiftType.color,
                         count: 0,
                       ),
                     );
                     typeCount[key]!.count++;
                   }
+                  if (typeCount.isEmpty) return null;
+                  // 데이 > 이브닝 > 나이트 > 기타(원래순) 순서로 정렬
+                  final sorted = typeCount.values.toList()
+                    ..sort((a, b) =>
+                        _shiftSortKey(a).compareTo(_shiftSortKey(b)));
                   return Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: typeCount.values
+                    children: sorted
                         .take(3)
                         .map((info) {
                       final color = parseHexColor(info.color);
@@ -343,9 +408,10 @@ class _TeamCalendarView extends HookConsumerWidget {
                 teamId: team.id,
               ),
 
-              // 하단 네비게이션 바 겹침 방지
-              const SizedBox(height: 100),
-            ],
+                // 하단 네비게이션 바 겹침 방지
+                const SizedBox(height: 100),
+              ],
+            ),
           ),
         ),
       ),
@@ -388,10 +454,9 @@ class _TeamDrawer extends HookConsumerWidget {
       ),
       elevation: 16,
       child: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.zero,
+        child: Column(
           children: [
-            // ── 상단 팀 프로필 (탭 → 팀 설정) ──
+            // ── 상단 팀 프로필 (탭 → 팀 설정) — CalendarDrawer 헤더와 같은 여백/타이포 ──
             InkWell(
               onTap: () {
                 Navigator.pop(context);
@@ -400,13 +465,13 @@ class _TeamDrawer extends HookConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.xxl,
-                  AppSpacing.xxl,
+                  AppSpacing.xxxl,
                   AppSpacing.xxl,
                   AppSpacing.lg,
                 ),
                 child: Row(
                   children: [
-                    TeamProfileAvatar(icon: currentTeam.icon, radius: 24),
+                    TeamProfileAvatar(icon: currentTeam.icon, radius: 28),
                     const SizedBox(width: AppSpacing.lg),
                     Expanded(
                       child: Column(
@@ -415,16 +480,19 @@ class _TeamDrawer extends HookConsumerWidget {
                           Text(
                             currentTeam.name,
                             style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w900,
+                              color: cs.primary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: AppSpacing.xxs),
                           Text(
-                            '팀 관리',
-                            style: theme.textTheme.bodySmall?.copyWith(
+                            'TEAM MANAGER',
+                            style: theme.textTheme.labelSmall?.copyWith(
                               color: cs.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.5,
                             ),
                           ),
                         ],
@@ -433,180 +501,171 @@ class _TeamDrawer extends HookConsumerWidget {
                     Icon(
                       Icons.chevron_right,
                       color: cs.onSurfaceVariant,
+                      size: 22,
                     ),
                   ],
                 ),
               ),
             ),
-            const Divider(height: 1),
 
-            // ── 팀 ──
-            _drawerSection(theme, '팀'),
-            _drawerTile(
-              icon: Icons.groups_outlined,
-              title: '팀 목록',
-              trailingText: '${teams.length}개',
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/teams/list');
-              },
-            ),
+            // ── 네비게이션 ──
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                children: [
+                  _TeamDrawerNavItem(
+                    icon: Icons.groups_outlined,
+                    label: '팀 목록',
+                    badge: '${teams.length}',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/teams/list');
+                    },
+                  ),
+                  _TeamDrawerNavItem(
+                    icon: Icons.campaign_outlined,
+                    iconColor: AppColors.brandOrange,
+                    label: '팀 공지사항',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/teams/$currentTeamId/announcements');
+                    },
+                  ),
+                  _TeamDrawerNavItem(
+                    icon: Icons.swap_horiz,
+                    label: '변경 요청',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/teams/$currentTeamId/requests');
+                    },
+                  ),
 
-            // ── 소통 (팀 목록 바로 밑) ──
-            _drawerSection(theme, '소통'),
-            _drawerTile(
-              icon: Icons.campaign_outlined,
-              iconColor: AppColors.brandOrange,
-              title: '팀 공지사항',
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/teams/$currentTeamId/announcements');
-              },
-            ),
-            _drawerTile(
-              icon: Icons.swap_horiz,
-              title: '변경 요청',
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/teams/$currentTeamId/requests');
-              },
-            ),
-
-            // ── 가져오기 / 내보내기 ──
-            _drawerSection(theme, '가져오기 · 내보내기'),
-            _drawerTile(
-              icon: Icons.ios_share_outlined,
-              title: '캘린더 내보내기',
-              onTap: () {
-                final calendarAsync = ref.read(
-                    teamCalendarViewModelProvider(currentTeamId));
-                final teamRepo = ref.read(teamRepositoryProvider);
-                final ctx = scaffoldContext;
-                Navigator.pop(context);
-                calendarAsync.whenData((calState) {
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    exportTeamCalendarStandalone(ctx, calState, teamRepo);
-                  });
-                });
-              },
-            ),
-            // Excel 관련 메뉴는 관리자만 표시
-            if (isAdmin) ...[
-              _drawerTile(
-                icon: Icons.description_outlined,
-                title: 'Excel 샘플 양식',
-                onTap: () {
-                  final ctx = scaffoldContext;
-                  final shiftRepo = ref.read(shiftRepositoryProvider);
-                  Navigator.pop(context);
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    exportSampleTemplate(
-                      ctx,
-                      shiftRepo: shiftRepo,
-                      teamId: currentTeamId,
-                    );
-                  });
-                },
+                  // Excel 관련 메뉴는 웹 전용 + 관리자만 표시 (앱에서는 숨김)
+                  if (kIsWeb && isAdmin) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    _TeamDrawerNavItem(
+                      icon: Icons.description_outlined,
+                      label: 'Excel 샘플 양식',
+                      onTap: () {
+                        final ctx = scaffoldContext;
+                        final shiftRepo = ref.read(shiftRepositoryProvider);
+                        Navigator.pop(context);
+                        Future.delayed(const Duration(milliseconds: 300), () {
+                          exportSampleTemplate(
+                            ctx,
+                            shiftRepo: shiftRepo,
+                            teamId: currentTeamId,
+                          );
+                        });
+                      },
+                    ),
+                    _TeamDrawerNavItem(
+                      icon: Icons.upload_file_outlined,
+                      label: 'Excel 일정 가져오기',
+                      onTap: () {
+                        final ctx = scaffoldContext;
+                        final shiftRepo = ref.read(shiftRepositoryProvider);
+                        final scheduleRepo =
+                            ref.read(scheduleRepositoryProvider);
+                        final teamRepo = ref.read(teamRepositoryProvider);
+                        Navigator.pop(context);
+                        Future.delayed(const Duration(milliseconds: 300), () {
+                          importTeamExcel(
+                            ctx,
+                            teamId: currentTeamId,
+                            shiftRepo: shiftRepo,
+                            scheduleRepo: scheduleRepo,
+                            teamRepo: teamRepo,
+                          );
+                        });
+                      },
+                    ),
+                  ],
+                ],
               ),
-              _drawerTile(
-                icon: Icons.upload_file_outlined,
-                title: 'Excel 일정 가져오기',
-                onTap: () {
-                  final ctx = scaffoldContext;
-                  final shiftRepo = ref.read(shiftRepositoryProvider);
-                  final scheduleRepo = ref.read(scheduleRepositoryProvider);
-                  final teamRepo = ref.read(teamRepositoryProvider);
-                  Navigator.pop(context);
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    importTeamExcel(
-                      ctx,
-                      teamId: currentTeamId,
-                      shiftRepo: shiftRepo,
-                      scheduleRepo: scheduleRepo,
-                      teamRepo: teamRepo,
-                    );
-                  });
-                },
-              ),
-            ],
-
-            // ── 일정 전체 삭제 (관리자만, 맨 하단) ──
-            if (isAdmin) ...[
-              _drawerSection(theme, '관리'),
-              _drawerTile(
-                icon: Icons.delete_sweep_outlined,
-                iconColor: AppColors.error,
-                title: '일정 전체 삭제',
-                onTap: () {
-                  final state = teamDetail.valueOrNull;
-                  if (state == null) return;
-                  final ctx = scaffoldContext;
-                  final scheduleRepo =
-                      ref.read(scheduleRepositoryProvider);
-                  Navigator.pop(context);
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    showDeleteScheduleSheet(
-                      context: ctx,
-                      scheduleRepo: scheduleRepo,
-                      teamId: currentTeamId,
-                      state: state,
-                    );
-                  });
-                },
-              ),
-            ],
-            const SizedBox(height: AppSpacing.lg),
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _drawerSection(ThemeData theme, String label) {
+/// CalendarDrawer의 _DrawerNavItem과 시각 스펙을 맞춘 팀 드로어 항목.
+/// pill 모양 터치 타겟, 아이콘/라벨 간격, 뱃지 스타일을 통일한다.
+class _TeamDrawerNavItem extends StatelessWidget {
+  const _TeamDrawerNavItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.iconColor,
+    this.badge,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? iconColor;
+  final String? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final resolvedIconColor = iconColor ?? cs.onSurfaceVariant;
+
     return Padding(
-      padding: const EdgeInsets.only(
-        left: AppSpacing.lg,
-        right: AppSpacing.lg,
-        top: AppSpacing.lg,
-        bottom: AppSpacing.xs,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs,
       ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: AppRadius.borderRadiusFull,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.borderRadiusFull,
+          hoverColor: cs.surfaceContainerLow,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: resolvedIconColor, size: 24),
+                const SizedBox(width: AppSpacing.lg),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurfaceVariant,
+                        ),
+                  ),
+                ),
+                if (badge != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xxs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer,
+                      borderRadius: AppRadius.borderRadiusFull,
+                    ),
+                    child: Text(
+                      badge!,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: cs.onPrimaryContainer,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
-    );
-  }
-
-  Widget _drawerTile({
-    required IconData icon,
-    Color? iconColor,
-    required String title,
-    String? trailingText,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      dense: true,
-      visualDensity: const VisualDensity(vertical: -2),
-      leading: Icon(icon, color: iconColor, size: 22),
-      title: Text(title, style: const TextStyle(fontSize: 14)),
-      trailing: trailingText != null
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  trailingText,
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right, size: 18),
-              ],
-            )
-          : const Icon(Icons.chevron_right, size: 18),
-      onTap: onTap,
     );
   }
 }
@@ -614,12 +673,40 @@ class _TeamDrawer extends HookConsumerWidget {
 class _ShiftTypeInfo {
   _ShiftTypeInfo({
     required this.code,
+    required this.name,
     required this.color,
     required this.count,
   });
 
   final String code;
+  final String name;
   final String color;
   int count;
+}
+
+/// 근무유형 정렬 키: 데이(0) → 이브닝(1) → 나이트(2) → 기타(3)
+int _shiftSortKey(_ShiftTypeInfo info) {
+  final c = info.code.toUpperCase();
+  final n = info.name;
+  if (c == 'D' || n.contains('데이') || n.toLowerCase().contains('day')) {
+    return 0;
+  }
+  if (c == 'E' || n.contains('이브닝') || n.toLowerCase().contains('eve')) {
+    return 1;
+  }
+  if (c == 'N' || n.contains('나이트') || n.toLowerCase().contains('night')) {
+    return 2;
+  }
+  return 3;
+}
+
+/// 교육 근무유형 판별 (캘린더 동그라미 표시 제외용)
+bool _isEducation(String code, String name) {
+  final c = code.toUpperCase();
+  if (c == 'ED' || c == 'EDU') return true;
+  if (name.contains('교육')) return true;
+  final lower = name.toLowerCase();
+  if (lower.contains('education') || lower.contains('training')) return true;
+  return false;
 }
 

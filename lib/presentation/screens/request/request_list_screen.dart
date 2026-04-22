@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/data/models/request_model.dart';
+import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
@@ -148,6 +149,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
                   selectionMode: _selectionMode,
                   selectedIds: _selectedIds,
                   selectedRequest: _selectedRequest,
+                  myUserId: ref.read(currentUserProvider)?.id,
                   onSelectRequest: (r) =>
                       setState(() => _selectedRequest = r),
                   onToggleSelection: _toggleSelection,
@@ -208,6 +210,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
       builder: (ctx) => _RequestDetailSheet(
         request: request,
         isAdmin: isAdmin,
+        myUserId: ref.read(currentUserProvider)?.id,
         onApprove: () async {
           await ref
               .read(requestListViewModelProvider(teamId).notifier)
@@ -364,6 +367,7 @@ class _WebLayout extends StatelessWidget {
     required this.selectionMode,
     required this.selectedIds,
     required this.selectedRequest,
+    required this.myUserId,
     required this.onSelectRequest,
     required this.onToggleSelection,
     required this.onFilterChanged,
@@ -378,6 +382,7 @@ class _WebLayout extends StatelessWidget {
   final bool selectionMode;
   final Set<String> selectedIds;
   final RequestModel? selectedRequest;
+  final String? myUserId;
   final ValueChanged<RequestModel?> onSelectRequest;
   final ValueChanged<String> onToggleSelection;
   final ValueChanged<String> onFilterChanged;
@@ -466,6 +471,7 @@ class _WebLayout extends StatelessWidget {
                   key: ValueKey(selectedRequest!.id),
                   request: selectedRequest!,
                   isAdmin: state.isAdmin,
+                  myUserId: myUserId,
                   onApprove: () => onApprove(selectedRequest!.id),
                   onReject: () => onReject(selectedRequest!.id),
                   onCancel: () => onCancel(selectedRequest!.id),
@@ -485,6 +491,7 @@ class _WebDetailPanel extends StatelessWidget {
     super.key,
     required this.request,
     required this.isAdmin,
+    required this.myUserId,
     required this.onApprove,
     required this.onReject,
     required this.onCancel,
@@ -492,9 +499,13 @@ class _WebDetailPanel extends StatelessWidget {
 
   final RequestModel request;
   final bool isAdmin;
+  final String? myUserId;
   final VoidCallback onApprove;
   final VoidCallback onReject;
   final VoidCallback onCancel;
+
+  bool get _canCancel =>
+      myUserId != null && request.requesterUserId == myUserId;
 
   @override
   Widget build(BuildContext context) {
@@ -619,17 +630,19 @@ class _WebDetailPanel extends StatelessWidget {
                       ),
                     ],
                   ),
-                const SizedBox(height: AppSpacing.sm),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    onPressed: onCancel,
-                    style: TextButton.styleFrom(
-                      foregroundColor: colorScheme.onSurfaceVariant,
+                if (_canCancel) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: onCancel,
+                      style: TextButton.styleFrom(
+                        foregroundColor: colorScheme.onSurfaceVariant,
+                      ),
+                      child: const Text('요청 취소'),
                     ),
-                    child: const Text('요청 취소'),
                   ),
-                ),
+                ],
               ],
             ],
           ),
@@ -647,6 +660,7 @@ class _RequestDetailSheet extends StatelessWidget {
   const _RequestDetailSheet({
     required this.request,
     required this.isAdmin,
+    required this.myUserId,
     required this.onApprove,
     required this.onReject,
     required this.onCancel,
@@ -654,9 +668,13 @@ class _RequestDetailSheet extends StatelessWidget {
 
   final RequestModel request;
   final bool isAdmin;
+  final String? myUserId;
   final VoidCallback onApprove;
   final VoidCallback onReject;
   final VoidCallback onCancel;
+
+  bool get _canCancel =>
+      myUserId != null && request.requesterUserId == myUserId;
 
   @override
   Widget build(BuildContext context) {
@@ -753,14 +771,16 @@ class _RequestDetailSheet extends StatelessWidget {
                     ),
                   ],
                 ),
-              const SizedBox(height: AppSpacing.sm),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: onCancel,
-                  child: const Text('요청 취소'),
+              if (_canCancel) ...[
+                const SizedBox(height: AppSpacing.sm),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: onCancel,
+                    child: const Text('요청 취소'),
+                  ),
                 ),
-              ),
+              ],
             ],
           ],
         ),

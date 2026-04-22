@@ -13,6 +13,7 @@ class RequestModel with _$RequestModel {
     @JsonKey(name: 'change_type') required String changeType,
     @JsonKey(name: 'requested_date') DateTime? requestedDate,
     @JsonKey(name: 'requested_shift_type_id') String? requestedShiftTypeId,
+    @JsonKey(name: 'target_user_id') String? targetUserId,
     String? reason,
     String? note,
     @Default('pending') String status,

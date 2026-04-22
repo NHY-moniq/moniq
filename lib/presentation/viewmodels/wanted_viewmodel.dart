@@ -253,11 +253,13 @@ class WantedAdminViewModel
         wantedType: wantedType,
       );
 
-      // 로컬 푸시 알림 발송
-      final startStr = '${periodStart.month}/${periodStart.day}';
-      final endStr = '${periodEnd.month}/${periodEnd.day}';
-
+      // 타입별 메시지 (day_off / preferred_shift / night_dedicated)
+      final startStr =
+          '${periodStart.month}/${periodStart.day}';
+      final endStr =
+          '${periodEnd.month}/${periodEnd.day}';
       final body = '$startStr~$endStr 기간의 원티드를 입력해주세요.';
+
       await NotificationService.instance.showScheduleChangeNotification(
         teamName: teamName,
         message: body,
@@ -267,6 +269,11 @@ class WantedAdminViewModel
         teamId: current.teamId,
         title: '[$teamName] 원티드 수집',
         body: body,
+        data: {
+          'type': 'wanted_open',
+          'team_id': current.teamId,
+          'wanted_type': wantedType,
+        },
       );
 
       // 타입 순서 정렬 유지하며 추가
@@ -302,8 +309,30 @@ class WantedAdminViewModel
     final current = state.valueOrNull;
     if (current == null) return;
 
+    final closingRequest = current.activeRequest!;
+
     try {
       final repo = ref.read(wantedRepositoryProvider);
+      await repo.closeWantedRequest(closingRequest.id);
+      state = AsyncData(current.copyWith(activeRequest: null, allEntries: []));
+
+      // 팀원 전체에게 종료 알림 (관리자 본인 제외)
+      try {
+        final team = await ref
+            .read(teamRepositoryProvider)
+            .getTeamById(current.teamId);
+        final typeLabel = _wantedTypeLabel(closingRequest.wantedType);
+        await PushService.instance.sendToTeam(
+          teamId: current.teamId,
+          title: '[${team.name}] $typeLabel 수집 종료',
+          body: '$typeLabel 수집이 마감되었습니다.',
+          data: {
+            'type': 'wanted_close',
+            'team_id': current.teamId,
+            'wanted_type': closingRequest.wantedType,
+          },
+        );
+      } catch (_) {}
       // state가 아닌 DB 직접 조회로 누락 없이 마감
       final allActive = await repo.getActiveWantedRequests(current.teamId);
       for (final req in allActive) {
@@ -377,6 +406,19 @@ class WantedAdminViewModel
 
   Future<void> refresh() async {
     ref.invalidateSelf();
+  }
+}
+
+/// wanted_type → 한글 라벨
+String _wantedTypeLabel(String wantedType) {
+  switch (wantedType) {
+    case 'preferred_shift':
+      return '희망 근무';
+    case 'night_dedicated':
+      return '나이트 전담';
+    case 'day_off':
+    default:
+      return '희망 휴무';
   }
 }
 
