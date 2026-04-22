@@ -2,12 +2,19 @@ import 'package:moniq/data/datasources/feedback_remote_data_source.dart';
 
 class FeedbackRepository {
   FeedbackRepository({required FeedbackRemoteDataSource dataSource})
-      : _dataSource = dataSource;
+    : _dataSource = dataSource;
 
   final FeedbackRemoteDataSource _dataSource;
 
   Future<Map<String, dynamic>?> getFeedback(String scheduleId) {
     return _dataSource.getFeedback(scheduleId);
+  }
+
+  Future<List<Map<String, dynamic>>> getTeamFeedback({
+    required String teamId,
+    int limit = 20,
+  }) {
+    return _dataSource.getTeamFeedback(teamId: teamId, limit: limit);
   }
 
   Future<void> saveFeedback({

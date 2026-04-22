@@ -19,7 +19,15 @@ final _privateConstructorUsedError = UnsupportedError(
 mixin _$WantedAdminState {
   String get teamId => throw _privateConstructorUsedError;
   WantedRequestModel? get activeRequest => throw _privateConstructorUsedError;
+  List<WantedRequestModel> get activeRequests =>
+      throw _privateConstructorUsedError;
   List<WantedEntryWithUser> get allEntries =>
+      throw _privateConstructorUsedError; // 마감된 최근 수집 (활성 없을 때 표시)
+  List<WantedRequestModel> get lastClosedRequests =>
+      throw _privateConstructorUsedError;
+  WantedRequestModel? get lastClosedRequest =>
+      throw _privateConstructorUsedError;
+  List<WantedEntryWithUser> get lastClosedEntries =>
       throw _privateConstructorUsedError;
   bool get isCreating => throw _privateConstructorUsedError;
   bool get isLoading => throw _privateConstructorUsedError;
@@ -42,13 +50,18 @@ abstract class $WantedAdminStateCopyWith<$Res> {
   $Res call({
     String teamId,
     WantedRequestModel? activeRequest,
+    List<WantedRequestModel> activeRequests,
     List<WantedEntryWithUser> allEntries,
+    List<WantedRequestModel> lastClosedRequests,
+    WantedRequestModel? lastClosedRequest,
+    List<WantedEntryWithUser> lastClosedEntries,
     bool isCreating,
     bool isLoading,
     String? error,
   });
 
   $WantedRequestModelCopyWith<$Res>? get activeRequest;
+  $WantedRequestModelCopyWith<$Res>? get lastClosedRequest;
 }
 
 /// @nodoc
@@ -68,7 +81,11 @@ class _$WantedAdminStateCopyWithImpl<$Res, $Val extends WantedAdminState>
   $Res call({
     Object? teamId = null,
     Object? activeRequest = freezed,
+    Object? activeRequests = null,
     Object? allEntries = null,
+    Object? lastClosedRequests = null,
+    Object? lastClosedRequest = freezed,
+    Object? lastClosedEntries = null,
     Object? isCreating = null,
     Object? isLoading = null,
     Object? error = freezed,
@@ -83,9 +100,25 @@ class _$WantedAdminStateCopyWithImpl<$Res, $Val extends WantedAdminState>
                 ? _value.activeRequest
                 : activeRequest // ignore: cast_nullable_to_non_nullable
                       as WantedRequestModel?,
+            activeRequests: null == activeRequests
+                ? _value.activeRequests
+                : activeRequests // ignore: cast_nullable_to_non_nullable
+                      as List<WantedRequestModel>,
             allEntries: null == allEntries
                 ? _value.allEntries
                 : allEntries // ignore: cast_nullable_to_non_nullable
+                      as List<WantedEntryWithUser>,
+            lastClosedRequests: null == lastClosedRequests
+                ? _value.lastClosedRequests
+                : lastClosedRequests // ignore: cast_nullable_to_non_nullable
+                      as List<WantedRequestModel>,
+            lastClosedRequest: freezed == lastClosedRequest
+                ? _value.lastClosedRequest
+                : lastClosedRequest // ignore: cast_nullable_to_non_nullable
+                      as WantedRequestModel?,
+            lastClosedEntries: null == lastClosedEntries
+                ? _value.lastClosedEntries
+                : lastClosedEntries // ignore: cast_nullable_to_non_nullable
                       as List<WantedEntryWithUser>,
             isCreating: null == isCreating
                 ? _value.isCreating
@@ -117,6 +150,22 @@ class _$WantedAdminStateCopyWithImpl<$Res, $Val extends WantedAdminState>
       return _then(_value.copyWith(activeRequest: value) as $Val);
     });
   }
+
+  /// Create a copy of WantedAdminState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $WantedRequestModelCopyWith<$Res>? get lastClosedRequest {
+    if (_value.lastClosedRequest == null) {
+      return null;
+    }
+
+    return $WantedRequestModelCopyWith<$Res>(_value.lastClosedRequest!, (
+      value,
+    ) {
+      return _then(_value.copyWith(lastClosedRequest: value) as $Val);
+    });
+  }
 }
 
 /// @nodoc
@@ -131,7 +180,11 @@ abstract class _$$WantedAdminStateImplCopyWith<$Res>
   $Res call({
     String teamId,
     WantedRequestModel? activeRequest,
+    List<WantedRequestModel> activeRequests,
     List<WantedEntryWithUser> allEntries,
+    List<WantedRequestModel> lastClosedRequests,
+    WantedRequestModel? lastClosedRequest,
+    List<WantedEntryWithUser> lastClosedEntries,
     bool isCreating,
     bool isLoading,
     String? error,
@@ -139,6 +192,8 @@ abstract class _$$WantedAdminStateImplCopyWith<$Res>
 
   @override
   $WantedRequestModelCopyWith<$Res>? get activeRequest;
+  @override
+  $WantedRequestModelCopyWith<$Res>? get lastClosedRequest;
 }
 
 /// @nodoc
@@ -157,7 +212,11 @@ class __$$WantedAdminStateImplCopyWithImpl<$Res>
   $Res call({
     Object? teamId = null,
     Object? activeRequest = freezed,
+    Object? activeRequests = null,
     Object? allEntries = null,
+    Object? lastClosedRequests = null,
+    Object? lastClosedRequest = freezed,
+    Object? lastClosedEntries = null,
     Object? isCreating = null,
     Object? isLoading = null,
     Object? error = freezed,
@@ -172,9 +231,25 @@ class __$$WantedAdminStateImplCopyWithImpl<$Res>
             ? _value.activeRequest
             : activeRequest // ignore: cast_nullable_to_non_nullable
                   as WantedRequestModel?,
+        activeRequests: null == activeRequests
+            ? _value._activeRequests
+            : activeRequests // ignore: cast_nullable_to_non_nullable
+                  as List<WantedRequestModel>,
         allEntries: null == allEntries
             ? _value._allEntries
             : allEntries // ignore: cast_nullable_to_non_nullable
+                  as List<WantedEntryWithUser>,
+        lastClosedRequests: null == lastClosedRequests
+            ? _value._lastClosedRequests
+            : lastClosedRequests // ignore: cast_nullable_to_non_nullable
+                  as List<WantedRequestModel>,
+        lastClosedRequest: freezed == lastClosedRequest
+            ? _value.lastClosedRequest
+            : lastClosedRequest // ignore: cast_nullable_to_non_nullable
+                  as WantedRequestModel?,
+        lastClosedEntries: null == lastClosedEntries
+            ? _value._lastClosedEntries
+            : lastClosedEntries // ignore: cast_nullable_to_non_nullable
                   as List<WantedEntryWithUser>,
         isCreating: null == isCreating
             ? _value.isCreating
@@ -199,16 +274,32 @@ class _$WantedAdminStateImpl implements _WantedAdminState {
   const _$WantedAdminStateImpl({
     required this.teamId,
     this.activeRequest,
+    final List<WantedRequestModel> activeRequests = const [],
     final List<WantedEntryWithUser> allEntries = const [],
+    final List<WantedRequestModel> lastClosedRequests = const [],
+    this.lastClosedRequest,
+    final List<WantedEntryWithUser> lastClosedEntries = const [],
     this.isCreating = false,
     this.isLoading = false,
     this.error,
-  }) : _allEntries = allEntries;
+  }) : _activeRequests = activeRequests,
+       _allEntries = allEntries,
+       _lastClosedRequests = lastClosedRequests,
+       _lastClosedEntries = lastClosedEntries;
 
   @override
   final String teamId;
   @override
   final WantedRequestModel? activeRequest;
+  final List<WantedRequestModel> _activeRequests;
+  @override
+  @JsonKey()
+  List<WantedRequestModel> get activeRequests {
+    if (_activeRequests is EqualUnmodifiableListView) return _activeRequests;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_activeRequests);
+  }
+
   final List<WantedEntryWithUser> _allEntries;
   @override
   @JsonKey()
@@ -216,6 +307,30 @@ class _$WantedAdminStateImpl implements _WantedAdminState {
     if (_allEntries is EqualUnmodifiableListView) return _allEntries;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_allEntries);
+  }
+
+  // 마감된 최근 수집 (활성 없을 때 표시)
+  final List<WantedRequestModel> _lastClosedRequests;
+  // 마감된 최근 수집 (활성 없을 때 표시)
+  @override
+  @JsonKey()
+  List<WantedRequestModel> get lastClosedRequests {
+    if (_lastClosedRequests is EqualUnmodifiableListView)
+      return _lastClosedRequests;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_lastClosedRequests);
+  }
+
+  @override
+  final WantedRequestModel? lastClosedRequest;
+  final List<WantedEntryWithUser> _lastClosedEntries;
+  @override
+  @JsonKey()
+  List<WantedEntryWithUser> get lastClosedEntries {
+    if (_lastClosedEntries is EqualUnmodifiableListView)
+      return _lastClosedEntries;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_lastClosedEntries);
   }
 
   @override
@@ -229,7 +344,7 @@ class _$WantedAdminStateImpl implements _WantedAdminState {
 
   @override
   String toString() {
-    return 'WantedAdminState(teamId: $teamId, activeRequest: $activeRequest, allEntries: $allEntries, isCreating: $isCreating, isLoading: $isLoading, error: $error)';
+    return 'WantedAdminState(teamId: $teamId, activeRequest: $activeRequest, activeRequests: $activeRequests, allEntries: $allEntries, lastClosedRequests: $lastClosedRequests, lastClosedRequest: $lastClosedRequest, lastClosedEntries: $lastClosedEntries, isCreating: $isCreating, isLoading: $isLoading, error: $error)';
   }
 
   @override
@@ -241,8 +356,22 @@ class _$WantedAdminStateImpl implements _WantedAdminState {
             (identical(other.activeRequest, activeRequest) ||
                 other.activeRequest == activeRequest) &&
             const DeepCollectionEquality().equals(
+              other._activeRequests,
+              _activeRequests,
+            ) &&
+            const DeepCollectionEquality().equals(
               other._allEntries,
               _allEntries,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other._lastClosedRequests,
+              _lastClosedRequests,
+            ) &&
+            (identical(other.lastClosedRequest, lastClosedRequest) ||
+                other.lastClosedRequest == lastClosedRequest) &&
+            const DeepCollectionEquality().equals(
+              other._lastClosedEntries,
+              _lastClosedEntries,
             ) &&
             (identical(other.isCreating, isCreating) ||
                 other.isCreating == isCreating) &&
@@ -256,7 +385,11 @@ class _$WantedAdminStateImpl implements _WantedAdminState {
     runtimeType,
     teamId,
     activeRequest,
+    const DeepCollectionEquality().hash(_activeRequests),
     const DeepCollectionEquality().hash(_allEntries),
+    const DeepCollectionEquality().hash(_lastClosedRequests),
+    lastClosedRequest,
+    const DeepCollectionEquality().hash(_lastClosedEntries),
     isCreating,
     isLoading,
     error,
@@ -278,7 +411,11 @@ abstract class _WantedAdminState implements WantedAdminState {
   const factory _WantedAdminState({
     required final String teamId,
     final WantedRequestModel? activeRequest,
+    final List<WantedRequestModel> activeRequests,
     final List<WantedEntryWithUser> allEntries,
+    final List<WantedRequestModel> lastClosedRequests,
+    final WantedRequestModel? lastClosedRequest,
+    final List<WantedEntryWithUser> lastClosedEntries,
     final bool isCreating,
     final bool isLoading,
     final String? error,
@@ -289,7 +426,15 @@ abstract class _WantedAdminState implements WantedAdminState {
   @override
   WantedRequestModel? get activeRequest;
   @override
-  List<WantedEntryWithUser> get allEntries;
+  List<WantedRequestModel> get activeRequests;
+  @override
+  List<WantedEntryWithUser> get allEntries; // 마감된 최근 수집 (활성 없을 때 표시)
+  @override
+  List<WantedRequestModel> get lastClosedRequests;
+  @override
+  WantedRequestModel? get lastClosedRequest;
+  @override
+  List<WantedEntryWithUser> get lastClosedEntries;
   @override
   bool get isCreating;
   @override

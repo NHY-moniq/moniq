@@ -3,6 +3,7 @@ import 'package:moniq/data/models/roster_entry.dart';
 import 'package:moniq/data/models/shift_rule_model.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
+import 'package:moniq/data/models/user_model.dart';
 
 class ShiftRepository {
   ShiftRepository({required ShiftRemoteDataSource dataSource})
@@ -144,6 +145,19 @@ class ShiftRepository {
     }
 
     return entries;
+  }
+
+  /// 오늘(또는 특정 날짜) 같은 shift_type에 배정된 팀원(본인 제외)
+  Future<List<UserModel>> getCoworkers({
+    required String teamId,
+    required DateTime date,
+    required String shiftTypeId,
+  }) {
+    return _dataSource.getCoworkers(
+      teamId: teamId,
+      date: date,
+      shiftTypeId: shiftTypeId,
+    );
   }
 
   Future<List<ShiftTypeModel>> getShiftTypes(String teamId) {

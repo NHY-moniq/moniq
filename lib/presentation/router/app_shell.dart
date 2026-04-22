@@ -1,9 +1,11 @@
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/data/providers/schedule_providers.dart';
@@ -14,15 +16,13 @@ import 'package:moniq/presentation/screens/team/team_excel_import.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
+import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 
 class AppShell extends ConsumerWidget {
-  const AppShell({
-    super.key,
-    required this.navigationShell,
-  });
+  const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
@@ -55,10 +55,7 @@ class AppShell extends ConsumerWidget {
 // ── 웹 레이아웃: 고정 사이드바 + 호버 시 우측 flyout ──
 
 class _WebShell extends ConsumerStatefulWidget {
-  const _WebShell({
-    required this.navigationShell,
-    required this.shiftTheme,
-  });
+  const _WebShell({required this.navigationShell, required this.shiftTheme});
 
   final StatefulNavigationShell navigationShell;
   final ShiftThemeData shiftTheme;
@@ -148,7 +145,50 @@ class _WebShellState extends ConsumerState<_WebShell> {
           ),
 
           // ── 메인 콘텐츠 ──
-          Expanded(child: widget.navigationShell),
+          Expanded(
+            child: Column(
+              children: [
+                _WebTopActionsBar(
+                  onBranchSelect: (index) => widget.navigationShell.goBranch(
+                    index,
+                    initialLocation:
+                        index == widget.navigationShell.currentIndex,
+                  ),
+                ),
+                Expanded(child: widget.navigationShell),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WebTopActionsBar extends StatelessWidget {
+  const _WebTopActionsBar({required this.onBranchSelect});
+
+  final ValueChanged<int> onBranchSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      height: 60,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        border: Border(
+          bottom: BorderSide(color: colorScheme.outlineVariant, width: 1),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          _SidebarIconButton(icon: Icons.notifications_outlined, onTap: () {}),
+          const SizedBox(width: 6),
+          _UserAvatarButton(onBranchSelect: onBranchSelect),
         ],
       ),
     );
@@ -180,28 +220,28 @@ class _FixedSidebar extends StatelessWidget {
       children: [
         // 로고 영역
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+          padding: const EdgeInsets.fromLTRB(16, 20, 8, 16),
           child: Row(
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(9),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Image.asset(
                   'assets/images/logo.png',
-                  width: 36,
-                  height: 36,
+                  width: 32,
+                  height: 32,
                   errorBuilder: (_, __, ___) =>
-                      const SizedBox(width: 36, height: 36),
+                      const SizedBox(width: 32, height: 32),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Text(
                 'Moniq',
-                style: theme.textTheme.titleMedium?.copyWith(
+                style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w900,
                   color: colorScheme.primary,
                   letterSpacing: -0.3,
@@ -220,8 +260,8 @@ class _FixedSidebar extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        // 네비게이션 항목
-        ...List.generate(_navItems.length, (index) {
+        // 네비게이션 항목 (홈/캘린더/팀 — 설정 index 3 제외)
+        ...List.generate(3, (index) {
           final item = _navItems[index];
           final isActive = index == currentIndex;
 
@@ -236,8 +276,7 @@ class _FixedSidebar extends StatelessWidget {
 
         const Spacer(),
 
-        // 하단 여백
-        const SizedBox(height: 24),
+        _SidebarUserSection(onSettingsTap: () => onTabSelect(3)),
       ],
     );
   }
@@ -289,8 +328,9 @@ class _CalendarContextItems extends ConsumerWidget {
               context: context,
               isScrollControlled: true,
               shape: const RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(AppRadius.xl),
+                ),
               ),
               builder: (_) => const PersonalShiftTypeSheet(),
             );
@@ -325,10 +365,10 @@ class _TeamContextItems extends ConsumerWidget {
 
     final isAdmin = teamId != null
         ? (ref
-                .watch(teamDetailViewModelProvider(teamId))
-                .valueOrNull
-                ?.isAdmin ??
-            false)
+                  .watch(teamDetailViewModelProvider(teamId))
+                  .valueOrNull
+                  ?.isAdmin ??
+              false)
         : false;
 
     return Column(
@@ -437,8 +477,8 @@ class _SidebarNavTileState extends State<_SidebarNavTile> {
     final iconColor = widget.isActive
         ? activeColor
         : _hovered
-            ? colorScheme.onSurface.withValues(alpha: 0.75)
-            : colorScheme.onSurface.withValues(alpha: 0.5);
+        ? colorScheme.onSurface.withValues(alpha: 0.75)
+        : colorScheme.onSurface.withValues(alpha: 0.5);
     final textColor = widget.isActive
         ? activeColor
         : colorScheme.onSurface.withValues(alpha: 0.75);
@@ -458,8 +498,8 @@ class _SidebarNavTileState extends State<_SidebarNavTile> {
               color: widget.isActive
                   ? activeColor.withValues(alpha: 0.10)
                   : _hovered
-                      ? colorScheme.onSurface.withValues(alpha: 0.05)
-                      : Colors.transparent,
+                  ? colorScheme.onSurface.withValues(alpha: 0.05)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -473,11 +513,11 @@ class _SidebarNavTileState extends State<_SidebarNavTile> {
                   child: Text(
                     widget.label,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: widget.isActive
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: textColor,
-                        ),
+                      fontWeight: widget.isActive
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: textColor,
+                    ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
@@ -540,9 +580,9 @@ class _FlyoutTile extends StatelessWidget {
                   child: Text(
                     label,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.onSurface.withValues(alpha: 0.82),
-                        ),
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.onSurface.withValues(alpha: 0.82),
+                    ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
@@ -556,6 +596,498 @@ class _FlyoutTile extends StatelessWidget {
   }
 }
 
+// ── 유저 아바타 드롭다운 버튼 ──
+
+class _UserAvatarButton extends ConsumerStatefulWidget {
+  const _UserAvatarButton({required this.onBranchSelect});
+
+  final ValueChanged<int> onBranchSelect;
+
+  @override
+  ConsumerState<_UserAvatarButton> createState() => _UserAvatarButtonState();
+}
+
+class _UserAvatarButtonState extends ConsumerState<_UserAvatarButton>
+    with SingleTickerProviderStateMixin {
+  final _buttonKey = GlobalKey();
+  bool _hovered = false;
+  OverlayEntry? _overlayEntry;
+  late AnimationController _animController;
+  late Animation<double> _fadeAnim;
+  late Animation<Offset> _slideAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, -0.05),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _removeOverlay();
+    _animController.dispose();
+    super.dispose();
+  }
+
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  void _toggleDropdown() {
+    if (_overlayEntry != null) {
+      _animController.reverse().then((_) => _removeOverlay());
+      return;
+    }
+    _showDropdown();
+  }
+
+  void _showDropdown() {
+    final renderBox =
+        _buttonKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          // 백드롭 탭으로 닫기
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {
+                _animController.reverse().then((_) => _removeOverlay());
+                if (mounted) setState(() {});
+              },
+            ),
+          ),
+          Positioned(
+            top: offset.dy + size.height + 4,
+            right: MediaQuery.of(context).size.width - offset.dx - size.width,
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: SlideTransition(
+                position: _slideAnim,
+                child: _DropdownMenu(
+                  onClose: () {
+                    _animController.reverse().then((_) => _removeOverlay());
+                    if (mounted) setState(() {});
+                  },
+                  onBranchSelect: widget.onBranchSelect,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+    _animController.forward(from: 0);
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final user = ref.watch(currentUserProvider);
+    final metadata = user?.userMetadata;
+    final avatarUrl = metadata?['avatar_url'] as String?;
+    final displayName =
+        metadata?['display_name'] as String? ?? user?.email ?? '';
+    final initial = displayName.isNotEmpty
+        ? displayName[0].toUpperCase()
+        : null;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        key: _buttonKey,
+        onTap: _toggleDropdown,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? colorScheme.onSurface.withValues(alpha: 0.06)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildAvatar(avatarUrl, initial, colorScheme),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 16,
+                color: colorScheme.onSurface.withValues(alpha: 0.65),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(
+    String? avatarUrl,
+    String? initial,
+    ColorScheme colorScheme,
+  ) {
+    return CircleAvatar(
+      radius: AppSizing.avatarSm / 2,
+      backgroundColor: colorScheme.primaryContainer,
+      child: avatarUrl != null && avatarUrl.isNotEmpty
+          ? ClipOval(
+              child: CachedNetworkImage(
+                imageUrl: avatarUrl,
+                width: AppSizing.avatarSm,
+                height: AppSizing.avatarSm,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => _AvatarFallback(initial: initial),
+              ),
+            )
+          : _AvatarFallback(initial: initial),
+    );
+  }
+}
+
+class _AvatarFallback extends StatelessWidget {
+  const _AvatarFallback({this.initial});
+  final String? initial;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    if (initial != null) {
+      return Text(
+        initial!,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: colorScheme.onPrimaryContainer,
+        ),
+      );
+    }
+    return Icon(
+      Icons.person_rounded,
+      size: 18,
+      color: colorScheme.onPrimaryContainer,
+    );
+  }
+}
+
+class _DropdownMenu extends ConsumerWidget {
+  const _DropdownMenu({required this.onClose, required this.onBranchSelect});
+
+  final VoidCallback onClose;
+  final ValueChanged<int> onBranchSelect;
+
+  Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('로그아웃'),
+        content: const Text('정말 로그아웃 하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('로그아웃', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await ref.read(authViewModelProvider.notifier).signOut();
+      if (context.mounted) context.go('/login');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 200,
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLowest,
+          border: Border.all(color: colorScheme.outlineVariant, width: 1),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _DropdownItem(
+              icon: Icons.person_outline_rounded,
+              label: '프로필 편집',
+              onTap: () {
+                onClose();
+                context.go('/settings/profile');
+              },
+            ),
+            _DropdownItem(
+              icon: Icons.settings_outlined,
+              label: '설정',
+              onTap: () {
+                onClose();
+                onBranchSelect(3);
+              },
+            ),
+            Divider(
+              height: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+            ),
+            _DropdownItem(
+              icon: Icons.logout_rounded,
+              label: '로그아웃',
+              isDestructive: true,
+              onTap: () {
+                onClose();
+                _confirmSignOut(context, ref);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DropdownItem extends StatefulWidget {
+  const _DropdownItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  @override
+  State<_DropdownItem> createState() => _DropdownItemState();
+}
+
+class _DropdownItemState extends State<_DropdownItem> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = widget.isDestructive
+        ? AppColors.error
+        : colorScheme.onSurface.withValues(alpha: 0.82);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? colorScheme.onSurface.withValues(alpha: 0.06)
+                : Colors.transparent,
+          ),
+          child: Row(
+            children: [
+              Icon(widget.icon, size: 18, color: color),
+              const SizedBox(width: 10),
+              Text(
+                widget.label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── 사이드바 아이콘 버튼 (알림 등) ──
+
+class _SidebarIconButton extends StatefulWidget {
+  const _SidebarIconButton({required this.icon, required this.onTap});
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  State<_SidebarIconButton> createState() => _SidebarIconButtonState();
+}
+
+class _SidebarIconButtonState extends State<_SidebarIconButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: _hovered
+                ? cs.onSurface.withValues(alpha: 0.07)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          alignment: Alignment.center,
+          child: Icon(
+            widget.icon,
+            size: 18,
+            color: cs.onSurface.withValues(alpha: 0.55),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── 사이드바 하단 유저 섹션 ──
+
+class _SidebarUserSection extends ConsumerStatefulWidget {
+  const _SidebarUserSection({required this.onSettingsTap});
+
+  final VoidCallback onSettingsTap;
+
+  @override
+  ConsumerState<_SidebarUserSection> createState() =>
+      _SidebarUserSectionState();
+}
+
+class _SidebarUserSectionState extends ConsumerState<_SidebarUserSection> {
+  bool _settingsHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final user = ref.watch(currentUserProvider);
+    final metadata = user?.userMetadata;
+    final avatarUrl = metadata?['avatar_url'] as String?;
+    final displayName =
+        metadata?['display_name'] as String? ?? user?.email ?? '';
+    final initial = displayName.isNotEmpty
+        ? displayName[0].toUpperCase()
+        : null;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Divider(
+          height: 1,
+          indent: 12,
+          endIndent: 12,
+          color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: AppSizing.avatarSm / 2,
+                backgroundColor: colorScheme.primaryContainer,
+                child: avatarUrl != null && avatarUrl.isNotEmpty
+                    ? ClipOval(
+                        child: CachedNetworkImage(
+                          imageUrl: avatarUrl,
+                          width: AppSizing.avatarSm,
+                          height: AppSizing.avatarSm,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) =>
+                              _AvatarFallback(initial: initial),
+                        ),
+                      )
+                    : _AvatarFallback(initial: initial),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  displayName,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                onEnter: (_) => setState(() => _settingsHovered = true),
+                onExit: (_) => setState(() => _settingsHovered = false),
+                child: GestureDetector(
+                  onTap: widget.onSettingsTap,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: _settingsHovered
+                          ? colorScheme.onSurface.withValues(alpha: 0.06)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(AppRadius.xs),
+                    ),
+                    child: Icon(
+                      Icons.settings_outlined,
+                      size: 18,
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ──────────────────────────────────────────────
+
 class _FlyoutSectionLabel extends StatelessWidget {
   const _FlyoutSectionLabel({required this.label});
   final String label;
@@ -567,13 +1099,12 @@ class _FlyoutSectionLabel extends StatelessWidget {
       child: Text(
         label.toUpperCase(),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.38),
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.1,
-            ),
+          color: Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.38),
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.1,
+        ),
       ),
     );
   }
@@ -697,11 +1228,7 @@ class _NavItem {
       activeIcon: Icons.calendar_month,
       label: '캘린더',
     ),
-    _NavItem(
-      icon: Icons.groups_outlined,
-      activeIcon: Icons.groups,
-      label: '팀',
-    ),
+    _NavItem(icon: Icons.groups_outlined, activeIcon: Icons.groups, label: '팀'),
     _NavItem(
       icon: Icons.settings_outlined,
       activeIcon: Icons.settings,

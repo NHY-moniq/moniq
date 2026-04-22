@@ -40,10 +40,13 @@ class TeamScreen extends HookConsumerWidget {
     if (teamsAsync.isLoading || favoriteTeamAsync.isLoading) {
       return Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-        appBar: AppBar(
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-          title: const Text('팀'),
-        ),
+        appBar: AdaptiveLayout.isWide(context)
+            ? null
+            : AppBar(
+                backgroundColor:
+                    Theme.of(context).colorScheme.surfaceContainerLow,
+                title: const Text('팀'),
+              ),
         body: const MoniqLoadingView(),
       );
     }
@@ -51,10 +54,13 @@ class TeamScreen extends HookConsumerWidget {
     if (teamsAsync.hasError) {
       return Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-        appBar: AppBar(
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-          title: const Text('팀'),
-        ),
+        appBar: AdaptiveLayout.isWide(context)
+            ? null
+            : AppBar(
+                backgroundColor:
+                    Theme.of(context).colorScheme.surfaceContainerLow,
+                title: const Text('팀'),
+              ),
         body: MoniqErrorView(
           message: '팀 정보를 불러올 수 없습니다',
           onRetry: () => ref.read(teamViewModelProvider.notifier).refresh(),
@@ -65,10 +71,13 @@ class TeamScreen extends HookConsumerWidget {
     if (favoriteTeamAsync.hasError) {
       return Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-        appBar: AppBar(
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-          title: const Text('팀'),
-        ),
+        appBar: AdaptiveLayout.isWide(context)
+            ? null
+            : AppBar(
+                backgroundColor:
+                    Theme.of(context).colorScheme.surfaceContainerLow,
+                title: const Text('팀'),
+              ),
         body: MoniqErrorView(
           message: '즐겨찾기 팀을 불러올 수 없습니다',
           onRetry: () => ref.invalidate(favoriteTeamProvider),
@@ -82,10 +91,13 @@ class TeamScreen extends HookConsumerWidget {
     if (teams.isEmpty) {
       return Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-        appBar: AppBar(
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-          title: const Text('팀'),
-        ),
+        appBar: AdaptiveLayout.isWide(context)
+            ? null
+            : AppBar(
+                backgroundColor:
+                    Theme.of(context).colorScheme.surfaceContainerLow,
+                title: const Text('팀'),
+              ),
         body: MoniqEmptyState(
           icon: Icons.groups_outlined,
           character: CharacterType.orange,
@@ -119,10 +131,13 @@ class _NoFavoriteView extends HookConsumerWidget {
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-        title: const Text('팀'),
-      ),
+      appBar: AdaptiveLayout.isWide(context)
+          ? null
+          : AppBar(
+              backgroundColor:
+                  Theme.of(context).colorScheme.surfaceContainerLow,
+              title: const Text('팀'),
+            ),
       body: Padding(
         padding: AppSpacing.screenAll,
         child: Column(
@@ -194,24 +209,41 @@ class _TeamCalendarView extends HookConsumerWidget {
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-        title: Row(
-          children: [
-            TeamProfileAvatar(icon: team.icon, radius: 16),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      appBar: AdaptiveLayout.isWide(context)
+          ? null
+          : AppBar(
+              backgroundColor:
+                  Theme.of(context).colorScheme.surfaceContainerLow,
+              title: Row(
                 children: [
-                  Text(
-                    team.name,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
+                  TeamProfileAvatar(icon: team.icon, radius: 16),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          team.name,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
                         ),
+                      ],
+                    ),
                   ),
                 ],
               ),
+              actions: [
+                Builder(
+                  builder: (ctx) => IconButton(
+                    icon: const Icon(Icons.menu),
+                    onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

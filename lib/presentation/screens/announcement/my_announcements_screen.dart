@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/announcement_model.dart';
 import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/announcement_providers.dart';
+import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/presentation/screens/announcement/announcement_screen.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
@@ -58,7 +59,7 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
                   content: a.content,
                   createdAt: a.createdAt,
                   isPinned: a.isPinned,
-                  onTap: () => _showDetail(context, item),
+                  onTap: () => _showDetail(context, ref, item),
                 );
               },
             ),
@@ -124,13 +125,40 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
     );
   }
 
-  void _showDetail(BuildContext context, AnnouncementWithTeam item) {
+  void _showDetail(
+      BuildContext context, WidgetRef ref, AnnouncementWithTeam item) {
+    final a = item.announcement;
+    final myUserId = ref.read(currentUserProvider)?.id;
+    final isMine = myUserId != null && a.createdBy == myUserId;
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => AnnouncementDetailPage(
-          announcement: item.announcement,
+        builder: (detailContext) => AnnouncementDetailPage(
+          announcement: a,
           teamName: item.teamName,
+          onEdit: isMine
+              ? () async {
+                  final updated = await showAnnouncementEditSheet(
+                      detailContext, a);
+                  if (updated == true) {
+                    ref.invalidate(teamAnnouncementsProvider(a.teamId));
+                    ref.invalidate(myAnnouncementsProvider);
+                    if (detailContext.mounted) {
+                      Navigator.pop(detailContext);
+                    }
+                  }
+                }
+              : null,
+          onDelete: isMine
+              ? () async {
+                  await ref
+                      .read(announcementRepositoryProvider)
+                      .delete(a.id);
+                  ref.invalidate(teamAnnouncementsProvider(a.teamId));
+                  ref.invalidate(myAnnouncementsProvider);
+                }
+              : null,
         ),
       ),
     );
