@@ -40,16 +40,10 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
   String _changeType = 'day_off';
   DateTime? _requestedDate;
   String? _selectedShiftTypeId;
-  // 근무 교환 플로우: 변경 후 원하는 shift_type
+  // 근무 교환 플로우 상태
   String? _swapDesiredShiftTypeId;
   String? _selectedSwapUserId;
   String? _selectedSwapUserName;
-  // 1:1 (single) | 1:N (multi)
-  String _swapMode = 'one';
-  final Set<String> _selectedSwapUserIds = {};
-  final Map<String, String> _swapUserNames = {};
-  // 1:N 모드 — 교환할 (팀원, 날짜, 근무) 항목들
-  final List<MultiSwapItem> _multiSwapItems = [];
   String _reason = '';
   String _note = '';
   bool _isSubmitting = false;
@@ -119,8 +113,9 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
       return false;
     }
     if (_changeType == 'swap') {
-      if (_swapMode == 'one' && _selectedSwapUserId == null) return false;
-      if (_swapMode == 'many' && _multiSwapItems.isEmpty) return false;
+      if (_selectedSwapUserId == null) return false;
+      if (_requestedDate == null) return false;
+      if (_swapDesiredShiftTypeId == null) return false;
     }
     return true;
   }
@@ -128,6 +123,7 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isSwap = _changeType == 'swap';
 
     return SingleChildScrollView(
       padding: AppSpacing.screenAll,
@@ -155,6 +151,7 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
                     _selectedShiftTypeId = null;
                     _selectedSwapUserId = null;
                     _selectedSwapUserName = null;
+                    _swapDesiredShiftTypeId = null;
                   });
                   if ((type == 'shift_change' || type == 'swap') &&
                       _requestedDate != null) {
@@ -167,60 +164,57 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
             }).toList(),
           ),
 
-          const SizedBox(height: AppSpacing.xxl),
-
-          // Step 2: 희망 날짜
-          Text('희망 날짜',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: AppSpacing.md),
-          InkWell(
-            onTap: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: _requestedDate ?? DateTime.now(),
-                firstDate: DateTime.now(),
-                lastDate: DateTime.now().add(const Duration(days: 90)),
-              );
-              if (picked != null) {
-                setState(() {
-                  _requestedDate = picked;
-                  _selectedSwapUserId = null;
-                  _selectedSwapUserName = null;
-                });
-                if (_changeType == 'shift_change' || _changeType == 'swap') {
-                  _loadRoster();
+          // 휴무 / 근무 변경: 희망 날짜 상단 단계
+          if (!isSwap) ...[
+            const SizedBox(height: AppSpacing.xxl),
+            Text('희망 날짜',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: AppSpacing.md),
+            InkWell(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _requestedDate ?? DateTime.now(),
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 90)),
+                );
+                if (picked != null) {
+                  setState(() => _requestedDate = picked);
+                  if (_changeType == 'shift_change') {
+                    _loadRoster();
+                  }
                 }
-              }
-            },
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: theme.colorScheme.outlineVariant,
-                ),
-                borderRadius: AppRadius.borderRadiusMd,
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.calendar_today,
-                      size: 20, color: theme.colorScheme.primary),
-                  const SizedBox(width: AppSpacing.md),
-                  Text(
-                    _requestedDate != null
-                        ? DateFormat('yyyy년 MM월 dd일').format(_requestedDate!)
-                        : '날짜를 선택해주세요',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: _requestedDate != null
-                          ? null
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: theme.colorScheme.outlineVariant,
                   ),
-                ],
+                  borderRadius: AppRadius.borderRadiusMd,
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_today,
+                        size: 20, color: theme.colorScheme.primary),
+                    const SizedBox(width: AppSpacing.md),
+                    Text(
+                      _requestedDate != null
+                          ? DateFormat('yyyy년 MM월 dd일').format(_requestedDate!)
+                          : '날짜를 선택해주세요',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: _requestedDate != null
+                            ? null
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
 
           // 근무 변경 섹션
           if (_changeType == 'shift_change') ...[
@@ -235,69 +229,37 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
             ),
           ],
 
-          // 근무 교환 섹션
-          if (_changeType == 'swap') ...[
+          // 근무 교환 섹션 (팀원 → 날짜 → 근무 드롭박스)
+          if (isSwap) ...[
             const SizedBox(height: AppSpacing.xxl),
             RequestCreateSwapSection(
-              isLoading: _isLoadingRoster,
-              myShiftTypeName: _myShiftTypeName,
-              roster: _roster,
-              shiftTypes: _shiftTypes,
-              myUserId: ref.read(currentUserProvider)?.id,
               teamId: widget.teamId,
-              desiredShiftTypeId: _swapDesiredShiftTypeId,
-              onDesiredShiftTypeSelected: (id) => setState(() {
-                _swapDesiredShiftTypeId = id;
-                _selectedSwapUserId = null;
-                _selectedSwapUserName = null;
-                _selectedSwapUserIds.clear();
-                _swapUserNames.clear();
-                _multiSwapItems.clear();
-              }),
-              swapMode: _swapMode,
-              onSwapModeChanged: (mode) {
-                setState(() {
-                  _swapMode = mode;
-                  _selectedSwapUserId = null;
-                  _selectedSwapUserName = null;
-                  _selectedSwapUserIds.clear();
-                  _swapUserNames.clear();
-                  _multiSwapItems.clear();
-                });
-              },
+              myUserId: ref.read(currentUserProvider)?.id,
               selectedSwapUserId: _selectedSwapUserId,
               selectedSwapUserName: _selectedSwapUserName,
-              selectedSwapUserIds: _selectedSwapUserIds,
               onSwapUserSelected: (userId, userName) {
                 setState(() {
-                  if (userId == null) {
-                    _selectedSwapUserId = null;
-                    _selectedSwapUserName = null;
-                  } else {
-                    _selectedSwapUserId = userId;
-                    _selectedSwapUserName = userName;
-                  }
+                  _selectedSwapUserId = userId;
+                  _selectedSwapUserName = userName;
+                  _swapDesiredShiftTypeId = null;
                 });
               },
-              multiSwapItems: _multiSwapItems,
-              onMultiItemAdded: (item) {
+              requestedDate: _requestedDate,
+              onDateSelected: (date) {
                 setState(() {
-                  // 같은 (userId, date) 중복 방지
-                  _multiSwapItems.removeWhere(
-                    (e) => e.userId == item.userId && e.date == item.date,
-                  );
-                  _multiSwapItems.add(item);
+                  _requestedDate = date;
+                  _swapDesiredShiftTypeId = null;
                 });
               },
-              onMultiItemRemoved: (index) {
-                setState(() => _multiSwapItems.removeAt(index));
-              },
+              desiredShiftTypeId: _swapDesiredShiftTypeId,
+              onDesiredShiftTypeSelected: (id) =>
+                  setState(() => _swapDesiredShiftTypeId = id),
             ),
           ],
 
           const SizedBox(height: AppSpacing.xxl),
 
-          // Step 3: 사유
+          // 사유
           Text('사유',
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600)),
@@ -427,50 +389,6 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
           ? DateFormat('M/d', 'ko_KR').format(_requestedDate!)
           : '';
 
-      // 1:N 교환은 _multiSwapItems 각 항목마다 별도 createRequest + 푸시
-      if (_changeType == 'swap' && _swapMode == 'many') {
-        int success = 0;
-        for (final item in _multiSwapItems) {
-          final itemDateLabel = DateFormat('M/d', 'ko_KR').format(item.date);
-          try {
-            await repo.createRequest(
-              teamId: widget.teamId,
-              changeType: 'swap',
-              requestedDate: item.date,
-              targetUserId: item.userId,
-              reason:
-                  '$itemDateLabel ${item.shiftTypeName} ${item.userName} 님과 근무 교환 (1:N). $_reason',
-              note: noteText,
-            );
-            try {
-              await PushService.instance.sendToUsers(
-                userIds: [item.userId],
-                title: '근무 교환 요청',
-                body:
-                    '$myName 님이 $itemDateLabel ${item.shiftTypeName} 근무 교환을 요청했습니다',
-                data: {
-                  'type': 'swap_request',
-                  'team_id': widget.teamId,
-                },
-              );
-            } catch (_) {}
-            success++;
-          } catch (_) {}
-        }
-        ref.invalidate(requestListViewModelProvider(widget.teamId));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content:
-                  Text('$success/${_multiSwapItems.length}건 교환 요청 발송'),
-            ),
-          );
-          context.pop();
-        }
-        return;
-      }
-
-      // 1:1 또는 다른 changeType
       String reasonText = _reason;
       if (_changeType == 'swap' && _selectedSwapUserName != null) {
         reasonText = '$_selectedSwapUserName 님과 근무 교환. $_reason';
@@ -480,7 +398,9 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
         teamId: widget.teamId,
         changeType: _changeType,
         requestedDate: _requestedDate,
-        requestedShiftTypeId: _selectedShiftTypeId,
+        requestedShiftTypeId: _changeType == 'swap'
+            ? _swapDesiredShiftTypeId
+            : _selectedShiftTypeId,
         targetUserId: _changeType == 'swap' ? _selectedSwapUserId : null,
         reason: reasonText,
         note: noteText,
