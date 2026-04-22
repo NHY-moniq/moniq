@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
+import 'package:moniq/data/models/user_model.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/repositories/shift_repository.dart';
@@ -103,3 +104,26 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
     ref.invalidateSelf();
   }
 }
+
+/// 오늘 나와 같은 shift_type에 배정된 팀원 목록 (본인 제외)
+final todayCoworkersProvider =
+    FutureProvider.autoDispose<List<UserModel>>((ref) async {
+  final homeAsync = ref.watch(homeViewModelProvider);
+  final state = homeAsync.valueOrNull;
+  if (state == null) return const [];
+
+  final now = DateTime.now();
+  final todayKey = DateTime(now.year, now.month, now.day);
+  final todayShifts = state.monthlyShifts[todayKey];
+  if (todayShifts == null || todayShifts.isEmpty) return const [];
+
+  final myShift = todayShifts.first;
+  if (myShift.shiftType.code.toUpperCase() == 'OFF') return const [];
+
+  final repo = ref.watch(shiftRepositoryProvider);
+  return repo.getCoworkers(
+    teamId: myShift.shift.teamId,
+    date: todayKey,
+    shiftTypeId: myShift.shiftType.id,
+  );
+});

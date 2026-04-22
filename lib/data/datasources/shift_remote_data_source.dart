@@ -93,6 +93,41 @@ class ShiftRemoteDataSource {
         .toList();
   }
 
+  /// 특정 날짜 + 팀 + shift_type 에 배정된 팀원(본인 제외) 목록
+  Future<List<UserModel>> getCoworkers({
+    required String teamId,
+    required DateTime date,
+    required String shiftTypeId,
+  }) async {
+    if (_userId == null) return [];
+    final dateStr = _dateStr(date);
+
+    final shiftRows = await _client
+        .from('shifts')
+        .select('user_id')
+        .eq('team_id', teamId)
+        .eq('shift_date', dateStr)
+        .eq('shift_type_id', shiftTypeId)
+        .neq('user_id', _userId!);
+
+    final userIds = (shiftRows as List)
+        .map((r) => r['user_id'] as String)
+        .toSet()
+        .toList();
+
+    if (userIds.isEmpty) return [];
+
+    final userRows = await _client
+        .from('users')
+        .select()
+        .inFilter('id', userIds)
+        .eq('is_deleted', false);
+
+    return (userRows as List)
+        .map((r) => UserModel.fromJson(r as Map<String, dynamic>))
+        .toList();
+  }
+
   /// 팀 멤버 + 유저 정보 — 로스터용
   Future<List<UserModel>> getTeamUsers(String teamId) async {
     final memberRows = await _client

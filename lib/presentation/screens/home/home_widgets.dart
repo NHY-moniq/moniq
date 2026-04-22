@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:moniq/core/utils/time_utils.dart';
+import 'package:moniq/data/models/user_model.dart';
 import 'package:moniq/data/providers/announcement_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
+import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 
 // ════════════════════════════════════════════════
 // Home Avatar
@@ -56,14 +59,21 @@ class HomeAvatar extends StatelessWidget {
 // Weekly Hours Card
 // ════════════════════════════════════════════════
 
-class WeeklyHoursCard extends StatelessWidget {
+class WeeklyHoursCard extends ConsumerWidget {
   const WeeklyHoursCard({super.key, required this.shiftTheme});
 
   final ShiftThemeData shiftTheme;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final homeState = ref.watch(homeViewModelProvider);
+
+    final hours = homeState.maybeWhen(
+      data: (state) => monthlyWorkedHours(state.monthlyShifts, state.focusedMonth),
+      orElse: () => 0.0,
+    );
+    final valueText = homeState.isLoading ? '--' : hours.toStringAsFixed(1);
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xxl),
@@ -85,7 +95,7 @@ class WeeklyHoursCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'WEEKLY HOURS',
+            'MONTHLY HOURS',
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w800,
@@ -101,7 +111,7 @@ class WeeklyHoursCard extends StatelessWidget {
               text: TextSpan(
                 children: [
                   TextSpan(
-                    text: '32.5 ',
+                    text: '$valueText ',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w900,
@@ -130,14 +140,18 @@ class WeeklyHoursCard extends StatelessWidget {
 // On-Shift Team Card (overlapping avatars)
 // ════════════════════════════════════════════════
 
-class OnShiftTeamCard extends StatelessWidget {
+class OnShiftTeamCard extends ConsumerWidget {
   const OnShiftTeamCard({super.key, required this.shiftTheme});
 
   final ShiftThemeData shiftTheme;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final coworkersAsync = ref.watch(todayCoworkersProvider);
+    final coworkers = coworkersAsync.valueOrNull ?? const [];
+    final visible = coworkers.take(4).toList();
+    final overflow = coworkers.length - visible.length;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xxl),
@@ -168,64 +182,120 @@ class OnShiftTeamCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-
-          // Overlapping avatars
           SizedBox(
             height: 40,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                for (int i = 0; i < 3; i++)
-                  Positioned(
-                    left: i * 26.0,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colorScheme.surfaceContainerHigh,
-                        border: Border.all(
-                          color: shiftTheme.background,
-                          width: 3,
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.person,
-                        size: 18,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                Positioned(
-                  left: 3 * 26.0,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: colorScheme.surface,
-                      border: Border.all(
-                        color: shiftTheme.background,
-                        width: 3,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '+4',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: colorScheme.outline,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            child: _buildContent(
+              context,
+              colorScheme,
+              coworkersAsync,
+              visible,
+              overflow,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    ColorScheme colorScheme,
+    AsyncValue<List<UserModel>> coworkersAsync,
+    List<UserModel> visible,
+    int overflow,
+  ) {
+    if (coworkersAsync.isLoading && visible.isEmpty) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: colorScheme.outline,
+          ),
+        ),
+      );
+    }
+
+    if (visible.isEmpty) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          '혼자 근무해요',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        for (int i = 0; i < visible.length; i++)
+          Positioned(
+            left: i * 26.0,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colorScheme.surfaceContainerHigh,
+                border: Border.all(
+                  color: shiftTheme.background,
+                  width: 3,
+                ),
+              ),
+              child: ClipOval(
+                child: (visible[i].avatarUrl != null &&
+                        visible[i].avatarUrl!.isNotEmpty)
+                    ? CachedNetworkImage(
+                        imageUrl: visible[i].avatarUrl!,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => Icon(
+                          Icons.person,
+                          size: 18,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      )
+                    : Icon(
+                        Icons.person,
+                        size: 18,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+              ),
+            ),
+          ),
+        if (overflow > 0)
+          Positioned(
+            left: visible.length * 26.0,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colorScheme.surface,
+                border: Border.all(
+                  color: shiftTheme.background,
+                  width: 3,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  '+$overflow',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.outline,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
