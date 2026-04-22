@@ -237,7 +237,41 @@ class _TeamCalendarView extends HookConsumerWidget {
                 ],
               ),
               actions: [
-                Builder(
+                // 캘린더 내보내기 (메인 UI에 직접 노출)
+                IconButton(
+                  icon: const Icon(Icons.ios_share_outlined),
+                  tooltip: '캘린더 내보내기',
+                  onPressed: () {
+                    final calState = calendarAsync.valueOrNull;
+                    if (calState == null) return;
+                    final teamRepo = ref.read(teamRepositoryProvider);
+                    exportTeamCalendarStandalone(context, calState, teamRepo);
+                  },
+                ),
+                // 일정 전체 삭제 (관리자 전용, 메인 UI에 직접 노출, 파괴적 액션 명시)
+                if (isAdmin)
+                  IconButton(
+                    icon: Icon(
+                      Icons.delete_sweep_outlined,
+                      color: AppColors.error,
+                    ),
+                    tooltip: '일정 전체 삭제',
+                    onPressed: () {
+                      final state = ref
+                          .read(teamDetailViewModelProvider(team.id))
+                          .valueOrNull;
+                      if (state == null) return;
+                      final scheduleRepo = ref.read(scheduleRepositoryProvider);
+                      showDeleteScheduleSheet(
+                        context: context,
+                        scheduleRepo: scheduleRepo,
+                        teamId: team.id,
+                        state: state,
+                      );
+                    },
+                  ),
+                if (!AdaptiveLayout.isWide(context))
+                  Builder(
                   builder: (ctx) => IconButton(
                     icon: const Icon(Icons.menu),
                     onPressed: () => Scaffold.of(ctx).openEndDrawer(),
@@ -245,51 +279,6 @@ class _TeamCalendarView extends HookConsumerWidget {
                 ),
               ],
             ),
-          ],
-        ),
-        actions: [
-          // 캘린더 내보내기 (메인 UI에 직접 노출)
-          IconButton(
-            icon: const Icon(Icons.ios_share_outlined),
-            tooltip: '캘린더 내보내기',
-            onPressed: () {
-              final calState = calendarAsync.valueOrNull;
-              if (calState == null) return;
-              final teamRepo = ref.read(teamRepositoryProvider);
-              exportTeamCalendarStandalone(context, calState, teamRepo);
-            },
-          ),
-          // 일정 전체 삭제 (관리자 전용, 메인 UI에 직접 노출, 파괴적 액션 명시)
-          if (isAdmin)
-            IconButton(
-              icon: Icon(
-                Icons.delete_sweep_outlined,
-                color: AppColors.error,
-              ),
-              tooltip: '일정 전체 삭제',
-              onPressed: () {
-                final state = ref
-                    .read(teamDetailViewModelProvider(team.id))
-                    .valueOrNull;
-                if (state == null) return;
-                final scheduleRepo = ref.read(scheduleRepositoryProvider);
-                showDeleteScheduleSheet(
-                  context: context,
-                  scheduleRepo: scheduleRepo,
-                  teamId: team.id,
-                  state: state,
-                );
-              },
-            ),
-          if (!AdaptiveLayout.isWide(context))
-            Builder(
-              builder: (ctx) => IconButton(
-                icon: const Icon(Icons.menu),
-                onPressed: () => Scaffold.of(ctx).openEndDrawer(),
-              ),
-            ),
-        ],
-      ),
       endDrawer: AdaptiveLayout.isWide(context)
           ? null
           : _TeamDrawer(teams: teams, currentTeamId: team.id, scaffoldContext: context),
@@ -440,6 +429,8 @@ class _TeamDrawer extends HookConsumerWidget {
 
     final teamDetail = ref.watch(teamDetailViewModelProvider(currentTeamId));
     final isAdmin = teamDetail.valueOrNull?.isAdmin ?? false;
+    final showExcelMenus =
+        kIsWeb && AdaptiveLayout.isWide(scaffoldContext) && isAdmin;
 
     final cs = theme.colorScheme;
 
@@ -540,8 +531,8 @@ class _TeamDrawer extends HookConsumerWidget {
                     },
                   ),
 
-                  // Excel 관련 메뉴는 웹 전용 + 관리자만 표시 (앱에서는 숨김)
-                  if (kIsWeb && isAdmin) ...[
+                  // Excel 관련 메뉴는 웹 와이드 레이아웃 + 관리자에서만 표시
+                  if (showExcelMenus) ...[
                     const SizedBox(height: AppSpacing.sm),
                     _TeamDrawerNavItem(
                       icon: Icons.description_outlined,
@@ -709,4 +700,3 @@ bool _isEducation(String code, String name) {
   if (lower.contains('education') || lower.contains('training')) return true;
   return false;
 }
-
