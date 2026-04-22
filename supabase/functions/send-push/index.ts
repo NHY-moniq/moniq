@@ -163,6 +163,21 @@ serve(async (req) => {
       );
     }
 
+    // ─── 알림 히스토리 저장 (FCM 성공/실패와 무관하게 모든 대상자에게) ───
+    // FCM 토큰이 없어도 알림 리스트에는 남아 종 아이콘에서 확인 가능.
+    try {
+      const notifRows = targetUserIds.map((uid) => ({
+        user_id: uid,
+        team_id: teamId ?? null,
+        title,
+        body,
+        data: data ?? {},
+      }));
+      await supabase.from('notifications').insert(notifRows);
+    } catch (_) {
+      // 로깅 실패해도 FCM 발송은 계속
+    }
+
     const { data: users, error: userErr } = await supabase
       .from('users')
       .select('id, fcm_token')

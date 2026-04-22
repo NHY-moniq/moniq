@@ -1,8 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FeedbackRemoteDataSource {
-  FeedbackRemoteDataSource({required SupabaseClient client})
-      : _client = client;
+  FeedbackRemoteDataSource({required SupabaseClient client}) : _client = client;
 
   final SupabaseClient _client;
 
@@ -14,6 +13,20 @@ class FeedbackRemoteDataSource {
         .limit(1);
     final list = rows as List;
     return list.isNotEmpty ? list.first as Map<String, dynamic> : null;
+  }
+
+  Future<List<Map<String, dynamic>>> getTeamFeedback({
+    required String teamId,
+    int limit = 20,
+  }) async {
+    final rows = await _client
+        .from('schedule_feedback')
+        .select()
+        .eq('team_id', teamId)
+        .order('created_at', ascending: false)
+        .limit(limit);
+    final list = rows as List;
+    return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
   Future<void> saveFeedback({

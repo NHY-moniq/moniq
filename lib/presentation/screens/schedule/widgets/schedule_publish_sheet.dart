@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/data/providers/feedback_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/schedule_generation_viewmodel.dart';
@@ -25,12 +26,10 @@ class PublishSuccessSheet extends StatefulWidget {
   final bool showSuccessHeader;
 
   @override
-  State<PublishSuccessSheet> createState() =>
-      PublishSuccessSheetState();
+  State<PublishSuccessSheet> createState() => PublishSuccessSheetState();
 }
 
-class PublishSuccessSheetState
-    extends State<PublishSuccessSheet> {
+class PublishSuccessSheetState extends State<PublishSuccessSheet> {
   int _overallRating = 0; // 0 = 미선택
   // ruleRatings: 1=좋음, -1=아쉬움, 0=미평가
   final Map<String, int> _ruleRatings = {
@@ -39,13 +38,56 @@ class PublishSuccessSheetState
     'skill_balance': 0,
   };
   bool _isSaving = false;
-  bool _saved = false;
+  bool _hasExisting = false;
+  bool _isLoadingExisting = true;
+  bool _showSavedToast = false;
 
   static const _ruleLabels = {
     'wanted': '원티드 반영',
     'avoid_pattern': '기피패턴 처리',
     'skill_balance': '숙련도 배치',
   };
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadExistingFeedback();
+    });
+  }
+
+  Future<void> _loadExistingFeedback() async {
+    try {
+      final vmState = widget.ref
+          .read(scheduleGenerationViewModelProvider(widget.teamId))
+          .valueOrNull;
+      final scheduleId = vmState?.generatedSchedule?.id;
+      if (scheduleId == null) {
+        if (!mounted) return;
+        setState(() => _isLoadingExisting = false);
+        return;
+      }
+
+      final repo = widget.ref.read(feedbackRepositoryProvider);
+      final data = await repo.getFeedback(scheduleId);
+      if (!mounted) return;
+
+      setState(() {
+        if (data != null) {
+          _overallRating = (data['overall_rating'] as num?)?.toInt() ?? 0;
+          final rr = (data['rule_ratings'] as Map?) ?? {};
+          for (final k in _ruleRatings.keys) {
+            _ruleRatings[k] = (rr[k] as num?)?.toInt() ?? 0;
+          }
+          _hasExisting = true;
+        }
+        _isLoadingExisting = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingExisting = false);
+    }
+  }
 
   Future<void> _save() async {
     if (_overallRating == 0) return;
@@ -54,18 +96,12 @@ class PublishSuccessSheetState
       final ratings = Map<String, int>.from(_ruleRatings)
         ..removeWhere((_, v) => v == 0);
       await widget.ref
-          .read(
-            scheduleGenerationViewModelProvider(
-              widget.teamId,
-            ).notifier,
-          )
-          .saveFeedback(
-            overallRating: _overallRating,
-            ruleRatings: ratings,
-          );
+          .read(scheduleGenerationViewModelProvider(widget.teamId).notifier)
+          .saveFeedback(overallRating: _overallRating, ruleRatings: ratings);
       setState(() {
         _isSaving = false;
-        _saved = true;
+        _hasExisting = true;
+        _showSavedToast = true;
       });
     } catch (_) {
       setState(() => _isSaving = false);
@@ -83,18 +119,14 @@ class PublishSuccessSheetState
           left: AppSpacing.xxl,
           right: AppSpacing.xxl,
           top: AppSpacing.xxl,
-          bottom: MediaQuery.viewInsetsOf(context).bottom +
-              AppSpacing.xxl,
+          bottom: MediaQuery.viewInsetsOf(context).bottom + AppSpacing.xxl,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (widget.showSuccessHeader) ...[
               // -- 단계 표시 --
-              const ScheduleStepIndicator(
-                currentStep: 2,
-                totalSteps: 3,
-              ),
+              const ScheduleStepIndicator(currentStep: 2, totalSteps: 3),
               const SizedBox(height: AppSpacing.xxl),
 
               // -- 완료 아이콘 --
@@ -115,8 +147,9 @@ class PublishSuccessSheetState
 
               Text(
                 '스케줄이 발행되었습니다',
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -136,20 +169,17 @@ class PublishSuccessSheetState
               Container(
                 width: 36,
                 height: 4,
-                margin: const EdgeInsets.only(
-                  bottom: AppSpacing.lg,
-                ),
+                margin: const EdgeInsets.only(bottom: AppSpacing.lg),
                 decoration: BoxDecoration(
-                  color: colorScheme.onSurfaceVariant
-                      .withValues(alpha: 0.3),
-                  borderRadius:
-                      BorderRadius.circular(AppRadius.xs),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),
               ),
               Text(
                 '근무표 피드백',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
@@ -162,7 +192,12 @@ class PublishSuccessSheetState
             ],
 
             // -- 피드백 섹션 --
-            if (_saved)
+            if (_isLoadingExisting)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                child: CircularProgressIndicator(),
+              )
+            else if (_showSavedToast)
               Column(
                 children: [
                   const Icon(
@@ -172,17 +207,16 @@ class PublishSuccessSheetState
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    '피드백 감사합니다!',
-                    style:
-                        theme.textTheme.bodyMedium?.copyWith(
+                    '피드백이 저장되었습니다',
+                    style: theme.textTheme.bodyMedium?.copyWith(
                       color: AppColors.brandOrange,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     '다음 달 근무표 생성에 반영됩니다.',
-                    style:
-                        theme.textTheme.bodySmall?.copyWith(
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -191,8 +225,9 @@ class PublishSuccessSheetState
             else ...[
               Text(
                 '이번 근무표는 어떠셨나요?',
-                style: theme.textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w600),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
@@ -209,12 +244,9 @@ class PublishSuccessSheetState
                 children: List.generate(5, (i) {
                   final star = i + 1;
                   return GestureDetector(
-                    onTap: () =>
-                        setState(() => _overallRating = star),
+                    onTap: () => setState(() => _overallRating = star),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: Icon(
                         star <= _overallRating
                             ? Icons.star_rounded
@@ -232,32 +264,36 @@ class PublishSuccessSheetState
 
               // 항목별 좋음/아쉬움
               ..._ruleLabels.entries.map((entry) {
-                final current =
-                    _ruleRatings[entry.key] ?? 0;
+                final current = _ruleRatings[entry.key] ?? 0;
                 return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.xs,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                   child: Row(
                     children: [
                       Expanded(
                         child: Text(
                           entry.value,
-                          style:
-                              theme.textTheme.bodySmall,
+                          style: theme.textTheme.bodySmall,
                         ),
                       ),
                       RatingToggle(
                         value: current,
-                        onChanged: (v) => setState(
-                          () =>
-                              _ruleRatings[entry.key] = v,
-                        ),
+                        onChanged: (v) =>
+                            setState(() => _ruleRatings[entry.key] = v),
                       ),
                     ],
                   ),
                 );
               }),
+
+              if (_hasExisting) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '저장된 피드백입니다. 수정 후 다시 저장할 수 있습니다.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
 
               const SizedBox(height: AppSpacing.lg),
 
@@ -265,20 +301,14 @@ class PublishSuccessSheetState
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed:
-                      (_overallRating == 0 || _isSaving)
-                          ? null
-                          : _save,
+                  onPressed: (_overallRating == 0 || _isSaving) ? null : _save,
                   child: _isSaving
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child:
-                              CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('피드백 저장'),
+                      : Text(_hasExisting ? '피드백 수정 저장' : '피드백 저장'),
                 ),
               ),
             ],
@@ -299,11 +329,7 @@ class PublishSuccessSheetState
 }
 
 class RatingToggle extends StatelessWidget {
-  const RatingToggle({
-    super.key,
-    required this.value,
-    required this.onChanged,
-  });
+  const RatingToggle({super.key, required this.value, required this.onChanged});
   final int value; // -1, 0, 1
   final ValueChanged<int> onChanged;
 
@@ -355,10 +381,7 @@ class ToggleChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 5,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: selected
               ? selectedColor.withValues(alpha: 0.1)
@@ -366,11 +389,9 @@ class ToggleChip extends StatelessWidget {
           border: Border.all(
             color: selected
                 ? selectedColor
-                : colorScheme.onSurfaceVariant
-                    .withValues(alpha: 0.3),
+                : colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
           ),
-          borderRadius:
-              BorderRadius.circular(AppRadius.lg),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -378,20 +399,14 @@ class ToggleChip extends StatelessWidget {
             Icon(
               icon,
               size: 14,
-              color: selected
-                  ? selectedColor
-                  : colorScheme.onSurfaceVariant,
+              color: selected ? selectedColor : colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 4),
             Text(
               label,
               style: theme.textTheme.labelMedium?.copyWith(
-                color: selected
-                    ? selectedColor
-                    : colorScheme.onSurfaceVariant,
-                fontWeight: selected
-                    ? FontWeight.w600
-                    : FontWeight.normal,
+                color: selected ? selectedColor : colorScheme.onSurfaceVariant,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],

@@ -34,6 +34,8 @@ mixin _$RequestModel {
   DateTime? get requestedDate => throw _privateConstructorUsedError;
   @JsonKey(name: 'requested_shift_type_id')
   String? get requestedShiftTypeId => throw _privateConstructorUsedError;
+  @JsonKey(name: 'target_user_id')
+  String? get targetUserId => throw _privateConstructorUsedError;
   String? get reason => throw _privateConstructorUsedError;
   String? get note => throw _privateConstructorUsedError;
   String get status => throw _privateConstructorUsedError;
@@ -71,6 +73,7 @@ abstract class $RequestModelCopyWith<$Res> {
     @JsonKey(name: 'change_type') String changeType,
     @JsonKey(name: 'requested_date') DateTime? requestedDate,
     @JsonKey(name: 'requested_shift_type_id') String? requestedShiftTypeId,
+    @JsonKey(name: 'target_user_id') String? targetUserId,
     String? reason,
     String? note,
     String status,
@@ -103,6 +106,7 @@ class _$RequestModelCopyWithImpl<$Res, $Val extends RequestModel>
     Object? changeType = null,
     Object? requestedDate = freezed,
     Object? requestedShiftTypeId = freezed,
+    Object? targetUserId = freezed,
     Object? reason = freezed,
     Object? note = freezed,
     Object? status = null,
@@ -140,6 +144,10 @@ class _$RequestModelCopyWithImpl<$Res, $Val extends RequestModel>
             requestedShiftTypeId: freezed == requestedShiftTypeId
                 ? _value.requestedShiftTypeId
                 : requestedShiftTypeId // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            targetUserId: freezed == targetUserId
+                ? _value.targetUserId
+                : targetUserId // ignore: cast_nullable_to_non_nullable
                       as String?,
             reason: freezed == reason
                 ? _value.reason
@@ -192,6 +200,7 @@ abstract class _$$RequestModelImplCopyWith<$Res>
     @JsonKey(name: 'change_type') String changeType,
     @JsonKey(name: 'requested_date') DateTime? requestedDate,
     @JsonKey(name: 'requested_shift_type_id') String? requestedShiftTypeId,
+    @JsonKey(name: 'target_user_id') String? targetUserId,
     String? reason,
     String? note,
     String status,
@@ -223,6 +232,7 @@ class __$$RequestModelImplCopyWithImpl<$Res>
     Object? changeType = null,
     Object? requestedDate = freezed,
     Object? requestedShiftTypeId = freezed,
+    Object? targetUserId = freezed,
     Object? reason = freezed,
     Object? note = freezed,
     Object? status = null,
@@ -260,6 +270,10 @@ class __$$RequestModelImplCopyWithImpl<$Res>
         requestedShiftTypeId: freezed == requestedShiftTypeId
             ? _value.requestedShiftTypeId
             : requestedShiftTypeId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        targetUserId: freezed == targetUserId
+            ? _value.targetUserId
+            : targetUserId // ignore: cast_nullable_to_non_nullable
                   as String?,
         reason: freezed == reason
             ? _value.reason
@@ -305,6 +319,7 @@ class _$RequestModelImpl implements _RequestModel {
     @JsonKey(name: 'change_type') required this.changeType,
     @JsonKey(name: 'requested_date') this.requestedDate,
     @JsonKey(name: 'requested_shift_type_id') this.requestedShiftTypeId,
+    @JsonKey(name: 'target_user_id') this.targetUserId,
     this.reason,
     this.note,
     this.status = 'pending',
@@ -338,6 +353,9 @@ class _$RequestModelImpl implements _RequestModel {
   @JsonKey(name: 'requested_shift_type_id')
   final String? requestedShiftTypeId;
   @override
+  @JsonKey(name: 'target_user_id')
+  final String? targetUserId;
+  @override
   final String? reason;
   @override
   final String? note;
@@ -359,7 +377,7 @@ class _$RequestModelImpl implements _RequestModel {
 
   @override
   String toString() {
-    return 'RequestModel(id: $id, teamId: $teamId, requesterUserId: $requesterUserId, sourceShiftId: $sourceShiftId, changeType: $changeType, requestedDate: $requestedDate, requestedShiftTypeId: $requestedShiftTypeId, reason: $reason, note: $note, status: $status, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'RequestModel(id: $id, teamId: $teamId, requesterUserId: $requesterUserId, sourceShiftId: $sourceShiftId, changeType: $changeType, requestedDate: $requestedDate, requestedShiftTypeId: $requestedShiftTypeId, targetUserId: $targetUserId, reason: $reason, note: $note, status: $status, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -379,6 +397,8 @@ class _$RequestModelImpl implements _RequestModel {
                 other.requestedDate == requestedDate) &&
             (identical(other.requestedShiftTypeId, requestedShiftTypeId) ||
                 other.requestedShiftTypeId == requestedShiftTypeId) &&
+            (identical(other.targetUserId, targetUserId) ||
+                other.targetUserId == targetUserId) &&
             (identical(other.reason, reason) || other.reason == reason) &&
             (identical(other.note, note) || other.note == note) &&
             (identical(other.status, status) || other.status == status) &&
@@ -403,6 +423,7 @@ class _$RequestModelImpl implements _RequestModel {
     changeType,
     requestedDate,
     requestedShiftTypeId,
+    targetUserId,
     reason,
     note,
     status,
@@ -436,6 +457,7 @@ abstract class _RequestModel implements RequestModel {
     @JsonKey(name: 'requested_date') final DateTime? requestedDate,
     @JsonKey(name: 'requested_shift_type_id')
     final String? requestedShiftTypeId,
+    @JsonKey(name: 'target_user_id') final String? targetUserId,
     final String? reason,
     final String? note,
     final String status,
@@ -468,6 +490,9 @@ abstract class _RequestModel implements RequestModel {
   @override
   @JsonKey(name: 'requested_shift_type_id')
   String? get requestedShiftTypeId;
+  @override
+  @JsonKey(name: 'target_user_id')
+  String? get targetUserId;
   @override
   String? get reason;
   @override

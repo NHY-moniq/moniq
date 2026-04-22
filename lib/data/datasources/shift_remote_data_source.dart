@@ -43,8 +43,19 @@ class ShiftRemoteDataSource {
         .lte('shift_date', endStr)
         .order('shift_date');
 
-    return (rows as List)
+    final shifts = (rows as List)
         .map((r) => ShiftModel.fromJson(r as Map<String, dynamic>))
+        .toList();
+
+    if (shifts.isEmpty) return const [];
+
+    final scheduleIds = shifts.map((s) => s.scheduleId).toSet().toList();
+    final activeScheduleIds = await _getLatestPublishedScheduleIds(
+      scheduleIds: scheduleIds,
+    );
+
+    return shifts
+        .where((s) => activeScheduleIds.contains(s.scheduleId))
         .toList();
   }
 
@@ -65,8 +76,55 @@ class ShiftRemoteDataSource {
         .lte('shift_date', endStr)
         .order('shift_date');
 
-    return (rows as List)
+    final shifts = (rows as List)
         .map((r) => ShiftModel.fromJson(r as Map<String, dynamic>))
+        .toList();
+
+    if (shifts.isEmpty) return const [];
+
+    final scheduleIds = shifts.map((s) => s.scheduleId).toSet().toList();
+    final activeScheduleIds = await _getLatestPublishedScheduleIds(
+      scheduleIds: scheduleIds,
+      teamId: teamId,
+    );
+
+    return shifts
+        .where((s) => activeScheduleIds.contains(s.scheduleId))
+        .toList();
+  }
+
+  /// 특정 날짜 + 팀 + shift_type 에 배정된 팀원(본인 제외) 목록
+  Future<List<UserModel>> getCoworkers({
+    required String teamId,
+    required DateTime date,
+    required String shiftTypeId,
+  }) async {
+    if (_userId == null) return [];
+    final dateStr = _dateStr(date);
+
+    final shiftRows = await _client
+        .from('shifts')
+        .select('user_id')
+        .eq('team_id', teamId)
+        .eq('shift_date', dateStr)
+        .eq('shift_type_id', shiftTypeId)
+        .neq('user_id', _userId!);
+
+    final userIds = (shiftRows as List)
+        .map((r) => r['user_id'] as String)
+        .toSet()
+        .toList();
+
+    if (userIds.isEmpty) return [];
+
+    final userRows = await _client
+        .from('users')
+        .select()
+        .inFilter('id', userIds)
+        .eq('is_deleted', false);
+
+    return (userRows as List)
+        .map((r) => UserModel.fromJson(r as Map<String, dynamic>))
         .toList();
   }
 
@@ -116,6 +174,40 @@ class ShiftRemoteDataSource {
     return (rows as List)
         .map((r) => ScheduleModel.fromJson(r as Map<String, dynamic>))
         .toList();
+  }
+
+  /// 주어진 schedule id들 중, published 상태이면서
+  /// (team_id, period_start, period_end) 기준 최신 version만 반환.
+  Future<Set<String>> _getLatestPublishedScheduleIds({
+    required List<String> scheduleIds,
+    String? teamId,
+  }) async {
+    if (scheduleIds.isEmpty) return const <String>{};
+
+    var query = _client
+        .from('schedules')
+        .select('id, team_id, period_start, period_end, version_no')
+        .inFilter('id', scheduleIds)
+        .eq('status', 'published');
+
+    if (teamId != null) {
+      query = query.eq('team_id', teamId);
+    }
+
+    final rows = await query.order('version_no', ascending: false);
+
+    final latestByPeriod = <String, String>{};
+    for (final row in (rows as List)) {
+      final map = row as Map<String, dynamic>;
+      final id = map['id'] as String;
+      final tId = map['team_id'] as String? ?? '';
+      final pStart = map['period_start']?.toString() ?? '';
+      final pEnd = map['period_end']?.toString() ?? '';
+      final key = '$tId|$pStart|$pEnd';
+      latestByPeriod.putIfAbsent(key, () => id);
+    }
+
+    return latestByPeriod.values.toSet();
   }
 
   // ── 근무 유형 CRUD ──
@@ -206,6 +298,12 @@ class ShiftRemoteDataSource {
     await _client.from('shifts').delete().eq('id', shiftId);
   }
 
+  /// shifts 일괄 삽입 (단건도 가능). RLS에서 본인 user_id만 INSERT 허용.
+  Future<void> insertShifts(List<Map<String, dynamic>> shifts) async {
+    if (shifts.isEmpty) return;
+    await _client.from('shifts').insert(shifts);
+  }
+
   /// 근무 유형 삭제. 해당 유형으로 배정된 근무가 있으면 삭제 불가 예외.
   Future<void> deleteShiftType(String id) async {
     final referenced = await _client
@@ -219,8 +317,7 @@ class ShiftRemoteDataSource {
     await _client.from('shift_types').delete().eq('id', id);
   }
 
-  Future<void> reorderShiftTypes(
-      String teamId, List<String> orderedIds) async {
+  Future<void> reorderShiftTypes(String teamId, List<String> orderedIds) async {
     for (var i = 0; i < orderedIds.length; i++) {
       await _client
           .from('shift_types')
@@ -248,14 +345,11 @@ class ShiftRemoteDataSource {
     required String ruleType,
     required Map<String, dynamic> ruleValue,
   }) async {
-    await _client.from('shift_rules').upsert(
-      {
-        'team_id': teamId,
-        'rule_type': ruleType,
-        'rule_value': ruleValue,
-      },
-      onConflict: 'team_id,rule_type',
-    );
+    await _client.from('shift_rules').upsert({
+      'team_id': teamId,
+      'rule_type': ruleType,
+      'rule_value': ruleValue,
+    }, onConflict: 'team_id,rule_type');
   }
 
   String _dateStr(DateTime dt) =>

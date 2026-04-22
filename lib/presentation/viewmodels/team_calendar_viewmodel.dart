@@ -15,6 +15,23 @@ import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 
 part 'team_calendar_viewmodel.freezed.dart';
 
+/// AI swap-suggest 응답 후보 한 건.
+class SwapSuggestion {
+  const SwapSuggestion({
+    required this.userId,
+    required this.displayName,
+    required this.date,
+    required this.shiftCode,
+    required this.reason,
+  });
+
+  final String userId;
+  final String displayName;
+  final String date; // 'YYYY-MM-DD'
+  final String shiftCode;
+  final String reason;
+}
+
 @freezed
 class TeamCalendarState with _$TeamCalendarState {
   const factory TeamCalendarState({
@@ -156,6 +173,47 @@ class TeamCalendarViewModel
     await _reloadCurrent(current);
   }
 
+  /// 본인이 OFF 상태인 날짜에 본인 근무를 새로 추가.
+  /// 같은 날짜에 이미 등록된 다른 사람 shift의 schedule_id를 사용한다.
+  /// 같은 날에 shift가 하나도 없으면 예외.
+  Future<void> createShiftForSelf({
+    required DateTime date,
+    required String userId,
+    required String shiftTypeId,
+    String? userDisplayName,
+    String? shiftTypeName,
+  }) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    final dateKey = DateTime(date.year, date.month, date.day);
+    final sameDayShifts = current.monthlyShifts[dateKey];
+    if (sameDayShifts == null || sameDayShifts.isEmpty) {
+      throw Exception('해당 날짜의 활성 스케줄을 찾을 수 없습니다');
+    }
+    final scheduleId = sameDayShifts.first.shift.scheduleId;
+
+    final dateStr =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+    await _shiftRepository.insertShifts([
+      {
+        'schedule_id': scheduleId,
+        'team_id': current.teamId,
+        'user_id': userId,
+        'shift_date': dateStr,
+        'shift_type_id': shiftTypeId,
+      },
+    ]);
+    await _notifyShiftChanged(
+      teamName: current.teamName,
+      action: '근무 추가',
+      detail:
+          '${userDisplayName ?? '본인'}이 ${shiftTypeName ?? '근무'}에 추가되었습니다',
+    );
+    await _reloadCurrent(current);
+  }
+
   /// 관리자: 특정 shift 삭제 후 재조회 + 알림
   Future<void> deleteShift(
     String shiftId, {
@@ -218,5 +276,136 @@ class TeamCalendarViewModel
         : CalendarViewMode.month;
 
     state = AsyncData(current.copyWith(viewMode: newMode));
+  }
+
+  /// AI 기반 1:N 교환 후보 추천 (Edge Function `swap-suggest` 호출).
+  /// 추천된 후보는 본인 외 동료 멤버이며, 시퀀스 룰을 위반하지 않는 안전한 교환만 반환.
+  Future<List<SwapSuggestion>> suggestSwapCandidates({
+    required DateTime myShiftDate,
+    required String myShiftCode,
+    required String myUserId,
+    required String myDisplayName,
+    required String teamName,
+    int topK = 5,
+  }) async {
+    final current = state.valueOrNull;
+    if (current == null) return [];
+
+    // 같은 월의 모든 shift를 compact 배정표로 직렬화
+    final shifts = current.monthlyShifts;
+    final memberSchedules = <String, Map<String, String>>{};
+    final members = <Map<String, String>>[];
+
+    String dateFmt(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+    String shortCode(String code, String name) {
+      final c = code.toUpperCase();
+      if (c == 'D' || name.contains('데이') || name.toLowerCase().contains('day')) return 'D';
+      if (c == 'E' || name.contains('이브닝')) return 'E';
+      if (c == 'N' || name.contains('나이트') || name.contains('야간')) return 'N';
+      return c;
+    }
+
+    final userIdToName = <String, String>{};
+    for (final entry in shifts.entries) {
+      for (final s in entry.value) {
+        final name = s.shift.userId; // fallback
+        // 표시 이름은 RosterEntry에서 옴 — 여기선 user_id를 키로 일단 둔다
+        userIdToName.putIfAbsent(s.shift.userId, () => name);
+      }
+    }
+    // 더 나은 displayName을 selectedDateRoster에서 시도
+    for (final entry in current.selectedDateRoster) {
+      for (final w in entry.workers) {
+        userIdToName[w.user.id] = w.user.displayName ?? w.user.email;
+      }
+    }
+    // 본인 이름 보장
+    userIdToName[myUserId] = myDisplayName;
+
+    for (final e in userIdToName.entries) {
+      members.add({'user_id': e.key, 'display_name': e.value});
+      memberSchedules[e.value] = {};
+    }
+    for (final entry in shifts.entries) {
+      for (final s in entry.value) {
+        final name = userIdToName[s.shift.userId];
+        if (name == null) continue;
+        memberSchedules[name]![dateFmt(s.shift.shiftDate)] =
+            shortCode(s.shiftType.code, s.shiftType.name);
+      }
+    }
+
+    final periodLabel =
+        '${current.focusedMonth.year}년 ${current.focusedMonth.month}월';
+    final hardRules = <String>[
+      'N→D 금지: 나이트 다음날 데이 배정 불가',
+      'NOD 금지: 나이트→오프→데이 패턴 불가',
+      'E→D 금지: 이브닝 다음날 데이 불가',
+    ];
+
+    try {
+      final client = ref.read(supabaseClientProvider);
+      final res = await client.functions.invoke(
+        'swap-suggest',
+        body: {
+          'teamName': teamName,
+          'periodLabel': periodLabel,
+          'myUserId': myUserId,
+          'myDisplayName': myDisplayName,
+          'myShift': {
+            'date': dateFmt(myShiftDate),
+            'shiftCode': myShiftCode,
+          },
+          'memberSchedules': memberSchedules,
+          'members': members,
+          'hardRules': hardRules,
+          'topK': topK,
+        },
+      );
+      final data = res.data;
+      if (data is! Map) return [];
+      final list = (data['candidates'] as List?) ?? const [];
+      return list
+          .whereType<Map>()
+          .map((e) => SwapSuggestion(
+                userId: e['user_id'] as String? ?? '',
+                displayName: e['display_name'] as String? ?? '',
+                date: e['date'] as String? ?? '',
+                shiftCode: e['shift_code'] as String? ?? '',
+                reason: e['reason'] as String? ?? '',
+              ))
+          .where((c) => c.userId.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// 1:N 교환 요청 일괄 발송. 각 대상자에게 별도 request 생성 + 푸시.
+  /// requestRepository는 외부에서 주입 (ViewModel이 request layer를 직접 의존하지 않도록).
+  Future<int> sendBulkSwapRequests({
+    required List<SwapSuggestion> targets,
+    required Future<void> Function(SwapSuggestion target) submit,
+  }) async {
+    int success = 0;
+    for (final t in targets) {
+      try {
+        await submit(t);
+        success++;
+      } catch (_) {}
+    }
+    return success;
+  }
+
+  /// 외부에서 호출 가능한 강제 새로고침 (pull-to-refresh, 화면 재진입 등)
+  Future<void> refresh() async {
+    final current = state.valueOrNull;
+    if (current == null) {
+      ref.invalidateSelf();
+      return;
+    }
+    await _reloadCurrent(current);
   }
 }

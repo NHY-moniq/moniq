@@ -324,6 +324,7 @@ class _PillTabBarState extends State<_PillTabBar> {
         borderRadius: BorderRadius.circular(AppRadius.full),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: List.generate(widget.tabs.length, (i) {
           final tab = widget.tabs[i];
           final isActive = i == current;
@@ -342,6 +343,7 @@ class _PillTabBarState extends State<_PillTabBar> {
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
                       tab.label,
@@ -717,17 +719,38 @@ class SoftSummaryTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   ...state.wantedUnsatisfied.map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.event_busy_outlined,
-                              size: 14, color: AppColors.brandOrange),
-                          const SizedBox(width: 6),
-                          Text(item, style: theme.textTheme.bodySmall),
-                        ],
-                      ),
-                    ),
+                    (item) {
+                      final parts = item.split('\t');
+                      final name = parts[0];
+                      final detail = parts.length > 1 ? parts[1] : '';
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 1),
+                              child: Icon(Icons.event_busy_outlined,
+                                  size: 14, color: AppColors.brandOrange),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              name,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                detail,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

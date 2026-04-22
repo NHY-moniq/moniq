@@ -17,6 +17,7 @@ _$RequestModelImpl _$$RequestModelImplFromJson(Map<String, dynamic> json) =>
           ? null
           : DateTime.parse(json['requested_date'] as String),
       requestedShiftTypeId: json['requested_shift_type_id'] as String?,
+      targetUserId: json['target_user_id'] as String?,
       reason: json['reason'] as String?,
       note: json['note'] as String?,
       status: json['status'] as String? ?? 'pending',
@@ -41,6 +42,7 @@ Map<String, dynamic> _$$RequestModelImplToJson(_$RequestModelImpl instance) =>
       'change_type': instance.changeType,
       'requested_date': instance.requestedDate?.toIso8601String(),
       'requested_shift_type_id': instance.requestedShiftTypeId,
+      'target_user_id': instance.targetUserId,
       'reason': instance.reason,
       'note': instance.note,
       'status': instance.status,

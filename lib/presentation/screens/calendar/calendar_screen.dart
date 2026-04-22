@@ -133,11 +133,15 @@ class CalendarScreen extends HookConsumerWidget {
 
     return calendarAsync.when(
       loading: () => Scaffold(
-        appBar: AppBar(title: buildAppBarTitle()),
+        appBar: AdaptiveLayout.isWide(context)
+            ? null
+            : AppBar(title: buildAppBarTitle()),
         body: const MoniqLoadingView(),
       ),
       error: (e, _) => Scaffold(
-        appBar: AppBar(title: buildAppBarTitle()),
+        appBar: AdaptiveLayout.isWide(context)
+            ? null
+            : AppBar(title: buildAppBarTitle()),
         body: MoniqErrorView(
           message: '\uC77C\uC815\uC744 \uBD88\uB7EC\uC62C \uC218 \uC5C6\uC2B5\uB2C8\uB2E4',
           onRetry: () => ref.read(homeViewModelProvider.notifier).refresh(),
@@ -154,20 +158,21 @@ class CalendarScreen extends HookConsumerWidget {
         return Scaffold(
           backgroundColor:
               Theme.of(context).colorScheme.surfaceContainerLow,
-          appBar: AppBar(
-            backgroundColor:
-                Theme.of(context).colorScheme.surfaceContainerLow,
-            title: buildAppBarTitle(),
-            actions: [
-              if (!AdaptiveLayout.isWide(context))
-                Builder(
-                  builder: (ctx) => IconButton(
-                    icon: const Icon(Icons.menu),
-                    onPressed: () => Scaffold.of(ctx).openEndDrawer(),
-                  ),
+          appBar: AdaptiveLayout.isWide(context)
+              ? null
+              : AppBar(
+                  backgroundColor:
+                      Theme.of(context).colorScheme.surfaceContainerLow,
+                  title: buildAppBarTitle(),
+                  actions: [
+                    Builder(
+                      builder: (ctx) => IconButton(
+                        icon: const Icon(Icons.menu),
+                        onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+                      ),
+                    ),
+                  ],
                 ),
-            ],
-          ),
           endDrawer: AdaptiveLayout.isWide(context)
               ? null
               : CalendarDrawer(
@@ -185,11 +190,18 @@ class CalendarScreen extends HookConsumerWidget {
               child: const Icon(Icons.add),
             ),
           ),
-          body: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: AppSpacing.sm),
+          body: RefreshIndicator(
+            onRefresh: () async {
+              await ref.read(homeViewModelProvider.notifier).refresh();
+              // 개인 일정/노트/오버라이드 등도 함께 갱신
+              ref.read(eventRefreshProvider.notifier).state++;
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: AppSpacing.sm),
 
                 // ── Calendar (범례는 개인 근무유형에서 동적 생성) ──
                 MoniqCalendar(
@@ -305,6 +317,7 @@ class CalendarScreen extends HookConsumerWidget {
 
                 const SizedBox(height: 120),
               ],
+            ),
             ),
           ),
         );

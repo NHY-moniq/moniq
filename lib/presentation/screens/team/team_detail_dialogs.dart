@@ -178,6 +178,8 @@ void showDeleteScheduleSheet({
 
   showModalBottomSheet(
     context: context,
+    // 루트 네비게이터로 띄워 하단 탭바 위에 표시 (탭바 가림)
+    useRootNavigator: true,
     shape: const RoundedRectangleBorder(
       borderRadius:
           BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
