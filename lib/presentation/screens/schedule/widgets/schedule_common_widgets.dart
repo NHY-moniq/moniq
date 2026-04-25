@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_stepper.dart';
 
 // ────────────────────────────────────────
 // 공통 위젯
 // ────────────────────────────────────────
 
+/// Schedule generation 3-step progress indicator.
+/// Thin wrapper around [MoniqStepper.dots] so existing callers keep working
+/// while the visual ships from the design system.
 class ScheduleStepIndicator extends StatelessWidget {
   const ScheduleStepIndicator({
     super.key,
@@ -17,82 +20,14 @@ class ScheduleStepIndicator extends StatelessWidget {
   final int currentStep;
   final int totalSteps;
 
-  static const _labels = ['설정', '미리보기', '완료'];
+  static const _labels = ['기간', '미리보기', '발행'];
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Row(
-      children: List.generate(totalSteps * 2 - 1, (i) {
-        if (i.isOdd) {
-          // 연결선
-          final stepIdx = i ~/ 2;
-          final isDone = stepIdx < currentStep;
-          return Expanded(
-            child: Container(
-              height: 2,
-              color: isDone
-                  ? colorScheme.primary
-                  : colorScheme.outlineVariant,
-            ),
-          );
-        }
-
-        final stepIdx = i ~/ 2;
-        final isDone = stepIdx < currentStep;
-        final isCurrent = stepIdx == currentStep;
-
-        return Column(
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: isCurrent
-                    ? colorScheme.primary
-                    : isDone
-                        ? AppColors.success
-                        : colorScheme.outlineVariant,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: isDone
-                    ? Icon(
-                        Icons.check,
-                        size: 16,
-                        color: colorScheme.surface,
-                      )
-                    : Text(
-                        '${stepIdx + 1}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: isCurrent
-                              ? colorScheme.onPrimary
-                              : colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              _labels[stepIdx],
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: isCurrent
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
-                fontWeight: isCurrent
-                    ? FontWeight.w600
-                    : FontWeight.normal,
-              ),
-            ),
-          ],
-        );
-      }),
-    );
+    final labels = totalSteps == _labels.length
+        ? _labels
+        : List<String>.generate(totalSteps, (i) => '${i + 1}');
+    return MoniqStepper.dots(current: currentStep, labels: labels);
   }
 }
 

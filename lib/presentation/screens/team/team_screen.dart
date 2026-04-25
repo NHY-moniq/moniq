@@ -9,6 +9,7 @@ import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/schedule_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
@@ -20,7 +21,6 @@ import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
 import 'package:moniq/presentation/widgets/calendar/roster_panel.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
-import 'package:moniq/presentation/widgets/common/character_blob.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_export.dart';
 import 'package:moniq/presentation/screens/team/team_excel_import.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
@@ -42,11 +42,7 @@ class TeamScreen extends HookConsumerWidget {
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
         appBar: AdaptiveLayout.isWide(context)
             ? null
-            : AppBar(
-                backgroundColor:
-                    Theme.of(context).colorScheme.surfaceContainerLow,
-                title: const Text('팀'),
-              ),
+            : const MoniqAppBar(title: '팀', showBack: false),
         body: const MoniqLoadingView(),
       );
     }
@@ -56,11 +52,7 @@ class TeamScreen extends HookConsumerWidget {
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
         appBar: AdaptiveLayout.isWide(context)
             ? null
-            : AppBar(
-                backgroundColor:
-                    Theme.of(context).colorScheme.surfaceContainerLow,
-                title: const Text('팀'),
-              ),
+            : const MoniqAppBar(title: '팀', showBack: false),
         body: MoniqErrorView(
           message: '팀 정보를 불러올 수 없습니다',
           onRetry: () => ref.read(teamViewModelProvider.notifier).refresh(),
@@ -73,11 +65,7 @@ class TeamScreen extends HookConsumerWidget {
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
         appBar: AdaptiveLayout.isWide(context)
             ? null
-            : AppBar(
-                backgroundColor:
-                    Theme.of(context).colorScheme.surfaceContainerLow,
-                title: const Text('팀'),
-              ),
+            : const MoniqAppBar(title: '팀', showBack: false),
         body: MoniqErrorView(
           message: '즐겨찾기 팀을 불러올 수 없습니다',
           onRetry: () => ref.invalidate(favoriteTeamProvider),
@@ -93,20 +81,18 @@ class TeamScreen extends HookConsumerWidget {
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
         appBar: AdaptiveLayout.isWide(context)
             ? null
-            : AppBar(
-                backgroundColor:
-                    Theme.of(context).colorScheme.surfaceContainerLow,
-                title: const Text('팀'),
-              ),
-        body: MoniqEmptyState(
-          icon: Icons.groups_outlined,
-          character: CharacterType.orange,
-          message: '아직 참여한 팀이 없어요',
-          description: '팀을 만들거나 초대 코드로 참여해보세요',
-          actionLabel: '팀 만들기',
-          onAction: () => context.push('/teams/create'),
-          secondaryActionLabel: '초대 코드로 참여',
-          onSecondaryAction: () => context.push('/teams/join'),
+            : const MoniqAppBar(title: '팀', showBack: false),
+        body: MoniqEmptyState.cheerful(
+          title: '아직 참여한 팀이 없어요',
+          message: '팀을 만들거나 초대 코드로 참여해보세요',
+          action: MoniqEmptyStateAction(
+            label: '팀 만들기',
+            onTap: () => context.push('/teams/create'),
+          ),
+          secondaryAction: MoniqEmptyStateAction.outlined(
+            label: '초대 코드로 참여',
+            onTap: () => context.push('/teams/join'),
+          ),
         ),
       );
     }
@@ -133,11 +119,7 @@ class _NoFavoriteView extends HookConsumerWidget {
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
       appBar: AdaptiveLayout.isWide(context)
           ? null
-          : AppBar(
-              backgroundColor:
-                  Theme.of(context).colorScheme.surfaceContainerLow,
-              title: const Text('팀'),
-            ),
+          : const MoniqAppBar(title: '팀', showBack: false),
       body: Padding(
         padding: AppSpacing.screenAll,
         child: Column(
@@ -211,73 +193,55 @@ class _TeamCalendarView extends HookConsumerWidget {
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
       appBar: AdaptiveLayout.isWide(context)
           ? null
-          : AppBar(
-              backgroundColor:
-                  Theme.of(context).colorScheme.surfaceContainerLow,
-              title: Row(
-                children: [
-                  TeamProfileAvatar(icon: team.icon, radius: 16),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          team.name,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+          : MoniqAppBar(
+              title: team.name,
+              eyebrow: 'TEAM',
+              showBack: false,
+              leading: Padding(
+                padding: const EdgeInsets.only(left: AppSpacing.sm),
+                child: TeamProfileAvatar(icon: team.icon, radius: 16),
               ),
-              actions: [
-                // 캘린더 내보내기 (메인 UI에 직접 노출)
-                IconButton(
-                  icon: const Icon(Icons.ios_share_outlined),
-                  tooltip: '캘린더 내보내기',
-                  onPressed: () {
-                    final calState = calendarAsync.valueOrNull;
-                    if (calState == null) return;
-                    final teamRepo = ref.read(teamRepositoryProvider);
-                    exportTeamCalendarStandalone(context, calState, teamRepo);
-                  },
-                ),
-                // 일정 전체 삭제 (관리자 전용, 메인 UI에 직접 노출, 파괴적 액션 명시)
-                if (isAdmin)
-                  IconButton(
-                    icon: Icon(
-                      Icons.delete_sweep_outlined,
-                      color: AppColors.error,
-                    ),
-                    tooltip: '일정 전체 삭제',
-                    onPressed: () {
-                      final state = ref
-                          .read(teamDetailViewModelProvider(team.id))
-                          .valueOrNull;
-                      if (state == null) return;
-                      final scheduleRepo = ref.read(scheduleRepositoryProvider);
-                      showDeleteScheduleSheet(
-                        context: context,
-                        scheduleRepo: scheduleRepo,
-                        teamId: team.id,
-                        state: state,
-                      );
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  MoniqAppBarAction(
+                    icon: Icons.ios_share_outlined,
+                    onTap: () {
+                      final calState = calendarAsync.valueOrNull;
+                      if (calState == null) return;
+                      final teamRepo = ref.read(teamRepositoryProvider);
+                      exportTeamCalendarStandalone(
+                          context, calState, teamRepo);
                     },
                   ),
-                if (!AdaptiveLayout.isWide(context))
-                  Builder(
-                  builder: (ctx) => IconButton(
-                    icon: const Icon(Icons.menu),
-                    onPressed: () => Scaffold.of(ctx).openEndDrawer(),
-                  ),
-                ),
-              ],
+                  if (isAdmin)
+                    MoniqAppBarAction(
+                      icon: Icons.delete_sweep_outlined,
+                      tint: AppColors.error,
+                      onTap: () {
+                        final state = ref
+                            .read(teamDetailViewModelProvider(team.id))
+                            .valueOrNull;
+                        if (state == null) return;
+                        final scheduleRepo =
+                            ref.read(scheduleRepositoryProvider);
+                        showDeleteScheduleSheet(
+                          context: context,
+                          scheduleRepo: scheduleRepo,
+                          teamId: team.id,
+                          state: state,
+                        );
+                      },
+                    ),
+                  if (!AdaptiveLayout.isWide(context))
+                    Builder(
+                      builder: (ctx) => MoniqAppBarAction(
+                        icon: Icons.menu_rounded,
+                        onTap: () => Scaffold.of(ctx).openEndDrawer(),
+                      ),
+                    ),
+                ],
+              ),
             ),
       endDrawer: AdaptiveLayout.isWide(context)
           ? null

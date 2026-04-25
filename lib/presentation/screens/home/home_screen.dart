@@ -5,9 +5,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/notification_providers.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
-import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 import 'package:moniq/presentation/screens/home/home_body.dart';
@@ -28,38 +28,25 @@ class HomeScreen extends HookConsumerWidget {
     final displayName = userMeta?['display_name'] as String?;
     final avatarUrl = userMeta?['avatar_url'] as String?;
 
-    Widget buildAppBar() {
-      return AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-        surfaceTintColor: Colors.transparent,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GestureDetector(
-              onTap: (avatarUrl != null && avatarUrl.isNotEmpty)
-                  ? () => _showAvatarDialog(context, avatarUrl)
-                  : null,
-              child: HomeAvatar(
-                url: avatarUrl,
-                ringColor: shiftTheme.primary,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Text(
-              'OnorOff',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-                color: shiftTheme.primary,
-              ),
-            ),
-          ],
+    final firstName = (displayName == null || displayName.isEmpty)
+        ? 'YOU'
+        : displayName.split(' ').first.toUpperCase();
+
+    PreferredSizeWidget buildAppBar() {
+      return MoniqAppBar(
+        title: 'OnorOff',
+        eyebrow: 'HELLO, $firstName',
+        showBack: false,
+        leading: GestureDetector(
+          onTap: (avatarUrl != null && avatarUrl.isNotEmpty)
+              ? () => _showAvatarDialog(context, avatarUrl)
+              : null,
+          child: HomeAvatar(
+            url: avatarUrl,
+            ringColor: shiftTheme.primary,
+          ),
         ),
-        actions: [
-          _NotificationsBellButton(),
-          const SizedBox(width: 4),
-        ],
+        trailing: _NotificationsBellButton(),
       );
     }
 
@@ -68,20 +55,14 @@ class HomeScreen extends HookConsumerWidget {
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
         appBar: AdaptiveLayout.isWide(context)
             ? null
-            : PreferredSize(
-                preferredSize: const Size.fromHeight(kToolbarHeight),
-                child: buildAppBar(),
-              ),
+            : buildAppBar(),
         body: const MoniqLoadingView(),
       ),
       error: (e, _) => Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
         appBar: AdaptiveLayout.isWide(context)
             ? null
-            : PreferredSize(
-                preferredSize: const Size.fromHeight(kToolbarHeight),
-                child: buildAppBar(),
-              ),
+            : buildAppBar(),
         body: MoniqErrorView(
           message: '일정을 불러올 수 없습니다',
           onRetry: () => ref.read(homeViewModelProvider.notifier).refresh(),
@@ -92,10 +73,7 @@ class HomeScreen extends HookConsumerWidget {
           backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
           appBar: AdaptiveLayout.isWide(context)
               ? null
-              : PreferredSize(
-                  preferredSize: const Size.fromHeight(kToolbarHeight),
-                  child: buildAppBar(),
-                ),
+              : buildAppBar(),
           body: SingleChildScrollView(
             padding: const EdgeInsets.only(bottom: 120),
             child: Column(

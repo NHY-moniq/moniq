@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/presentation/screens/wanted/wanted_request_widgets.dart';
 import 'package:moniq/presentation/viewmodels/wanted_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
@@ -30,7 +31,7 @@ class WantedRequestScreen extends HookConsumerWidget {
     final stateAsync = ref.watch(wantedAdminViewModelProvider(teamId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('원티드 수집')),
+      appBar: const MoniqAppBar(title: '원티드 수집'),
       body: stateAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(

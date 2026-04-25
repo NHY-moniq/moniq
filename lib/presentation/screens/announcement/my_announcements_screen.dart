@@ -8,6 +8,7 @@ import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/presentation/screens/announcement/announcement_screen.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
@@ -21,7 +22,7 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
     final announcementsAsync = ref.watch(myAnnouncementsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('팀 공지사항')),
+      appBar: const MoniqAppBar(title: '팀 공지사항'),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _onCreateTap(context, ref),
         icon: const Icon(Icons.add),
@@ -35,10 +36,9 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
         ),
         data: (items) {
           if (items.isEmpty) {
-            return const MoniqEmptyState(
-              icon: Icons.campaign_outlined,
-              message: '공지사항이 없습니다',
-              description: '팀 관리자가 공지를 등록하면 여기에 표시됩니다',
+            return MoniqEmptyState.peaceful(
+              title: '공지사항이 없어요',
+              message: '팀 관리자가 공지를 등록하면 여기에 표시돼요',
             );
           }
 

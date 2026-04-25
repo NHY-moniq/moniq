@@ -6,6 +6,8 @@ import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/schedule_generation_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
@@ -32,7 +34,7 @@ class ScheduleRulesScreen extends HookConsumerWidget {
     final detailAsync = ref.watch(teamDetailViewModelProvider(teamId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('스케줄 생성 규칙')),
+      appBar: const MoniqAppBar(title: '스케줄 생성 규칙'),
       body: detailAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
@@ -202,27 +204,15 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
     if (!_isDirty) setState(() => _isDirty = true);
   }
 
-  void _showUnsavedDialog() {
-    showDialog(
+  Future<void> _showUnsavedDialog() async {
+    final leave = await showMoniqConfirmSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('저장하지 않은 변경사항'),
-        content: const Text('변경사항을 저장하지 않고 나가시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.pop(context);
-            },
-            child: const Text('나가기'),
-          ),
-        ],
-      ),
+      title: '저장하지 않고 나갈까요?',
+      message: '변경사항이 저장되지 않아요.',
+      confirmLabel: '나가기',
+      destructive: true,
     );
+    if (leave && mounted) Navigator.pop(context);
   }
 
   @override

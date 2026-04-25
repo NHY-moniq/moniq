@@ -5,6 +5,7 @@ import 'package:moniq/data/models/team_member_with_user.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/screens/team/custom_rules_widgets.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
@@ -40,7 +41,7 @@ class CustomRulesScreen extends ConsumerWidget {
     final membersAsync = ref.watch(_teamMembersProvider(teamId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('커스텀 규칙')),
+      appBar: const MoniqAppBar(title: '커스텀 규칙'),
       body: rulesAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(

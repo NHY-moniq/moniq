@@ -5,6 +5,7 @@ import 'package:moniq/data/models/shift_rule_model.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
@@ -18,7 +19,7 @@ class RulesScreen extends HookConsumerWidget {
     final detailAsync = ref.watch(teamDetailViewModelProvider(teamId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('규칙 설정')),
+      appBar: const MoniqAppBar(title: '규칙 설정'),
       body: detailAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
