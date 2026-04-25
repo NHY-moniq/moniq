@@ -9,6 +9,7 @@ import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/screens/schedule/widgets/schedule_history_widgets.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
@@ -59,7 +60,7 @@ class ScheduleHistoryScreen extends ConsumerWidget {
     final versionsAsync = ref.watch(scheduleVersionsProvider(teamId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('근무표 히스토리')),
+      appBar: const MoniqAppBar(title: '근무표 히스토리'),
       body: versionsAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
@@ -106,20 +107,19 @@ class ScheduleVersionDetailScreen extends ConsumerWidget {
     final membersAsync = ref.watch(teamMembersWithUsersProvider(teamId));
     final shiftTypesAsync = ref.watch(shiftTypesForTeamProvider(teamId));
 
+    final detailTitle = versionsAsync.maybeWhen(
+      data: (versions) {
+        final s = versions.firstWhere(
+          (v) => v.id == scheduleId,
+          orElse: () => versions.first,
+        );
+        return 'v${s.versionNo} 근무표';
+      },
+      orElse: () => '근무표',
+    );
+
     return Scaffold(
-      appBar: AppBar(
-        title: versionsAsync.when(
-          data: (versions) {
-            final s = versions.firstWhere(
-              (v) => v.id == scheduleId,
-              orElse: () => versions.first,
-            );
-            return Text('v${s.versionNo} 근무표');
-          },
-          loading: () => const Text('근무표'),
-          error: (_, __) => const Text('근무표'),
-        ),
-      ),
+      appBar: MoniqAppBar(title: detailTitle),
       body: detailAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(

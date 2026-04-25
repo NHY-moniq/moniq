@@ -8,6 +8,8 @@ import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/schedule_generation_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
@@ -48,15 +50,12 @@ class ScheduleGenerationScreen extends HookConsumerWidget {
     final stateAsync = ref.watch(scheduleGenerationViewModelProvider(teamId));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('스케줄 생성'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history_rounded),
-            tooltip: '이전 버전',
-            onPressed: () => context.push('/teams/$teamId/schedule/history'),
-          ),
-        ],
+      appBar: MoniqAppBar(
+        title: '스케줄 생성',
+        trailing: MoniqAppBarAction(
+          icon: Icons.history_rounded,
+          onTap: () => context.push('/teams/$teamId/schedule/history'),
+        ),
       ),
       body: bootstrapping.value
           ? const MoniqLoadingView()
@@ -372,38 +371,43 @@ void _showShiftTypesDialog(
   ScheduleGenerationState state,
   String teamId,
 ) {
-  showDialog<void>(
+  showMoniqBottomSheet<void>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text('근무 유형 (${state.shiftTypes.length}개)'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: state.shiftTypes.isEmpty
-            ? const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('설정된 근무 유형이 없습니다'),
-              )
-            : ListView.builder(
-                shrinkWrap: true,
-                itemCount: state.shiftTypes.length,
-                itemBuilder: (_, i) {
-                  final t = state.shiftTypes[i];
-                  return ListTile(
-                    dense: true,
-                    leading: CircleAvatar(
-                      radius: 10,
-                      backgroundColor: parseHexColor(t.color),
-                    ),
-                    title: Text(t.name),
-                    subtitle: Text(t.code),
-                  );
-                },
-              ),
-      ),
-      actions: [
-        TextButton(
+    title: '근무 유형 (${state.shiftTypes.length}개)',
+    eyebrow: 'SHIFT TYPES',
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (state.shiftTypes.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+            child: Text('설정된 근무 유형이 없어요'),
+          )
+        else
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: state.shiftTypes.length,
+              itemBuilder: (_, i) {
+                final t = state.shiftTypes[i];
+                return ListTile(
+                  dense: true,
+                  leading: CircleAvatar(
+                    radius: 10,
+                    backgroundColor: parseHexColor(t.color),
+                  ),
+                  title: Text(t.name),
+                  subtitle: Text(t.code),
+                );
+              },
+            ),
+          ),
+        const SizedBox(height: AppSpacing.lg),
+        FilledButton.tonal(
           onPressed: () {
-            Navigator.pop(ctx);
+            Navigator.pop(context);
             context
                 .push('/teams/$teamId/shift-types')
                 .then(
@@ -413,10 +417,6 @@ void _showShiftTypesDialog(
                 );
           },
           child: const Text('근무 유형 설정'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('닫기'),
         ),
       ],
     ),
@@ -444,10 +444,12 @@ void _showMembersDialog(
 ) {
   final colorScheme = Theme.of(context).colorScheme;
 
-  showDialog<void>(
+  showMoniqBottomSheet<void>(
     context: context,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setState) {
+    title: '멤버 (${state.members.length}명)',
+    eyebrow: 'MEMBERS',
+    child: StatefulBuilder(
+      builder: (sheetCtx, setLocal) {
         // 최신 state는 ref에서 읽음 (토글 즉시 반영)
         final current =
             ref.read(scheduleGenerationViewModelProvider(teamId)).valueOrNull ??
@@ -455,64 +457,61 @@ void _showMembersDialog(
         final excluded = current.excludedMemberIds;
         final activeCount = current.members.length - excluded.length;
 
-        return AlertDialog(
-          title: Row(
-            children: [
-              Expanded(child: Text('멤버 (${current.members.length}명)')),
-              Text(
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: Text(
                 '$activeCount명 참여',
                 style: TextStyle(
                   fontSize: 13,
                   color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.normal,
                 ),
               ),
-            ],
-          ),
-          contentPadding: const EdgeInsets.symmetric(vertical: 8),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: current.members.length,
-              itemBuilder: (_, i) {
-                final m = current.members[i];
-                final isExcluded = excluded.contains(m.userId);
-                final skillLabel = _skillDisplayLabel(m.member.skillLevel);
-                return SwitchListTile.adaptive(
-                  dense: true,
-                  value: !isExcluded,
-                  onChanged: (_) {
-                    ref
-                        .read(
-                          scheduleGenerationViewModelProvider(teamId).notifier,
-                        )
-                        .toggleMemberExclusion(m.userId);
-                    setState(() {}); // 다이얼로그 내 즉시 갱신
-                  },
-                  title: Text(
-                    m.displayName,
-                    style: TextStyle(
-                      color: isExcluded ? colorScheme.onSurfaceVariant : null,
-                    ),
-                  ),
-                  subtitle: skillLabel != null
-                      ? Text(
-                          skillLabel,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        )
-                      : null,
-                );
-              },
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('확인'),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 360),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: current.members.length,
+                itemBuilder: (_, i) {
+                  final m = current.members[i];
+                  final isExcluded = excluded.contains(m.userId);
+                  final skillLabel = _skillDisplayLabel(m.member.skillLevel);
+                  return SwitchListTile.adaptive(
+                    dense: true,
+                    value: !isExcluded,
+                    onChanged: (_) {
+                      ref
+                          .read(
+                            scheduleGenerationViewModelProvider(teamId)
+                                .notifier,
+                          )
+                          .toggleMemberExclusion(m.userId);
+                      setLocal(() {}); // 시트 내 즉시 갱신
+                    },
+                    title: Text(
+                      m.displayName,
+                      style: TextStyle(
+                        color: isExcluded
+                            ? colorScheme.onSurfaceVariant
+                            : null,
+                      ),
+                    ),
+                    subtitle: skillLabel != null
+                        ? Text(
+                            skillLabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          )
+                        : null,
+                  );
+                },
+              ),
             ),
           ],
         );
@@ -599,42 +598,35 @@ void _showRulesDialog(BuildContext context, ScheduleGenerationState state) {
       .where((r) => _ruleValueSummary(r.ruleType, r.ruleValue) != null)
       .toList();
 
-  showDialog<void>(
+  showMoniqBottomSheet<void>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text('적용 규칙 (${visibleRules.length}개)'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: visibleRules.isEmpty
-            ? const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('설정된 규칙이 없습니다'),
-              )
-            : ListView.builder(
-                shrinkWrap: true,
-                itemCount: visibleRules.length,
-                itemBuilder: (_, i) {
-                  final rule = visibleRules[i];
-                  final label = _ruleTypeLabels[rule.ruleType] ?? rule.ruleType;
-                  final summary = _ruleValueSummary(
-                    rule.ruleType,
-                    rule.ruleValue,
-                  )!;
-                  return ListTile(
-                    dense: true,
-                    title: Text(label),
-                    subtitle: Text(summary),
-                  );
-                },
-              ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('닫기'),
-        ),
-      ],
-    ),
+    title: '적용 규칙 (${visibleRules.length}개)',
+    eyebrow: 'RULES',
+    child: visibleRules.isEmpty
+        ? const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+            child: Text('설정된 규칙이 없어요'),
+          )
+        : ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 360),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: visibleRules.length,
+              itemBuilder: (_, i) {
+                final rule = visibleRules[i];
+                final label = _ruleTypeLabels[rule.ruleType] ?? rule.ruleType;
+                final summary = _ruleValueSummary(
+                  rule.ruleType,
+                  rule.ruleValue,
+                )!;
+                return ListTile(
+                  dense: true,
+                  title: Text(label),
+                  subtitle: Text(summary),
+                );
+              },
+            ),
+          ),
   );
 }
 
@@ -647,50 +639,44 @@ void _showCustomRulesDialog(
   final inactive = state.customRules.where((r) => !r.isActive).toList();
   final all = [...active, ...inactive];
 
-  showDialog<void>(
+  showMoniqBottomSheet<void>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text('커스텀 규칙 (${active.length}개 적용 중)'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: ListView.builder(
-          shrinkWrap: true,
-          itemCount: all.length,
-          itemBuilder: (_, i) {
-            final rule = all[i];
-            return ListTile(
-              dense: true,
-              leading: Icon(
-                rule.isActive
-                    ? Icons.check_circle_outline_rounded
-                    : Icons.radio_button_unchecked_rounded,
-                size: 18,
-                color: rule.isActive
-                    ? (rule.priority == 'hard'
-                          ? colorScheme.error
-                          : colorScheme.secondary)
-                    : colorScheme.outline,
+    title: '커스텀 규칙 (${active.length}개 적용 중)',
+    eyebrow: 'CUSTOM RULES',
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 360),
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: all.length,
+        itemBuilder: (_, i) {
+          final rule = all[i];
+          return ListTile(
+            dense: true,
+            leading: Icon(
+              rule.isActive
+                  ? Icons.check_circle_outline_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              size: 18,
+              color: rule.isActive
+                  ? (rule.priority == 'hard'
+                      ? colorScheme.error
+                      : colorScheme.secondary)
+                  : colorScheme.outline,
+            ),
+            title: Text(
+              rule.originalText,
+              style: TextStyle(
+                color: rule.isActive ? null : colorScheme.outline,
+                decoration:
+                    rule.isActive ? null : TextDecoration.lineThrough,
               ),
-              title: Text(
-                rule.originalText,
-                style: TextStyle(
-                  color: rule.isActive ? null : colorScheme.outline,
-                  decoration: rule.isActive ? null : TextDecoration.lineThrough,
-                ),
-              ),
-              subtitle: Text(
-                '${rule.priority == 'hard' ? '하드' : '소프트'} · ${_customRuleTypeLabel(rule.ruleType)}',
-              ),
-            );
-          },
-        ),
+            ),
+            subtitle: Text(
+              '${rule.priority == 'hard' ? '하드' : '소프트'} · ${_customRuleTypeLabel(rule.ruleType)}',
+            ),
+          );
+        },
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('닫기'),
-        ),
-      ],
     ),
   );
 }
