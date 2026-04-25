@@ -6,6 +6,7 @@ import 'package:moniq/presentation/screens/team/members_dialogs.dart';
 import 'package:moniq/presentation/screens/team/members_widgets.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
@@ -26,13 +27,13 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     final detailAsync = ref.watch(teamDetailViewModelProvider(widget.teamId));
     final isWide = AdaptiveLayout.isWide(context);
 
+    final membersTitle = detailAsync.maybeWhen(
+      data: (s) => '멤버 관리 (${s.members.length}명)',
+      orElse: () => '멤버 관리',
+    );
+
     return Scaffold(
-      appBar: AppBar(
-        title: detailAsync.whenOrNull(
-              data: (s) => Text('멤버 관리 (${s.members.length}명)'),
-            ) ??
-            const Text('멤버 관리'),
-      ),
+      appBar: MoniqAppBar(title: membersTitle),
       body: detailAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(

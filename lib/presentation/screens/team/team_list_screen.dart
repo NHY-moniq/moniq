@@ -10,6 +10,8 @@ import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/character_blob.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
@@ -22,14 +24,12 @@ class TeamListScreen extends HookConsumerWidget {
     final favoriteAsync = ref.watch(favoriteTeamProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('팀 목록'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _showAddOptions(context),
-          ),
-        ],
+      appBar: MoniqAppBar(
+        title: '팀 목록',
+        trailing: MoniqAppBarAction(
+          icon: Icons.add_rounded,
+          onTap: () => _showAddOptions(context),
+        ),
       ),
       body: teamsAsync.when(
         loading: () => const MoniqLoadingView(),
@@ -182,20 +182,10 @@ class TeamListScreen extends HookConsumerWidget {
     // 1) 나 혼자 → 팀 삭제
     if (members.length == 1) {
       if (!context.mounted) return;
-      showDialog(
+      await showMoniqInfoSheet(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('팀 나가기 불가'),
-          content: const Text(
-            '혼자 남으셨습니다. 팀 제거를 해주세요.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('확인'),
-            ),
-          ],
-        ),
+        title: '팀에 혼자 남으셨어요',
+        message: '팀 나가기 대신 팀을 제거해주세요.',
       );
       return;
     }
@@ -208,70 +198,42 @@ class TeamListScreen extends HookConsumerWidget {
       );
       if (otherAdmins.isEmpty) {
         if (!context.mounted) return;
-        showDialog(
+        final goToMembers = await showMoniqConfirmSheet(
           context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('관리자 위임 필요'),
-            content: const Text(
-              '팀에 관리자가 최소 1명 필요합니다.\n'
-              '다른 멤버를 관리자로 지정한 후 나갈 수 있습니다.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('닫기'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  context.push('/teams/${team.id}/members');
-                },
-                child: const Text('멤버 관리로 이동'),
-              ),
-            ],
-          ),
+          title: '관리자를 먼저 지정해주세요',
+          message:
+              '팀에 관리자가 최소 1명 필요해요. 다른 멤버를 관리자로 지정한 후 나갈 수 있어요.',
+          confirmLabel: '멤버 관리로 이동',
+          cancelLabel: '닫기',
         );
+        if (goToMembers && context.mounted) {
+          context.push('/teams/${team.id}/members');
+        }
         return;
       }
     }
 
     // 3) 일반 나가기
     if (!context.mounted) return;
-    showDialog(
+    final ok = await showMoniqConfirmSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('팀 나가기'),
-        content: Text('${team.name} 팀에서 나가시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await teamRepo.removeMember(team.id, userId);
-                ref.invalidate(teamViewModelProvider);
-                ref.invalidate(favoriteTeamProvider);
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('팀 나가기에 실패했습니다: $e')),
-                  );
-                }
-              }
-            },
-            child: Text(
-              '나가기',
-              style: TextStyle(
-                color: Theme.of(ctx).colorScheme.error,
-              ),
-            ),
-          ),
-        ],
-      ),
+      title: '${team.name} 팀에서 나갈까요?',
+      message: '나가면 팀의 근무표·요청에 더 이상 접근할 수 없어요.',
+      confirmLabel: '나가기',
+      destructive: true,
     );
+    if (!ok) return;
+    try {
+      await teamRepo.removeMember(team.id, userId);
+      ref.invalidate(teamViewModelProvider);
+      ref.invalidate(favoriteTeamProvider);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('팀 나가기에 실패했습니다: $e')),
+        );
+      }
+    }
   }
 }
 

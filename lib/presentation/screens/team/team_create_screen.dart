@@ -10,6 +10,7 @@ import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/screens/team/team_create_widgets.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 
@@ -95,7 +96,7 @@ class TeamCreateScreen extends HookConsumerWidget {
 
     // 생성 폼
     return Scaffold(
-      appBar: AppBar(title: const Text('팀 만들기')),
+      appBar: const MoniqAppBar(title: '팀 만들기'),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: AppSpacing.screenAll,
