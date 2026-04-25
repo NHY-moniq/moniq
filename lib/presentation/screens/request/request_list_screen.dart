@@ -8,6 +8,8 @@ import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/request_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
@@ -45,25 +47,14 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
 
   Future<void> _deleteSelected() async {
     if (_selectedIds.isEmpty) return;
-    final confirm = await showDialog<bool>(
+    final confirm = await showMoniqConfirmSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('선택 삭제'),
-        content: Text('선택한 ${_selectedIds.length}건을 삭제하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('삭제'),
-          ),
-        ],
-      ),
+      title: '선택한 요청을 삭제할까요?',
+      message: '${_selectedIds.length}건이 영구적으로 삭제돼요.',
+      confirmLabel: '삭제',
+      destructive: true,
     );
-    if (confirm != true) return;
+    if (!confirm) return;
     try {
       await ref
           .read(requestListViewModelProvider(widget.teamId).notifier)
@@ -84,39 +75,43 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
     final isWide = AdaptiveLayout.isWide(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_selectionMode ? '${_selectedIds.length}건 선택됨' : '변경 요청'),
+      appBar: MoniqAppBar(
+        title: _selectionMode
+            ? '${_selectedIds.length}건 선택됨'
+            : '변경 요청',
         leading: _selectionMode
             ? IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(Icons.close_rounded),
                 onPressed: _exitSelectionMode,
               )
             : null,
-        actions: [
-          if (_selectionMode)
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: AppColors.error),
-              onPressed: _selectedIds.isEmpty ? null : _deleteSelected,
-            )
-          else ...[
-            IconButton(
-              icon: const Icon(Icons.checklist_rounded),
-              tooltip: '선택 모드',
-              onPressed: () => setState(() => _selectionMode = true),
-            ),
-            // 웹에서는 AppBar에 요청하기 버튼
-            if (isWide)
-              Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.sm),
-                child: FilledButton.icon(
-                  onPressed: () =>
-                      context.push('/teams/$teamId/requests/create'),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('요청하기'),
-                ),
+        trailing: _selectionMode
+            ? MoniqAppBarAction(
+                icon: Icons.delete_outline_rounded,
+                tint: _selectedIds.isEmpty
+                    ? AppColors.error.withValues(alpha: 0.3)
+                    : AppColors.error,
+                onTap: _selectedIds.isEmpty ? () {} : _deleteSelected,
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  MoniqAppBarAction(
+                    icon: Icons.checklist_rounded,
+                    onTap: () => setState(() => _selectionMode = true),
+                  ),
+                  if (isWide)
+                    Padding(
+                      padding: const EdgeInsets.only(left: AppSpacing.sm),
+                      child: FilledButton.icon(
+                        onPressed: () => context
+                            .push('/teams/$teamId/requests/create'),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('요청하기'),
+                      ),
+                    ),
+                ],
               ),
-          ],
-        ],
       ),
       floatingActionButton: (!isWide && !_selectionMode)
           ? FloatingActionButton.extended(
@@ -276,10 +271,9 @@ class _MobileLayout extends StatelessWidget {
         const Divider(height: 1),
         Expanded(
           child: filtered.isEmpty
-              ? const MoniqEmptyState(
-                  icon: Icons.swap_horiz,
-                  message: '변경 요청이 없습니다',
-                  description: '근무 변경이 필요하면 요청을 생성해보세요',
+              ? MoniqEmptyState.peaceful(
+                  title: '변경 요청이 없어요',
+                  message: '근무 변경이 필요하면 요청을 생성해보세요',
                 )
               : ListView.separated(
                   padding: const EdgeInsets.all(AppSpacing.lg),
@@ -320,31 +314,13 @@ class _MobileLayout extends StatelessWidget {
                         child: const Icon(Icons.delete,
                             color: Colors.white, size: 28),
                       ),
-                      confirmDismiss: (_) async {
-                        return await showDialog<bool>(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: const Text('요청 삭제'),
-                                content:
-                                    const Text('이 취소된 요청을 삭제하시겠습니까?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(ctx, false),
-                                    child: const Text('취소'),
-                                  ),
-                                  TextButton(
-                                    style: TextButton.styleFrom(
-                                        foregroundColor: AppColors.error),
-                                    onPressed: () =>
-                                        Navigator.pop(ctx, true),
-                                    child: const Text('삭제'),
-                                  ),
-                                ],
-                              ),
-                            ) ??
-                            false;
-                      },
+                      confirmDismiss: (_) => showMoniqConfirmSheet(
+                        context: context,
+                        title: '요청을 삭제할까요?',
+                        message: '취소된 요청 1건이 영구적으로 삭제돼요.',
+                        confirmLabel: '삭제',
+                        destructive: true,
+                      ),
                       onDismissed: (_) => onDelete(r.id),
                       child: card,
                     );
@@ -416,10 +392,9 @@ class _WebLayout extends StatelessWidget {
               const Divider(height: 1),
               Expanded(
                 child: filtered.isEmpty
-                    ? const MoniqEmptyState(
-                        icon: Icons.swap_horiz,
-                        message: '변경 요청이 없습니다',
-                        description: '근무 변경이 필요하면 요청을 생성해보세요',
+                    ? MoniqEmptyState.peaceful(
+                        title: '변경 요청이 없어요',
+                        message: '근무 변경이 필요하면 요청을 생성해보세요',
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.all(AppSpacing.md),

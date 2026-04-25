@@ -7,6 +7,7 @@ import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
 import 'calendar_providers.dart';
 
@@ -490,17 +491,10 @@ void showNoteForm(BuildContext context, WidgetRef ref,
               onPressed: () async {
                 final text = controller.text.trim();
                 if (text.isEmpty) {
-                  showDialog(
+                  await showMoniqInfoSheet(
                     context: ctx,
-                    builder: (dCtx) => AlertDialog(
-                      content: const Text('추가하실 메모를 입력해주세요.'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(dCtx),
-                          child: const Text('확인'),
-                        ),
-                      ],
-                    ),
+                    title: '메모를 입력해주세요',
+                    message: '추가하실 메모 내용을 입력해주세요.',
                   );
                   return;
                 }

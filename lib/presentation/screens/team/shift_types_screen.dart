@@ -6,6 +6,8 @@ import 'package:moniq/core/utils/time_utils.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
@@ -30,7 +32,7 @@ class ShiftTypesScreen extends HookConsumerWidget {
     final detailAsync = ref.watch(teamDetailViewModelProvider(teamId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('근무 유형')),
+      appBar: const MoniqAppBar(title: '근무 유형'),
       floatingActionButton: detailAsync.whenOrNull(
         data: (s) => s.isAdmin
             ? FloatingActionButton(
@@ -225,18 +227,10 @@ class ShiftTypesScreen extends HookConsumerWidget {
                   final name = nameC.text.trim();
                   final code = codeC.text.trim();
                   if (name.isEmpty || code.isEmpty) {
-                    showDialog(
+                    await showMoniqInfoSheet(
                       context: ctx,
-                      builder: (dialogCtx) => AlertDialog(
-                        title: const Text('입력 오류'),
-                        content: const Text('필수 항목을 입력해주세요.\n이름과 코드는 반드시 입력해야 합니다.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(dialogCtx),
-                            child: const Text('확인'),
-                          ),
-                        ],
-                      ),
+                      title: '필수 항목을 입력해주세요',
+                      message: '이름과 코드는 반드시 입력해야 해요.',
                     );
                     return;
                   }

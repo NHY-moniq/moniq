@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
@@ -20,43 +21,19 @@ class TeamDetailScreen extends HookConsumerWidget {
     final detailAsync = ref.watch(teamDetailViewModelProvider(teamId));
 
     return Scaffold(
-      appBar: AppBar(
-        leading: Padding(
-          padding: const EdgeInsets.all(8),
-          child: GestureDetector(
-            onTap: () {
-              if (Navigator.of(context).canPop()) {
-                context.pop();
-              } else {
-                context.go('/teams');
-              }
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHigh,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.arrow_back,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.6),
-                size: 20,
-              ),
-            ),
-          ),
+      appBar: MoniqAppBar(
+        title: '팀 관리',
+        onLeadingTap: () {
+          if (Navigator.of(context).canPop()) {
+            context.pop();
+          } else {
+            context.go('/teams');
+          }
+        },
+        trailing: MoniqAppBarAction(
+          icon: Icons.list_outlined,
+          onTap: () => context.push('/teams/list'),
         ),
-        title: const Text('팀 관리'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.list_outlined),
-            tooltip: '팀 목록',
-            onPressed: () => context.push('/teams/list'),
-          ),
-        ],
       ),
       body: detailAsync.when(
         loading: () => const MoniqLoadingView(),

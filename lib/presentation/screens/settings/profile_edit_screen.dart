@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/profile_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 
 class ProfileEditScreen extends HookConsumerWidget {
   const ProfileEditScreen({super.key});
@@ -40,40 +41,40 @@ class ProfileEditScreen extends HookConsumerWidget {
       }
     });
 
+    final canSave = !(profileState.isSaving ||
+        profileState.isNicknameDuplicate == true ||
+        profileState.isCheckingNickname);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('프로필 편집'),
-        actions: [
-          TextButton(
-            onPressed: profileState.isSaving ||
-                    profileState.isNicknameDuplicate == true ||
-                    profileState.isCheckingNickname
-                ? null
-                : () {
-                    final name = nicknameController.text.trim();
-                    if (name.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('닉네임을 입력해주세요')),
-                      );
-                      return;
-                    }
-                    if (!hasChecked.value) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('닉네임 중복확인을 해주세요')),
-                      );
-                      return;
-                    }
-                    vm.saveProfile(name);
-                  },
-            child: profileState.isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('저장'),
-          ),
-        ],
+      appBar: MoniqAppBar(
+        title: '프로필 편집',
+        trailing: TextButton(
+          onPressed: !canSave
+              ? null
+              : () {
+                  final name = nicknameController.text.trim();
+                  if (name.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('닉네임을 입력해주세요')),
+                    );
+                    return;
+                  }
+                  if (!hasChecked.value) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('닉네임 중복확인을 해주세요')),
+                    );
+                    return;
+                  }
+                  vm.saveProfile(name);
+                },
+          child: profileState.isSaving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('저장'),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.lg),

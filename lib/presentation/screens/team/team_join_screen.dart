@@ -6,6 +6,7 @@ import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 
 class TeamJoinScreen extends HookConsumerWidget {
   const TeamJoinScreen({super.key});
@@ -52,9 +53,7 @@ class TeamJoinScreen extends HookConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('팀 참여'),
-      ),
+      appBar: const MoniqAppBar(title: '팀 참여'),
       body: SafeArea(
         child: Padding(
           padding: AppSpacing.screenAll,

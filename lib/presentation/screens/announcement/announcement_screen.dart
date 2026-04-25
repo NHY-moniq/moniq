@@ -12,6 +12,8 @@ import 'package:moniq/data/providers/announcement_providers.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
@@ -27,7 +29,7 @@ class AnnouncementScreen extends HookConsumerWidget {
         ref.watch(teamAnnouncementsProvider(teamId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('팀 공지사항')),
+      appBar: const MoniqAppBar(title: '팀 공지사항'),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateSheet(context, ref),
         icon: const Icon(Icons.add),
@@ -42,10 +44,9 @@ class AnnouncementScreen extends HookConsumerWidget {
         ),
         data: (announcements) {
           if (announcements.isEmpty) {
-            return const MoniqEmptyState(
-              icon: Icons.campaign_outlined,
-              message: '등록된 공지사항이 없습니다',
-              description: '팀원들에게 전달할 공지를 작성해보세요',
+            return MoniqEmptyState.encouraging(
+              title: '아직 등록된 공지가 없어요',
+              message: '팀원들에게 전달할 공지를 작성해보세요',
             );
           }
 
@@ -703,51 +704,38 @@ class _AnnouncementDetailPageState
         ref.watch(announcementCommentsProvider(a.id));
     final myUserId = ref.watch(currentUserProvider)?.id;
 
+    final trailingActions = <Widget>[
+      if (widget.onEdit != null)
+        MoniqAppBarAction(
+          icon: Icons.edit_outlined,
+          onTap: () => widget.onEdit!(),
+        ),
+      if (widget.onDelete != null)
+        MoniqAppBarAction(
+          icon: Icons.delete_outline_rounded,
+          tint: AppColors.error,
+          onTap: () async {
+            final ok = await showMoniqConfirmSheet(
+              context: context,
+              title: '공지를 삭제할까요?',
+              message: '이 공지사항이 영구적으로 삭제돼요.',
+              confirmLabel: '삭제',
+              destructive: true,
+            );
+            if (ok) {
+              await widget.onDelete!();
+              if (context.mounted) Navigator.pop(context);
+            }
+          },
+        ),
+    ];
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.teamName ?? '공지사항'),
-        actions: [
-          if (widget.onEdit != null)
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () => widget.onEdit!(),
-            ),
-          if (widget.onDelete != null)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('공지 삭제'),
-                    content:
-                        const Text('이 공지사항을 삭제하시겠습니까?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () =>
-                            Navigator.pop(ctx, false),
-                        child: const Text('취소'),
-                      ),
-                      TextButton(
-                        onPressed: () =>
-                            Navigator.pop(ctx, true),
-                        child: Text(
-                          '삭제',
-                          style: TextStyle(
-                            color: AppColors.error,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirm == true) {
-                  await widget.onDelete!();
-                  if (context.mounted) Navigator.pop(context);
-                }
-              },
-            ),
-        ],
+      appBar: MoniqAppBar(
+        title: widget.teamName ?? '공지사항',
+        trailing: trailingActions.isEmpty
+            ? null
+            : Row(mainAxisSize: MainAxisSize.min, children: trailingActions),
       ),
       body: Column(
         children: [

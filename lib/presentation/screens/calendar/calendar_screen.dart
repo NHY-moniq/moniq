@@ -11,6 +11,7 @@ import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -43,91 +44,67 @@ class CalendarScreen extends HookConsumerWidget {
     final displayName = userMeta?['display_name'] as String?;
     final avatarUrl = userMeta?['avatar_url'] as String?;
 
-    Widget buildAppBarTitle() {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            onTap: (avatarUrl != null && avatarUrl.isNotEmpty)
-                ? () {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => Dialog(
-                        backgroundColor: Colors.transparent,
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(ctx),
-                          child: CircleAvatar(
-                            radius: 100,
-                            backgroundColor: Theme.of(context)
-                                .colorScheme
-                                .primaryContainer,
-                            backgroundImage:
-                                CachedNetworkImageProvider(avatarUrl),
-                          ),
-                        ),
+
+    final calendarTitle = displayName != null && displayName.isNotEmpty
+        ? '$displayName 님의 일정'
+        : '내 캘린더';
+
+    Widget buildAvatarLeading() {
+      return GestureDetector(
+        onTap: (avatarUrl != null && avatarUrl.isNotEmpty)
+            ? () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => Dialog(
+                    backgroundColor: Colors.transparent,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(ctx),
+                      child: CircleAvatar(
+                        radius: 100,
+                        backgroundColor: Theme.of(context)
+                            .colorScheme
+                            .primaryContainer,
+                        backgroundImage:
+                            CachedNetworkImageProvider(avatarUrl),
                       ),
-                    );
-                  }
-                : null,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Theme.of(context).colorScheme.primaryContainer,
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                  width: 2,
-                ),
-              ),
-              child: avatarUrl != null && avatarUrl.isNotEmpty
-                  ? ClipOval(
-                      child: CachedNetworkImage(
-                        imageUrl: avatarUrl,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Icon(
-                          Icons.person,
-                          size: 20,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onPrimaryContainer,
-                        ),
-                      ),
-                    )
-                  : Icon(
+                    ),
+                  ),
+                );
+              }
+            : null,
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Theme.of(context).colorScheme.primaryContainer,
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+              width: 2,
+            ),
+          ),
+          child: avatarUrl != null && avatarUrl.isNotEmpty
+              ? ClipOval(
+                  child: CachedNetworkImage(
+                    imageUrl: avatarUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => Icon(
                       Icons.person,
                       size: 20,
                       color: Theme.of(context)
                           .colorScheme
                           .onPrimaryContainer,
                     ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'ONOROFF',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 2.0,
-                  color: Theme.of(context).colorScheme.secondary,
+                  ),
+                )
+              : Icon(
+                  Icons.person,
+                  size: 20,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onPrimaryContainer,
                 ),
-              ),
-              Text(
-                displayName != null && displayName.isNotEmpty
-                    ? '$displayName \uB2D8\uC758 \uC77C\uC815'
-                    : '\uB0B4 \uCE98\uB9B0\uB354',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-            ],
-          ),
-        ],
+        ),
       );
     }
 
@@ -135,13 +112,23 @@ class CalendarScreen extends HookConsumerWidget {
       loading: () => Scaffold(
         appBar: AdaptiveLayout.isWide(context)
             ? null
-            : AppBar(title: buildAppBarTitle()),
+            : MoniqAppBar(
+                title: calendarTitle,
+                eyebrow: 'ONOROFF',
+                showBack: false,
+                leading: buildAvatarLeading(),
+              ),
         body: const MoniqLoadingView(),
       ),
       error: (e, _) => Scaffold(
         appBar: AdaptiveLayout.isWide(context)
             ? null
-            : AppBar(title: buildAppBarTitle()),
+            : MoniqAppBar(
+                title: calendarTitle,
+                eyebrow: 'ONOROFF',
+                showBack: false,
+                leading: buildAvatarLeading(),
+              ),
         body: MoniqErrorView(
           message: '\uC77C\uC815\uC744 \uBD88\uB7EC\uC62C \uC218 \uC5C6\uC2B5\uB2C8\uB2E4',
           onRetry: () => ref.read(homeViewModelProvider.notifier).refresh(),
@@ -160,18 +147,17 @@ class CalendarScreen extends HookConsumerWidget {
               Theme.of(context).colorScheme.surfaceContainerLow,
           appBar: AdaptiveLayout.isWide(context)
               ? null
-              : AppBar(
-                  backgroundColor:
-                      Theme.of(context).colorScheme.surfaceContainerLow,
-                  title: buildAppBarTitle(),
-                  actions: [
-                    Builder(
-                      builder: (ctx) => IconButton(
-                        icon: const Icon(Icons.menu),
-                        onPressed: () => Scaffold.of(ctx).openEndDrawer(),
-                      ),
+              : MoniqAppBar(
+                  title: calendarTitle,
+                  eyebrow: 'ONOROFF',
+                  showBack: false,
+                  leading: buildAvatarLeading(),
+                  trailing: Builder(
+                    builder: (ctx) => MoniqAppBarAction(
+                      icon: Icons.menu_rounded,
+                      onTap: () => Scaffold.of(ctx).openEndDrawer(),
                     ),
-                  ],
+                  ),
                 ),
           endDrawer: AdaptiveLayout.isWide(context)
               ? null
