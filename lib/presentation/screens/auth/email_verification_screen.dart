@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 
 class EmailVerificationScreen extends HookConsumerWidget {
   const EmailVerificationScreen({required this.email, super.key});
@@ -44,7 +45,7 @@ class EmailVerificationScreen extends HookConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(),
+      appBar: const MoniqAppBar(title: '이메일 인증'),
       body: SafeArea(
         child: Padding(
           padding: AppSpacing.screenAll,

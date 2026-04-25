@@ -5,6 +5,7 @@ import 'package:moniq/core/utils/auth_error_utils.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 
 class ForgotPasswordScreen extends HookConsumerWidget {
   const ForgotPasswordScreen({super.key});
@@ -36,9 +37,7 @@ class ForgotPasswordScreen extends HookConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('비밀번호 찾기'),
-      ),
+      appBar: const MoniqAppBar(title: '비밀번호 찾기'),
       body: SafeArea(
         child: Padding(
           padding: AppSpacing.screenAll,
