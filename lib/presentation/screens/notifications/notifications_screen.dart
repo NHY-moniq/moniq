@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:moniq/data/models/notification_model.dart';
 import 'package:moniq/data/providers/notification_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
@@ -16,19 +17,19 @@ class NotificationsScreen extends HookConsumerWidget {
     final listAsync = ref.watch(myNotificationsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('알림'),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              final repo = ref.read(notificationRepositoryProvider);
-              await repo.markAllAsRead();
-              ref.invalidate(myNotificationsProvider);
-              ref.invalidate(unreadNotificationCountProvider);
-            },
-            child: const Text('모두 읽음'),
-          ),
-        ],
+      appBar: MoniqAppBar(
+        title: '알림함',
+        eyebrow: 'NOTIFICATIONS',
+        trailing: MoniqAppBarAction(
+          icon: Icons.done_all_rounded,
+          label: '모두 읽음',
+          onTap: () async {
+            final repo = ref.read(notificationRepositoryProvider);
+            await repo.markAllAsRead();
+            ref.invalidate(myNotificationsProvider);
+            ref.invalidate(unreadNotificationCountProvider);
+          },
+        ),
       ),
       body: listAsync.when(
         loading: () => const MoniqLoadingView(),
@@ -38,10 +39,9 @@ class NotificationsScreen extends HookConsumerWidget {
         ),
         data: (items) {
           if (items.isEmpty) {
-            return const MoniqEmptyState(
-              icon: Icons.notifications_off_outlined,
-              message: '받은 알림이 없습니다',
-              description: '팀의 공지·근무 변경 등이 여기에 표시됩니다',
+            return MoniqEmptyState.peaceful(
+              title: '받은 알림이 없어요',
+              message: '조용한 하루네요 ☕',
             );
           }
           return RefreshIndicator(
