@@ -9,6 +9,7 @@ import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/wanted_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
@@ -41,16 +42,13 @@ class WantedDayOffScreen extends HookConsumerWidget {
     ref.watch(_wantedShiftTypesProvider(teamId));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('원티드 입력'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: '새로고침',
-            onPressed: () =>
-                ref.invalidate(wantedMemberViewModelProvider(teamId)),
-          ),
-        ],
+      appBar: MoniqAppBar(
+        title: '원티드 입력',
+        trailing: MoniqAppBarAction(
+          icon: Icons.refresh_rounded,
+          onTap: () =>
+              ref.invalidate(wantedMemberViewModelProvider(teamId)),
+        ),
       ),
       body: stateAsync.when(
         loading: () => const MoniqLoadingView(),
@@ -65,12 +63,11 @@ class WantedDayOffScreen extends HookConsumerWidget {
               onRefresh: () async =>
                   ref.invalidate(wantedMemberViewModelProvider(teamId)),
               child: ListView(
-                children: const [
-                  SizedBox(height: 120),
-                  MoniqEmptyState(
-                    icon: Icons.event_busy,
-                    message: '현재 진행 중인 원티드 수집이 없습니다',
-                    description: '관리자가 수집을 시작하면 여기서 입력할 수 있습니다',
+                children: [
+                  const SizedBox(height: 120),
+                  MoniqEmptyState.peaceful(
+                    title: '진행 중인 원티드 수집이 없어요',
+                    message: '관리자가 수집을 시작하면 여기서 입력할 수 있어요',
                   ),
                 ],
               ),
