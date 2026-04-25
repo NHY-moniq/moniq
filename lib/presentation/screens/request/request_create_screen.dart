@@ -12,6 +12,8 @@ import 'package:moniq/presentation/screens/request/request_create_widgets.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/request_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
+import 'package:moniq/presentation/widgets/common/moniq_stepper.dart';
 
 class RequestCreateScreen extends HookConsumerWidget {
   const RequestCreateScreen({super.key, required this.teamId});
@@ -21,7 +23,7 @@ class RequestCreateScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('변경 요청')),
+      appBar: const MoniqAppBar(title: '변경 요청'),
       body: _RequestCreateForm(teamId: teamId),
     );
   }
@@ -120,6 +122,22 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
     return true;
   }
 
+  /// 0=요청 유형 · 1=상세(날짜/근무) · 2=사유/메모
+  int get _currentStep {
+    if (_reason.isNotEmpty) return 2;
+    final detailDone = switch (_changeType) {
+      'day_off' => _requestedDate != null,
+      'shift_change' =>
+        _requestedDate != null && _selectedShiftTypeId != null,
+      'swap' => _selectedSwapUserId != null &&
+          _requestedDate != null &&
+          _swapDesiredShiftTypeId != null,
+      _ => false,
+    };
+    if (detailDone) return 1;
+    return 0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -130,6 +148,8 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          MoniqStepper.bars(current: _currentStep, total: 3),
+          const SizedBox(height: AppSpacing.xxl),
           // Step 1: 요청 유형
           Text('요청 유형',
               style: theme.textTheme.titleMedium
