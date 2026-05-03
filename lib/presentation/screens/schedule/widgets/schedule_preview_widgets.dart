@@ -387,7 +387,7 @@ class PreviewView extends HookConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
           ),
-          if (isWideLayout && hasManualEdits.value) ...[
+          if (hasManualEdits.value) ...[
             const SizedBox(height: AppSpacing.sm),
             OutlinedButton.icon(
               onPressed: state.isPublishing || state.isGenerating
@@ -572,10 +572,7 @@ class PreviewView extends HookConsumerWidget {
               height: memberRowHeight,
               child: Row(
                 children: sortedDays.map((day) {
-                  final canEdit =
-                      isWideLayout &&
-                      !state.isPublishing &&
-                      !state.isGenerating;
+                  final canEdit = !state.isPublishing && !state.isGenerating;
                   final currentShiftTypeId = grid[day]?[m.userId];
                   return buildCell(
                     currentShiftTypeId,

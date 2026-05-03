@@ -10,6 +10,7 @@ class FeedbackRemoteDataSource {
         .from('schedule_feedback')
         .select()
         .eq('schedule_id', scheduleId)
+        .order('created_at', ascending: false)
         .limit(1);
     final list = rows as List;
     return list.isNotEmpty ? list.first as Map<String, dynamic> : null;

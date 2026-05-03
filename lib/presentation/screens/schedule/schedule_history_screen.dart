@@ -14,25 +14,25 @@ import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
 // ── Provider: 팀의 스케줄 버전 목록 ──
-final scheduleVersionsProvider =
-    FutureProvider.family<List<ScheduleModel>, String>((ref, teamId) async {
-  final repo = ref.watch(scheduleRepositoryProvider);
-  return repo.getSchedules(teamId);
-});
+final scheduleVersionsProvider = FutureProvider.autoDispose
+    .family<List<ScheduleModel>, String>((ref, teamId) async {
+      final repo = ref.watch(scheduleRepositoryProvider);
+      return repo.getSchedules(teamId);
+    });
 
 // ── Provider: 팀의 시프트 타입 ──
-final shiftTypesForTeamProvider =
-    FutureProvider.autoDispose.family<List<ShiftTypeModel>, String>(
-  (ref, teamId) => ref.watch(shiftRepositoryProvider).getShiftTypes(teamId),
-);
+final shiftTypesForTeamProvider = FutureProvider.autoDispose
+    .family<List<ShiftTypeModel>, String>(
+      (ref, teamId) => ref.watch(shiftRepositoryProvider).getShiftTypes(teamId),
+    );
 
 // ── Provider: 스케줄 상세 (시프트 목록) ──
 final scheduleDetailProvider = FutureProvider.autoDispose
     .family<ScheduleDetail, String>((ref, scheduleId) async {
-  final shiftRepo = ref.watch(scheduleRepositoryProvider);
-  final shifts = await shiftRepo.getShiftsBySchedule(scheduleId);
-  return ScheduleDetail(shifts: shifts);
-});
+      final shiftRepo = ref.watch(scheduleRepositoryProvider);
+      final shifts = await shiftRepo.getShiftsBySchedule(scheduleId);
+      return ScheduleDetail(shifts: shifts);
+    });
 
 class ScheduleDetail {
   ScheduleDetail({required this.shifts});
@@ -41,11 +41,13 @@ class ScheduleDetail {
 
 // ── Provider: 팀 멤버 ──
 final teamMembersWithUsersProvider =
-    FutureProvider.family<List<TeamMemberWithUser>, String>(
-        (ref, teamId) async {
-  final repo = ref.watch(teamRepositoryProvider);
-  return repo.getTeamMembersWithUsers(teamId);
-});
+    FutureProvider.family<List<TeamMemberWithUser>, String>((
+      ref,
+      teamId,
+    ) async {
+      final repo = ref.watch(teamRepositoryProvider);
+      return repo.getTeamMembersWithUsers(teamId);
+    });
 
 // ────────────────────────────────────────
 // 히스토리 목록 화면
@@ -74,8 +76,7 @@ class ScheduleHistoryScreen extends ConsumerWidget {
           return ListView.separated(
             padding: AppSpacing.screenAll,
             itemCount: versions.length,
-            separatorBuilder: (_, __) =>
-                const SizedBox(height: AppSpacing.md),
+            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
             itemBuilder: (_, i) => ScheduleHistoryVersionCard(
               schedule: versions[i],
               teamId: teamId,
