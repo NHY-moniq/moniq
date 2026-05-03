@@ -17,6 +17,11 @@ _$TeamMemberModelImpl _$$TeamMemberModelImplFromJson(
   nightExempt: json['night_exempt'] as bool? ?? false,
   dayOnly: json['day_only'] as bool? ?? false,
   nightDedicated: json['night_dedicated'] as bool? ?? false,
+  preferredShifts:
+      (json['preferred_shifts'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      [],
   isFavorite: json['is_favorite'] as bool? ?? false,
   joinedAt: json['joined_at'] == null
       ? null
@@ -41,6 +46,7 @@ Map<String, dynamic> _$$TeamMemberModelImplToJson(
   'night_exempt': instance.nightExempt,
   'day_only': instance.dayOnly,
   'night_dedicated': instance.nightDedicated,
+  'preferred_shifts': instance.preferredShifts,
   'is_favorite': instance.isFavorite,
   'joined_at': instance.joinedAt?.toIso8601String(),
   'created_at': instance.createdAt?.toIso8601String(),
