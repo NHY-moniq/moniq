@@ -227,6 +227,7 @@ class _TeamCalendarView extends HookConsumerWidget {
                             ref.read(scheduleRepositoryProvider);
                         showDeleteScheduleSheet(
                           context: context,
+                          ref: ref,
                           scheduleRepo: scheduleRepo,
                           teamId: team.id,
                           state: state,
@@ -274,6 +275,13 @@ class _TeamCalendarView extends HookConsumerWidget {
 
               // Calendar
               MoniqCalendar(
+                legendItems: state.shiftTypes
+                    .where((st) => st.isActive)
+                    .map((st) => (
+                          color: parseHexColor(st.color),
+                          label: st.code.toUpperCase(),
+                        ))
+                    .toList(),
                 focusedDay: state.focusedMonth,
                 selectedDay: state.selectedDate,
                 startingDayOfWeek: startingDay,

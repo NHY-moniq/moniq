@@ -42,10 +42,8 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
   String _changeType = 'day_off';
   DateTime? _requestedDate;
   String? _selectedShiftTypeId;
-  // 근무 교환 플로우 상태
-  String? _swapDesiredShiftTypeId;
-  String? _selectedSwapUserId;
-  String? _selectedSwapUserName;
+  // 근무 교환 — 다중 entry 지원 (1행~N행)
+  final List<SwapEntry> _swapEntries = [SwapEntry()];
   String _reason = '';
   String _note = '';
   bool _isSubmitting = false;
@@ -109,29 +107,34 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
     if (mounted) setState(() => _isLoadingRoster = false);
   }
 
+  /// 다중 swap entry 중 완료된(제출 가능한) 것만 추출
+  List<SwapEntry> get _validSwapEntries =>
+      _swapEntries.where((e) => e.isComplete).toList();
+
   bool get _canSubmit {
-    if (_isSubmitting || _reason.isEmpty) return false;
+    if (_isSubmitting) return false;
+    if (_changeType == 'swap') {
+      // swap은 reason 불필요. 완료된 entry가 1건 이상이어야 함
+      return _validSwapEntries.isNotEmpty;
+    }
+    if (_reason.isEmpty) return false;
     if (_changeType == 'shift_change' && _selectedShiftTypeId == null) {
       return false;
-    }
-    if (_changeType == 'swap') {
-      if (_selectedSwapUserId == null) return false;
-      if (_requestedDate == null) return false;
-      if (_swapDesiredShiftTypeId == null) return false;
     }
     return true;
   }
 
   /// 0=요청 유형 · 1=상세(날짜/근무) · 2=사유/메모
   int get _currentStep {
+    if (_changeType == 'swap') {
+      // swap: detail 완료(entry 1건 이상)면 step=2 (사유 단계 없음)
+      return _validSwapEntries.isNotEmpty ? 2 : 0;
+    }
     if (_reason.isNotEmpty) return 2;
     final detailDone = switch (_changeType) {
       'day_off' => _requestedDate != null,
       'shift_change' =>
         _requestedDate != null && _selectedShiftTypeId != null,
-      'swap' => _selectedSwapUserId != null &&
-          _requestedDate != null &&
-          _swapDesiredShiftTypeId != null,
       _ => false,
     };
     if (detailDone) return 1;
@@ -165,16 +168,16 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
                 avatar: Icon(icon, size: 18),
                 label: Text(label),
                 selected: selected,
+                showCheckmark: false,
                 onSelected: (_) {
                   setState(() {
                     _changeType = type;
                     _selectedShiftTypeId = null;
-                    _selectedSwapUserId = null;
-                    _selectedSwapUserName = null;
-                    _swapDesiredShiftTypeId = null;
+                    _swapEntries
+                      ..clear()
+                      ..add(SwapEntry());
                   });
-                  if ((type == 'shift_change' || type == 'swap') &&
-                      _requestedDate != null) {
+                  if (type == 'shift_change' && _requestedDate != null) {
                     _loadRoster();
                   }
                 },
@@ -249,74 +252,58 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
             ),
           ],
 
-          // 근무 교환 섹션 (팀원 → 날짜 → 근무 드롭박스)
+          // 근무 교환 섹션 — 다중 entry (팀원 → 날짜 → as-is/to-be)
           if (isSwap) ...[
             const SizedBox(height: AppSpacing.xxl),
-            RequestCreateSwapSection(
+            SwapEntriesSection(
               teamId: widget.teamId,
               myUserId: ref.read(currentUserProvider)?.id,
-              selectedSwapUserId: _selectedSwapUserId,
-              selectedSwapUserName: _selectedSwapUserName,
-              onSwapUserSelected: (userId, userName) {
-                setState(() {
-                  _selectedSwapUserId = userId;
-                  _selectedSwapUserName = userName;
-                  _swapDesiredShiftTypeId = null;
-                });
-              },
-              requestedDate: _requestedDate,
-              onDateSelected: (date) {
-                setState(() {
-                  _requestedDate = date;
-                  _swapDesiredShiftTypeId = null;
-                });
-              },
-              desiredShiftTypeId: _swapDesiredShiftTypeId,
-              onDesiredShiftTypeSelected: (id) =>
-                  setState(() => _swapDesiredShiftTypeId = id),
+              entries: _swapEntries,
+              onChanged: () => setState(() {}),
             ),
           ],
 
-          const SizedBox(height: AppSpacing.xxl),
-
-          // 사유
-          Text('사유',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: _presetReasons.map((reason) {
-              final selected = _reason == reason;
-              return ChoiceChip(
-                label: Text(reason),
-                selected: selected,
-                onSelected: (_) =>
-                    setState(() => _reason = selected ? '' : reason),
-                selectedColor:
-                    theme.colorScheme.primary.withValues(alpha: 0.15),
-              );
-            }).toList(),
-          ),
-
-          const SizedBox(height: AppSpacing.xxl),
-
-          // 메모 (선택)
-          Text('메모 (선택)',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: AppSpacing.md),
-          TextField(
-            onChanged: (v) => _note = v,
-            decoration: const InputDecoration(
-              hintText: '추가 메모를 입력해주세요',
+          // 사유 — 휴무/근무 변경 전용 (swap은 사유 제거)
+          if (!isSwap) ...[
+            const SizedBox(height: AppSpacing.xxl),
+            Text('사유',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: AppSpacing.md),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: _presetReasons.map((reason) {
+                final selected = _reason == reason;
+                return ChoiceChip(
+                  label: Text(reason),
+                  selected: selected,
+                  onSelected: (_) =>
+                      setState(() => _reason = selected ? '' : reason),
+                  selectedColor:
+                      theme.colorScheme.primary.withValues(alpha: 0.15),
+                );
+              }).toList(),
             ),
-            textCapitalization: TextCapitalization.sentences,
-            keyboardType: TextInputType.text,
-            textInputAction: TextInputAction.done,
-            maxLines: 3,
-          ),
+
+            const SizedBox(height: AppSpacing.xxl),
+
+            // 메모 (선택)
+            Text('메모 (선택)',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              onChanged: (v) => _note = v,
+              decoration: const InputDecoration(
+                hintText: '추가 메모를 입력해주세요',
+              ),
+              textCapitalization: TextCapitalization.sentences,
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.done,
+              maxLines: 3,
+            ),
+          ],
 
           const SizedBox(height: AppSpacing.xxxl),
 
@@ -405,39 +392,43 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
               .read(currentUserProvider)
               ?.userMetadata?['display_name'] as String? ??
           '동료';
-      final dateLabel = _requestedDate != null
-          ? DateFormat('M/d', 'ko_KR').format(_requestedDate!)
-          : '';
 
-      String reasonText = _reason;
-      if (_changeType == 'swap' && _selectedSwapUserName != null) {
-        reasonText = '$_selectedSwapUserName 님과 근무 교환. $_reason';
-      }
-
-      await repo.createRequest(
-        teamId: widget.teamId,
-        changeType: _changeType,
-        requestedDate: _requestedDate,
-        requestedShiftTypeId: _changeType == 'swap'
-            ? _swapDesiredShiftTypeId
-            : _selectedShiftTypeId,
-        targetUserId: _changeType == 'swap' ? _selectedSwapUserId : null,
-        reason: reasonText,
-        note: noteText,
-      );
-
-      if (_changeType == 'swap' && _selectedSwapUserId != null) {
-        try {
-          await PushService.instance.sendToUsers(
-            userIds: [_selectedSwapUserId!],
-            title: '근무 교환 요청',
-            body: '$myName 님이 $dateLabel 근무 교환을 요청했습니다',
-            data: {
-              'type': 'swap_request',
-              'team_id': widget.teamId,
-            },
+      if (_changeType == 'swap') {
+        // 다중 swap entry — 완료된 항목별로 1건씩 createRequest
+        final entries = _validSwapEntries;
+        for (final e in entries) {
+          await repo.createRequest(
+            teamId: widget.teamId,
+            changeType: 'swap',
+            requestedDate: e.date,
+            requestedShiftTypeId: e.desiredShiftType?.id,
+            targetUserId: e.userId,
+            reason: '${e.userName ?? '동료'}님과 근무 교환',
           );
-        } catch (_) {}
+          try {
+            final dateLabel = DateFormat('M/d', 'ko_KR').format(e.date!);
+            final shiftLabel = e.desiredShiftType?.name ?? '';
+            await PushService.instance.sendToUsers(
+              userIds: [e.userId!],
+              title: '근무 교환 요청',
+              body:
+                  '$myName 님이 $dateLabel $shiftLabel 근무 교환을 요청했습니다',
+              data: {
+                'type': 'swap_request',
+                'team_id': widget.teamId,
+              },
+            );
+          } catch (_) {}
+        }
+      } else {
+        await repo.createRequest(
+          teamId: widget.teamId,
+          changeType: _changeType,
+          requestedDate: _requestedDate,
+          requestedShiftTypeId: _selectedShiftTypeId,
+          reason: _reason,
+          note: noteText,
+        );
       }
 
       ref.invalidate(

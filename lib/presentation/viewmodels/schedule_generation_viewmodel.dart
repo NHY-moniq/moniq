@@ -389,6 +389,9 @@ class ScheduleGenerationViewModel
             'type': 'schedule_published',
             'team_id': current.teamId,
             'schedule_id': current.generatedSchedule!.id,
+            if (start != null)
+              'change_date':
+                  '${start.year}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}',
           },
         );
       } catch (_) {}

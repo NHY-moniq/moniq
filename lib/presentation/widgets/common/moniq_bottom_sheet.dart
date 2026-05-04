@@ -30,11 +30,13 @@ Future<T?> showMoniqBottomSheet<T>({
   String? eyebrow,
   bool isScrollControlled = true,
   bool useSafeArea = true,
+  bool useRootNavigator = true,
 }) {
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: isScrollControlled,
     useSafeArea: useSafeArea,
+    useRootNavigator: useRootNavigator,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.42),
     builder: (ctx) => MoniqBottomSheetShell(
