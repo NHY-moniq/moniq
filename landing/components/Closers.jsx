@@ -23,15 +23,15 @@ const Testimonials = () => (
     </div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
       {[
-        { quote: '매달 근무표 짜느라 새벽까지 남았었는데, 이젠 10분이면 끝나요. 요청 반영도 자동이라 팀원들 불만도 줄었어요.', name: '박수진', role: 'Head Nurse · Unit 4 Medical', color: '#FFC107' },
-        { quote: '교대 요청할 때 카톡 돌리면서 눈치 보던 게 사라졌어요. 앱 안에서 한 번에 해결되니까 너무 편해요.', name: '김하윤', role: 'RN · 3년차', color: '#FF8C00' },
-        { quote: '오늘 무슨 근무인지 색깔만 봐도 알 수 있어서 좋아요. 야간 근무 끝나고 화면이 바뀌면 진짜 쉬는 것 같아요.', name: '이태민', role: 'Charge Nurse', color: '#0061A4' },
+        { quote: '매달 근무표 짜느라 새벽까지 남았었는데, 이젠 10분이면 끝나요.<br />요청 반영도 자동이라 팀원들 불만도 줄었어요.', name: '박수진', role: 'Head Nurse · Unit 4 Medical', color: '#FFC107' },
+        { quote: '교대 요청할 때 카톡 돌리면서 눈치 보던 게 사라졌어요.<br />앱 안에서 한 번에 해결되니까 너무 편해요.', name: '김하윤', role: 'RN · 3년차', color: '#FF8C00' },
+        { quote: '오늘 무슨 근무인지 색깔만 봐도 알 수 있어서 좋아요.<br />야간 근무 끝나고 화면이 바뀌면 진짜 쉬는 것 같아요.', name: '이태민', role: 'Charge Nurse', color: '#0061A4' },
       ].map((t, i) => (
         <LandingCard key={i} padding={28} hover>
           <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
             {[0,1,2,3,4].map(n => <span key={n} style={{ color: '#FFC107', font: '900 16px/1 var(--font-family)' }}>★</span>)}
           </div>
-          <p style={{ font: '600 16px/1.55 var(--font-family)', color: '#312F23', marginBottom: 24, textWrap: 'pretty' }}>"{t.quote}"</p>
+          <p style={{ font: '600 16px/1.6 var(--font-family)', color: '#312F23', marginBottom: 24, textWrap: 'pretty' }} dangerouslySetInnerHTML={{ __html: `"${t.quote}"` }} />
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: t.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '900 14px/1 var(--font-family)' }}>{t.name[0]}</div>
             <div>
@@ -48,11 +48,26 @@ const Testimonials = () => (
 const FAQ = () => {
   const [open, setOpen] = React.useState(0);
   const items = [
-    { q: '무료로 쓸 수 있나요?', a: '개인 사용자는 무료로 쓸 수 있게 준비 중이에요. 병동 단위 팀 관리는 출시 시점에 안내드릴게요.' },
-    { q: '어떤 교대근무자가 쓸 수 있나요?', a: '지금은 간호사 중심으로 설계되어 있지만, 경찰·소방·공장 근무자로 확장 중이에요.' },
-    { q: '내 병원에 도입하려면 어떻게 하나요?', a: '수간호사님이 앱 내에서 Organization Team을 만들면 바로 시작할 수 있어요. 대규모 도입은 문의 주세요.' },
-    { q: '기존 엑셀 근무표를 가져올 수 있나요?', a: '네, CSV 업로드로 지난 근무표를 불러올 수 있어요. 팀원 요청이나 규칙도 한 번에 이관돼요.' },
-    { q: '야간 근무 규칙 같은 것도 지킬 수 있나요?', a: '연속 야간 제한, 최소 휴식 시간, 주간 최대 근무시간 등 팀 규칙을 세세하게 설정할 수 있어요.' },
+    {
+      q: '무료로 쓸 수 있나요?',
+      a: '개인 사용자는 무료로 쓸 수 있게 준비 중이에요.<br />병동 단위 팀 관리는 출시 시점에 안내드릴게요.',
+    },
+    {
+      q: '어떤 교대근무자가 쓸 수 있나요?',
+      a: '지금은 간호사 중심으로 설계되어 있어요.<br />경찰·소방·공장 근무자로 확장 중이에요.',
+    },
+    {
+      q: '내 병동에 도입하려면 어떻게 하나요?',
+      a: '수간호사님이 앱 안에서 팀을 만들면 바로 시작할 수 있어요.<br />대규모 도입은 출시 후 안내드릴게요.',
+    },
+    {
+      q: '기존 엑셀 근무표를 가져올 수 있나요?',
+      a: '네, CSV 업로드로 지난 근무표를 불러올 수 있어요.<br />팀원 요청이나 규칙도 한 번에 이관돼요.',
+    },
+    {
+      q: '야간 근무 규칙 같은 것도 지킬 수 있나요?',
+      a: '연속 야간 제한, 최소 휴식, 주간 최대 근무시간 같은 규칙을 세세히 설정할 수 있어요.<br />원하는 규칙이 따로 있다면 자연어로 입력해도 돼요.',
+    },
   ];
   return (
     <Section paddingY={120} bg="#F7F1DC">
@@ -62,8 +77,9 @@ const FAQ = () => {
           <h2 style={{ font: '900 52px/1.05 var(--font-family)', letterSpacing: -1.4, color: '#312F23', marginTop: 14, textWrap: 'balance' }}>
             자주 묻는 질문.
           </h2>
-          <p style={{ font: '500 16px/1.55 var(--font-family)', color: '#5F5C4D', marginTop: 20 }}>
-            연락처는 출시 시점에 안내드릴게요. 그때까지 궁금한 점은 잠시만 기다려주세요.
+          <p style={{ font: '500 16px/1.6 var(--font-family)', color: '#5F5C4D', marginTop: 20 }}>
+            연락처는 출시 시점에 안내드릴게요.<br />
+            그때까지 궁금한 점은 잠시만 기다려주세요.
           </p>
         </div>
         <div>
@@ -78,7 +94,7 @@ const FAQ = () => {
                   <div style={{ font: '800 17px/1.3 var(--font-family)', color: '#312F23' }}>{it.q}</div>
                   <span className="material-symbols-outlined" style={{ color: '#5F5C4D', transition: 'transform .3s', transform: isOpen ? 'rotate(45deg)' : 'none' }}>add</span>
                 </div>
-                {isOpen && <p style={{ font: '500 15px/1.55 var(--font-family)', color: '#5F5C4D', marginTop: 14 }}>{it.a}</p>}
+                {isOpen && <p style={{ font: '500 15px/1.6 var(--font-family)', color: '#5F5C4D', marginTop: 14 }} dangerouslySetInnerHTML={{ __html: it.a }} />}
               </div>
             );
           })}
@@ -130,8 +146,9 @@ const LandingFooter = () => (
             <span style={{ color: '#0061A4' }}>OFF</span>
           </div>
         </div>
-        <p style={{ font: '500 14px/1.55 var(--font-family)', color: 'rgba(252,246,227,.7)', maxWidth: 320 }}>
-          간호사를 위한 근무표 관리 앱. 교대근무자의 하루가 조금 더 가벼워지도록.
+        <p style={{ font: '500 14px/1.6 var(--font-family)', color: 'rgba(252,246,227,.7)', maxWidth: 320 }}>
+          교대근무자를 위한 근무표 관리 앱.<br />
+          매일의 하루가 조금 더 가벼워지도록.
         </p>
       </div>
       {[

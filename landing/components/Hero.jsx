@@ -57,9 +57,10 @@ const LandingHero = ({ tweaks }) => {
             <span style={{ color: '#FFC107' }}>낮</span>도 <span style={{ color: '#FF8C00' }}>저녁</span>도<br />
             <span style={{ color: '#0061A4' }}>밤</span>도 한눈에.
           </h1>
-          <p style={{ font: '500 19px/1.55 var(--font-family)', color: '#5F5C4D', maxWidth: 480, marginBottom: 36 }}>
-            Moniq는 교대근무자를 위한 근무표 관리 앱이에요.
-            내 스케줄을 깔끔하게 보고, 팀 근무표는 자동으로 만들고,
+          <p style={{ font: '500 19px/1.6 var(--font-family)', color: '#5F5C4D', maxWidth: 480, marginBottom: 36 }}>
+            Moniq는 교대근무자를 위한 근무표 관리 앱이에요.<br />
+            내 스케줄을 깔끔하게 보고,<br />
+            팀 근무표는 규칙 기반으로 자동 생성,<br />
             교대·변경 요청은 한 번의 탭으로 끝내세요.
           </p>
           <ComingSoonButtons kind="primary" />
@@ -107,10 +108,20 @@ const LandingHero = ({ tweaks }) => {
 const CharactersStrip = () => (
   <Section bg="#312F23" paddingY={100} style={{ color: '#FCF6E3' }}>
     <div style={{ textAlign: 'center', marginBottom: 64 }}>
-      <LandingEyebrow color="#FCF6E3" style={{ opacity: .6 }}>Meet the team</LandingEyebrow>
+      <LandingEyebrow color="#FCF6E3" style={{ opacity: .6 }}>Meet the characters</LandingEyebrow>
       <h2 style={{ font: '900 56px/1.05 var(--font-family)', letterSpacing: -1.4, marginTop: 14, color: '#FCF6E3', textWrap: 'balance' }}>
-        근무는 셋, 캐릭터도 셋.
+        내 근무에<br />캐릭터를 입혀요.
       </h2>
+      <p style={{
+        font: '500 17px/1.6 var(--font-family)',
+        color: 'rgba(252,246,227,.72)',
+        maxWidth: 560,
+        margin: '20px auto 0',
+        textWrap: 'balance',
+      }}>
+        Day · Evening · Night는 가장 흔한 3교대 예시예요.<br />
+        새벽조든 오프콜이든 직접 만들고, 색을 골라 캐릭터를 입힐 수 있어요.
+      </p>
     </div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
       {[
