@@ -108,6 +108,27 @@ const Mascot = ({ color = 'yellow', size = 80, style }) => (
   }} />
 );
 
+// Screenshot inside a PhoneFrame — tries the PNG first, falls back to a mock
+// widget if the file is missing. Lets the page render before real screenshots
+// land in landing/assets/screenshots/.
+const ScreenshotImage = ({ src, alt = '', fallback = null, fit = 'cover' }) => {
+  const [errored, setErrored] = React.useState(false);
+  if (errored || !src) return fallback;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setErrored(true)}
+      style={{
+        width: '100%',
+        height: '100%',
+        objectFit: fit,
+        display: 'block',
+      }}
+    />
+  );
+};
+
 // Pre-launch banner — shows once at top, dismissable
 const PreLaunchBanner = () => {
   const [show, setShow] = React.useState(true);
@@ -194,4 +215,4 @@ const ComingSoonButtons = ({ kind = 'cream' }) => {
   );
 };
 
-Object.assign(window, { LandingEyebrow, LandingChip, LandingButton, LandingCard, PhoneFrame, Section, Mascot, PreLaunchBanner, ComingSoonButtons });
+Object.assign(window, { LandingEyebrow, LandingChip, LandingButton, LandingCard, PhoneFrame, Section, Mascot, PreLaunchBanner, ComingSoonButtons, ScreenshotImage });
