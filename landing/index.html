@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OnorOff · Moniq — 간호사를 위한 근무표 관리</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block"/>
+<style>
+  html, body { margin: 0; background: var(--bg); color: var(--fg1); font-family: var(--font-family); scroll-behavior: smooth; }
+  body { overflow-x: hidden; padding-top: 44px; }
+  @media (max-width: 720px) { body { padding-top: 64px; } }
+  a { color: inherit; text-decoration: none; }
+  * { box-sizing: border-box; }
+  button { font-family: var(--font-family); }
+  /* Prevent FOUT — hide icon glyphs until the font is ready */
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    font-display: block;
+  }
+  /* Hero responsive fallback */
+  .hero-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 60px; align-items: center; min-height: 640px; }
+  @media (max-width: 1100px) {
+    .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+    .hero-phone-col { height: auto !important; }
+    .hero-headline { font-size: 64px !important; }
+  }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="components/Shared.jsx"></script>
+  <script type="text/babel" src="components/PhoneMocks.jsx"></script>
+  <script type="text/babel" src="components/Hero.jsx"></script>
+  <script type="text/babel" src="components/Features.jsx"></script>
+  <script type="text/babel" src="components/Closers.jsx"></script>
+
+  <script type="text/babel">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "accent": "day",
+      "showMascots": true,
+      "showNav": true
+    }/*EDITMODE-END*/;
+
+    const App = () => {
+      const [tweaks, setTweaks] = useTweaks(TWEAK_DEFAULTS);
+      return (
+        <React.Fragment>
+          <PreLaunchBanner />
+          {tweaks.showNav && <LandingNav />}
+          <LandingHero tweaks={tweaks} />
+          <CharactersStrip />
+          <FeatureCalendar />
+          <FeatureTeamGen />
+          <FeatureSwap />
+          <FeatureShiftTheming />
+          <ProofStrip />
+          <Testimonials />
+          <FAQ />
+          <FinalCTA />
+          <LandingFooter />
+
+          <TweaksPanel title="Tweaks">
+            <TweakSection title="Hero">
+              <TweakRadio
+                label="Accent / preview shift"
+                value={tweaks.accent}
+                onChange={v => setTweaks({ accent: v })}
+                options={[
+                  { value: 'day', label: 'Day (Yellow)' },
+                  { value: 'evening', label: 'Evening (Orange)' },
+                  { value: 'night', label: 'Night (Blue)' },
+                ]}
+              />
+              <TweakToggle
+                label="3D 캐릭터 표시"
+                value={tweaks.showMascots}
+                onChange={v => setTweaks({ showMascots: v })}
+              />
+              <TweakToggle
+                label="플로팅 네비게이션"
+                value={tweaks.showNav}
+                onChange={v => setTweaks({ showNav: v })}
+              />
+            </TweakSection>
+          </TweaksPanel>
+        </React.Fragment>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

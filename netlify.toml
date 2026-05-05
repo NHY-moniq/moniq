@@ -1,0 +1,12 @@
+[build]
+  base    = "landing"
+  publish = "."
+  command = ""
+
+# Pre-launch: keep search engines out until we ship real data.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
