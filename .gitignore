@@ -55,3 +55,10 @@ ios/GoogleService-Info.plist
 
 # Supabase CLI local cache
 supabase/.temp/
+
+# Working materials — design source files, raw logos, scratch dirs
+*.zip
+/refactor/
+/design/
+/app_logo.png
+/icons.png
