@@ -30,10 +30,6 @@ class TeamDetailScreen extends HookConsumerWidget {
             context.go('/teams');
           }
         },
-        trailing: MoniqAppBarAction(
-          icon: Icons.list_outlined,
-          onTap: () => context.push('/teams/list'),
-        ),
       ),
       body: detailAsync.when(
         loading: () => const MoniqLoadingView(),

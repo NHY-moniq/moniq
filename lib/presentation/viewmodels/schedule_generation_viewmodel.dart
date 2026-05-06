@@ -1120,9 +1120,8 @@ class ScheduleGenerationViewModel
     final avoidNoe = (ruleMap['avoid_noe']?['enabled'] as bool?) ?? false;
     final avoidEod = (ruleMap['avoid_eod']?['enabled'] as bool?) ?? false;
 
-    // 소프트: 숙련도 배치 고려
-    final considerSkill =
-        (ruleMap['consider_skill_level']?['enabled'] as bool?) ?? false;
+    // 숙련도 배치 고려 — 항상 활성화
+    const considerSkill = true;
 
     // ── 커스텀 규칙 파싱 (활성화된 것만) ──
     final activeCustomRules = customRules.where((r) => r.isActive).toList();
@@ -1233,24 +1232,27 @@ class ScheduleGenerationViewModel
         .toList();
 
     // 소프트: 원티드 우선순위 (1번 인덱스가 최고 우선순위)
-    final priorityOrder = List<String>.from(
+    // ── 스코어링 우선순위 (scheduling_priority_order, 구버전 호환) ──
+    // 순위별 multiplier: 1위=1.6, 2위=1.2, 3위=0.85, 4위=0.55
+    // 피드백 튜닝 boost와 곱산하여 실제 스코어에 반영
+    const _rankMultipliers = [1.6, 1.2, 0.85, 0.55];
+    final scoringOrder = List<String>.from(
+      (ruleMap['scheduling_priority_order']?['order'] as List?) ??
       (ruleMap['wanted_priority_order']?['order'] as List?) ??
-          [
-            'annual_leave',
-            'night_dedicated',
-            'fairness_rest',
-            'fairness_equal',
-          ],
+          ['wanted', 'avoid_pattern', 'preferred_shift', 'skill_placement'],
     );
-    int priorityWeight(String key) {
-      final idx = priorityOrder.indexOf(key);
-      if (idx < 0) return 0;
-      return (priorityOrder.length - idx) * 20; // 1위=80, 2위=60, 3위=40, 4위=20
+    double scoringMultiplier(String key) {
+      final idx = scoringOrder.indexOf(key);
+      if (idx < 0 || idx >= _rankMultipliers.length) return 1.0;
+      return _rankMultipliers[idx];
     }
 
-    final wantedBoost = tuning.wantedBoost;
-    final patternPenaltyBoost = tuning.patternPenaltyBoost;
-    final skillBalanceBoost = tuning.skillBalanceBoost;
+    final wantedBoost = tuning.wantedBoost * scoringMultiplier('wanted');
+    final patternPenaltyBoost =
+        tuning.patternPenaltyBoost * scoringMultiplier('avoid_pattern');
+    final preferredShiftBoost = scoringMultiplier('preferred_shift');
+    final skillBalanceBoost =
+        tuning.skillBalanceBoost * scoringMultiplier('skill_placement');
 
     // ── 근무유형 분류 헬퍼 ──
     bool isNightType(ShiftTypeModel t) =>
@@ -1299,9 +1301,15 @@ class ScheduleGenerationViewModel
     }
 
     // D/E/N으로 인식되는 타입만 포함 (알 수 없는 추가 타입, OFF 타입 제외)
+    // 나이트를 먼저 배정해야 D/E 배정 시 정확한 제약 반영 가능 — N 타입 우선 정렬
     final workShiftTypes = shiftTypes
         .where((t) => isDayType(t) || isEveningType(t) || isNightType(t))
-        .toList();
+        .toList()
+      ..sort((a, b) {
+        final aN = isNightType(a) ? 0 : 1;
+        final bN = isNightType(b) ? 0 : 1;
+        return aN.compareTo(bN);
+      });
 
     // ── 날짜 포맷 ──
     String fmt(DateTime d) =>
@@ -1310,6 +1318,10 @@ class ScheduleGenerationViewModel
     // ── 멤버별 상태 ──
     final shiftCount = <String, int>{for (final m in members) m.userId: 0};
     final nightCount = <String, int>{for (final m in members) m.userId: 0};
+    final dayShiftCount = <String, int>{for (final m in members) m.userId: 0};
+    final eveShiftCount = <String, int>{for (final m in members) m.userId: 0};
+    // 나이트 청크 간격 추적: 마지막으로 나이트 근무한 날짜 (일반 멤버 전용)
+    final lastNightDate = <String, DateTime?>{for (final m in members) m.userId: null};
     final consecutiveWork = <String, int>{for (final m in members) m.userId: 0};
     final consecutiveNight = <String, int>{
       for (final m in members) m.userId: 0,
@@ -1437,6 +1449,13 @@ class ScheduleGenerationViewModel
             return false;
 
           // ── 나이트 전담 전용 하드 규칙 ──
+          // 0) 최대 연속 3나이트
+          if (m.member.nightDedicated &&
+              isNight &&
+              isYesterday &&
+              prevCode0 == 'N' &&
+              (consecutiveNight[uid] ?? 0) >= 3)
+            return false;
           // 1) 나이트 블록 후 최소 2오프: 어제=오프, 2일전=N이면 오늘도 오프 필요
           if (m.member.nightDedicated &&
               isNight &&
@@ -1550,6 +1569,51 @@ class ScheduleGenerationViewModel
             final expectedShifts = targetPerMember * progressRatio;
             final shiftDebt = expectedShifts - (shiftCount[uid] ?? 0);
             s += (shiftDebt * 20).round();
+
+            // 유형별 균형 (일반 멤버 전용 — nightDedicated/dayOnly/nightExempt 속성자는 별도 처리됨)
+            if (!m.member.nightDedicated && !m.member.dayOnly && !m.member.nightExempt) {
+              final dTypeCount = workShiftTypes.where(isDayType).length;
+              final eTypeCount = workShiftTypes.where(isEveningType).length;
+              final nTypeCount = workShiftTypes.where(isNightType).length;
+              final totalTypes = (dTypeCount + eTypeCount + nTypeCount).toDouble();
+              if (totalTypes > 0) {
+                final dRatio = dTypeCount / totalTypes;
+                final eRatio = eTypeCount / totalTypes;
+                final nRatio = nTypeCount / totalTypes;
+                final nonDedicated = members.where((m) => !m.member.nightDedicated).length;
+                final totalExpected = nonDedicated > 0
+                    ? (dayCount * totalTypes * progressRatio) / nonDedicated
+                    : 0.0;
+                if (isDay) {
+                  final dDebt = (totalExpected * dRatio) - (dayShiftCount[uid] ?? 0);
+                  s += (dDebt * 32).round();
+                }
+                if (isEvening) {
+                  final eDebt = (totalExpected * eRatio) - (eveShiftCount[uid] ?? 0);
+                  s += (eDebt * 32).round();
+                }
+                if (isNight) {
+                  final nDebt = (totalExpected * nRatio) - (nightCount[uid] ?? 0);
+                  s += (nDebt * 32).round();
+                }
+              }
+            }
+
+            // 나이트 청크 간격 균등화 (일반 멤버 전용, 나이트 블록 시작 시점에서만 평가)
+            // 연속 나이트 중간은 제외 — 새 블록 시작(consecutiveNight==0)일 때만 적용
+            // D/E 블록 진행 중이면 억제 — 블록 중간에 N이 끼어드는 것 방지
+            if (isNight && (consecutiveNight[uid] ?? 0) == 0) {
+              final inActiveDEBlock =
+                  isYesterday && (prevCode0 == 'D' || prevCode0 == 'E');
+              if (!inActiveDEBlock) {
+                final lastN = lastNightDate[uid];
+                final daysSince = lastN != null
+                    ? date.difference(lastN).inDays
+                    : dayCount; // 이번 달 첫 나이트 → 최대 우선순위
+                s += (daysSince * 6).clamp(0, 120).round();
+                if (daysSince < 7) s -= 100;
+              }
+            }
           }
 
           // 야간 페이싱
@@ -1602,11 +1666,26 @@ class ScheduleGenerationViewModel
             s -= 40; // 오프 없는 유형 전환 억제
           }
 
+          // N 블록 2~3야 연속 강하게 유도 (일반 멤버)
+          // 기존 블록 연속 보너스(+70)와 합산: 2야 +200, 3야 +150 → 경쟁자(최대 ~170) 압도
+          if (isNight && !m.member.nightDedicated &&
+              isYesterday && prevCode0 == 'N') {
+            final consecN = consecutiveNight[uid] ?? 0;
+            if (consecN == 1) s += 130; // 2야 → 합계 +200
+            else if (consecN == 2) s += 80; // 3야까지 허용 → 합계 +150
+          }
+          // D/E 블록 진행 중 N 삽입 억제 (DDDN, EEEN 패턴 방지)
+          // 2일 이상 연속 D/E 블록 중에는 N 시작 강하게 차단
+          if (isNight && !m.member.nightDedicated &&
+              isYesterday && (prevCode0 == 'D' || prevCode0 == 'E') &&
+              (consecutiveWork[uid] ?? 0) > 1) {
+            s -= 180;
+          }
+
           // ── 생체리듬 흐름 보너스 (D→E→N 순방향 선호) ──
           // D→E: 순방향
           if (isEvening && isYesterday && prevCode0 == 'D') s += 30;
-          // E→N: 순방향
-          if (isNight && isYesterday && prevCode0 == 'E') s += 30;
+          // E→N 직접 전환 보너스 제거 — 오프 없는 E→N은 EEEN 패턴 유발
           // N→O→O→D/E: 표준 회복 후 복귀 (NOOD/NOOE) — 약한 보너스
           if ((isDay || isEvening) &&
               prevCode0 == null &&
@@ -1620,11 +1699,6 @@ class ScheduleGenerationViewModel
           // N→O→D: (NOD 소프트 — 하드는 위에서 차단)
           if (isDay && !isYesterday && prevCode0 == null && prevCode1 == 'N') {
             s -= (50 * patternPenaltyBoost).round();
-          }
-
-          // 나이트 전담 우선순위 보너스
-          if (m.member.nightDedicated && isNight) {
-            s += priorityWeight('night_dedicated');
           }
 
           // day_off 소프트 페널티
@@ -1661,10 +1735,23 @@ class ScheduleGenerationViewModel
             }
           }
 
+          // 상시 선호 근무 보너스/페널티 (preferredShifts: ['D','E','N'] 중 최대 2개)
+          // preferredShiftBoost = scoringMultiplier('preferred_shift')로 우선순위 반영
+          if (m.member.preferredShifts.isNotEmpty) {
+            final liked = m.member.preferredShifts.contains(shiftCode);
+            if (liked) {
+              s += (80 * preferredShiftBoost).round();
+            } else {
+              s -= (50 * preferredShiftBoost).round();
+            }
+          }
+
           // 숙련도 배치 고려 (나이트 근무에 중급 이상 우선)
+          // skillBalanceBoost = tuning.skillBalanceBoost * scoringMultiplier('skill_placement')
           if (considerSkill && isNight) {
             final skill = m.member.skillLevel;
-            if (skill == 'mid' || skill == 'senior') s += 30;
+            if (skill == 'mid' || skill == 'senior')
+              s += (30 * skillBalanceBoost).round();
           }
 
           // 소프트 기피 패턴 페널티 (동일 가중치 -150, 우선순위는 사용자 설정 예정)
@@ -1848,9 +1935,12 @@ class ScheduleGenerationViewModel
           });
 
           shiftCount[uid] = (shiftCount[uid] ?? 0) + 1;
+          if (isDay) dayShiftCount[uid] = (dayShiftCount[uid]! + 1);
+          if (isEvening) eveShiftCount[uid] = (eveShiftCount[uid]! + 1);
           if (isNight) {
             nightCount[uid] = (nightCount[uid] ?? 0) + 1;
             consecutiveNight[uid] = (consecutiveNight[uid] ?? 0) + 1;
+            lastNightDate[uid] = date;
           } else {
             consecutiveNight[uid] = 0;
           }
@@ -1914,6 +2004,11 @@ class ScheduleGenerationViewModel
           if (todayCode == 'D' && p0 == null && p1 == 'E') {
             softViolCounts['EOD']!.add('$mLabel $mmdd');
           }
+        }
+        // 오프 멤버의 consecutiveNight 리셋 (assignment 루프에서 D/E는 이미 0 처리,
+        // 오프(null)는 누락돼 카운터가 비정상 유지되는 버그 수정)
+        if (todayCode != 'N') {
+          consecutiveNight[uid] = 0;
         }
         // [어제, 2일전, 3일전] 슬라이딩
         prevCodes[uid] = [todayCode, prevCodes[uid]![0], prevCodes[uid]![1]];

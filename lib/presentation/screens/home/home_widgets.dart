@@ -150,7 +150,7 @@ class OnShiftTeamCard extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final coworkersAsync = ref.watch(todayCoworkersProvider);
     final coworkers = coworkersAsync.valueOrNull ?? const [];
-    final visible = coworkers.take(4).toList();
+    final visible = coworkers.take(3).toList();
     final overflow = coworkers.length - visible.length;
 
     return Container(

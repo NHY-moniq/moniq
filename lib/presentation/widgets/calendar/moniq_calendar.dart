@@ -345,33 +345,26 @@ class MoniqCalendar extends StatelessWidget {
               ),
             ),
 
-          // Today — PNG blob + centered number
+          // Today — blob shape + centered number
           if (isToday)
             Positioned(
-              top: -2,
+              top: 2,
               child: SizedBox(
-                width: 36,
-                height: 36,
+                width: 32,
+                height: 32,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    Image.asset(
-                      'assets/images/today.png',
-                      width: 36,
-                      height: 36,
-                      fit: BoxFit.contain,
-                      color: todayColor,
-                      colorBlendMode: BlendMode.srcIn,
+                    CustomPaint(
+                      size: const Size(32, 32),
+                      painter: _BlobPainter(todayColor),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        '${day.day}',
-                        style: TextStyle(
-                          color: textColor,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                        ),
+                    Text(
+                      '${day.day}',
+                      style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
                       ),
                     ),
                   ],
@@ -576,5 +569,28 @@ class MoniqCalendar extends StatelessWidget {
     };
     return labels[weekday] ?? '';
   }
+}
+
+class _BlobPainter extends CustomPainter {
+  const _BlobPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final w = size.width;
+    final h = size.height;
+    final path = Path()
+      ..moveTo(w * 0.50, h * 0.03)
+      ..cubicTo(w * 0.80, h * 0.00, w * 1.02, h * 0.22, w * 0.98, h * 0.52)
+      ..cubicTo(w * 0.94, h * 0.82, w * 0.72, h * 1.00, w * 0.46, h * 0.98)
+      ..cubicTo(w * 0.20, h * 0.96, w * 0.00, h * 0.78, h * 0.02, h * 0.50)
+      ..cubicTo(w * 0.04, h * 0.22, w * 0.22, h * 0.06, w * 0.50, h * 0.03)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_BlobPainter old) => old.color != color;
 }
 

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -11,8 +12,26 @@ import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 
 import 'calendar_providers.dart';
 
-/// 개인 캘린더 이미지 생성
+/// 개인 캘린더 이미지 bytes (웹 내보내기용 — 파일 I/O 없음)
+Future<Uint8List> generateCalendarImageBytes(
+    HomeCalendarState state, WidgetRef ref) async {
+  return _renderCalendarBytes(state, ref);
+}
+
+/// 개인 캘린더 이미지 생성 (모바일 — 임시 파일 반환)
 Future<File> generateCalendarImage(
+    HomeCalendarState state, WidgetRef ref) async {
+  final bytes = await _renderCalendarBytes(state, ref);
+  final focusedMonth = state.focusedMonth;
+  final dir = await getTemporaryDirectory();
+  final file = File(
+      '${dir.path}/moniq_${focusedMonth.year}_${focusedMonth.month}.png');
+  await file.writeAsBytes(bytes);
+  return file;
+}
+
+/// 렌더링만 수행, bytes 반환 (dart:ui만 사용)
+Future<Uint8List> _renderCalendarBytes(
     HomeCalendarState state, WidgetRef ref) async {
   final focusedMonth = state.focusedMonth;
   final eventDs = ref.read(personalEventDataSourceProvider);
@@ -164,13 +183,7 @@ Future<File> generateCalendarImage(
   final picture = recorder.endRecording();
   final img = await picture.toImage(width.toInt(), height.toInt());
   final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
-  final bytes = byteData!.buffer.asUint8List();
-
-  final dir = await getTemporaryDirectory();
-  final file = File(
-      '${dir.path}/moniq_${focusedMonth.year}_${focusedMonth.month}.png');
-  await file.writeAsBytes(bytes);
-  return file;
+  return byteData!.buffer.asUint8List();
 }
 
 /// 내보내기 이미지용 미리보기 태그 그리기
@@ -218,10 +231,21 @@ void drawPreviewTag(Canvas canvas, double x, double y, double cellW,
       Offset(tagX + (tagW - tp.width) / 2, y + (tagH - tp.height) / 2));
 }
 
+/// 팀 캘린더 이미지 bytes 생성 (ref 사용, 웹 다운로드용)
+Future<Uint8List> generateTeamImageBytes(
+    TeamCalendarState state, WidgetRef ref) async {
+  final teamRepo = ref.read(teamRepositoryProvider);
+  final members = await teamRepo.getTeamMembersWithUsers(state.teamId);
+  final memberNames = <String, String>{};
+  for (final m in members) {
+    memberNames[m.userId] = m.displayName;
+  }
+  return _renderTeamImageBytes(state, memberNames);
+}
+
 /// 팀 캘린더 이미지 생성 (ref 사용)
 Future<File> generateTeamCalendarImage(
     TeamCalendarState state, WidgetRef ref) async {
-  // 멤버 이름 맵 조회
   final teamRepo = ref.read(teamRepositoryProvider);
   final members = await teamRepo.getTeamMembersWithUsers(state.teamId);
   final memberNames = <String, String>{};
@@ -233,6 +257,16 @@ Future<File> generateTeamCalendarImage(
 
 /// 팀 캘린더 이미지 생성 (멤버 이름 맵 직접 전달)
 Future<File> generateTeamImageWithNames(
+    TeamCalendarState state, Map<String, String> memberNames) async {
+  final bytes = await _renderTeamImageBytes(state, memberNames);
+  final dir = await getTemporaryDirectory();
+  final file = File(
+      '${dir.path}/team_${state.teamId}_${state.focusedMonth.year}_${state.focusedMonth.month}.png');
+  await file.writeAsBytes(bytes);
+  return file;
+}
+
+Future<Uint8List> _renderTeamImageBytes(
     TeamCalendarState state, Map<String, String> memberNames) async {
   final focusedMonth = state.focusedMonth;
   final daysInMonth =
@@ -365,11 +399,5 @@ Future<File> generateTeamImageWithNames(
   final picture = recorder.endRecording();
   final img = await picture.toImage(width.toInt(), height.toInt());
   final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
-  final bytes = byteData!.buffer.asUint8List();
-
-  final dir = await getTemporaryDirectory();
-  final file = File(
-      '${dir.path}/team_${state.teamId}_${focusedMonth.year}_${focusedMonth.month}.png');
-  await file.writeAsBytes(bytes);
-  return file;
+  return byteData!.buffer.asUint8List();
 }
