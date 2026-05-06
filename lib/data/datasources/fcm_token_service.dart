@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// FCM 푸시 토큰을 발급받아 users.fcm_token에 저장한다.
@@ -20,23 +21,33 @@ class FcmTokenService {
   Future<void> syncTokenForCurrentUser() async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        debugPrint('[fcm] 로그인 안됨 → 토큰 발급 스킵');
+        return;
+      }
+      debugPrint('[fcm] 토큰 동기화 시작 user=${user.id}');
 
       final messaging = FirebaseMessaging.instance;
 
       // iOS 알림 권한 (다이얼로그) — timeout 5초
       try {
-        await messaging
+        final settings = await messaging
             .requestPermission(alert: true, badge: true, sound: true)
             .timeout(const Duration(seconds: 5));
-      } catch (_) {}
+        debugPrint('[fcm] 권한 상태=${settings.authorizationStatus}');
+      } catch (e) {
+        debugPrint('[fcm] 권한 요청 실패: $e');
+      }
 
       // APNs 토큰 (시뮬레이터에선 절대 안 옴 → timeout 3초)
       try {
-        await messaging
+        final apns = await messaging
             .getAPNSToken()
             .timeout(const Duration(seconds: 3));
-      } catch (_) {}
+        debugPrint('[fcm] APNs 토큰=${apns?.substring(0, 16) ?? "null"}...');
+      } catch (e) {
+        debugPrint('[fcm] APNs 토큰 조회 실패(iOS만 의미있음): $e');
+      }
 
       // FCM 토큰 — timeout 5초
       String? token;
@@ -44,12 +55,19 @@ class FcmTokenService {
         token = await messaging
             .getToken()
             .timeout(const Duration(seconds: 5));
-      } catch (_) {}
-      if (token == null || token.isEmpty) return;
+        debugPrint('[fcm] FCM 토큰 발급=${token?.substring(0, 24) ?? "null"}...');
+      } catch (e) {
+        debugPrint('[fcm] FCM 토큰 발급 실패: $e');
+      }
+      if (token == null || token.isEmpty) {
+        debugPrint('[fcm] 토큰 비어있음 → DB 저장 스킵');
+        return;
+      }
 
       await _saveToken(user.id, token);
-    } catch (_) {
-      // 푸시 등록 실패는 메인 동작 차단하지 않음
+      debugPrint('[fcm] DB 저장 완료');
+    } catch (e) {
+      debugPrint('[fcm] syncTokenForCurrentUser 예외: $e');
     }
   }
 
