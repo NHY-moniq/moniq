@@ -45,20 +45,149 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
     });
   }
 
-  Future<void> _deleteSelected() async {
-    if (_selectedIds.isEmpty) return;
+  /// 현재 사용자가 해당 요청에 대해 취소 가능한지
+  bool _canCancelByUser(RequestModel r, String? myUserId) {
+    if (r.status != 'pending') return false;
+    return myUserId != null && r.requesterUserId == myUserId;
+  }
+
+  /// 선택된 요청 중 [filter]를 통과하는 것만 추출
+  List<String> _selectedFilteredIds(
+    List<RequestModel> requests,
+    bool Function(RequestModel) filter,
+  ) {
+    return requests
+        .where((r) => _selectedIds.contains(r.id) && filter(r))
+        .map((r) => r.id)
+        .toList();
+  }
+
+  Future<void> _bulkApprove(List<RequestModel> requests) async {
+    final ids = _selectedFilteredIds(
+      requests,
+      (r) => r.status == 'pending',
+    );
+    if (ids.isEmpty) return;
+    final ok = await showMoniqConfirmSheet(
+      context: context,
+      title: '승인',
+      message: '대기중인 ${ids.length}건이 승인됩니다.',
+      confirmLabel: '확인',
+    );
+    if (!ok) return;
+    try {
+      await ref
+          .read(requestListViewModelProvider(widget.teamId).notifier)
+          .approveRequests(ids);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('승인 실패: $e')));
+      }
+    }
+    _exitSelectionMode();
+  }
+
+  Future<void> _bulkReject(List<RequestModel> requests) async {
+    final ids = _selectedFilteredIds(
+      requests,
+      (r) => r.status == 'pending',
+    );
+    if (ids.isEmpty) return;
+    final ok = await showMoniqConfirmSheet(
+      context: context,
+      title: '거절',
+      message: '대기중인 ${ids.length}건이 거절됩니다.',
+      confirmLabel: '확인',
+      destructive: true,
+    );
+    if (!ok) return;
+    try {
+      await ref
+          .read(requestListViewModelProvider(widget.teamId).notifier)
+          .rejectRequests(ids);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('거절 실패: $e')));
+      }
+    }
+    _exitSelectionMode();
+  }
+
+  Future<void> _bulkCancel(
+    List<RequestModel> requests, {
+    required bool isAdmin,
+    required String? myUserId,
+  }) async {
+    // 취소는 본인이 신청한 pending 요청에만 적용 (관리자도 동일).
+    final ids = _selectedFilteredIds(
+      requests,
+      (r) => _canCancelByUser(r, myUserId),
+    );
+    if (ids.isEmpty) return;
+    final ok = await showMoniqConfirmSheet(
+      context: context,
+      title: '요청 취소',
+      message: '본인이 요청한 대기중 ${ids.length}건이 취소됩니다.',
+      confirmLabel: '확인',
+      destructive: true,
+    );
+    if (!ok) return;
+    try {
+      await ref
+          .read(requestListViewModelProvider(widget.teamId).notifier)
+          .cancelRequests(ids);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('취소 실패: $e')));
+      }
+    }
+    _exitSelectionMode();
+  }
+
+  Future<void> _bulkDelete(List<RequestModel> requests) async {
+    // pending은 삭제 불가, 그 외 status만 일괄 삭제
+    final ids = _selectedFilteredIds(
+      requests,
+      (r) => r.status != 'pending',
+    );
+    final pendingCount = _selectedFilteredIds(
+      requests,
+      (r) => r.status == 'pending',
+    ).length;
+
+    // 선택에 pending만 있는 경우 → 안내 모달만 출력
+    if (ids.isEmpty) {
+      if (pendingCount > 0 && mounted) {
+        await showMoniqInfoSheet(
+          context: context,
+          title: '삭제 불가',
+          message: '대기중인 건은 삭제가 불가능합니다.',
+        );
+      }
+      return;
+    }
+
+    // 혼합 또는 비-pending 단독 → 확인 모달에서 안내 후 삭제
+    final message = pendingCount > 0
+        ? '대기중인 $pendingCount건은 삭제가 불가능하여 제외하고 '
+            '${ids.length}건에 대해서 삭제를 진행합니다.'
+        : '${ids.length}건이 영구적으로 삭제돼요.';
     final confirm = await showMoniqConfirmSheet(
       context: context,
       title: '선택한 요청을 삭제할까요?',
-      message: '${_selectedIds.length}건이 영구적으로 삭제돼요.',
+      message: message,
       confirmLabel: '삭제',
       destructive: true,
     );
     if (!confirm) return;
+
     try {
       await ref
           .read(requestListViewModelProvider(widget.teamId).notifier)
-          .deleteRequests(_selectedIds.toList());
+          .deleteRequests(ids);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -66,6 +195,20 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
       }
     }
     _exitSelectionMode();
+  }
+
+  /// 전체 선택 토글 (가시 목록 기준)
+  void _toggleSelectAll(List<RequestModel> visible) {
+    setState(() {
+      final allIds = visible.map((r) => r.id).toSet();
+      final isAllSelected =
+          allIds.isNotEmpty && allIds.every(_selectedIds.contains);
+      if (isAllSelected) {
+        _selectedIds.removeWhere(allIds.contains);
+      } else {
+        _selectedIds.addAll(allIds);
+      }
+    });
   }
 
   @override
@@ -86,13 +229,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
               )
             : null,
         trailing: _selectionMode
-            ? MoniqAppBarAction(
-                icon: Icons.delete_outline_rounded,
-                tint: _selectedIds.isEmpty
-                    ? AppColors.error.withValues(alpha: 0.3)
-                    : AppColors.error,
-                onTap: _selectedIds.isEmpty ? () {} : _deleteSelected,
-              )
+            ? const SizedBox.shrink()
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -113,6 +250,25 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
                 ],
               ),
       ),
+      bottomNavigationBar: _selectionMode
+          ? _SelectionBottomBar(
+              requests: stateAsync.valueOrNull?.requests ?? const [],
+              selectedIds: _selectedIds,
+              isAdmin: stateAsync.valueOrNull?.isAdmin ?? false,
+              myUserId: ref.read(currentUserProvider)?.id,
+              onApprove: () => _bulkApprove(
+                  stateAsync.valueOrNull?.requests ?? const []),
+              onReject: () => _bulkReject(
+                  stateAsync.valueOrNull?.requests ?? const []),
+              onCancel: () => _bulkCancel(
+                stateAsync.valueOrNull?.requests ?? const [],
+                isAdmin: stateAsync.valueOrNull?.isAdmin ?? false,
+                myUserId: ref.read(currentUserProvider)?.id,
+              ),
+              onDelete: () => _bulkDelete(
+                  stateAsync.valueOrNull?.requests ?? const []),
+            )
+          : null,
       floatingActionButton: (!isWide && !_selectionMode)
           ? FloatingActionButton.extended(
               onPressed: () =>
@@ -170,6 +326,8 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
                   selectionMode: _selectionMode,
                   selectedIds: _selectedIds,
                   onToggleSelection: _toggleSelection,
+                  onToggleSelectAll: () =>
+                      _toggleSelectAll(_filtered(state)),
                   onFilterChanged: (f) => ref
                       .read(requestListViewModelProvider(teamId).notifier)
                       .setFilter(f),
@@ -240,6 +398,7 @@ class _MobileLayout extends StatelessWidget {
     required this.selectionMode,
     required this.selectedIds,
     required this.onToggleSelection,
+    required this.onToggleSelectAll,
     required this.onFilterChanged,
     required this.onShowDetail,
     required this.onApprove,
@@ -253,6 +412,7 @@ class _MobileLayout extends StatelessWidget {
   final bool selectionMode;
   final Set<String> selectedIds;
   final ValueChanged<String> onToggleSelection;
+  final VoidCallback onToggleSelectAll;
   final ValueChanged<String> onFilterChanged;
   final ValueChanged<RequestModel> onShowDetail;
   final ValueChanged<String> onApprove;
@@ -264,11 +424,23 @@ class _MobileLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final filtered = _filtered(state);
 
+    final allVisibleIds = filtered.map((r) => r.id).toSet();
+    final isAllSelected = allVisibleIds.isNotEmpty &&
+        allVisibleIds.every(selectedIds.contains);
+
     return Column(
       children: [
         _FilterBar(
             currentFilter: state.filter, onFilterChanged: onFilterChanged),
         const Divider(height: 1),
+        if (selectionMode)
+          _SelectAllBar(
+            isAllSelected: isAllSelected,
+            visibleCount: filtered.length,
+            selectedCount:
+                selectedIds.where(allVisibleIds.contains).length,
+            onTap: filtered.isEmpty ? null : onToggleSelectAll,
+          ),
         Expanded(
           child: filtered.isEmpty
               ? MoniqEmptyState.peaceful(
@@ -287,10 +459,10 @@ class _MobileLayout extends StatelessWidget {
 
                     final card = RequestCard(
                       request: r,
-                      selectionMode: selectionMode && canDelete,
+                      selectionMode: selectionMode,
                       selected: isSelected,
                       onTap: () {
-                        if (selectionMode && canDelete) {
+                        if (selectionMode) {
                           onToggleSelection(r.id);
                         } else {
                           onShowDetail(r);
@@ -298,7 +470,8 @@ class _MobileLayout extends StatelessWidget {
                       },
                     );
 
-                    if (!canDelete) return card;
+                    // selection mode 중에는 swipe-to-delete 비활성
+                    if (!canDelete || selectionMode) return card;
 
                     return Dismissible(
                       key: ValueKey(r.id),
@@ -403,14 +576,23 @@ class _WebLayout extends StatelessWidget {
                             const SizedBox(height: AppSpacing.sm),
                         itemBuilder: (_, i) {
                           final r = filtered[i];
-                          final isSelected =
-                              selectedRequest?.id == r.id;
+                          final isCheckboxSelected =
+                              selectedIds.contains(r.id);
+                          final isFocused =
+                              !selectionMode && selectedRequest?.id == r.id;
                           return RequestCard(
                             request: r,
-                            selectionMode: false,
-                            selected: isSelected,
-                            onTap: () => onSelectRequest(
-                                isSelected ? null : r),
+                            selectionMode: selectionMode,
+                            selected: selectionMode
+                                ? isCheckboxSelected
+                                : isFocused,
+                            onTap: () {
+                              if (selectionMode) {
+                                onToggleSelection(r.id);
+                              } else {
+                                onSelectRequest(isFocused ? null : r);
+                              }
+                            },
                           );
                         },
                       ),
@@ -896,7 +1078,7 @@ class RequestCard extends StatelessWidget {
             // 왼쪽 컬러 accent bar
             Container(
               width: 4,
-              height: 72,
+              height: 52,
               decoration: BoxDecoration(
                 color: statusColor,
                 borderRadius: const BorderRadius.horizontal(
@@ -918,7 +1100,7 @@ class RequestCard extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.md, horizontal: AppSpacing.xs),
+                    vertical: AppSpacing.sm, horizontal: AppSpacing.xs),
                 child: Row(
                   children: [
                     Expanded(
@@ -1069,3 +1251,261 @@ String changeTypeLabel(String type) => switch (type) {
       'schedule_change' => '일정 변경',
       _ => type,
     };
+
+// ────────────────────────────────────────
+// 선택 모드 — 필터 바 아래 전체 선택/해제 행
+// ────────────────────────────────────────
+
+class _SelectAllBar extends StatelessWidget {
+  const _SelectAllBar({
+    required this.isAllSelected,
+    required this.visibleCount,
+    required this.selectedCount,
+    required this.onTap,
+  });
+
+  final bool isAllSelected;
+  final int visibleCount;
+  final int selectedCount;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Material(
+      color: cs.surfaceContainerLow,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isAllSelected
+                    ? Icons.check_box_rounded
+                    : Icons.check_box_outline_blank_rounded,
+                size: 20,
+                color: isAllSelected
+                    ? AppColors.primary
+                    : cs.onSurfaceVariant,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                isAllSelected ? '전체 해제' : '전체 선택',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$selectedCount / $visibleCount',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────
+// 선택 모드 하단 액션 바
+// ────────────────────────────────────────
+
+class _SelectionBottomBar extends StatelessWidget {
+  const _SelectionBottomBar({
+    required this.requests,
+    required this.selectedIds,
+    required this.isAdmin,
+    required this.myUserId,
+    required this.onApprove,
+    required this.onReject,
+    required this.onCancel,
+    required this.onDelete,
+  });
+
+  final List<RequestModel> requests;
+  final Set<String> selectedIds;
+  final bool isAdmin;
+  final String? myUserId;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+  final VoidCallback onCancel;
+  final VoidCallback onDelete;
+
+  bool _canMemberCancel(RequestModel r) =>
+      r.status == 'pending' &&
+      myUserId != null &&
+      r.requesterUserId == myUserId;
+
+  int _countWhere(bool Function(RequestModel) pred) =>
+      requests.where((r) => selectedIds.contains(r.id) && pred(r)).length;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    final pendingCount = _countWhere((r) => r.status == 'pending');
+    final memberCancelCount = _countWhere(_canMemberCancel);
+    // pending 제외(승인/거절/취소)된 항목만 실제 삭제됨
+    final deletableCount = _countWhere((r) => r.status != 'pending');
+    final selectedCount = selectedIds.length;
+
+    final approveEnabled = isAdmin && pendingCount > 0;
+    final rejectEnabled = isAdmin && pendingCount > 0;
+    // 취소는 관리자/멤버 모두 본인이 요청한 pending에만 가능
+    final cancelEnabled = memberCancelCount > 0;
+    // 선택이 있으면 활성화 — pending만 선택해도 안내 메시지 노출 위해
+    final deleteEnabled = selectedCount > 0;
+
+    return Material(
+      color: cs.surface,
+      elevation: 8,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          child: Row(
+            children: [
+              if (isAdmin) ...[
+                Expanded(
+                  child: _BottomActionButton(
+                    icon: Icons.check_circle_outline_rounded,
+                    label: '승인',
+                    count: pendingCount,
+                    enabled: approveEnabled,
+                    onTap: onApprove,
+                    color: AppColors.success,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _BottomActionButton(
+                    icon: Icons.cancel_outlined,
+                    label: '거절',
+                    count: pendingCount,
+                    enabled: rejectEnabled,
+                    onTap: onReject,
+                    color: cs.error,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _BottomActionButton(
+                    icon: Icons.block_rounded,
+                    label: '취소',
+                    count: memberCancelCount,
+                    enabled: cancelEnabled,
+                    onTap: onCancel,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _BottomActionButton(
+                    icon: Icons.delete_outline_rounded,
+                    label: '삭제',
+                    count: deletableCount,
+                    enabled: deleteEnabled,
+                    onTap: onDelete,
+                    color: cs.error,
+                  ),
+                ),
+              ] else ...[
+                Expanded(
+                  child: _BottomActionButton(
+                    icon: Icons.block_rounded,
+                    label: '취소',
+                    count: memberCancelCount,
+                    enabled: cancelEnabled,
+                    onTap: onCancel,
+                    color: cs.error,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _BottomActionButton(
+                    icon: Icons.delete_outline_rounded,
+                    label: '삭제',
+                    count: deletableCount,
+                    enabled: deleteEnabled,
+                    onTap: onDelete,
+                    color: cs.error,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomActionButton extends StatelessWidget {
+  const _BottomActionButton({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.enabled,
+    required this.onTap,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final int count;
+  final bool enabled;
+  final VoidCallback onTap;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final fg = enabled ? color : cs.onSurface.withValues(alpha: 0.38);
+    final bg = enabled
+        ? color.withValues(alpha: 0.1)
+        : cs.surfaceContainerHighest.withValues(alpha: 0.4);
+
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.md,
+            horizontal: AppSpacing.sm,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: fg, size: 22),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: fg,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

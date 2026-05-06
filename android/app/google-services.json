@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "480510198299",
+    "project_id": "onoroff-f4607",
+    "storage_bucket": "onoroff-f4607.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:480510198299:android:945e4e79f1a79983bc6ebe",
+        "android_client_info": {
+          "package_name": "com.moniq.moniq"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCEdJ9OUEr1oWmEZPR3j_oisObKkcwyojs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:480510198299:android:c5cbec122e2ce924bc6ebe",
+        "android_client_info": {
+          "package_name": "com.moniq.onoroff"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCEdJ9OUEr1oWmEZPR3j_oisObKkcwyojs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

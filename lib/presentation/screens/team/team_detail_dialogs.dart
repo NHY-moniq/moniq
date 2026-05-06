@@ -244,6 +244,17 @@ void showDeleteScheduleSheet({
                         year: year,
                         month: month,
                       );
+                      // 삭제 후 팀 캘린더/팀 상세 자동 리프레시.
+                      // invalidate 대신 refresh()를 사용해 현재 보고 있던 월/선택일을 유지.
+                      if (ref != null) {
+                        try {
+                          await ref
+                              .read(teamCalendarViewModelProvider(teamId)
+                                  .notifier)
+                              .refresh();
+                        } catch (_) {}
+                        ref.invalidate(teamDetailViewModelProvider(teamId));
+                      }
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(

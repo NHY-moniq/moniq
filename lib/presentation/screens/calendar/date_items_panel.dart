@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/core/utils/time_utils.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
@@ -7,9 +8,12 @@ import 'package:moniq/data/datasources/personal_note_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_shift_override_remote_data_source.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
+import 'package:moniq/data/providers/request_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/viewmodels/request_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 
 import 'calendar_dialogs.dart';
 import 'calendar_providers.dart';
@@ -674,6 +678,12 @@ class DateItemsPanel extends ConsumerWidget {
 
     if (!context.mounted) return;
 
+    final isAdmin = ref
+            .read(teamDetailViewModelProvider(shift.shift.teamId))
+            .valueOrNull
+            ?.isAdmin ??
+        false;
+
     final selected = await showModalBottomSheet<ShiftTypeModel>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -686,11 +696,26 @@ class DateItemsPanel extends ConsumerWidget {
           children: [
             Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Text(
-                '근무 유형 변경',
-                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+              child: Column(
+                children: [
+                  Text(
+                    isAdmin ? '근무 유형 변경' : '근무 변경 요청',
+                    style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  if (!isAdmin) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      '관리자 승인이 필요한 변경 요청으로 접수됩니다',
+                      style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(ctx)
+                                .colorScheme
+                                .onSurfaceVariant,
+                          ),
                     ),
+                  ],
+                ],
               ),
             ),
             const Divider(height: 1),
@@ -749,7 +774,18 @@ class DateItemsPanel extends ConsumerWidget {
 
     if (selected == null || !context.mounted) return;
 
-    // 팀 근무는 그대로 두고 Supabase에 오버라이드 upsert (기기 간 동기화)
+    // 비관리자는 즉시 반영 대신 변경 요청을 생성한다.
+    if (!isAdmin) {
+      await _submitShiftChangeRequest(
+        context,
+        ref,
+        shift: shift,
+        requestedShiftType: selected,
+      );
+      return;
+    }
+
+    // 관리자: 팀 근무는 그대로 두고 Supabase에 오버라이드 upsert (기기 간 동기화)
     try {
       await ref.read(personalShiftOverrideRemoteProvider).upsert(
             PersonalShiftOverrideRemote(
@@ -774,6 +810,56 @@ class DateItemsPanel extends ConsumerWidget {
           SnackBar(content: Text('변경 실패: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _submitShiftChangeRequest(
+    BuildContext context,
+    WidgetRef ref, {
+    required ShiftWithType shift,
+    required ShiftTypeModel requestedShiftType,
+  }) async {
+    final repo = ref.read(requestRepositoryProvider);
+    try {
+      await repo.createRequest(
+        teamId: shift.shift.teamId,
+        changeType: 'shift_change',
+        sourceShiftId: shift.shift.id,
+        requestedDate: shift.shift.shiftDate,
+        requestedShiftTypeId: requestedShiftType.id,
+        reason: '근무 변경 요청',
+      );
+      ref.invalidate(requestListViewModelProvider(shift.shift.teamId));
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dctx) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded,
+                  color: AppColors.success, size: 22),
+              const SizedBox(width: AppSpacing.sm),
+              const Text('요청 접수 완료'),
+            ],
+          ),
+          content: Text(
+            '${DateFormat('M월 d일', 'ko_KR').format(shift.shift.shiftDate)} 근무를 '
+            '"${requestedShiftType.name}"(으)로 변경하는 요청이 접수되었습니다.\n'
+            '관리자 승인 후 반영됩니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dctx),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('요청 접수 실패: $e')),
+      );
     }
   }
 
