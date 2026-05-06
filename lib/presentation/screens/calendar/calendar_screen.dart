@@ -110,25 +110,21 @@ class CalendarScreen extends HookConsumerWidget {
 
     return calendarAsync.when(
       loading: () => Scaffold(
-        appBar: AdaptiveLayout.isWide(context)
-            ? null
-            : MoniqAppBar(
-                title: calendarTitle,
-                eyebrow: 'ONOROFF',
-                showBack: false,
-                leading: buildAvatarLeading(),
-              ),
+        appBar: MoniqAppBar(
+          title: calendarTitle,
+          eyebrow: 'ONOROFF',
+          showBack: false,
+          leading: buildAvatarLeading(),
+        ),
         body: const MoniqLoadingView(),
       ),
       error: (e, _) => Scaffold(
-        appBar: AdaptiveLayout.isWide(context)
-            ? null
-            : MoniqAppBar(
-                title: calendarTitle,
-                eyebrow: 'ONOROFF',
-                showBack: false,
-                leading: buildAvatarLeading(),
-              ),
+        appBar: MoniqAppBar(
+          title: calendarTitle,
+          eyebrow: 'ONOROFF',
+          showBack: false,
+          leading: buildAvatarLeading(),
+        ),
         body: MoniqErrorView(
           message: '\uC77C\uC815\uC744 \uBD88\uB7EC\uC62C \uC218 \uC5C6\uC2B5\uB2C8\uB2E4',
           onRetry: () => ref.read(homeViewModelProvider.notifier).refresh(),
@@ -145,25 +141,32 @@ class CalendarScreen extends HookConsumerWidget {
         return Scaffold(
           backgroundColor:
               Theme.of(context).colorScheme.surfaceContainerLow,
-          appBar: AdaptiveLayout.isWide(context)
-              ? null
-              : MoniqAppBar(
+          appBar: MoniqAppBar(
                   title: calendarTitle,
                   eyebrow: 'ONOROFF',
                   showBack: false,
                   leading: buildAvatarLeading(),
-                  trailing: Builder(
-                    builder: (ctx) => MoniqAppBarAction(
-                      icon: Icons.menu_rounded,
-                      onTap: () => Scaffold.of(ctx).openEndDrawer(),
-                    ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      MoniqAppBarAction(
+                        icon: Icons.ios_share_outlined,
+                        onTap: () => exportCalendar(context, ref, state),
+                      ),
+                      if (!AdaptiveLayout.isWide(context))
+                        Builder(
+                          builder: (ctx) => MoniqAppBarAction(
+                            icon: Icons.menu_rounded,
+                            onTap: () => Scaffold.of(ctx).openEndDrawer(),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
           endDrawer: AdaptiveLayout.isWide(context)
               ? null
               : CalendarDrawer(
                   onImportCalendar: () => importDeviceCalendar(context, ref),
-                  onExportCalendar: () => exportCalendar(context, ref, state),
                 ),
           floatingActionButton: Padding(
             padding: const EdgeInsets.only(bottom: 72),

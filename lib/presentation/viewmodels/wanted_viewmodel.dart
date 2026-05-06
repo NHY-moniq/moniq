@@ -2,7 +2,9 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/datasources/notification_service.dart';
 import 'package:moniq/data/datasources/push_service.dart';
+import 'package:moniq/data/models/team_member_model.dart';
 import 'package:moniq/data/models/wanted_request_model.dart';
+import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/data/providers/wanted_providers.dart';
@@ -42,10 +44,44 @@ class WantedAdminViewModel
     final repo = ref.watch(wantedRepositoryProvider);
     final all = await repo.getActiveWantedRequests(teamId);
 
+    // 마감일이 지난 수집 요청 자동 종료 (DB status → 'closed')
+    final now = DateTime.now();
+    for (final r in all) {
+      if (r.deadline != null) {
+        final deadlineEnd = DateTime(
+          r.deadline!.year,
+          r.deadline!.month,
+          r.deadline!.day,
+          23,
+          59,
+          59,
+        );
+        if (now.isAfter(deadlineEnd)) {
+          try {
+            await repo.closeWantedRequest(r.id);
+          } catch (_) {}
+        }
+      }
+    }
+
+    // 자동 종료 후 실제 활성 목록 (마감일 미경과 요청만)
+    final effective = all.where((r) {
+      if (r.deadline == null) return true;
+      final deadlineEnd = DateTime(
+        r.deadline!.year,
+        r.deadline!.month,
+        r.deadline!.day,
+        23,
+        59,
+        59,
+      );
+      return !now.isAfter(deadlineEnd);
+    }).toList();
+
     // 타입별 중복 제거 (최신순 정렬이므로 첫 번째가 최신)
     final seen = <String>{};
     final unique = <WantedRequestModel>[];
-    for (final r in all) {
+    for (final r in effective) {
       if (seen.add(r.wantedType)) unique.add(r);
     }
     // 타입 순서 정렬: day_off → preferred_shift → night_dedicated
@@ -409,6 +445,15 @@ class WantedAdminViewModel
   }
 }
 
+/// 근무 유형 코드를 D/E/N으로 정규화
+String _shiftCanonicalCode(String code, String name) {
+  final c = code.toUpperCase();
+  if (c == 'D' || name.contains('데이') || name.contains('주간')) return 'D';
+  if (c == 'E' || name.contains('이브닝') || name.contains('저녁')) return 'E';
+  if (c == 'N' || name.contains('야간') || name.contains('나이트')) return 'N';
+  return c;
+}
+
 /// wanted_type → 한글 라벨
 String _wantedTypeLabel(String wantedType) {
   switch (wantedType) {
@@ -431,6 +476,7 @@ class WantedMemberState with _$WantedMemberState {
     WantedRequestModel? activeRequest,
     @Default([]) List<WantedRequestModel> activeRequests,
     @Default([]) List<WantedEntryModel> myEntries,
+    TeamMemberModel? myMember,
     @Default(false) bool isSubmitting,
     String? error,
   }) = _WantedMemberState;
@@ -471,11 +517,28 @@ class WantedMemberViewModel
       myEntries.addAll(entries);
     }
 
+    // 현재 유저의 멤버 속성 로드 (원티드 신청 제한 검증용)
+    TeamMemberModel? myMember;
+    try {
+      final currentUserId = ref.watch(currentUserProvider)?.id ?? '';
+      if (currentUserId.isNotEmpty) {
+        final members = await ref
+            .read(teamRepositoryProvider)
+            .getTeamMembersWithUsers(teamId);
+        final match = members
+            .where((m) => m.userId == currentUserId)
+            .cast<dynamic>()
+            .firstWhere((_) => true, orElse: () => null);
+        if (match != null) myMember = match.member as TeamMemberModel;
+      }
+    } catch (_) {}
+
     return WantedMemberState(
       teamId: teamId,
       activeRequest: activeRequest,
       activeRequests: activeRequests,
       myEntries: myEntries,
+      myMember: myMember,
     );
   }
 
@@ -561,6 +624,43 @@ class WantedMemberViewModel
     if (targetRequest == null) {
       state = AsyncData(current.copyWith(error: '해당 원티드 요청이 없습니다'));
       return false;
+    }
+
+    // 근무 속성 제한 검증 (shiftTypeId가 있을 때만)
+    if (shiftTypeId != null && current.myMember != null) {
+      final member = current.myMember!;
+      try {
+        final shiftTypes = await ref
+            .read(shiftRepositoryProvider)
+            .getShiftTypes(current.teamId);
+        final shiftType = shiftTypes
+            .where((t) => t.id == shiftTypeId)
+            .cast<dynamic>()
+            .firstWhere((_) => true, orElse: () => null);
+        if (shiftType != null) {
+          final code = _shiftCanonicalCode(shiftType.code, shiftType.name);
+          final isNight = code == 'N';
+          final isEvening = code == 'E';
+          if (member.nightExempt && isNight) {
+            state = AsyncData(current.copyWith(
+              error: '나이트 제외 속성으로 나이트 근무를 원티드 신청할 수 없습니다',
+            ));
+            return false;
+          }
+          if (member.nightDedicated && !isNight) {
+            state = AsyncData(current.copyWith(
+              error: '나이트 전담 속성으로 데이·이브닝 근무를 원티드 신청할 수 없습니다',
+            ));
+            return false;
+          }
+          if (member.dayOnly && (isEvening || isNight)) {
+            state = AsyncData(current.copyWith(
+              error: '데이 전용 속성으로 이브닝·나이트 근무를 원티드 신청할 수 없습니다',
+            ));
+            return false;
+          }
+        }
+      } catch (_) {}
     }
 
     // Validate P1/P2 limits from team rules

@@ -33,6 +33,7 @@ class _ScheduleHistoryFeedbackSheetState
   bool _isSaving = false;
   bool _saved = false;
   bool _loaded = false;
+  String? _errorMessage;
 
   static const _ruleLabels = {
     'wanted': '원티드 반영',
@@ -47,25 +48,37 @@ class _ScheduleHistoryFeedbackSheetState
   }
 
   Future<void> _loadExisting() async {
-    final repo = ref.read(feedbackRepositoryProvider);
-    final data = await repo.getFeedback(widget.scheduleId);
-    if (!mounted) return;
-    setState(() {
-      if (data != null) {
-        _overallRating = (data['overall_rating'] as num?)?.toInt() ?? 0;
-        final rr = (data['rule_ratings'] as Map?) ?? {};
-        for (final k in _ruleRatings.keys) {
-          _ruleRatings[k] = (rr[k] as num?)?.toInt() ?? 0;
+    try {
+      final repo = ref.read(feedbackRepositoryProvider);
+      final data = await repo.getFeedback(widget.scheduleId);
+      if (!mounted) return;
+      setState(() {
+        if (data != null) {
+          _overallRating = (data['overall_rating'] as num?)?.toInt() ?? 0;
+          final rr = (data['rule_ratings'] as Map?) ?? {};
+          for (final k in _ruleRatings.keys) {
+            _ruleRatings[k] = (rr[k] as num?)?.toInt() ?? 0;
+          }
+          _saved = true;
         }
-        _saved = true;
-      }
-      _loaded = true;
-    });
+        _loaded = true;
+        _errorMessage = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loaded = true;
+        _errorMessage = '기존 피드백을 불러오지 못했습니다.';
+      });
+    }
   }
 
   Future<void> _save() async {
     if (_overallRating == 0) return;
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
     try {
       final repo = ref.read(feedbackRepositoryProvider);
       final ratings = Map<String, int>.from(_ruleRatings)
@@ -76,13 +89,26 @@ class _ScheduleHistoryFeedbackSheetState
         overallRating: _overallRating,
         ruleRatings: ratings,
       );
+      final latest = await repo.getFeedback(widget.scheduleId);
       if (!mounted) return;
       setState(() {
+        if (latest != null) {
+          _overallRating = (latest['overall_rating'] as num?)?.toInt() ?? 0;
+          final rr = (latest['rule_ratings'] as Map?) ?? {};
+          for (final k in _ruleRatings.keys) {
+            _ruleRatings[k] = (rr[k] as num?)?.toInt() ?? 0;
+          }
+        }
         _isSaving = false;
         _saved = true;
       });
     } catch (_) {
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _errorMessage = '피드백 저장에 실패했습니다. 잠시 후 다시 시도해주세요.';
+        });
+      }
     }
   }
 
@@ -108,16 +134,16 @@ class _ScheduleHistoryFeedbackSheetState
               height: 4,
               margin: const EdgeInsets.only(bottom: AppSpacing.lg),
               decoration: BoxDecoration(
-                color: colorScheme.onSurfaceVariant
-                    .withValues(alpha: 0.3),
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
 
             Text(
               '${widget.versionLabel} 근무표 피드백',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
@@ -130,10 +156,6 @@ class _ScheduleHistoryFeedbackSheetState
 
             if (!_loaded)
               const CircularProgressIndicator()
-            else if (_saved && _overallRating == 0)
-              ..._buildForm(theme, colorScheme)
-            else if (_saved && _overallRating > 0)
-              ..._buildForm(theme, colorScheme)
             else
               ..._buildForm(theme, colorScheme),
           ],
@@ -142,10 +164,7 @@ class _ScheduleHistoryFeedbackSheetState
     );
   }
 
-  List<Widget> _buildForm(
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
+  List<Widget> _buildForm(ThemeData theme, ColorScheme colorScheme) {
     return [
       // 별점
       Row(
@@ -178,16 +197,10 @@ class _ScheduleHistoryFeedbackSheetState
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Row(
             children: [
-              Expanded(
-                child: Text(
-                  e.value,
-                  style: theme.textTheme.bodyMedium,
-                ),
-              ),
+              Expanded(child: Text(e.value, style: theme.textTheme.bodyMedium)),
               ScheduleHistoryRatingToggle(
                 value: cur,
-                onChanged: (v) =>
-                    setState(() => _ruleRatings[e.key] = v),
+                onChanged: (v) => setState(() => _ruleRatings[e.key] = v),
               ),
             ],
           ),
@@ -195,6 +208,15 @@ class _ScheduleHistoryFeedbackSheetState
       }),
 
       const SizedBox(height: AppSpacing.xl),
+
+      if (_errorMessage != null) ...[
+        Text(
+          _errorMessage!,
+          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.error),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpacing.md),
+      ],
 
       if (_saved && _overallRating > 0)
         Padding(
@@ -299,19 +321,13 @@ class ScheduleHistoryChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 4,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: selected
-              ? color.withValues(alpha: 0.1)
-              : Colors.transparent,
+          color: selected ? color.withValues(alpha: 0.1) : Colors.transparent,
           border: Border.all(
             color: selected
                 ? color
-                : colorScheme.onSurfaceVariant
-                    .withValues(alpha: 0.3),
+                : colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
           ),
           borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
@@ -321,19 +337,14 @@ class ScheduleHistoryChip extends StatelessWidget {
             Icon(
               icon,
               size: 13,
-              color: selected
-                  ? color
-                  : colorScheme.onSurfaceVariant,
+              color: selected ? color : colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 3),
             Text(
               label,
               style: textTheme.labelSmall?.copyWith(
-                color: selected
-                    ? color
-                    : colorScheme.onSurfaceVariant,
-                fontWeight:
-                    selected ? FontWeight.w600 : FontWeight.normal,
+                color: selected ? color : colorScheme.onSurfaceVariant,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],

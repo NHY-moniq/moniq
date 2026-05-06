@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/core/utils/auth_error_utils.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
@@ -78,8 +79,7 @@ class _ShiftThemedProfileHero extends ConsumerWidget {
     final meta = user?.userMetadata;
     final name = meta?['display_name'] as String? ?? 'User';
     final avatarUrl = meta?['avatar_url'] as String?;
-    final initial =
-        name.isNotEmpty ? name.characters.first.toUpperCase() : 'M';
+    final initial = name.isNotEmpty ? name.characters.first.toUpperCase() : 'M';
 
     return Stack(
       clipBehavior: Clip.none,
@@ -112,8 +112,7 @@ class _ShiftThemedProfileHero extends ConsumerWidget {
                     Text(
                       'PROFILE · ${shift.displayName.toUpperCase()}',
                       style: AppTypography.captionSmall.copyWith(
-                        color: shift.onPrimary
-                            .withValues(alpha: 0.75),
+                        color: shift.onPrimary.withValues(alpha: 0.75),
                         letterSpacing: 1.6,
                       ),
                     ),
@@ -129,10 +128,7 @@ class _ShiftThemedProfileHero extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: AppSpacing.sm),
-                    _MoniqIdPill(
-                      userId: user?.id,
-                      onColor: shift.onPrimary,
-                    ),
+                    _MoniqIdPill(userId: user?.id, onColor: shift.onPrimary),
                   ],
                 ),
               ),
@@ -204,8 +200,7 @@ class _HeroAvatar extends StatelessWidget {
                   fit: BoxFit.cover,
                   width: 72,
                   height: 72,
-                  errorWidget: (_, __, ___) =>
-                      _InitialBadge(text: initial),
+                  errorWidget: (_, __, ___) => _InitialBadge(text: initial),
                 )
               : _InitialBadge(text: initial),
         ),
@@ -220,10 +215,7 @@ class _HeroAvatar extends StatelessWidget {
               onTap: onEdit,
               child: const Padding(
                 padding: EdgeInsets.all(6),
-                child: Icon(
-                  Icons.edit_rounded,
-                  size: 14,
-                ),
+                child: Icon(Icons.edit_rounded, size: 14),
               ),
             ),
           ),
@@ -348,7 +340,10 @@ class _AppSettingsSection extends ConsumerWidget {
   }
 
   Future<void> _pickThemeMode(
-      BuildContext ctx, WidgetRef ref, ThemeMode current) async {
+    BuildContext ctx,
+    WidgetRef ref,
+    ThemeMode current,
+  ) async {
     await showMoniqBottomSheet<void>(
       context: ctx,
       title: '화면 모드',
@@ -369,14 +364,14 @@ class _AppSettingsSection extends ConsumerWidget {
                 ThemeMode.system => '시스템 설정을 따라요',
               },
               onTap: () {
-                ref
-                    .read(themeModeProvider.notifier)
-                    .setThemeMode(mode);
+                ref.read(themeModeProvider.notifier).setThemeMode(mode);
                 Navigator.pop(ctx);
               },
               trailing: current == mode
-                  ? Icon(Icons.check_circle_rounded,
-                      color: Theme.of(ctx).colorScheme.primary)
+                  ? Icon(
+                      Icons.check_circle_rounded,
+                      color: Theme.of(ctx).colorScheme.primary,
+                    )
                   : null,
             ),
         ],
@@ -385,7 +380,10 @@ class _AppSettingsSection extends ConsumerWidget {
   }
 
   Future<void> _pickFontScale(
-      BuildContext ctx, WidgetRef ref, double current) async {
+    BuildContext ctx,
+    WidgetRef ref,
+    double current,
+  ) async {
     await showMoniqBottomSheet<void>(
       context: ctx,
       title: '글자 크기',
@@ -415,9 +413,7 @@ class _FontScalePickerState extends State<_FontScalePicker> {
         Text(
           '다람쥐는 도토리를 좋아해요',
           textAlign: TextAlign.center,
-          style: AppTypography.titleLarge.copyWith(
-            fontSize: 16 * v,
-          ),
+          style: AppTypography.titleLarge.copyWith(fontSize: 16 * v),
         ),
         const SizedBox(height: AppSpacing.lg),
         SliderTheme(
@@ -434,9 +430,7 @@ class _FontScalePickerState extends State<_FontScalePicker> {
             label: '${(v * 100).round()}%',
             onChanged: (x) {
               setState(() => v = x);
-              widget.ref
-                  .read(fontScaleProvider.notifier)
-                  .setFontScale(x);
+              widget.ref.read(fontScaleProvider.notifier).setFontScale(x);
             },
           ),
         ),
@@ -463,8 +457,7 @@ class _NotificationsSection extends ConsumerWidget {
             value: enabled,
             activeTrackColor: cs.primary,
             onChanged: (v) async {
-              final n = ref.read(
-                  notificationEnabledProvider.notifier);
+              final n = ref.read(notificationEnabledProvider.notifier);
               v ? await n.enable() : await n.disable();
             },
           ),
@@ -503,8 +496,7 @@ class _AccountSection extends ConsumerWidget {
   }
 
   // F5 fix — replaces AlertDialog with a MoniqBottomSheet.
-  Future<void> _confirmSignOut(
-      BuildContext ctx, WidgetRef ref) async {
+  Future<void> _confirmSignOut(BuildContext ctx, WidgetRef ref) async {
     final ok = await showMoniqConfirmSheet(
       context: ctx,
       title: '로그아웃할까요?',
@@ -513,26 +505,29 @@ class _AccountSection extends ConsumerWidget {
       confirmLabel: '로그아웃',
     );
     if (!ok) return;
-    await ref.read(authViewModelProvider.notifier).signOut();
-    if (ctx.mounted) ctx.go('/login');
+    try {
+      await ref.read(authViewModelProvider.notifier).signOut();
+      if (ctx.mounted) ctx.go('/login');
+    } catch (error) {
+      if (!ctx.mounted) return;
+      ScaffoldMessenger.of(
+        ctx,
+      ).showSnackBar(SnackBar(content: Text(friendlyAuthError(error))));
+    }
   }
 
-  Future<void> _confirmDelete(
-      BuildContext ctx, WidgetRef ref) async {
+  Future<void> _confirmDelete(BuildContext ctx, WidgetRef ref) async {
     final ok = await showMoniqConfirmSheet(
       context: ctx,
       title: '정말 탈퇴하시겠어요?',
       eyebrow: 'DELETE ACCOUNT',
-      message:
-          '탈퇴하면 되돌릴 수 없어요. 본인이 유일한 관리자인 팀은 먼저 정리해주세요.',
+      message: '탈퇴하면 되돌릴 수 없어요. 본인이 유일한 관리자인 팀은 먼저 정리해주세요.',
       confirmLabel: '탈퇴하기',
       destructive: true,
     );
     if (!ok) return;
     try {
-      await ref
-          .read(authViewModelProvider.notifier)
-          .deleteAccount();
+      await ref.read(authViewModelProvider.notifier).deleteAccount();
       if (ctx.mounted) ctx.go('/login');
     } catch (e) {
       if (!ctx.mounted) return;

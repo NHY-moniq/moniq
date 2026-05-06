@@ -35,6 +35,8 @@ mixin _$TeamMemberModel {
   bool get dayOnly => throw _privateConstructorUsedError;
   @JsonKey(name: 'night_dedicated')
   bool get nightDedicated => throw _privateConstructorUsedError;
+  @JsonKey(name: 'preferred_shifts', defaultValue: [])
+  List<String> get preferredShifts => throw _privateConstructorUsedError;
   @JsonKey(name: 'is_favorite')
   bool get isFavorite => throw _privateConstructorUsedError;
   @JsonKey(name: 'joined_at')
@@ -72,6 +74,8 @@ abstract class $TeamMemberModelCopyWith<$Res> {
     @JsonKey(name: 'night_exempt') bool nightExempt,
     @JsonKey(name: 'day_only') bool dayOnly,
     @JsonKey(name: 'night_dedicated') bool nightDedicated,
+    @JsonKey(name: 'preferred_shifts', defaultValue: [])
+    List<String> preferredShifts,
     @JsonKey(name: 'is_favorite') bool isFavorite,
     @JsonKey(name: 'joined_at') DateTime? joinedAt,
     @JsonKey(name: 'created_at') DateTime? createdAt,
@@ -103,6 +107,7 @@ class _$TeamMemberModelCopyWithImpl<$Res, $Val extends TeamMemberModel>
     Object? nightExempt = null,
     Object? dayOnly = null,
     Object? nightDedicated = null,
+    Object? preferredShifts = null,
     Object? isFavorite = null,
     Object? joinedAt = freezed,
     Object? createdAt = freezed,
@@ -143,6 +148,10 @@ class _$TeamMemberModelCopyWithImpl<$Res, $Val extends TeamMemberModel>
                 ? _value.nightDedicated
                 : nightDedicated // ignore: cast_nullable_to_non_nullable
                       as bool,
+            preferredShifts: null == preferredShifts
+                ? _value.preferredShifts
+                : preferredShifts // ignore: cast_nullable_to_non_nullable
+                      as List<String>,
             isFavorite: null == isFavorite
                 ? _value.isFavorite
                 : isFavorite // ignore: cast_nullable_to_non_nullable
@@ -187,6 +196,8 @@ abstract class _$$TeamMemberModelImplCopyWith<$Res>
     @JsonKey(name: 'night_exempt') bool nightExempt,
     @JsonKey(name: 'day_only') bool dayOnly,
     @JsonKey(name: 'night_dedicated') bool nightDedicated,
+    @JsonKey(name: 'preferred_shifts', defaultValue: [])
+    List<String> preferredShifts,
     @JsonKey(name: 'is_favorite') bool isFavorite,
     @JsonKey(name: 'joined_at') DateTime? joinedAt,
     @JsonKey(name: 'created_at') DateTime? createdAt,
@@ -217,6 +228,7 @@ class __$$TeamMemberModelImplCopyWithImpl<$Res>
     Object? nightExempt = null,
     Object? dayOnly = null,
     Object? nightDedicated = null,
+    Object? preferredShifts = null,
     Object? isFavorite = null,
     Object? joinedAt = freezed,
     Object? createdAt = freezed,
@@ -257,6 +269,10 @@ class __$$TeamMemberModelImplCopyWithImpl<$Res>
             ? _value.nightDedicated
             : nightDedicated // ignore: cast_nullable_to_non_nullable
                   as bool,
+        preferredShifts: null == preferredShifts
+            ? _value._preferredShifts
+            : preferredShifts // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
         isFavorite: null == isFavorite
             ? _value.isFavorite
             : isFavorite // ignore: cast_nullable_to_non_nullable
@@ -294,12 +310,14 @@ class _$TeamMemberModelImpl implements _TeamMemberModel {
     @JsonKey(name: 'night_exempt') this.nightExempt = false,
     @JsonKey(name: 'day_only') this.dayOnly = false,
     @JsonKey(name: 'night_dedicated') this.nightDedicated = false,
+    @JsonKey(name: 'preferred_shifts', defaultValue: [])
+    final List<String> preferredShifts = const [],
     @JsonKey(name: 'is_favorite') this.isFavorite = false,
     @JsonKey(name: 'joined_at') this.joinedAt,
     @JsonKey(name: 'created_at') this.createdAt,
     @JsonKey(name: 'updated_at') this.updatedAt,
     @JsonKey(name: 'is_deleted') this.isDeleted = false,
-  });
+  }) : _preferredShifts = preferredShifts;
 
   factory _$TeamMemberModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$TeamMemberModelImplFromJson(json);
@@ -327,6 +345,15 @@ class _$TeamMemberModelImpl implements _TeamMemberModel {
   @override
   @JsonKey(name: 'night_dedicated')
   final bool nightDedicated;
+  final List<String> _preferredShifts;
+  @override
+  @JsonKey(name: 'preferred_shifts', defaultValue: [])
+  List<String> get preferredShifts {
+    if (_preferredShifts is EqualUnmodifiableListView) return _preferredShifts;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_preferredShifts);
+  }
+
   @override
   @JsonKey(name: 'is_favorite')
   final bool isFavorite;
@@ -345,7 +372,7 @@ class _$TeamMemberModelImpl implements _TeamMemberModel {
 
   @override
   String toString() {
-    return 'TeamMemberModel(id: $id, teamId: $teamId, userId: $userId, role: $role, skillLevel: $skillLevel, nightExempt: $nightExempt, dayOnly: $dayOnly, nightDedicated: $nightDedicated, isFavorite: $isFavorite, joinedAt: $joinedAt, createdAt: $createdAt, updatedAt: $updatedAt, isDeleted: $isDeleted)';
+    return 'TeamMemberModel(id: $id, teamId: $teamId, userId: $userId, role: $role, skillLevel: $skillLevel, nightExempt: $nightExempt, dayOnly: $dayOnly, nightDedicated: $nightDedicated, preferredShifts: $preferredShifts, isFavorite: $isFavorite, joinedAt: $joinedAt, createdAt: $createdAt, updatedAt: $updatedAt, isDeleted: $isDeleted)';
   }
 
   @override
@@ -364,6 +391,10 @@ class _$TeamMemberModelImpl implements _TeamMemberModel {
             (identical(other.dayOnly, dayOnly) || other.dayOnly == dayOnly) &&
             (identical(other.nightDedicated, nightDedicated) ||
                 other.nightDedicated == nightDedicated) &&
+            const DeepCollectionEquality().equals(
+              other._preferredShifts,
+              _preferredShifts,
+            ) &&
             (identical(other.isFavorite, isFavorite) ||
                 other.isFavorite == isFavorite) &&
             (identical(other.joinedAt, joinedAt) ||
@@ -388,6 +419,7 @@ class _$TeamMemberModelImpl implements _TeamMemberModel {
     nightExempt,
     dayOnly,
     nightDedicated,
+    const DeepCollectionEquality().hash(_preferredShifts),
     isFavorite,
     joinedAt,
     createdAt,
@@ -422,6 +454,8 @@ abstract class _TeamMemberModel implements TeamMemberModel {
     @JsonKey(name: 'night_exempt') final bool nightExempt,
     @JsonKey(name: 'day_only') final bool dayOnly,
     @JsonKey(name: 'night_dedicated') final bool nightDedicated,
+    @JsonKey(name: 'preferred_shifts', defaultValue: [])
+    final List<String> preferredShifts,
     @JsonKey(name: 'is_favorite') final bool isFavorite,
     @JsonKey(name: 'joined_at') final DateTime? joinedAt,
     @JsonKey(name: 'created_at') final DateTime? createdAt,
@@ -454,6 +488,9 @@ abstract class _TeamMemberModel implements TeamMemberModel {
   @override
   @JsonKey(name: 'night_dedicated')
   bool get nightDedicated;
+  @override
+  @JsonKey(name: 'preferred_shifts', defaultValue: [])
+  List<String> get preferredShifts;
   @override
   @JsonKey(name: 'is_favorite')
   bool get isFavorite;

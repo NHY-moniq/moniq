@@ -128,6 +128,7 @@ class TeamDetailViewModel extends FamilyAsyncNotifier<TeamDetailState, String> {
     bool? nightExempt,
     bool? dayOnly,
     bool? nightDedicated,
+    List<String>? preferredShifts,
   }) async {
     final current = state.valueOrNull;
     if (current == null) return;
@@ -138,6 +139,7 @@ class TeamDetailViewModel extends FamilyAsyncNotifier<TeamDetailState, String> {
       nightExempt: nightExempt,
       dayOnly: dayOnly,
       nightDedicated: nightDedicated,
+      preferredShifts: preferredShifts,
     );
     ref.invalidateSelf();
   }

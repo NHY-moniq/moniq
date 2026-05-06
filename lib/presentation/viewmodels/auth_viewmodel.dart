@@ -89,10 +89,13 @@ class AuthViewModel extends AsyncNotifier<User?> {
 
   Future<void> signOut() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    try {
       await _repository.signOut();
-      return null;
-    });
+      state = const AsyncData(null);
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      rethrow;
+    }
   }
 
   Future<void> deleteAccount() async {

@@ -79,6 +79,7 @@ class TeamRepository {
     bool? nightExempt,
     bool? dayOnly,
     bool? nightDedicated,
+    List<String>? preferredShifts,
   }) {
     return _dataSource.updateMemberAttrs(
       teamId,
@@ -86,6 +87,7 @@ class TeamRepository {
       nightExempt: nightExempt,
       dayOnly: dayOnly,
       nightDedicated: nightDedicated,
+      preferredShifts: preferredShifts,
     );
   }
 

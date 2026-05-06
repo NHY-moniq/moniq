@@ -457,6 +457,7 @@ mixin _$WantedMemberState {
   List<WantedRequestModel> get activeRequests =>
       throw _privateConstructorUsedError;
   List<WantedEntryModel> get myEntries => throw _privateConstructorUsedError;
+  TeamMemberModel? get myMember => throw _privateConstructorUsedError;
   bool get isSubmitting => throw _privateConstructorUsedError;
   String? get error => throw _privateConstructorUsedError;
 
@@ -479,11 +480,13 @@ abstract class $WantedMemberStateCopyWith<$Res> {
     WantedRequestModel? activeRequest,
     List<WantedRequestModel> activeRequests,
     List<WantedEntryModel> myEntries,
+    TeamMemberModel? myMember,
     bool isSubmitting,
     String? error,
   });
 
   $WantedRequestModelCopyWith<$Res>? get activeRequest;
+  $TeamMemberModelCopyWith<$Res>? get myMember;
 }
 
 /// @nodoc
@@ -505,6 +508,7 @@ class _$WantedMemberStateCopyWithImpl<$Res, $Val extends WantedMemberState>
     Object? activeRequest = freezed,
     Object? activeRequests = null,
     Object? myEntries = null,
+    Object? myMember = freezed,
     Object? isSubmitting = null,
     Object? error = freezed,
   }) {
@@ -526,6 +530,10 @@ class _$WantedMemberStateCopyWithImpl<$Res, $Val extends WantedMemberState>
                 ? _value.myEntries
                 : myEntries // ignore: cast_nullable_to_non_nullable
                       as List<WantedEntryModel>,
+            myMember: freezed == myMember
+                ? _value.myMember
+                : myMember // ignore: cast_nullable_to_non_nullable
+                      as TeamMemberModel?,
             isSubmitting: null == isSubmitting
                 ? _value.isSubmitting
                 : isSubmitting // ignore: cast_nullable_to_non_nullable
@@ -552,6 +560,20 @@ class _$WantedMemberStateCopyWithImpl<$Res, $Val extends WantedMemberState>
       return _then(_value.copyWith(activeRequest: value) as $Val);
     });
   }
+
+  /// Create a copy of WantedMemberState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $TeamMemberModelCopyWith<$Res>? get myMember {
+    if (_value.myMember == null) {
+      return null;
+    }
+
+    return $TeamMemberModelCopyWith<$Res>(_value.myMember!, (value) {
+      return _then(_value.copyWith(myMember: value) as $Val);
+    });
+  }
 }
 
 /// @nodoc
@@ -568,12 +590,15 @@ abstract class _$$WantedMemberStateImplCopyWith<$Res>
     WantedRequestModel? activeRequest,
     List<WantedRequestModel> activeRequests,
     List<WantedEntryModel> myEntries,
+    TeamMemberModel? myMember,
     bool isSubmitting,
     String? error,
   });
 
   @override
   $WantedRequestModelCopyWith<$Res>? get activeRequest;
+  @override
+  $TeamMemberModelCopyWith<$Res>? get myMember;
 }
 
 /// @nodoc
@@ -594,6 +619,7 @@ class __$$WantedMemberStateImplCopyWithImpl<$Res>
     Object? activeRequest = freezed,
     Object? activeRequests = null,
     Object? myEntries = null,
+    Object? myMember = freezed,
     Object? isSubmitting = null,
     Object? error = freezed,
   }) {
@@ -615,6 +641,10 @@ class __$$WantedMemberStateImplCopyWithImpl<$Res>
             ? _value._myEntries
             : myEntries // ignore: cast_nullable_to_non_nullable
                   as List<WantedEntryModel>,
+        myMember: freezed == myMember
+            ? _value.myMember
+            : myMember // ignore: cast_nullable_to_non_nullable
+                  as TeamMemberModel?,
         isSubmitting: null == isSubmitting
             ? _value.isSubmitting
             : isSubmitting // ignore: cast_nullable_to_non_nullable
@@ -636,6 +666,7 @@ class _$WantedMemberStateImpl implements _WantedMemberState {
     this.activeRequest,
     final List<WantedRequestModel> activeRequests = const [],
     final List<WantedEntryModel> myEntries = const [],
+    this.myMember,
     this.isSubmitting = false,
     this.error,
   }) : _activeRequests = activeRequests,
@@ -664,6 +695,8 @@ class _$WantedMemberStateImpl implements _WantedMemberState {
   }
 
   @override
+  final TeamMemberModel? myMember;
+  @override
   @JsonKey()
   final bool isSubmitting;
   @override
@@ -671,7 +704,7 @@ class _$WantedMemberStateImpl implements _WantedMemberState {
 
   @override
   String toString() {
-    return 'WantedMemberState(teamId: $teamId, activeRequest: $activeRequest, activeRequests: $activeRequests, myEntries: $myEntries, isSubmitting: $isSubmitting, error: $error)';
+    return 'WantedMemberState(teamId: $teamId, activeRequest: $activeRequest, activeRequests: $activeRequests, myEntries: $myEntries, myMember: $myMember, isSubmitting: $isSubmitting, error: $error)';
   }
 
   @override
@@ -690,6 +723,8 @@ class _$WantedMemberStateImpl implements _WantedMemberState {
               other._myEntries,
               _myEntries,
             ) &&
+            (identical(other.myMember, myMember) ||
+                other.myMember == myMember) &&
             (identical(other.isSubmitting, isSubmitting) ||
                 other.isSubmitting == isSubmitting) &&
             (identical(other.error, error) || other.error == error));
@@ -702,6 +737,7 @@ class _$WantedMemberStateImpl implements _WantedMemberState {
     activeRequest,
     const DeepCollectionEquality().hash(_activeRequests),
     const DeepCollectionEquality().hash(_myEntries),
+    myMember,
     isSubmitting,
     error,
   );
@@ -724,6 +760,7 @@ abstract class _WantedMemberState implements WantedMemberState {
     final WantedRequestModel? activeRequest,
     final List<WantedRequestModel> activeRequests,
     final List<WantedEntryModel> myEntries,
+    final TeamMemberModel? myMember,
     final bool isSubmitting,
     final String? error,
   }) = _$WantedMemberStateImpl;
@@ -736,6 +773,8 @@ abstract class _WantedMemberState implements WantedMemberState {
   List<WantedRequestModel> get activeRequests;
   @override
   List<WantedEntryModel> get myEntries;
+  @override
+  TeamMemberModel? get myMember;
   @override
   bool get isSubmitting;
   @override

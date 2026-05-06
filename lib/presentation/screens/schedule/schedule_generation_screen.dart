@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/data/models/team_member_with_user.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
@@ -479,11 +480,10 @@ void _showMembersDialog(
                 itemBuilder: (_, i) {
                   final m = current.members[i];
                   final isExcluded = excluded.contains(m.userId);
-                  final skillLabel = _skillDisplayLabel(m.member.skillLevel);
-                  return SwitchListTile.adaptive(
-                    dense: true,
-                    value: !isExcluded,
-                    onChanged: (_) {
+                  return _MemberSwitchTile(
+                    member: m,
+                    isExcluded: isExcluded,
+                    onToggle: () {
                       ref
                           .read(
                             scheduleGenerationViewModelProvider(teamId)
@@ -492,26 +492,23 @@ void _showMembersDialog(
                           .toggleMemberExclusion(m.userId);
                       setLocal(() {}); // 시트 내 즉시 갱신
                     },
-                    title: Text(
-                      m.displayName,
-                      style: TextStyle(
-                        color: isExcluded
-                            ? colorScheme.onSurfaceVariant
-                            : null,
-                      ),
-                    ),
-                    subtitle: skillLabel != null
-                        ? Text(
-                            skillLabel,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          )
-                        : null,
                   );
                 },
               ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            FilledButton.tonal(
+              onPressed: () {
+                Navigator.pop(context);
+                context
+                    .push('/teams/$teamId/members')
+                    .then(
+                      (_) => ref.invalidate(
+                        scheduleGenerationViewModelProvider(teamId),
+                      ),
+                    );
+              },
+              child: const Text('멤버 설정'),
             ),
           ],
         );
@@ -710,11 +707,6 @@ void _showWantedDetailSheet(
   final sortedUserIds = grouped.keys.toList()
     ..sort((a, b) => (nameMap[a] ?? a).compareTo(nameMap[b] ?? b));
 
-  final priorityColors = {
-    1: AppColors.error,
-    2: AppColors.brandOrange,
-    3: AppColors.success,
-  };
 
   showModalBottomSheet<void>(
     context: context,
@@ -833,20 +825,18 @@ void _showWantedDetailSheet(
                               final shiftType = e.shiftTypeId != null
                                   ? shiftTypeMap[e.shiftTypeId]
                                   : null;
-                              final Color color;
+                              final Color chipColor;
                               final String avatarLabel;
                               if (shiftType != null) {
-                                color = parseHexColor(shiftType.color);
+                                chipColor = parseHexColor(shiftType.color);
                                 avatarLabel = shiftType.code;
                               } else {
-                                color =
-                                    priorityColors[e.priority] ??
-                                    colorScheme.primary;
-                                avatarLabel = '${e.priority}';
+                                chipColor = AppColors.shiftOff;
+                                avatarLabel = 'O';
                               }
                               return Chip(
                                 avatar: CircleAvatar(
-                                  backgroundColor: color.withValues(
+                                  backgroundColor: chipColor.withValues(
                                     alpha: 0.25,
                                   ),
                                   child: Text(
@@ -854,20 +844,23 @@ void _showWantedDetailSheet(
                                     style: TextStyle(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w800,
-                                      color: color,
+                                      color: chipColor,
                                     ),
                                   ),
                                 ),
                                 label: Text(
-                                  dateFormat.format(e.date),
+                                  '${dateFormat.format(e.date)} · '
+                                  '${e.priority}순위',
                                   style: theme.textTheme.labelSmall?.copyWith(
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 visualDensity: VisualDensity.compact,
-                                backgroundColor: color.withValues(alpha: 0.08),
+                                backgroundColor: chipColor.withValues(
+                                  alpha: 0.08,
+                                ),
                                 side: BorderSide(
-                                  color: color.withValues(alpha: 0.2),
+                                  color: chipColor.withValues(alpha: 0.2),
                                 ),
                                 padding: EdgeInsets.zero,
                               );
@@ -885,6 +878,162 @@ void _showWantedDetailSheet(
       );
     },
   );
+}
+
+// ────────────────────────────────────────
+// 멤버 바텀시트 — 개별 멤버 타일
+// ────────────────────────────────────────
+
+class _MemberSwitchTile extends StatelessWidget {
+  const _MemberSwitchTile({
+    required this.member,
+    required this.isExcluded,
+    required this.onToggle,
+  });
+
+  final TeamMemberWithUser member;
+  final bool isExcluded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final skillLabel = _skillDisplayLabel(member.member.skillLevel);
+    final m = member.member;
+
+    return ListTile(
+      dense: true,
+      title: Text(
+        member.displayName,
+        style: TextStyle(
+          color: isExcluded ? colorScheme.onSurfaceVariant : null,
+        ),
+      ),
+      subtitle: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (skillLabel != null)
+            _MemberTag(
+              label: skillLabel,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+              foregroundColor: colorScheme.onSurfaceVariant,
+            ),
+          if (m.nightDedicated)
+            const _MemberTag(
+              label: '나이트전담',
+              backgroundColor: Color(0xFFB3E5FC), // tertiaryContainer
+              foregroundColor: Color(0xFF2196F3), // shiftNight
+            ),
+          if (m.nightExempt)
+            const _MemberTag(
+              label: '나이트제외',
+              backgroundColor: Color(0xFFFEE2E2), // errorLight
+              foregroundColor: Color(0xFFFF5252), // error
+            ),
+          if (m.dayOnly)
+            const _MemberTag(
+              label: '데이전용',
+              backgroundColor: Color(0xFFFFECB3), // primaryContainer
+              foregroundColor: Color(0xFF5B4B00), // onPrimaryContainer
+            ),
+          for (final code in m.preferredShifts)
+            _PreferredShiftChip(code: code),
+        ],
+      ),
+      trailing: Switch.adaptive(
+        value: !isExcluded,
+        onChanged: (_) => onToggle(),
+      ),
+      onTap: onToggle,
+    );
+  }
+}
+
+class _MemberTag extends StatelessWidget {
+  const _MemberTag({
+    required this.label,
+    required this.backgroundColor,
+    required this.foregroundColor,
+  });
+
+  final String label;
+  final Color backgroundColor;
+  final Color foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(AppRadius.full),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: foregroundColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _PreferredShiftChip extends StatelessWidget {
+  const _PreferredShiftChip({required this.code});
+
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color bg;
+    final Color fg;
+    final String label;
+
+    switch (code) {
+      case 'D':
+        bg = AppColors.shiftDay.withValues(alpha: 0.15);
+        fg = AppColors.shiftDay.withValues(alpha: 0.9);
+        label = '데이';
+      case 'E':
+        bg = AppColors.shiftEvening.withValues(alpha: 0.15);
+        fg = AppColors.shiftEvening.withValues(alpha: 0.9);
+        label = '이브닝';
+      case 'N':
+        bg = AppColors.shiftNight.withValues(alpha: 0.15);
+        fg = AppColors.shiftNight.withValues(alpha: 0.9);
+        label = '나이트';
+      default:
+        bg = Colors.grey.withValues(alpha: 0.15);
+        fg = Colors.grey;
+        label = code;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppRadius.full),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: fg,
+        ),
+      ),
+    );
+  }
 }
 
 class _WantedEntryRow {

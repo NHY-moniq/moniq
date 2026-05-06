@@ -14,6 +14,9 @@ class TeamMemberModel with _$TeamMemberModel {
     @JsonKey(name: 'night_exempt') @Default(false) bool nightExempt,
     @JsonKey(name: 'day_only') @Default(false) bool dayOnly,
     @JsonKey(name: 'night_dedicated') @Default(false) bool nightDedicated,
+    @JsonKey(name: 'preferred_shifts', defaultValue: [])
+    @Default([])
+    List<String> preferredShifts,
     @JsonKey(name: 'is_favorite') @Default(false) bool isFavorite,
     @JsonKey(name: 'joined_at') DateTime? joinedAt,
     @JsonKey(name: 'created_at') DateTime? createdAt,

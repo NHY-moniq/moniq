@@ -78,11 +78,8 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
   late bool _noeAvoid; // Night → Off → Evening
   late bool _eodAvoid; // Evening → Off → Day
 
-  // ── 원티드 우선순위 ──
-  late List<ScheduleRulePriorityItem> _wantedPriorityOrder;
-
-  // ── 숙련도 배치 고려 ──
-  late bool _considerSkillLevel;
+  // ── 스케줄링 우선순위 ──
+  late List<ScheduleRulePriorityItem> _scoringPriorityOrder;
 
   bool _isDirty = false;
   bool _saving = false;
@@ -109,36 +106,35 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
     _eodAvoid =
         ((ruleMap['avoid_eod'] ?? {})['enabled'] as bool?) ?? false;
 
-    _considerSkillLevel =
-        ((ruleMap['consider_skill_level'] ?? {})['enabled'] as bool?) ??
-            false;
-
-    // 원티드 우선순위 복원
+    // 스케줄링 우선순위 복원 (새 key: scheduling_priority_order)
+    // 구버전 wanted_priority_order에서 마이그레이션 지원
     final savedOrder =
-        (ruleMap['wanted_priority_order'] ?? {})['order'] as List?;
+        ((ruleMap['scheduling_priority_order'] ??
+                    ruleMap['wanted_priority_order'] ??
+                    {})['order'] as List?);
     final defaultOrder = [
-      ScheduleRulePriorityItem(key: 'annual_leave', label: '연차 / 법정휴가'),
-      ScheduleRulePriorityItem(key: 'night_dedicated', label: '나이트전담 우선'),
-      ScheduleRulePriorityItem(key: 'fairness_rest', label: '휴무배려'),
-      ScheduleRulePriorityItem(key: 'fairness_equal', label: '균등배분'),
+      ScheduleRulePriorityItem(key: 'wanted', label: '원티드 반영'),
+      ScheduleRulePriorityItem(key: 'avoid_pattern', label: '기피패턴 처리'),
+      ScheduleRulePriorityItem(key: 'preferred_shift', label: '선호근무 반영'),
+      ScheduleRulePriorityItem(key: 'skill_placement', label: '숙련도 배치'),
     ];
 
     if (savedOrder != null && savedOrder.isNotEmpty) {
       final keyToDefault = {
         for (final d in defaultOrder) d.key: d,
       };
-      _wantedPriorityOrder = savedOrder
+      _scoringPriorityOrder = savedOrder
           .whereType<String>()
           .where((k) => keyToDefault.containsKey(k))
           .map((k) => keyToDefault[k]!)
           .toList();
       for (final d in defaultOrder) {
-        if (!_wantedPriorityOrder.any((p) => p.key == d.key)) {
-          _wantedPriorityOrder.add(d);
+        if (!_scoringPriorityOrder.any((p) => p.key == d.key)) {
+          _scoringPriorityOrder.add(d);
         }
       }
     } else {
-      _wantedPriorityOrder = defaultOrder;
+      _scoringPriorityOrder = defaultOrder;
     }
   }
 
@@ -171,13 +167,9 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
           {'enabled': _eodAvoid},
         ),
         notifier.upsertRule(
-          'consider_skill_level',
-          {'enabled': _considerSkillLevel},
-        ),
-        notifier.upsertRule(
-          'wanted_priority_order',
+          'scheduling_priority_order',
           {
-            'order': _wantedPriorityOrder
+            'order': _scoringPriorityOrder
                 .map((p) => p.key)
                 .toList(),
           },
@@ -304,9 +296,9 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
 
             const SizedBox(height: AppSpacing.xxl),
 
-            // ── 원티드 우선순위 ──
+            // ── 스케줄링 우선순위 ──
             ScheduleRuleSectionHeader(
-              title: '원티드 반영 우선순위',
+              title: '스케줄링 우선순위',
               subtitle: readOnly
                   ? '1번이 가장 높은 우선순위'
                   : '드래그하여 순위 조정 (1번 = 최우선)',
@@ -316,7 +308,7 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
             if (readOnly)
               ScheduleRuleCard(
                 children: [
-                  ..._wantedPriorityOrder.asMap().entries.map((e) {
+                  ..._scoringPriorityOrder.asMap().entries.map((e) {
                     final rank = e.key + 1;
                     return ScheduleRulePriorityReadRow(
                       rank: rank,
@@ -327,40 +319,17 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
               )
             else
               ScheduleRulePriorityReorderCard(
-                items: _wantedPriorityOrder,
+                items: _scoringPriorityOrder,
                 onReorder: (oldIndex, newIndex) {
                   setState(() {
                     if (newIndex > oldIndex) newIndex -= 1;
                     final item =
-                        _wantedPriorityOrder.removeAt(oldIndex);
-                    _wantedPriorityOrder.insert(newIndex, item);
+                        _scoringPriorityOrder.removeAt(oldIndex);
+                    _scoringPriorityOrder.insert(newIndex, item);
                   });
                   _markDirty();
                 },
               ),
-
-            const SizedBox(height: AppSpacing.xxl),
-
-            // ── 추가 옵션 ──
-            ScheduleRuleSectionHeader(
-              title: '추가 옵션',
-              subtitle: '스케줄 품질에 영향을 주는 설정',
-            ),
-            const SizedBox(height: AppSpacing.md),
-            ScheduleRuleCard(
-              children: [
-                ScheduleRuleToggleRow(
-                  label: '숙련도 균형 배치',
-                  description: '각 근무에 연차별 멤버가 균형 있게 배치',
-                  value: _considerSkillLevel,
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _considerSkillLevel = v);
-                    _markDirty();
-                  },
-                ),
-              ],
-            ),
 
             const SizedBox(height: AppSpacing.xxl),
 

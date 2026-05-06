@@ -10,6 +10,15 @@ import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
+List<TeamMemberWithUser> _sortedMembers(
+  List<TeamMemberWithUser> members,
+  String currentUserId,
+) {
+  final me = members.where((m) => m.userId == currentUserId).toList();
+  final others = members.where((m) => m.userId != currentUserId).toList();
+  return [...me, ...others];
+}
+
 class MembersScreen extends ConsumerStatefulWidget {
   const MembersScreen({super.key, required this.teamId});
 
@@ -112,20 +121,24 @@ class _MobileLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sorted = _sortedMembers(state.members, state.currentUserId);
+
     return Column(
       children: [
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-            itemCount: state.members.length,
+            itemCount: sorted.length,
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (_, i) {
-              final m = state.members[i];
+              final m = sorted[i];
               return MemberTile(
                 member: m,
                 isSelf: m.userId == state.currentUserId,
                 isAdmin: state.isAdmin,
-                onTap: state.isAdmin ? () => onTapMember(m) : null,
+                onTap: (state.isAdmin || m.userId == state.currentUserId)
+                    ? () => onTapMember(m)
+                    : null,
               );
             },
           ),
@@ -158,6 +171,7 @@ class _WebLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final sorted = _sortedMembers(state.members, state.currentUserId);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,10 +190,10 @@ class _WebLayout extends StatelessWidget {
                 child: ListView.separated(
                   padding: const EdgeInsets.symmetric(
                       vertical: AppSpacing.sm),
-                  itemCount: state.members.length,
+                  itemCount: sorted.length,
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (_, i) {
-                    final m = state.members[i];
+                    final m = sorted[i];
                     final isSelected =
                         selectedMember?.userId == m.userId;
                     return _SelectableMemberTile(

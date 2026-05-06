@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
@@ -15,10 +16,14 @@ import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'calendar_dialogs.dart';
 import 'calendar_export_excel.dart';
 import 'calendar_export_image.dart';
+import 'calendar_export_downloader_stub.dart'
+    if (dart.library.html) 'calendar_export_downloader_web.dart';
 
-/// 개인 캘린더 내보내기 (다이얼로그 -> 형식 선택 -> 실행)
+/// 개인 캘린더 내보내기 (플랫폼별 분기)
 Future<void> exportCalendar(
     BuildContext context, WidgetRef ref, HomeCalendarState state) async {
+  if (kIsWeb) return _exportCalendarWeb(context, ref, state);
+
   final format = await _showExportFormatDialog(context);
   if (format == null || !context.mounted) return;
 
@@ -176,6 +181,8 @@ Future<void> importDeviceCalendar(
 /// 팀 캘린더 내보내기 (ref 사용)
 Future<void> exportTeamCalendar(
     BuildContext context, WidgetRef ref, TeamCalendarState state) async {
+  if (kIsWeb) return _exportTeamCalendarWeb(context, ref, state);
+
   final format = await _showExportFormatDialog(context);
   if (format == null || !context.mounted) return;
 
@@ -280,6 +287,138 @@ Future<void> exportTeamCalendarStandalone(
       );
     }
   }
+}
+
+// ── 웹 내보내기 ──────────────────────────────────
+
+Future<void> _exportTeamCalendarWeb(
+    BuildContext context, WidgetRef ref, TeamCalendarState state) async {
+  final format = await _showWebExportDialog(context);
+  if (format == null || !context.mounted) return;
+
+  final focusedMonth = state.focusedMonth;
+  final yearMonth =
+      '${focusedMonth.year}_${focusedMonth.month.toString().padLeft(2, '0')}';
+  final teamName = state.teamName;
+
+  try {
+    if (format == 'clipboard') {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('이미지 생성 중…'), duration: Duration(seconds: 1)),
+      );
+      final bytes = await generateTeamImageBytes(state, ref);
+      final copied = await copyImageToClipboard(bytes);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              copied ? '클립보드에 복사되었습니다' : '클립보드 복사를 지원하지 않는 브라우저입니다',
+            ),
+          ),
+        );
+      }
+    } else if (format == 'image') {
+      final bytes = await generateTeamImageBytes(state, ref);
+      await downloadFileWeb('${teamName}_$yearMonth.png', bytes, 'image/png');
+    } else if (format == 'excel') {
+      final bytes = await generateTeamExcelBytes(state, ref);
+      await downloadFileWeb(
+        '${teamName}_$yearMonth.xlsx',
+        bytes,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('내보내기 실패: $e')));
+    }
+  }
+}
+
+Future<void> _exportCalendarWeb(
+    BuildContext context, WidgetRef ref, HomeCalendarState state) async {
+  final format = await _showWebExportDialog(context);
+  if (format == null || !context.mounted) return;
+
+  final focusedMonth = state.focusedMonth;
+  final yearMonth =
+      '${focusedMonth.year}_${focusedMonth.month.toString().padLeft(2, '0')}';
+
+  try {
+    if (format == 'clipboard') {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이미지 생성 중…'), duration: Duration(seconds: 1)),
+      );
+      final bytes = await generateCalendarImageBytes(state, ref);
+      final copied = await copyImageToClipboard(bytes);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              copied ? '클립보드에 복사되었습니다' : '클립보드 복사를 지원하지 않는 브라우저입니다',
+            ),
+          ),
+        );
+      }
+    } else if (format == 'image') {
+      final bytes = await generateCalendarImageBytes(state, ref);
+      await downloadFileWeb('calendar_$yearMonth.png', bytes, 'image/png');
+    } else if (format == 'excel') {
+      final bytes = await generateExcelBytes(state, ref);
+      await downloadFileWeb(
+        'calendar_$yearMonth.xlsx',
+        bytes,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('내보내기 실패: $e')));
+    }
+  }
+}
+
+Future<String?> _showWebExportDialog(BuildContext context) {
+  return showDialog<String>(
+    context: context,
+    builder: (ctx) => SimpleDialog(
+      title: const Text('내보내기'),
+      children: [
+        SimpleDialogOption(
+          onPressed: () => Navigator.pop(ctx, 'clipboard'),
+          child: const ListTile(
+            leading: Icon(Icons.content_copy_outlined, color: AppColors.primary),
+            title: Text('클립보드에 복사'),
+            subtitle: Text('캘린더 이미지를 클립보드에 복사'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        SimpleDialogOption(
+          onPressed: () => Navigator.pop(ctx, 'image'),
+          child: const ListTile(
+            leading: Icon(Icons.image_outlined, color: AppColors.tertiary),
+            title: Text('이미지 저장'),
+            subtitle: Text('PNG 파일로 다운로드'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        SimpleDialogOption(
+          onPressed: () => Navigator.pop(ctx, 'excel'),
+          child: const ListTile(
+            leading: Icon(Icons.table_chart_outlined, color: Color(0xFF217346)),
+            title: Text('엑셀로 내보내기'),
+            subtitle: Text('엑셀/구글 스프레드시트용 .xlsx 파일'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 // ── 공통 다이얼로그 ──────────────────────────────

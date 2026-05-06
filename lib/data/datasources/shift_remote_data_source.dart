@@ -83,14 +83,21 @@ class ShiftRemoteDataSource {
     if (shifts.isEmpty) return const [];
 
     final scheduleIds = shifts.map((s) => s.scheduleId).toSet().toList();
-    final activeScheduleIds = await _getLatestPublishedScheduleIds(
+    final scheduleVersionMap = await _getPublishedScheduleVersionMap(
       scheduleIds: scheduleIds,
       teamId: teamId,
     );
 
-    return shifts
-        .where((s) => activeScheduleIds.contains(s.scheduleId))
-        .toList();
+    // (userId, date) 기준 최신 버전 시프트만 유지 — 동일 기간 incremental publish 대응
+    final best = <String, (int version, ShiftModel shift)>{};
+    for (final s in shifts) {
+      final version = scheduleVersionMap[s.scheduleId];
+      if (version == null) continue;
+      final key = '${s.userId}_${_dateStr(s.shiftDate)}';
+      final cur = best[key];
+      if (cur == null || version > cur.$1) best[key] = (version, s);
+    }
+    return best.values.map((e) => e.$2).toList();
   }
 
   /// 특정 날짜 + 팀 + shift_type 에 배정된 팀원(본인 제외) 목록
@@ -208,6 +215,29 @@ class ShiftRemoteDataSource {
     }
 
     return latestByPeriod.values.toSet();
+  }
+
+  /// 팀 캘린더용: published 상태인 스케줄들의 id → version_no 맵 반환
+  Future<Map<String, int>> _getPublishedScheduleVersionMap({
+    required List<String> scheduleIds,
+    String? teamId,
+  }) async {
+    if (scheduleIds.isEmpty) return const {};
+
+    var query = _client
+        .from('schedules')
+        .select('id, version_no')
+        .inFilter('id', scheduleIds)
+        .eq('status', 'published');
+
+    if (teamId != null) query = query.eq('team_id', teamId);
+
+    final rows = await query;
+    return {
+      for (final r in (rows as List))
+        (r as Map<String, dynamic>)['id'] as String:
+            ((r['version_no'] as num?)?.toInt() ?? 0),
+    };
   }
 
   // ── 근무 유형 CRUD ──
