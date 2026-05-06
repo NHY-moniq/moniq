@@ -1,0 +1,200 @@
+/* ============================================================
+   ONOROFF / MONIQ DESIGN SYSTEM
+   Colors & Typography — source of truth
+   Extracted from: lib/presentation/theme/*.dart + *_shift.html mockups
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+:root {
+  /* ────────────────────────────────────────────
+     BRAND COLORS — the 3 character palette
+     Yellow (Day) · Orange (Evening) · Blue (Night)
+     ────────────────────────────────────────────
+     Note: the codebase ships two yellow/blue tokens in parallel.
+     AppColors.dart uses warm-gold (#FFC107) for Day + sky (#2196F3) for Night.
+     shift_theme.dart + *.html mockups use pure-yellow (#FFD700) + deep-blue (#0061A4/#006191).
+     We surface BOTH as explicit vars; prefer the "-pure" set for hero surfaces
+     (login mascots, active shift cards) and the "Material" set for buttons/AppColors semantics. */
+
+  --brand-yellow:        #FFD700;   /* Day · "The Yellow One"  — hero / shift surfaces */
+  --brand-yellow-warm:   #FFC107;   /* AppColors.primary — buttons, primary */
+  --brand-orange:        #FF8C00;   /* Evening · "The Orange One" */
+  --brand-orange-deep:   #FF8F00;   /* AppColors.secondary */
+  --brand-blue:          #0061A4;   /* Night · "The Blue One"  — deep nav blue */
+  --brand-blue-sky:      #2196F3;   /* AppColors.tertiary — sky blue */
+  --brand-grey:          #A0AEC0;   /* Off — muted slate */
+
+  /* ────────────────────────────────────────────
+     PRIMARY / SEMANTIC (Material-3 style scheme)
+     ──────────────────────────────────────────── */
+  --color-primary:                 var(--brand-yellow-warm);
+  --color-primary-container:       #FFECB3;
+  --color-on-primary:              #453900;
+  --color-on-primary-container:    #5B4B00;
+
+  --color-secondary:               var(--brand-orange-deep);
+  --color-secondary-container:     #FFE0B2;
+  --color-on-secondary:            #FFFFFF;
+
+  --color-tertiary:                var(--brand-blue-sky);
+  --color-tertiary-container:      #B3E5FC;
+  --color-on-tertiary:             #EAF4FF;
+
+  /* ────────────────────────────────────────────
+     SURFACES — warm cream paper
+     ──────────────────────────────────────────── */
+  --bg:                    #FCF6E3;   /* main background — warm cream */
+  --surface:               #FFFDF7;   /* cards */
+  --surface-container-lowest: #FFFFFF;
+  --surface-container-low: #F7F1DC;
+  --surface-container:     #EEE8D3;
+  --surface-container-high:#E9E3CC;
+  --surface-container-highest: #E3DDC5;
+
+  /* ────────────────────────────────────────────
+     TEXT
+     ──────────────────────────────────────────── */
+  --fg1:            #312F23;   /* on-surface primary */
+  --fg2:            #5F5C4D;   /* on-surface-variant */
+  --fg3:            #7A7768;   /* outline (hint/muted) */
+  --fg-disabled:    #B2AD9C;   /* outline-variant */
+
+  --on-surface:         var(--fg1);
+  --on-surface-variant: var(--fg2);
+
+  /* ────────────────────────────────────────────
+     LINES & DIVIDERS
+     ──────────────────────────────────────────── */
+  --outline:         #7A7768;
+  --outline-variant: #B2AD9C;
+  --divider:         #E8E2D2;
+
+  /* ────────────────────────────────────────────
+     STATE
+     ──────────────────────────────────────────── */
+  --color-error:       #B02500;
+  --color-error-light: #FEE2E2;
+  --color-success:     #38A169;
+  --color-success-light:#C6F6D5;
+
+  /* ────────────────────────────────────────────
+     SHIFT THEME BACKGROUNDS — per-shift tinted page bg
+     (the app re-tints the whole page by current shift)
+     ──────────────────────────────────────────── */
+  --bg-day:     #FCF6E3;   /* same warm cream */
+  --bg-evening: #FCF6E3;
+  --bg-night:   #F8F9FF;   /* cool near-white for night */
+  --bg-off:     #FCF6E3;
+
+  /* ────────────────────────────────────────────
+     TYPOGRAPHY
+     single family: Plus Jakarta Sans (display / body / label)
+     ──────────────────────────────────────────── */
+  --font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-icon:   'Material Symbols Outlined';
+
+  /* Type scale — from app_typography.dart */
+  --type-display-lg: 800 36px/1.2 var(--font-family);   /* letter-spacing: -1.0 */
+  --type-display-md: 800 28px/1.25 var(--font-family);  /* letter-spacing: -0.5 */
+  --type-headline-lg: 800 24px/1.3 var(--font-family);  /* letter-spacing: -0.5 */
+  --type-headline-md: 700 20px/1.35 var(--font-family); /* letter-spacing: -0.3 */
+  --type-title-lg:   700 18px/1.4 var(--font-family);
+  --type-title-md:   600 16px/1.5 var(--font-family);
+  --type-body-lg:    500 16px/1.5 var(--font-family);
+  --type-body-md:    500 14px/1.43 var(--font-family);
+  --type-label-lg:   700 14px/1.43 var(--font-family);
+  --type-label-md:   700 12px/1.33 var(--font-family);
+  --type-caption:    500 12px/1.33 var(--font-family);
+  --type-caption-sm: 700 10px/1.4 var(--font-family);   /* letter-spacing: 1.2 */
+
+  /* ────────────────────────────────────────────
+     SPACING  (4-px grid, from app_spacing.dart)
+     ──────────────────────────────────────────── */
+  --sp-xxs: 2px;
+  --sp-xs:  4px;
+  --sp-sm:  8px;
+  --sp-md:  12px;
+  --sp-lg:  16px;
+  --sp-xl:  20px;
+  --sp-xxl: 24px;
+  --sp-xxxl:32px;
+  --sp-huge:48px;
+  --sp-massive:64px;
+
+  /* ────────────────────────────────────────────
+     RADII — PILL-HEAVY! Everything is rounded.
+     ──────────────────────────────────────────── */
+  --r-xs:   8px;
+  --r-sm:   12px;
+  --r-md:   16px;
+  --r-lg:   24px;
+  --r-xl:   32px;
+  --r-xxl:  40px;
+  --r-full: 9999px;
+
+  /* ────────────────────────────────────────────
+     SHADOWS — soft, warm-tinted, generous blur
+     ──────────────────────────────────────────── */
+  --shadow-sm:  0 2px 8px rgba(49,47,35,0.04);
+  --shadow-md:  0 8px 16px rgba(49,47,35,0.06);
+  --shadow-lg:  0 12px 32px rgba(49,47,35,0.15);
+  --shadow-card:0 12px 32px rgba(49,47,35,0.06);
+  --shadow-float:0 20px 40px rgba(49,47,35,0.10);
+  /* Per-shift colored glow on hero cards (shifted by color) */
+  --shadow-glow-day:     0 15px 30px rgba(255,215,0,0.25);
+  --shadow-glow-evening: 0 15px 30px rgba(255,140,0,0.25);
+  --shadow-glow-night:   0 15px 30px rgba(0,97,164,0.25);
+
+  /* ────────────────────────────────────────────
+     SIZING
+     ──────────────────────────────────────────── */
+  --btn-h:  52px;
+  --input-h:52px;
+  --icon-sm:20px;
+  --icon-md:24px;
+  --icon-lg:32px;
+  --avatar-sm:32px;
+  --avatar-md:44px;
+  --avatar-lg:56px;
+  --bottom-nav-h:72px;
+}
+
+/* ────────────────────────────────────────────
+   DARK MODE (token overrides)
+   ──────────────────────────────────────────── */
+[data-theme='dark'] {
+  --bg:                     #121212;
+  --surface:                #1E1E1E;
+  --surface-container-lowest:#121212;
+  --surface-container-low:  #181818;
+  --surface-container:      #1E1E1E;
+  --surface-container-high: #282828;
+  --surface-container-highest:#333333;
+  --fg1:  #F5F5F5;
+  --fg2:  #B0B0B0;
+  --fg3:  #7A7768;
+  --divider: #2C2C2C;
+  --outline-variant: #2C2C2C;
+  --shadow-card: 0 12px 32px rgba(0,0,0,0.5);
+}
+
+/* ────────────────────────────────────────────
+   SEMANTIC HTML DEFAULTS
+   ──────────────────────────────────────────── */
+html, body {
+  font-family: var(--font-family);
+  background: var(--bg);
+  color: var(--fg1);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1 { font: var(--type-display-md); letter-spacing: -0.5px; margin: 0; }
+h2 { font: var(--type-headline-lg); letter-spacing: -0.5px; margin: 0; }
+h3 { font: var(--type-headline-md); letter-spacing: -0.3px; margin: 0; }
+h4 { font: var(--type-title-lg); margin: 0; }
+p  { font: var(--type-body-md); color: var(--fg2); margin: 0; }
+small { font: var(--type-caption); color: var(--fg3); }
+.eyebrow { font: var(--type-caption-sm); letter-spacing: 1.6px; text-transform: uppercase; color: var(--fg3); }
+.material-symbols-outlined { font-family: var(--font-icon); font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
