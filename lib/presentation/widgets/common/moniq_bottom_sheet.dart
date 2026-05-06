@@ -262,7 +262,9 @@ class MoniqConfirmSheetBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.xxl),
-        Row(
+        IntrinsicHeight(
+          child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
               child: OutlinedButton(
@@ -308,6 +310,7 @@ class MoniqConfirmSheetBody extends StatelessWidget {
               ),
             ),
           ],
+          ),
         ),
       ],
     );

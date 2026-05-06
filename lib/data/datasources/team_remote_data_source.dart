@@ -217,11 +217,13 @@ class TeamRemoteDataSource {
     bool? nightExempt,
     bool? dayOnly,
     bool? nightDedicated,
+    List<String>? preferredShifts,
   }) async {
     final updates = <String, dynamic>{};
     if (nightExempt != null) updates['night_exempt'] = nightExempt;
     if (dayOnly != null) updates['day_only'] = dayOnly;
     if (nightDedicated != null) updates['night_dedicated'] = nightDedicated;
+    if (preferredShifts != null) updates['preferred_shifts'] = preferredShifts;
     if (updates.isEmpty) return;
     await _client
         .from('team_members')

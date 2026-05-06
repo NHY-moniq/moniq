@@ -70,15 +70,16 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
+  image_path: "assets/icon/app_icon.png"
+  image_path_ios: "assets/icon/app_icon_ios.png"
+  remove_alpha_ios: true
+  adaptive_icon_background: "#FCF6E3"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"
   web:
     generate: true
-    image_path: "assets/images/logo.png"
-    background_color: "#FFFFFF"
-    theme_color: "#E8923A"
-  image_path: "assets/images/logo.png"
-  remove_alpha_ios: true
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/logo.png"
+    image_path: "assets/icon/app_icon.png"
+    background_color: "#FCF6E3"
+    theme_color: "#FFC107"
 
 flutter:
   uses-material-design: true

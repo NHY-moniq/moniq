@@ -1,8 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
+import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 
 import 'calendar_providers.dart';
@@ -13,17 +15,19 @@ class CalendarDrawer extends HookConsumerWidget {
   const CalendarDrawer({
     super.key,
     required this.onImportCalendar,
-    required this.onExportCalendar,
   });
 
   final VoidCallback onImportCalendar;
-  final VoidCallback onExportCalendar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final shiftTypes = ref.watch(personalShiftTypesProvider);
+    final currentUser = ref.watch(currentUserProvider);
+    final userMeta = currentUser?.userMetadata;
+    final displayName = userMeta?['display_name'] as String? ?? 'OnorOff';
+    final avatarUrl = userMeta?['avatar_url'] as String?;
 
     return Drawer(
       width: 280,
@@ -55,13 +59,22 @@ class CalendarDrawer extends HookConsumerWidget {
                       color: cs.primaryContainer,
                       borderRadius: AppRadius.borderRadiusMd,
                     ),
-                    padding: const EdgeInsets.all(AppSpacing.xs),
                     clipBehavior: Clip.antiAlias,
-                    child: Icon(
-                      Icons.person_rounded,
-                      size: 36,
-                      color: cs.onPrimaryContainer,
-                    ),
+                    child: avatarUrl != null && avatarUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: avatarUrl,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => Icon(
+                              Icons.person_rounded,
+                              size: 36,
+                              color: cs.onPrimaryContainer,
+                            ),
+                          )
+                        : Icon(
+                            Icons.person_rounded,
+                            size: 36,
+                            color: cs.onPrimaryContainer,
+                          ),
                   ),
                   const SizedBox(width: AppSpacing.lg),
                   Expanded(
@@ -69,18 +82,18 @@ class CalendarDrawer extends HookConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Moniq',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(
+                          displayName,
+                          style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w900,
                             color: cs.primary,
                           ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                         const SizedBox(height: AppSpacing.xxs),
                         Text(
-                          'SHIFT MANAGER',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(
+                          'MY CALENDAR',
+                          style: theme.textTheme.labelSmall?.copyWith(
                             color: cs.onSurfaceVariant,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 1.5,
@@ -113,14 +126,6 @@ class CalendarDrawer extends HookConsumerWidget {
                     onTap: () {
                       Navigator.pop(context);
                       onImportCalendar();
-                    },
-                  ),
-                  _DrawerNavItem(
-                    icon: Icons.ios_share_outlined,
-                    label: '캘린더 내보내기',
-                    onTap: () {
-                      Navigator.pop(context);
-                      onExportCalendar();
                     },
                   ),
                 ],

@@ -31,6 +31,7 @@ import 'package:moniq/presentation/screens/announcement/announcement_screen.dart
 import 'package:moniq/presentation/screens/announcement/my_announcements_screen.dart';
 import 'package:moniq/presentation/screens/wanted/wanted_request_screen.dart';
 import 'package:moniq/presentation/screens/wanted/wanted_day_off_screen.dart';
+import 'package:moniq/presentation/screens/wanted/wanted_history_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _homeNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'home');
@@ -281,6 +282,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => WantedDayOffScreen(
           teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/teams/:teamId/wanted/history',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => WantedHistoryScreen(
+          teamId: state.pathParameters['teamId']!,
+          isAdmin: state.uri.queryParameters['isAdmin'] == 'true',
         ),
       ),
 

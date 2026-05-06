@@ -9,8 +9,26 @@ import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 
 import 'calendar_providers.dart';
 
-/// 개인 캘린더 Excel 파일 생성
+/// 개인 캘린더 Excel bytes (웹 내보내기용 — 파일 I/O 없음)
+Future<List<int>> generateExcelBytes(
+    HomeCalendarState state, WidgetRef ref) async {
+  return _buildPersonalExcelBytes(state, ref);
+}
+
+/// 개인 캘린더 Excel 파일 생성 (모바일)
 Future<File> generateExcelFile(
+    HomeCalendarState state, WidgetRef ref) async {
+  final bytes = await _buildPersonalExcelBytes(state, ref);
+  final focusedMonth = state.focusedMonth;
+  final dir = await getTemporaryDirectory();
+  final file = File(
+      '${dir.path}/onoroff_${focusedMonth.year}_${focusedMonth.month}.xlsx');
+  await file.writeAsBytes(bytes);
+  return file;
+}
+
+/// 개인 캘린더 Excel 빌드 (bytes 반환 — dart:io 없음)
+Future<List<int>> _buildPersonalExcelBytes(
     HomeCalendarState state, WidgetRef ref) async {
   final focusedMonth = state.focusedMonth;
   final eventDs = ref.read(personalEventDataSourceProvider);
@@ -135,20 +153,26 @@ Future<File> generateExcelFile(
     }
   }
 
-  final dir = await getTemporaryDirectory();
-  final file = File(
-      '${dir.path}/onoroff_${focusedMonth.year}_${focusedMonth.month}.xlsx');
-  final bytes = excel.encode();
-  if (bytes != null) {
-    await file.writeAsBytes(bytes);
+  return excel.encode() ?? [];
+}
+
+
+
+/// 팀 캘린더 Excel bytes 생성 (ref 사용, 웹 다운로드용)
+Future<List<int>> generateTeamExcelBytes(
+    TeamCalendarState state, WidgetRef ref) async {
+  final teamRepo = ref.read(teamRepositoryProvider);
+  final members = await teamRepo.getTeamMembersWithUsers(state.teamId);
+  final memberNames = <String, String>{};
+  for (final m in members) {
+    memberNames[m.userId] = m.displayName;
   }
-  return file;
+  return _buildTeamExcelBytes(state, memberNames);
 }
 
 /// 팀 캘린더 Excel 생성 (ref 사용)
 Future<File> generateTeamExcelFile(
     TeamCalendarState state, WidgetRef ref) async {
-  // 멤버 이름 맵
   final teamRepo = ref.read(teamRepositoryProvider);
   final members = await teamRepo.getTeamMembersWithUsers(state.teamId);
   final memberNames = <String, String>{};
@@ -160,6 +184,16 @@ Future<File> generateTeamExcelFile(
 
 /// 팀 캘린더 Excel 생성 (멤버 이름 맵 직접 전달)
 Future<File> generateTeamExcelWithNames(
+    TeamCalendarState state, Map<String, String> memberNames) async {
+  final bytes = await _buildTeamExcelBytes(state, memberNames);
+  final dir = await getTemporaryDirectory();
+  final file = File(
+      '${dir.path}/team_${state.teamId}_${state.focusedMonth.year}_${state.focusedMonth.month}.xlsx');
+  await file.writeAsBytes(bytes);
+  return file;
+}
+
+Future<List<int>> _buildTeamExcelBytes(
     TeamCalendarState state, Map<String, String> memberNames) async {
   final focusedMonth = state.focusedMonth;
   final daysInMonth =
@@ -270,12 +304,5 @@ Future<File> generateTeamExcelWithNames(
     }
   }
 
-  final dir = await getTemporaryDirectory();
-  final file = File(
-      '${dir.path}/team_${state.teamId}_${focusedMonth.year}_${focusedMonth.month}.xlsx');
-  final bytes = excel.encode();
-  if (bytes != null) {
-    await file.writeAsBytes(bytes);
-  }
-  return file;
+  return excel.encode() ?? [];
 }

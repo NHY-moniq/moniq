@@ -109,7 +109,7 @@ class AuthRemoteDataSource {
 
   // Sign Out
   Future<void> signOut() async {
-    await _auth.signOut();
+    await _auth.signOut(scope: SignOutScope.local);
   }
 
   // Profile
@@ -125,9 +125,10 @@ class AuthRemoteDataSource {
   }
 
   Future<bool> checkNicknameDuplicate(String nickname) async {
-    final result = await _client.rpc('check_nickname_duplicate', params: {
-      'p_nickname': nickname,
-    });
+    final result = await _client.rpc(
+      'check_nickname_duplicate',
+      params: {'p_nickname': nickname},
+    );
     return result as bool;
   }
 
@@ -135,7 +136,9 @@ class AuthRemoteDataSource {
     final userId = _auth.currentUser!.id;
     final path = '$userId/$fileName';
 
-    await _client.storage.from('avatars').uploadBinary(
+    await _client.storage
+        .from('avatars')
+        .uploadBinary(
           path,
           bytes,
           fileOptions: const FileOptions(upsert: true),

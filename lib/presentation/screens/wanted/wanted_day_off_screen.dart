@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
@@ -44,10 +45,21 @@ class WantedDayOffScreen extends HookConsumerWidget {
     return Scaffold(
       appBar: MoniqAppBar(
         title: '원티드 입력',
-        trailing: MoniqAppBarAction(
-          icon: Icons.refresh_rounded,
-          onTap: () =>
-              ref.invalidate(wantedMemberViewModelProvider(teamId)),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            MoniqAppBarAction(
+              icon: Icons.history,
+              onTap: () => context.push(
+                '/teams/$teamId/wanted/history?isAdmin=false',
+              ),
+            ),
+            MoniqAppBarAction(
+              icon: Icons.refresh_rounded,
+              onTap: () =>
+                  ref.invalidate(wantedMemberViewModelProvider(teamId)),
+            ),
+          ],
         ),
       ),
       body: stateAsync.when(
@@ -1439,7 +1451,7 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
                 selColor = colorScheme.primary;
               }
 
-              // 우선순위 배지(좌상단) + 근무 유형 배지(우상단)
+              // 우선순위 배지(좌상단) + 근무 유형 배지(우상단) + 사유 배지(우하단)
               final String? priorityBadge =
                   isSelected ? '${sel.priority}' : null;
               final String? typeBadge = isSelected
@@ -1447,6 +1459,14 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
                       ? (sel.reason == '#필수교육' ? '교' : 'O')
                       : (typeMap[sel.shiftTypeId]?.code ?? '?'))
                   : null;
+              final String? reasonBadge =
+                  (isSelected && sel.shiftTypeId == null)
+                      ? (sel.reason == '#생리휴가'
+                          ? '생휴'
+                          : sel.reason == '#연차'
+                              ? '연차'
+                              : null)
+                      : null;
 
               // P1-5: 기간 외 셀 opacity 처리
               Widget cellWidget = Container(
@@ -1506,6 +1526,19 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    if (reasonBadge != null)
+                      Positioned(
+                        bottom: 2,
+                        right: 2,
+                        child: Text(
+                          reasonBadge,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 7,
                             fontWeight: FontWeight.w700,
                           ),
                         ),

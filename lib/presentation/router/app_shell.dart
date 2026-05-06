@@ -1,25 +1,22 @@
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/core/utils/auth_error_utils.dart';
+import 'package:moniq/core/utils/team_icon_utils.dart';
+import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
-import 'package:moniq/data/providers/shift_providers.dart';
-import 'package:moniq/data/providers/team_providers.dart';
-import 'package:moniq/data/providers/schedule_providers.dart';
+import 'package:moniq/data/providers/notification_providers.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_drawer.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_export.dart';
-import 'package:moniq/presentation/screens/team/team_excel_import.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
-import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
-import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
@@ -165,14 +162,17 @@ class _WebShellState extends ConsumerState<_WebShell> {
   }
 }
 
-class _WebTopActionsBar extends StatelessWidget {
+class _WebTopActionsBar extends ConsumerWidget {
   const _WebTopActionsBar({required this.onBranchSelect});
 
   final ValueChanged<int> onBranchSelect;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final unread =
+        ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
+
     return Container(
       height: 60,
       width: double.infinity,
@@ -186,7 +186,41 @@ class _WebTopActionsBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          _SidebarIconButton(icon: Icons.notifications_outlined, onTap: () {}),
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              _SidebarIconButton(
+                icon: Icons.notifications_outlined,
+                onTap: () => context.push('/notifications'),
+              ),
+              if (unread > 0)
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: colorScheme.error,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    constraints:
+                        const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      unread > 99 ? '99+' : '$unread',
+                      style: TextStyle(
+                        color: colorScheme.onError,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(width: 6),
           _UserAvatarButton(onBranchSelect: onBranchSelect),
         ],
@@ -218,36 +252,41 @@ class _FixedSidebar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 로고 영역
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 8, 16),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Image.asset(
-                  'assets/images/logo.png',
+        // 로고 영역 (탭 → 홈 탭)
+        InkWell(
+          onTap: () => onTabSelect(0),
+          hoverColor: colorScheme.onSurface.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 8, 16),
+            child: Row(
+              children: [
+                Container(
                   width: 32,
                   height: 32,
-                  errorBuilder: (_, __, ___) =>
-                      const SizedBox(width: 32, height: 32),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    width: 32,
+                    height: 32,
+                    errorBuilder: (_, __, ___) =>
+                        const SizedBox(width: 32, height: 32),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Moniq',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  color: colorScheme.primary,
-                  letterSpacing: -0.3,
+                const SizedBox(width: 8),
+                Text(
+                  'OnorOff',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: colorScheme.primary,
+                    letterSpacing: -0.3,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
 
@@ -314,12 +353,10 @@ class _CalendarContextItems extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final homeState = ref.watch(homeViewModelProvider).valueOrNull;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _FlyoutSectionLabel(label: '개인 캘린더'),
+        const _FlyoutCalendarHeader(),
         _FlyoutTile(
           icon: Icons.schedule_outlined,
           label: '내 근무 유형 설정',
@@ -341,14 +378,79 @@ class _CalendarContextItems extends ConsumerWidget {
           label: '외부 캘린더 가져오기',
           onTap: () => importDeviceCalendar(context, ref),
         ),
-        _FlyoutTile(
-          icon: Icons.ios_share_outlined,
-          label: '캘린더 내보내기',
-          onTap: homeState != null
-              ? () => exportCalendar(context, ref, homeState)
-              : null,
-        ),
       ],
+    );
+  }
+}
+
+class _FlyoutCalendarHeader extends ConsumerWidget {
+  const _FlyoutCalendarHeader();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final currentUser = ref.watch(currentUserProvider);
+    final userMeta = currentUser?.userMetadata;
+    final displayName = userMeta?['display_name'] as String? ?? 'OnorOff';
+    final avatarUrl = userMeta?['avatar_url'] as String?;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: cs.primaryContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: avatarUrl != null && avatarUrl.isNotEmpty
+                ? CachedNetworkImage(
+                    imageUrl: avatarUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => Icon(
+                      Icons.person_rounded,
+                      size: 20,
+                      color: cs.onPrimaryContainer,
+                    ),
+                  )
+                : Icon(
+                    Icons.person_rounded,
+                    size: 20,
+                    color: cs.onPrimaryContainer,
+                  ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: cs.primary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+                Text(
+                  'MY CALENDAR',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 9,
+                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -363,77 +465,26 @@ class _TeamContextItems extends ConsumerWidget {
     final favoriteTeam = ref.watch(favoriteTeamProvider).valueOrNull;
     final teamId = favoriteTeam?.id;
 
-    final isAdmin = teamId != null
-        ? (ref
-                  .watch(teamDetailViewModelProvider(teamId))
-                  .valueOrNull
-                  ?.isAdmin ??
-              false)
-        : false;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _FlyoutSectionLabel(label: '팀'),
-        if (favoriteTeam != null)
-          _FlyoutTile(
-            icon: Icons.star_rounded,
-            label: favoriteTeam.name,
-            iconColor: Colors.amber,
-            onTap: () => context.push('/teams/${favoriteTeam.id}/detail'),
-          ),
+        if (favoriteTeam != null) _FlyoutTeamHeader(team: favoriteTeam),
         _FlyoutTile(
           icon: Icons.groups_outlined,
           label: '팀 목록',
           onTap: () => context.push('/teams/list'),
         ),
         if (teamId != null) ...[
-          // Excel 기능은 웹 + 관리자에게만 노출 (내보내기/일정 전체 삭제는 메인 화면 AppBar로 이동)
-          if (kIsWeb && isAdmin) ...[
-            const _FlyoutSectionLabel(label: '가져오기'),
-            _FlyoutTile(
-              icon: Icons.description_outlined,
-              label: 'Excel 샘플 양식',
-              onTap: () async {
-                final shiftRepo = ref.read(shiftRepositoryProvider);
-                Future.delayed(const Duration(milliseconds: 100), () {
-                  if (context.mounted) {
-                    exportSampleTemplate(
-                      context,
-                      shiftRepo: shiftRepo,
-                      teamId: teamId,
-                    );
-                  }
-                });
-              },
-            ),
-            _FlyoutTile(
-              icon: Icons.upload_file_outlined,
-              label: 'Excel 일정 가져오기',
-              onTap: () async {
-                final shiftRepo = ref.read(shiftRepositoryProvider);
-                final scheduleRepo = ref.read(scheduleRepositoryProvider);
-                final teamRepo = ref.read(teamRepositoryProvider);
-                Future.delayed(const Duration(milliseconds: 100), () {
-                  if (context.mounted) {
-                    importTeamExcel(
-                      context,
-                      teamId: teamId,
-                      shiftRepo: shiftRepo,
-                      scheduleRepo: scheduleRepo,
-                      teamRepo: teamRepo,
-                    );
-                  }
-                });
-              },
-            ),
-          ],
-          const _FlyoutSectionLabel(label: '소통'),
           _FlyoutTile(
             icon: Icons.campaign_outlined,
             label: '팀 공지사항',
             iconColor: AppColors.brandOrange,
             onTap: () => context.push('/teams/$teamId/announcements'),
+          ),
+          _FlyoutTile(
+            icon: Icons.edit_calendar_outlined,
+            label: '원티드 입력',
+            onTap: () => context.push('/teams/$teamId/wanted/entry'),
           ),
           _FlyoutTile(
             icon: Icons.swap_horiz,
@@ -442,6 +493,64 @@ class _TeamContextItems extends ConsumerWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+// ── 팀 flyout 헤더 (모바일 드로어 프로필과 동일 스타일) ──
+
+class _FlyoutTeamHeader extends StatelessWidget {
+  const _FlyoutTeamHeader({required this.team});
+
+  final TeamModel team;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.push('/teams/${team.id}/detail'),
+        hoverColor: cs.onSurface.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Row(
+            children: [
+              TeamProfileAvatar(icon: team.icon, radius: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      team.name,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: cs.primary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                    Text(
+                      'TEAM MANAGER',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontSize: 9,
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: cs.onSurfaceVariant, size: 16),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -797,7 +906,14 @@ class _DropdownMenu extends ConsumerWidget {
   final VoidCallback onClose;
   final ValueChanged<int> onBranchSelect;
 
-  Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
+  Future<void> _confirmSignOut(
+    BuildContext context,
+    WidgetRef ref,
+    VoidCallback onClose,
+  ) async {
+    onClose();
+    if (!context.mounted) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -815,9 +931,16 @@ class _DropdownMenu extends ConsumerWidget {
         ],
       ),
     );
-    if (confirmed == true && context.mounted) {
+    if (confirmed != true || !context.mounted) return;
+
+    try {
       await ref.read(authViewModelProvider.notifier).signOut();
       if (context.mounted) context.go('/login');
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(friendlyAuthError(error))));
     }
   }
 
@@ -868,10 +991,7 @@ class _DropdownMenu extends ConsumerWidget {
               icon: Icons.logout_rounded,
               label: '로그아웃',
               isDestructive: true,
-              onTap: () {
-                onClose();
-                _confirmSignOut(context, ref);
-              },
+              onTap: () => _confirmSignOut(context, ref, onClose),
             ),
           ],
         ),

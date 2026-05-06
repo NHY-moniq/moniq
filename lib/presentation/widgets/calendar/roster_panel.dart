@@ -10,6 +10,7 @@ import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/request_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/viewmodels/request_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 
@@ -166,7 +167,9 @@ class _ShiftTypeGroup extends ConsumerWidget {
                 ),
                 child: Center(
                   child: Text(
-                    entry.shiftType.code,
+                    entry.shiftType.code.toUpperCase() == 'OFF'
+                        ? 'O'
+                        : entry.shiftType.code,
                     style: TextStyle(
                       color: ThemeData.estimateBrightnessForColor(color) ==
                               Brightness.dark
@@ -226,15 +229,24 @@ class _ShiftTypeGroup extends ConsumerWidget {
                 onTap: teamId == null
                     ? null
                     : () {
-                        // 본인 근무: 액션 선택 (수정 / 1:N 교환 후보 추천)
+                        // 본인 근무: 관리자면 직접 수정, 아니면 변경 요청 흐름
                         if (isMe) {
                           if (worker.shiftId != null) {
-                            _showSelfActionSheet(
-                              context,
-                              ref,
-                              shiftId: worker.shiftId!,
-                              workerName: name,
-                            );
+                            if (isAdmin) {
+                              _showSelfActionSheet(
+                                context,
+                                ref,
+                                shiftId: worker.shiftId!,
+                                workerName: name,
+                              );
+                            } else {
+                              _showSelfRequestSheet(
+                                context,
+                                ref,
+                                shiftId: worker.shiftId!,
+                                workerName: name,
+                              );
+                            }
                           } else {
                             // OFF 상태 → 새 근무 추가 시트
                             _showAddSelfShiftSheet(
@@ -520,6 +532,182 @@ class _ShiftTypeGroup extends ConsumerWidget {
       shiftId: shiftId,
       workerName: workerName,
     );
+  }
+
+  /// 비관리자: 본인 근무 변경 시 shift_change 변경 요청을 생성하고 모달 표시.
+  void _showSelfRequestSheet(
+    BuildContext context,
+    WidgetRef ref, {
+    required String shiftId,
+    required String workerName,
+  }) {
+    final tid = teamId!;
+    final dateStr = DateFormat('M월 d일 (E)', 'ko_KR').format(date);
+    final shiftTypes = ref
+            .read(teamDetailViewModelProvider(tid))
+            .valueOrNull
+            ?.shiftTypes
+            .where((t) => t.isActive)
+            .toList() ??
+        <ShiftTypeModel>[];
+    final currentShiftTypeId = entry.shiftType.id;
+
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: AppSpacing.xxl,
+          right: AppSpacing.xxl,
+          top: AppSpacing.xxl,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xxl,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('근무 변경 요청',
+                style: Theme.of(ctx)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: AppSpacing.sm),
+            Text('$dateStr · $workerName',
+                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    )),
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: AppRadius.borderRadiusSm,
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline,
+                      size: 18, color: AppColors.primary),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      '관리자 승인이 필요한 근무 변경 요청으로 접수됩니다.',
+                      style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            Text('변경할 근무 유형',
+                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    )),
+            const SizedBox(height: AppSpacing.md),
+            if (shiftTypes.isEmpty)
+              Text(
+                '등록된 근무 유형이 없습니다',
+                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+              )
+            else
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: shiftTypes.map((t) {
+                  final c = parseHexColor(t.color);
+                  final isCurrent = t.id == currentShiftTypeId;
+                  return ActionChip(
+                    avatar: CircleAvatar(
+                      backgroundColor: c,
+                      child: Text(
+                        t.code,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    label: Text(t.name),
+                    backgroundColor:
+                        isCurrent ? c.withValues(alpha: 0.2) : null,
+                    onPressed: isCurrent
+                        ? null
+                        : () async {
+                            Navigator.pop(ctx);
+                            await _submitSelfShiftChangeRequest(
+                              context,
+                              ref,
+                              requestedShiftType: t,
+                              sourceShiftId: shiftId,
+                            );
+                          },
+                  );
+                }).toList(),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submitSelfShiftChangeRequest(
+    BuildContext context,
+    WidgetRef ref, {
+    required ShiftTypeModel requestedShiftType,
+    required String sourceShiftId,
+  }) async {
+    final tid = teamId!;
+    final repo = ref.read(requestRepositoryProvider);
+    try {
+      await repo.createRequest(
+        teamId: tid,
+        changeType: 'shift_change',
+        sourceShiftId: sourceShiftId,
+        requestedDate: date,
+        requestedShiftTypeId: requestedShiftType.id,
+        reason: '근무 변경 요청',
+      );
+      ref.invalidate(requestListViewModelProvider(tid));
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dctx) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.check_circle_rounded,
+                  color: AppColors.success, size: 22),
+              const SizedBox(width: AppSpacing.sm),
+              const Text('요청 접수 완료'),
+            ],
+          ),
+          content: Text(
+            '${DateFormat('M월 d일', 'ko_KR').format(date)} 근무를 '
+            '"${requestedShiftType.name}"(으)로 변경하는 요청이 접수되었습니다.\n'
+            '관리자 승인 후 반영됩니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dctx),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('요청 접수 실패: $e')),
+      );
+    }
   }
 
   /// 1:N 교환 후보 추천 시트 — AI 추천 + 다중 선택 + 일괄 발송
@@ -895,6 +1083,14 @@ class _ShiftTypeGroup extends ConsumerWidget {
         }
       }
       if (myShiftType != null) break;
+    }
+
+    // 동일 근무 유형끼리는 교환 불가 (의미 없음)
+    if (myShiftType != null && myShiftType == targetShiftType) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('동일한 근무 유형끼리는 교환할 수 없습니다')),
+      );
+      return;
     }
 
     // 미리 repo를 읽어둠 (바텀시트에서 ref 접근 불가 방지)

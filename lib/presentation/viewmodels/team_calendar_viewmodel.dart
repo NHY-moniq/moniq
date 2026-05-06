@@ -53,6 +53,11 @@ final teamCalendarViewModelProvider =
       String
     >(TeamCalendarViewModel.new);
 
+/// 알림 클릭 등 외부 트리거로 팀 캘린더가 특정 월에 포커스되도록
+/// 다음 빌드에서 사용할 월을 임시 저장. viewmodel 빌드 후 자동으로 비워짐.
+final pendingTeamCalendarFocusProvider =
+    StateProvider.family<DateTime?, String>((ref, teamId) => null);
+
 final favoriteTeamProvider = FutureProvider<TeamModel?>((ref) async {
   final authState = ref.watch(authStateChangesProvider);
   final userId = authState.whenOrNull(data: (auth) => auth.session?.user.id);
@@ -81,13 +86,28 @@ class TeamCalendarViewModel
     _teamRepository = ref.watch(teamRepositoryProvider);
 
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    // 알림 클릭 등으로 미리 설정된 focus month가 있으면 그 월을 초기 focus로 사용
+    final pendingFocus =
+        ref.read(pendingTeamCalendarFocusProvider(teamId));
+    final focusMonth =
+        pendingFocus != null ? DateTime(pendingFocus.year, pendingFocus.month) : now;
+    // pending은 1회용 — 다음 빌드에 영향 없도록 비움
+    if (pendingFocus != null) {
+      Future.microtask(() {
+        ref
+            .read(pendingTeamCalendarFocusProvider(teamId).notifier)
+            .state = null;
+      });
+    }
+    final selected = pendingFocus != null
+        ? DateTime(pendingFocus.year, pendingFocus.month, pendingFocus.day)
+        : DateTime(now.year, now.month, now.day);
 
     final results = await Future.wait([
       _teamRepository.getTeamById(teamId),
       _shiftRepository.getShiftTypes(teamId),
-      _shiftRepository.getTeamMonthlyShifts(teamId: teamId, month: now),
-      _shiftRepository.getTeamRoster(teamId: teamId, date: today),
+      _shiftRepository.getTeamMonthlyShifts(teamId: teamId, month: focusMonth),
+      _shiftRepository.getTeamRoster(teamId: teamId, date: selected),
     ]);
 
     final team = results[0] as TeamModel;
@@ -98,8 +118,8 @@ class TeamCalendarViewModel
     return TeamCalendarState(
       teamId: teamId,
       teamName: team.name,
-      focusedMonth: now,
-      selectedDate: today,
+      focusedMonth: focusMonth,
+      selectedDate: selected,
       monthlyShifts: monthlyShifts,
       selectedDateRoster: roster,
       shiftTypes: shiftTypes,
@@ -164,13 +184,27 @@ class TeamCalendarViewModel
     final current = state.valueOrNull;
     if (current == null) return;
     await _shiftRepository.updateShift(shiftId, shiftTypeId: newShiftTypeId);
+    // 변경된 shift의 날짜를 알림 페이로드/본문에 포함 (알림 클릭 시 해당 월로 이동)
+    final changedShift = _findShiftById(current, shiftId);
+    final changeDate = changedShift?.shift.shiftDate ?? current.selectedDate;
+    final dateLabel = '${changeDate.month}/${changeDate.day}';
     await _notifyShiftChanged(
       teamName: current.teamName,
       action: '근무 변경',
       detail:
-          '${affectedWorkerName ?? '근무자'}의 근무가 ${newShiftTypeName ?? '다른 유형'}(으)로 변경되었습니다',
+          '${affectedWorkerName ?? '근무자'}의 $dateLabel 근무가 ${newShiftTypeName ?? '다른 유형'}(으)로 변경되었습니다',
+      changeDate: changeDate,
     );
     await _reloadCurrent(current);
+  }
+
+  ShiftWithType? _findShiftById(TeamCalendarState state, String shiftId) {
+    for (final entry in state.monthlyShifts.entries) {
+      for (final s in entry.value) {
+        if (s.shift.id == shiftId) return s;
+      }
+    }
+    return null;
   }
 
   /// 본인이 OFF 상태인 날짜에 본인 근무를 새로 추가.
@@ -205,11 +239,13 @@ class TeamCalendarViewModel
         'shift_type_id': shiftTypeId,
       },
     ]);
+    final dateLabel = '${date.month}/${date.day}';
     await _notifyShiftChanged(
       teamName: current.teamName,
       action: '근무 추가',
       detail:
-          '${userDisplayName ?? '본인'}이 ${shiftTypeName ?? '근무'}에 추가되었습니다',
+          '${userDisplayName ?? '본인'}이 $dateLabel ${shiftTypeName ?? '근무'}에 추가되었습니다',
+      changeDate: date,
     );
     await _reloadCurrent(current);
   }
@@ -221,11 +257,17 @@ class TeamCalendarViewModel
   }) async {
     final current = state.valueOrNull;
     if (current == null) return;
+    final deletedShift = _findShiftById(current, shiftId);
+    final changeDate =
+        deletedShift?.shift.shiftDate ?? current.selectedDate;
+    final dateLabel = '${changeDate.month}/${changeDate.day}';
     await _shiftRepository.deleteShift(shiftId);
     await _notifyShiftChanged(
       teamName: current.teamName,
       action: '근무 삭제',
-      detail: '${affectedWorkerName ?? '근무자'}의 근무가 삭제되었습니다',
+      detail:
+          '${affectedWorkerName ?? '근무자'}의 $dateLabel 근무가 삭제되었습니다',
+      changeDate: changeDate,
     );
     await _reloadCurrent(current);
   }
@@ -235,6 +277,7 @@ class TeamCalendarViewModel
     required String teamName,
     required String action,
     required String detail,
+    DateTime? changeDate,
   }) async {
     final teamId = state.valueOrNull?.teamId;
     try {
@@ -248,6 +291,13 @@ class TeamCalendarViewModel
         teamId: teamId,
         title: '[$teamName] $action',
         body: detail,
+        data: {
+          'type': 'shift_changed',
+          'team_id': teamId,
+          if (changeDate != null)
+            'change_date':
+                '${changeDate.year}-${changeDate.month.toString().padLeft(2, '0')}-${changeDate.day.toString().padLeft(2, '0')}',
+        },
       );
     }
   }

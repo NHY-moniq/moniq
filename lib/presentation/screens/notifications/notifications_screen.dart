@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/data/models/notification_model.dart';
 import 'package:moniq/data/providers/notification_providers.dart';
+import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -65,6 +68,8 @@ class NotificationsScreen extends HookConsumerWidget {
                       ref.invalidate(myNotificationsProvider);
                       ref.invalidate(unreadNotificationCountProvider);
                     }
+                    if (!context.mounted) return;
+                    await _navigateForNotification(context, ref, n);
                   },
                   onDelete: () async {
                     final n = items[index];
@@ -200,5 +205,126 @@ class _NotificationTile extends StatelessWidget {
     if (diff.inHours < 24) return '${diff.inHours}시간 전';
     if (diff.inDays < 7) return '${diff.inDays}일 전';
     return DateFormat('MM.dd').format(dt);
+  }
+}
+
+/// 알림 카테고리 — 이동할 화면 종류
+enum _NotifTarget {
+  requests, // 변경 요청 화면
+  teamCalendar, // 팀 탭(캘린더) — 즐겨찾기 팀 전환 후 이동
+  wanted, // 원티드 입력
+  announcements, // 팀 공지
+  none,
+}
+
+/// data.type 우선, 없으면 제목/본문 텍스트로 fallback 매칭
+_NotifTarget _classifyNotification(NotificationModel n) {
+  final type = n.data['type'] as String?;
+  switch (type) {
+    case 'request':
+    case 'swap_request':
+    case 'shift_change_request':
+      return _NotifTarget.requests;
+    case 'shift_changed':
+    case 'schedule_published':
+      return _NotifTarget.teamCalendar;
+    case 'wanted_open':
+    case 'wanted_close':
+      return _NotifTarget.wanted;
+    case 'announcement':
+      return _NotifTarget.announcements;
+  }
+
+  // legacy 알림 — type 없을 때 제목/본문으로 추정
+  final text = '${n.title} ${n.body}';
+  if (text.contains('요청')) return _NotifTarget.requests;
+  if (text.contains('원티드')) return _NotifTarget.wanted;
+  if (text.contains('공지')) return _NotifTarget.announcements;
+  if (text.contains('근무표') ||
+      text.contains('근무 변경') ||
+      text.contains('근무 추가') ||
+      text.contains('근무 삭제') ||
+      text.contains('근무가 변경') ||
+      text.contains('근무가 추가') ||
+      text.contains('근무가 삭제')) {
+    return _NotifTarget.teamCalendar;
+  }
+  return _NotifTarget.none;
+}
+
+/// 알림 페이로드 또는 본문 텍스트에서 변경 발생일 추출.
+/// 우선순위: data.change_date(YYYY-MM-DD) → 본문에서 'M/D' or 'YYYY.MM.DD' 패턴.
+DateTime? _extractChangeDate(NotificationModel n) {
+  final raw = n.data['change_date'] as String?;
+  if (raw != null && raw.isNotEmpty) {
+    final parsed = DateTime.tryParse(raw);
+    if (parsed != null) return parsed;
+  }
+  // 본문 fallback — 'M/D', 'M월 D일', 'YYYY.MM.DD' 패턴
+  final text = '${n.title} ${n.body}';
+  // YYYY-MM-DD or YYYY.MM.DD or YYYY/MM/DD
+  final fullPattern = RegExp(r'(\d{4})[./-](\d{1,2})[./-](\d{1,2})');
+  final fullMatch = fullPattern.firstMatch(text);
+  if (fullMatch != null) {
+    final y = int.tryParse(fullMatch.group(1)!);
+    final m = int.tryParse(fullMatch.group(2)!);
+    final d = int.tryParse(fullMatch.group(3)!);
+    if (y != null && m != null && d != null) {
+      return DateTime(y, m, d);
+    }
+  }
+  // 'M/D' or 'M월 D일' — 현재 연도로 가정
+  final shortPattern = RegExp(r'(\d{1,2})[월/](\s*\d{1,2})');
+  final shortMatch = shortPattern.firstMatch(text);
+  if (shortMatch != null) {
+    final m = int.tryParse(shortMatch.group(1)!);
+    final d = int.tryParse(shortMatch.group(2)!.trim());
+    if (m != null && d != null && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      // createdAt 연도를 우선 사용 (오래된 알림은 그 시점의 연도)
+      return DateTime(n.createdAt.year, m, d);
+    }
+  }
+  // 최종 fallback: 알림 생성 시점의 월 (오래된 알림에서 정확한 shift_date 추출 불가 시)
+  return DateTime(n.createdAt.year, n.createdAt.month, n.createdAt.day);
+}
+
+Future<void> _navigateForNotification(
+  BuildContext context,
+  WidgetRef ref,
+  NotificationModel n,
+) async {
+  final target = _classifyNotification(n);
+  final teamId = (n.data['team_id'] as String?) ?? n.teamId;
+  if (target == _NotifTarget.none || teamId == null) return;
+
+  switch (target) {
+    case _NotifTarget.requests:
+      context.push('/teams/$teamId/requests');
+      break;
+    case _NotifTarget.wanted:
+      context.push('/teams/$teamId/wanted/entry');
+      break;
+    case _NotifTarget.announcements:
+      context.push('/teams/$teamId/announcements');
+      break;
+    case _NotifTarget.teamCalendar:
+      // 변경 발생일이 있으면 해당 월에 포커스되도록 pending 설정
+      final focusDate = _extractChangeDate(n);
+      if (focusDate != null) {
+        ref
+            .read(pendingTeamCalendarFocusProvider(teamId).notifier)
+            .state = focusDate;
+      }
+      // 알림 발생 팀을 즐겨찾기로 설정 후 팀 탭으로 이동.
+      try {
+        await ref.read(teamRepositoryProvider).setFavoriteTeam(teamId);
+        ref.invalidate(favoriteTeamProvider);
+        ref.invalidate(teamCalendarViewModelProvider(teamId));
+      } catch (_) {}
+      if (!context.mounted) return;
+      context.go('/teams');
+      break;
+    case _NotifTarget.none:
+      break;
   }
 }

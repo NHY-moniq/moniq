@@ -70,6 +70,14 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
   late bool _dayOnly;
   late bool _nightDedicated;
   late String? _skillLevel;
+  late List<String> _preferredShifts;
+
+  // 선호 근무 코드별 메타
+  static const _shiftMeta = [
+    _ShiftMeta('D', '데이', AppColors.shiftDay),
+    _ShiftMeta('E', '이브닝', AppColors.shiftEvening),
+    _ShiftMeta('N', '나이트', AppColors.shiftNight),
+  ];
 
   @override
   void initState() {
@@ -78,12 +86,22 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
     _dayOnly = widget.member.member.dayOnly;
     _nightDedicated = widget.member.member.nightDedicated;
     _skillLevel = widget.member.member.skillLevel;
+    _preferredShifts = List<String>.from(widget.member.member.preferredShifts);
+  }
+
+  // 근무 속성 기준 선택 가능 코드
+  Set<String> get _allowedShiftCodes {
+    if (_nightDedicated) return {'N'};
+    if (_dayOnly) return {'D'};
+    if (_nightExempt) return {'D', 'E'};
+    return {'D', 'E', 'N'};
   }
 
   Future<void> _saveAttrs({
     required bool nightExempt,
     required bool dayOnly,
     required bool nightDedicated,
+    List<String>? preferredShifts,
   }) async {
     setState(() => _saving = true);
     try {
@@ -94,12 +112,45 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
             nightExempt: nightExempt,
             dayOnly: dayOnly,
             nightDedicated: nightDedicated,
+            preferredShifts: preferredShifts,
           );
     } catch (e) {
       if (mounted) _showError('저장 중 오류가 발생했습니다: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _togglePreferredShift(String code) async {
+    final allowed = _allowedShiftCodes;
+    if (!allowed.contains(code)) {
+      _showError(_attrConflictMessage(code));
+      return;
+    }
+    final next = List<String>.from(_preferredShifts);
+    if (next.contains(code)) {
+      next.remove(code);
+    } else {
+      if (next.length >= 2) {
+        _showError('선호 근무는 최대 2개까지 선택할 수 있습니다');
+        return;
+      }
+      next.add(code);
+    }
+    setState(() => _preferredShifts = next);
+    await _saveAttrs(
+      nightExempt: _nightExempt,
+      dayOnly: _dayOnly,
+      nightDedicated: _nightDedicated,
+      preferredShifts: next,
+    );
+  }
+
+  String _attrConflictMessage(String code) {
+    if (_nightDedicated && code != 'N') return '나이트 전담 속성으로 데이·이브닝 선호를 설정할 수 없습니다';
+    if (_dayOnly && code != 'D') return '데이 전용 속성으로 이브닝·나이트 선호를 설정할 수 없습니다';
+    if (_nightExempt && code == 'N') return '나이트 제외 속성으로 나이트 선호를 설정할 수 없습니다';
+    return '근무 속성과 충돌하는 선호 근무입니다';
   }
 
   Future<void> _changeRole() async {
@@ -249,15 +300,21 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
                   onChanged: (v) {
                     final newNightExempt = v ? false : _nightExempt;
                     final newDayOnly = v ? false : _dayOnly;
+                    // 나이트전담 ON → N 이외 선호 근무 제거
+                    final newPref = v
+                        ? _preferredShifts.where((c) => c == 'N').toList()
+                        : _preferredShifts;
                     setState(() {
                       _nightDedicated = v;
                       _nightExempt = newNightExempt;
                       _dayOnly = newDayOnly;
+                      _preferredShifts = newPref;
                     });
                     _saveAttrs(
                       nightExempt: newNightExempt,
                       dayOnly: newDayOnly,
                       nightDedicated: v,
+                      preferredShifts: newPref,
                     );
                   },
                 ),
@@ -270,11 +327,19 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
                   value: _nightExempt,
                   disabled: _saving || _nightDedicated,
                   onChanged: (v) {
-                    setState(() => _nightExempt = v);
+                    // 나이트제외 ON → N 선호 제거
+                    final newPref = v
+                        ? _preferredShifts.where((c) => c != 'N').toList()
+                        : _preferredShifts;
+                    setState(() {
+                      _nightExempt = v;
+                      _preferredShifts = newPref;
+                    });
                     _saveAttrs(
                       nightExempt: v,
                       dayOnly: _dayOnly,
                       nightDedicated: _nightDedicated,
+                      preferredShifts: newPref,
                     );
                   },
                 ),
@@ -287,13 +352,75 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
                   value: _dayOnly,
                   disabled: _saving || _nightDedicated,
                   onChanged: (v) {
-                    setState(() => _dayOnly = v);
+                    // 데이전용 ON → D 이외 선호 제거
+                    final newPref = v
+                        ? _preferredShifts.where((c) => c == 'D').toList()
+                        : _preferredShifts;
+                    setState(() {
+                      _dayOnly = v;
+                      _preferredShifts = newPref;
+                    });
                     _saveAttrs(
                       nightExempt: _nightExempt,
                       dayOnly: v,
                       nightDedicated: _nightDedicated,
+                      preferredShifts: newPref,
                     );
                   },
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: AppSpacing.lg),
+
+          // ── 선호 근무 ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SectionLabel(label: '선호 근무'),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '최소 1개, 최대 2개 선택 (근무 속성 내에서만 선택 가능)',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  children: _shiftMeta.map((meta) {
+                    final isSelected = _preferredShifts.contains(meta.code);
+                    final isAllowed = _allowedShiftCodes.contains(meta.code);
+                    return FilterChip(
+                      label: Text(meta.label),
+                      selected: isSelected,
+                      onSelected: _saving
+                          ? null
+                          : (_) => _togglePreferredShift(meta.code),
+                      selectedColor: meta.color.withValues(alpha: 0.2),
+                      checkmarkColor: meta.color,
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? meta.color
+                            : isAllowed
+                                ? Theme.of(context).colorScheme.onSurface
+                                : Theme.of(context).colorScheme.onSurface
+                                    .withValues(alpha: 0.35),
+                        fontWeight: isSelected ? FontWeight.w700 : null,
+                      ),
+                      side: BorderSide(
+                        color: isSelected
+                            ? meta.color.withValues(alpha: 0.6)
+                            : Theme.of(context)
+                                .colorScheme
+                                .outline
+                                .withValues(alpha: isAllowed ? 0.5 : 0.2),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ],
             ),
@@ -732,6 +859,15 @@ class _AttrToggleCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── 선호 근무 메타 ──
+
+class _ShiftMeta {
+  const _ShiftMeta(this.code, this.label, this.color);
+  final String code;
+  final String label;
+  final Color color;
 }
 
 // ── 섹션 레이블 ──

@@ -191,9 +191,7 @@ class _TeamCalendarView extends HookConsumerWidget {
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-      appBar: AdaptiveLayout.isWide(context)
-          ? null
-          : MoniqAppBar(
+      appBar: MoniqAppBar(
               title: team.name,
               eyebrow: 'TEAM',
               showBack: false,
@@ -209,11 +207,11 @@ class _TeamCalendarView extends HookConsumerWidget {
                     onTap: () {
                       final calState = calendarAsync.valueOrNull;
                       if (calState == null) return;
-                      final teamRepo = ref.read(teamRepositoryProvider);
-                      exportTeamCalendarStandalone(
-                          context, calState, teamRepo);
+                      exportTeamCalendar(context, ref, calState);
                     },
                   ),
+                  if (isAdmin && kIsWeb && AdaptiveLayout.isWide(context))
+                    _ExcelImportMenuButton(teamId: team.id),
                   if (isAdmin)
                     MoniqAppBarAction(
                       icon: Icons.delete_sweep_outlined,
@@ -227,6 +225,7 @@ class _TeamCalendarView extends HookConsumerWidget {
                             ref.read(scheduleRepositoryProvider);
                         showDeleteScheduleSheet(
                           context: context,
+                          ref: ref,
                           scheduleRepo: scheduleRepo,
                           teamId: team.id,
                           state: state,
@@ -242,7 +241,7 @@ class _TeamCalendarView extends HookConsumerWidget {
                     ),
                 ],
               ),
-            ),
+            ),  // MoniqAppBar
       endDrawer: AdaptiveLayout.isWide(context)
           ? null
           : _TeamDrawer(teams: teams, currentTeamId: team.id, scaffoldContext: context),
@@ -274,6 +273,13 @@ class _TeamCalendarView extends HookConsumerWidget {
 
               // Calendar
               MoniqCalendar(
+                legendItems: state.shiftTypes
+                    .where((st) => st.isActive)
+                    .map((st) => (
+                          color: parseHexColor(st.color),
+                          label: st.code.toUpperCase(),
+                        ))
+                    .toList(),
                 focusedDay: state.focusedMonth,
                 selectedDay: state.selectedDate,
                 startingDayOfWeek: startingDay,
@@ -391,11 +397,6 @@ class _TeamDrawer extends HookConsumerWidget {
       (t) => t.id == currentTeamId,
     );
 
-    final teamDetail = ref.watch(teamDetailViewModelProvider(currentTeamId));
-    final isAdmin = teamDetail.valueOrNull?.isAdmin ?? false;
-    final showExcelMenus =
-        kIsWeb && AdaptiveLayout.isWide(scaffoldContext) && isAdmin;
-
     final cs = theme.colorScheme;
 
     return Drawer(
@@ -487,6 +488,14 @@ class _TeamDrawer extends HookConsumerWidget {
                     },
                   ),
                   _TeamDrawerNavItem(
+                    icon: Icons.edit_calendar_outlined,
+                    label: '원티드 입력',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/teams/$currentTeamId/wanted/entry');
+                    },
+                  ),
+                  _TeamDrawerNavItem(
                     icon: Icons.swap_horiz,
                     label: '변경 요청',
                     onTap: () {
@@ -495,47 +504,6 @@ class _TeamDrawer extends HookConsumerWidget {
                     },
                   ),
 
-                  // Excel 관련 메뉴는 웹 와이드 레이아웃 + 관리자에서만 표시
-                  if (showExcelMenus) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    _TeamDrawerNavItem(
-                      icon: Icons.description_outlined,
-                      label: 'Excel 샘플 양식',
-                      onTap: () {
-                        final ctx = scaffoldContext;
-                        final shiftRepo = ref.read(shiftRepositoryProvider);
-                        Navigator.pop(context);
-                        Future.delayed(const Duration(milliseconds: 300), () {
-                          exportSampleTemplate(
-                            ctx,
-                            shiftRepo: shiftRepo,
-                            teamId: currentTeamId,
-                          );
-                        });
-                      },
-                    ),
-                    _TeamDrawerNavItem(
-                      icon: Icons.upload_file_outlined,
-                      label: 'Excel 일정 가져오기',
-                      onTap: () {
-                        final ctx = scaffoldContext;
-                        final shiftRepo = ref.read(shiftRepositoryProvider);
-                        final scheduleRepo =
-                            ref.read(scheduleRepositoryProvider);
-                        final teamRepo = ref.read(teamRepositoryProvider);
-                        Navigator.pop(context);
-                        Future.delayed(const Duration(milliseconds: 300), () {
-                          importTeamExcel(
-                            ctx,
-                            teamId: currentTeamId,
-                            shiftRepo: shiftRepo,
-                            scheduleRepo: scheduleRepo,
-                            teamRepo: teamRepo,
-                          );
-                        });
-                      },
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -663,4 +631,63 @@ bool _isEducation(String code, String name) {
   final lower = name.toLowerCase();
   if (lower.contains('education') || lower.contains('training')) return true;
   return false;
+}
+
+// ── Excel 가져오기 팝업 버튼 (웹 AppBar 전용) ──
+
+class _ExcelImportMenuButton extends ConsumerWidget {
+  const _ExcelImportMenuButton({required this.teamId});
+
+  final String teamId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return PopupMenuButton<String>(
+      tooltip: 'Excel',
+      icon: const Icon(Icons.table_chart_outlined),
+      iconSize: 22,
+      onSelected: (value) {
+        final shiftRepo = ref.read(shiftRepositoryProvider);
+        final scheduleRepo = ref.read(scheduleRepositoryProvider);
+        final teamRepo = ref.read(teamRepositoryProvider);
+        if (value == 'import') {
+          importTeamExcel(
+            context,
+            teamId: teamId,
+            shiftRepo: shiftRepo,
+            scheduleRepo: scheduleRepo,
+            teamRepo: teamRepo,
+          );
+        } else if (value == 'sample') {
+          exportSampleTemplate(
+            context,
+            shiftRepo: shiftRepo,
+            teamId: teamId,
+          );
+        }
+      },
+      itemBuilder: (_) => const [
+        PopupMenuItem(
+          value: 'import',
+          child: Row(
+            children: [
+              Icon(Icons.upload_file_outlined, size: 18),
+              SizedBox(width: 10),
+              Text('엑셀로 가져오기'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'sample',
+          child: Row(
+            children: [
+              Icon(Icons.description_outlined, size: 18),
+              SizedBox(width: 10),
+              Text('샘플 양식 다운로드'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }

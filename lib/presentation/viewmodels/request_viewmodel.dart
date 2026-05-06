@@ -112,6 +112,42 @@ class RequestListViewModel
     ref.invalidateSelf();
   }
 
+  /// 일괄 승인 — 한 건이라도 실패해도 나머지는 진행하고 마지막에 1회 invalidate.
+  Future<void> approveRequests(List<String> requestIds) async {
+    final repo = ref.read(requestRepositoryProvider);
+    for (final id in requestIds) {
+      try {
+        await repo.updateRequestStatus(id, 'approved');
+        try {
+          await repo.applyRequest(id);
+        } catch (_) {}
+        await _notifyStatusChange(id, '승인');
+      } catch (_) {}
+    }
+    ref.invalidateSelf();
+  }
+
+  Future<void> rejectRequests(List<String> requestIds) async {
+    final repo = ref.read(requestRepositoryProvider);
+    for (final id in requestIds) {
+      try {
+        await repo.updateRequestStatus(id, 'rejected');
+        await _notifyStatusChange(id, '거절');
+      } catch (_) {}
+    }
+    ref.invalidateSelf();
+  }
+
+  Future<void> cancelRequests(List<String> requestIds) async {
+    final repo = ref.read(requestRepositoryProvider);
+    for (final id in requestIds) {
+      try {
+        await repo.cancelRequest(id);
+      } catch (_) {}
+    }
+    ref.invalidateSelf();
+  }
+
   /// 요청 상태 변경 시 신청자에게 FCM 푸시 + 관리자 본인에게 로컬 알림.
   Future<void> _notifyStatusChange(String requestId, String statusKo) async {
     final current = state.valueOrNull;
@@ -139,6 +175,11 @@ class RequestListViewModel
         userIds: [requesterId],
         title: '요청 $statusKo',
         body: body,
+        data: {
+          'type': 'request',
+          'team_id': current.teamId,
+          'request_id': requestId,
+        },
       );
     }
   }
