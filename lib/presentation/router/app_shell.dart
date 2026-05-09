@@ -541,7 +541,7 @@ class _FlyoutTeamHeader extends StatelessWidget {
                       maxLines: 1,
                     ),
                     Text(
-                      'TEAM MANAGER',
+                      'TEAM SETTINGS',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: cs.onSurfaceVariant,
                         fontSize: 9,

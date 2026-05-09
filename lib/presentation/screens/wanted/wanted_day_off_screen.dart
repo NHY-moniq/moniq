@@ -177,7 +177,7 @@ class _EntryView extends HookConsumerWidget {
                     spacing: AppSpacing.sm,
                     children: [
                       ChoiceChip(
-                        label: const Text('희망 근무'),
+                        label: const Text('원티드'),
                         selected: !_isNightView,
                         onSelected: (_) {
                           ref
@@ -667,8 +667,13 @@ class _EntryView extends HookConsumerWidget {
     final canonicalTypeIds = {dType?.id, eType?.id, nType?.id}
         .whereType<String>()
         .toSet();
+    // ED(교육) 타입은 D/E/N 바로 다음에 위치
+    final edType = shiftTypes
+        .cast<ShiftTypeModel?>()
+        .firstWhere((t) => t!.code.toUpperCase() == 'ED', orElse: () => null);
+    final allPriorityIds = {...canonicalTypeIds, if (edType?.id != null) edType!.id};
     final otherShiftTypes =
-        shiftTypes.where((t) => !canonicalTypeIds.contains(t.id)).toList();
+        shiftTypes.where((t) => !allPriorityIds.contains(t.id)).toList();
 
     // State inside sheet
     // null shiftTypeId = OFF
@@ -695,8 +700,14 @@ class _EntryView extends HookConsumerWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
           // 교육 등 비 D/E/N 근무 유형 선택 여부
-          final isEducationSelected = currentShiftTypeId != null &&
-              !canonicalTypeIds.contains(currentShiftTypeId);
+          final selectedType = currentShiftTypeId != null
+              ? shiftTypes.cast<ShiftTypeModel?>().firstWhere(
+                    (t) => t!.id == currentShiftTypeId,
+                    orElse: () => null,
+                  )
+              : null;
+          final isEducationSelected =
+              selectedType != null && selectedType.code.toUpperCase() == 'ED';
 
           // P1-2: 타입 셀렉터 아이템 목록 구성
           final typeItems = <_TypeItem>[
@@ -727,6 +738,13 @@ class _EntryView extends HookConsumerWidget {
                 label: '나이트',
                 code: 'N',
                 color: parseHexColor(nType.color),
+              ),
+            if (edType != null)
+              _TypeItem(
+                id: edType.id,
+                label: edType.name,
+                code: edType.code,
+                color: parseHexColor(edType.color),
               ),
             ...otherShiftTypes.map(
               (t) => _TypeItem(
@@ -1228,7 +1246,7 @@ class _ActiveBanner extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           // 타이틀
           Text(
-            isNightView ? '나이트 전담을 신청해주세요' : '원티드 정보를 입력해주세요',
+            isNightView ? '나이트 전담을 신청해주세요' : '원티드를 입력해주세요',
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w600,
             ),

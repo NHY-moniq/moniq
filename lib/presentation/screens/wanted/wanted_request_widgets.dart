@@ -299,7 +299,8 @@ class WantedRequestActiveView extends HookConsumerWidget {
     final theme = Theme.of(context);
     final colorScheme = Theme.of(context).colorScheme;
     final dateFormat = DateFormat('MM.dd');
-    final request = state.activeRequest!;
+    final request = state.activeRequest;
+    if (request == null) return const Center(child: CircularProgressIndicator());
     final isNight = request.wantedType == 'night_dedicated';
 
     // 근무 유형 맵

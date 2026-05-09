@@ -87,6 +87,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      clipBehavior: Clip.antiAlias,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (ctx) => DraggableScrollableSheet(
         initialChildSize: 0.7,
         minChildSize: 0.4,

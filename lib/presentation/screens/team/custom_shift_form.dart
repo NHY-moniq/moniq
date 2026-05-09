@@ -46,6 +46,10 @@ class _CustomShiftFormState
         const TimeOfDay(hour: 7, minute: 0);
     _endTime = _parseTime(widget.endC.text) ??
         const TimeOfDay(hour: 15, minute: 0);
+    // 컨트롤러가 비어있으면 기본 시간을 채워서 저장 시 누락되지 않도록
+    if (widget.startC.text.isEmpty || widget.endC.text.isEmpty) {
+      _syncControllers();
+    }
     // 초기값이 이미 중복인 경우 대비
     if (widget.codeC.text.isNotEmpty) {
       _codeDuplicate = _isDuplicate(widget.codeC.text);

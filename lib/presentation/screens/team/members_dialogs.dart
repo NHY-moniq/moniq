@@ -236,6 +236,7 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final m = widget.member;
+    final isPersonal = widget.state.team.teamType == 'personal';
 
     return SingleChildScrollView(
       controller: widget.scrollController,
@@ -259,172 +260,168 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
               ),
             ),
 
-          const SizedBox(height: AppSpacing.lg),
+          // ── 조직 팀 전용: 숙련도 · 근무 속성 · 선호 근무 ──
+          if (!isPersonal) ...[
+            const SizedBox(height: AppSpacing.lg),
 
-          // ── 숙련도 ──
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SectionLabel(label: '숙련도'),
-                const SizedBox(height: AppSpacing.sm),
-                _SkillSelector(
-                  selected: _skillLevel,
-                  saving: _saving,
-                  onChanged: _changeSkillLevel,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: AppSpacing.lg),
-
-          // ── 근무 속성 ──
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SectionLabel(label: '근무 속성'),
-                const SizedBox(height: AppSpacing.sm),
-                _AttrToggleCard(
-                  icon: Icons.nights_stay_rounded,
-                  color: AppColors.shiftNight,
-                  title: '나이트 전담',
-                  subtitle: '나이트 근무만 배정',
-                  value: _nightDedicated,
-                  disabled: _saving,
-                  onChanged: (v) {
-                    final newNightExempt = v ? false : _nightExempt;
-                    final newDayOnly = v ? false : _dayOnly;
-                    // 나이트전담 ON → N 이외 선호 근무 제거
-                    final newPref = v
-                        ? _preferredShifts.where((c) => c == 'N').toList()
-                        : _preferredShifts;
-                    setState(() {
-                      _nightDedicated = v;
-                      _nightExempt = newNightExempt;
-                      _dayOnly = newDayOnly;
-                      _preferredShifts = newPref;
-                    });
-                    _saveAttrs(
-                      nightExempt: newNightExempt,
-                      dayOnly: newDayOnly,
-                      nightDedicated: v,
-                      preferredShifts: newPref,
-                    );
-                  },
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _AttrToggleCard(
-                  icon: Icons.bedtime_off_outlined,
-                  color: AppColors.primary,
-                  title: '나이트 제외',
-                  subtitle: '나이트 근무 배정 안 함',
-                  value: _nightExempt,
-                  disabled: _saving || _nightDedicated,
-                  onChanged: (v) {
-                    // 나이트제외 ON → N 선호 제거
-                    final newPref = v
-                        ? _preferredShifts.where((c) => c != 'N').toList()
-                        : _preferredShifts;
-                    setState(() {
-                      _nightExempt = v;
-                      _preferredShifts = newPref;
-                    });
-                    _saveAttrs(
-                      nightExempt: v,
-                      dayOnly: _dayOnly,
-                      nightDedicated: _nightDedicated,
-                      preferredShifts: newPref,
-                    );
-                  },
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _AttrToggleCard(
-                  icon: Icons.wb_sunny_outlined,
-                  color: AppColors.shiftDay,
-                  title: '데이 전담',
-                  subtitle: '데이 근무만 배정',
-                  value: _dayOnly,
-                  disabled: _saving || _nightDedicated,
-                  onChanged: (v) {
-                    // 데이전담 ON → D 이외 선호 제거
-                    final newPref = v
-                        ? _preferredShifts.where((c) => c == 'D').toList()
-                        : _preferredShifts;
-                    setState(() {
-                      _dayOnly = v;
-                      _preferredShifts = newPref;
-                    });
-                    _saveAttrs(
-                      nightExempt: _nightExempt,
-                      dayOnly: v,
-                      nightDedicated: _nightDedicated,
-                      preferredShifts: newPref,
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: AppSpacing.lg),
-
-          // ── 선호 근무 ──
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SectionLabel(label: '선호 근무'),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '최소 1개, 최대 2개 선택 (근무 속성 내에서만 선택 가능)',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+            // 숙련도
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel(label: '숙련도'),
+                  const SizedBox(height: AppSpacing.sm),
+                  _SkillSelector(
+                    selected: _skillLevel,
+                    saving: _saving,
+                    onChanged: _changeSkillLevel,
                   ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  children: _shiftMeta.map((meta) {
-                    final isSelected = _preferredShifts.contains(meta.code);
-                    final isAllowed = _allowedShiftCodes.contains(meta.code);
-                    return FilterChip(
-                      label: Text(meta.label),
-                      selected: isSelected,
-                      onSelected: _saving
-                          ? null
-                          : (_) => _togglePreferredShift(meta.code),
-                      selectedColor: meta.color.withValues(alpha: 0.2),
-                      checkmarkColor: meta.color,
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? meta.color
-                            : isAllowed
-                                ? Theme.of(context).colorScheme.onSurface
-                                : Theme.of(context).colorScheme.onSurface
-                                    .withValues(alpha: 0.35),
-                        fontWeight: isSelected ? FontWeight.w700 : null,
-                      ),
-                      side: BorderSide(
-                        color: isSelected
-                            ? meta.color.withValues(alpha: 0.6)
-                            : Theme.of(context)
-                                .colorScheme
-                                .outline
-                                .withValues(alpha: isAllowed ? 0.5 : 0.2),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+
+            const SizedBox(height: AppSpacing.lg),
+
+            // 근무 속성
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel(label: '근무 속성'),
+                  const SizedBox(height: AppSpacing.sm),
+                  _AttrToggleCard(
+                    icon: Icons.nights_stay_rounded,
+                    color: AppColors.shiftNight,
+                    title: '나이트 전담',
+                    subtitle: '나이트 근무만 배정',
+                    value: _nightDedicated,
+                    disabled: _saving,
+                    onChanged: (v) {
+                      final newNightExempt = v ? false : _nightExempt;
+                      final newDayOnly = v ? false : _dayOnly;
+                      final newPref = v
+                          ? _preferredShifts.where((c) => c == 'N').toList()
+                          : _preferredShifts;
+                      setState(() {
+                        _nightDedicated = v;
+                        _nightExempt = newNightExempt;
+                        _dayOnly = newDayOnly;
+                        _preferredShifts = newPref;
+                      });
+                      _saveAttrs(
+                        nightExempt: newNightExempt,
+                        dayOnly: newDayOnly,
+                        nightDedicated: v,
+                        preferredShifts: newPref,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _AttrToggleCard(
+                    icon: Icons.bedtime_off_outlined,
+                    color: AppColors.primary,
+                    title: '나이트 제외',
+                    subtitle: '나이트 근무 배정 안 함',
+                    value: _nightExempt,
+                    disabled: _saving || _nightDedicated,
+                    onChanged: (v) {
+                      final newPref = v
+                          ? _preferredShifts.where((c) => c != 'N').toList()
+                          : _preferredShifts;
+                      setState(() {
+                        _nightExempt = v;
+                        _preferredShifts = newPref;
+                      });
+                      _saveAttrs(
+                        nightExempt: v,
+                        dayOnly: _dayOnly,
+                        nightDedicated: _nightDedicated,
+                        preferredShifts: newPref,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _AttrToggleCard(
+                    icon: Icons.wb_sunny_outlined,
+                    color: AppColors.shiftDay,
+                    title: '데이 전담',
+                    subtitle: '데이 근무만 배정',
+                    value: _dayOnly,
+                    disabled: _saving || _nightDedicated,
+                    onChanged: (v) {
+                      final newPref = v
+                          ? _preferredShifts.where((c) => c == 'D').toList()
+                          : _preferredShifts;
+                      setState(() {
+                        _dayOnly = v;
+                        _preferredShifts = newPref;
+                      });
+                      _saveAttrs(
+                        nightExempt: _nightExempt,
+                        dayOnly: v,
+                        nightDedicated: _nightDedicated,
+                        preferredShifts: newPref,
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: AppSpacing.lg),
+
+            // 선호 근무
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel(label: '선호 근무'),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '최소 1개, 최대 2개 선택 (근무 속성 내에서만 선택 가능)',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    children: _shiftMeta.map((meta) {
+                      final isSelected = _preferredShifts.contains(meta.code);
+                      final isAllowed = _allowedShiftCodes.contains(meta.code);
+                      return FilterChip(
+                        label: Text(meta.label),
+                        selected: isSelected,
+                        onSelected: _saving
+                            ? null
+                            : (_) => _togglePreferredShift(meta.code),
+                        selectedColor: meta.color.withValues(alpha: 0.2),
+                        checkmarkColor: meta.color,
+                        labelStyle: TextStyle(
+                          color: isSelected
+                              ? meta.color
+                              : isAllowed
+                                  ? colorScheme.onSurface
+                                  : colorScheme.onSurface
+                                      .withValues(alpha: 0.35),
+                          fontWeight: isSelected ? FontWeight.w700 : null,
+                        ),
+                        side: BorderSide(
+                          color: isSelected
+                              ? meta.color.withValues(alpha: 0.6)
+                              : colorScheme.outline
+                                  .withValues(alpha: isAllowed ? 0.5 : 0.2),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           // ── 멤버 제거 ──
           if (!widget.isSelf) ...[
@@ -475,15 +472,33 @@ class _MemberHeader extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.md),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
         border: Border(
           bottom: BorderSide(color: colorScheme.outlineVariant),
         ),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 드래그 핸들
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.xs, AppSpacing.lg, AppSpacing.md),
+            child: Row(
         children: [
           // 아바타
           Stack(
@@ -570,8 +585,11 @@ class _MemberHeader extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
+            ),  // Row
+          ),    // Padding
+        ],      // Column children
+      ),        // Column
+    );          // Container
   }
 }
 

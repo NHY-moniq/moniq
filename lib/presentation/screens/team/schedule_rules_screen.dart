@@ -70,9 +70,6 @@ class _RulesBody extends ConsumerStatefulWidget {
 }
 
 class _RulesBodyState extends ConsumerState<_RulesBody> {
-  // ── 근무 패턴 금지 (하드) ──
-  late bool _nodDisabled; // Night → Off → Day (NOD 금지)
-
   // ── 기피 패턴 (소프트 — 가능하면 피하지만 강제 아님) ──
   late bool _noodAvoid; // Night → Off → Off → Day
   late bool _noeAvoid; // Night → Off → Evening
@@ -95,9 +92,6 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
     final ruleMap = {
       for (final r in widget.rules) r.ruleType: r.ruleValue,
     };
-
-    _nodDisabled =
-        ((ruleMap['nod_disabled'] ?? {})['enabled'] as bool?) ?? true;
 
     _noodAvoid =
         ((ruleMap['avoid_nood'] ?? {})['enabled'] as bool?) ?? true;
@@ -150,10 +144,6 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
 
     try {
       await Future.wait([
-        notifier.upsertRule(
-          'nod_disabled',
-          {'enabled': _nodDisabled},
-        ),
         notifier.upsertRule(
           'avoid_nood',
           {'enabled': _noodAvoid},
@@ -224,31 +214,7 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── 하드 패턴 금지 ──
-            ScheduleRuleSectionHeader(
-              title: '패턴 금지 (필수)',
-              subtitle: '위반 시 해당 배정을 절대 허용하지 않습니다',
-            ),
-            const SizedBox(height: AppSpacing.md),
-            ScheduleRuleCard(
-              children: [
-                ScheduleRulePatternToggleRow(
-                  pattern: 'NOD',
-                  description: '나이트 → 오프 → 데이 패턴 금지',
-                  value: _nodDisabled,
-                  isHard: true,
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _nodDisabled = v);
-                    _markDirty();
-                  },
-                ),
-              ],
-            ),
-
-            const SizedBox(height: AppSpacing.xxl),
-
-            // ── 소프트 기피 패턴 ──
+              // ── 소프트 기피 패턴 ──
             ScheduleRuleSectionHeader(
               title: '기피 패턴 (권장)',
               subtitle: '가능하면 피하지만, 인력 부족 시 허용됩니다',

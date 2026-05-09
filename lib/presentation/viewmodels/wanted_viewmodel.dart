@@ -350,7 +350,8 @@ class WantedAdminViewModel
     try {
       final repo = ref.read(wantedRepositoryProvider);
       await repo.closeWantedRequest(closingRequest.id);
-      state = AsyncData(current.copyWith(activeRequest: null, allEntries: []));
+      // 즉시 로딩 상태로 전환해 중간 화면(생성 폼 등)이 잠깐 뜨지 않도록 함
+      state = const AsyncLoading();
 
       // 팀원 전체에게 종료 알림 (관리자 본인 제외)
       try {

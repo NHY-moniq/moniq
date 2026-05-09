@@ -162,14 +162,26 @@ class _NoFavoriteView extends HookConsumerWidget {
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final team = teams[index];
+                  final isPersonal = team.teamType == 'personal';
                   return ListTile(
                     leading: TeamProfileAvatar(
                       icon: team.icon,
                       radius: 20,
                     ),
                     title: Text(team.name),
-                    trailing: const Icon(Icons.star_outline),
+                    subtitle: isPersonal
+                        ? Text(
+                            '개인',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          )
+                        : null,
+                    trailing: isPersonal
+                        ? null
+                        : const Icon(Icons.star_outline),
                     onTap: () async {
+                      if (isPersonal) return;
                       final teamRepo = ref.read(teamRepositoryProvider);
                       await teamRepo.setFavoriteTeam(team.id);
                       ref.invalidate(favoriteTeamProvider);
@@ -461,7 +473,7 @@ class _TeamDrawer extends HookConsumerWidget {
                           ),
                           const SizedBox(height: AppSpacing.xxs),
                           Text(
-                            'TEAM MANAGER',
+                            'TEAM SETTINGS',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: cs.onSurfaceVariant,
                               fontWeight: FontWeight.w600,
