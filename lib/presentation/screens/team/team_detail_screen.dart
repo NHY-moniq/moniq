@@ -99,9 +99,9 @@ class TeamDetailScreen extends HookConsumerWidget {
                 child: TeamDetailBubbleMenuCard(
                   icon: Icons.auto_awesome_outlined,
                   iconColor: Theme.of(context).colorScheme.primary,
-                  title: '스케줄 생성',
+                  title: '근무표 자동 생성',
                   subtitle: state.isAdmin
-                      ? '생성 규칙 설정'
+                      ? '규칙 설정 · 근무표 생성'
                       : '팀 관리자만 사용 가능',
                   onTap: () {
                     if (state.isAdmin) {

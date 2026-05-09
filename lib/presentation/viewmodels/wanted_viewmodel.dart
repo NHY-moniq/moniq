@@ -655,7 +655,7 @@ class WantedMemberViewModel
           }
           if (member.dayOnly && (isEvening || isNight)) {
             state = AsyncData(current.copyWith(
-              error: '데이 전용 속성으로 이브닝·나이트 근무를 원티드 신청할 수 없습니다',
+              error: '데이 전담 속성으로 이브닝·나이트 근무를 원티드 신청할 수 없습니다',
             ));
             return false;
           }

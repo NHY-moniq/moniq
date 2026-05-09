@@ -387,6 +387,7 @@ class _ShiftTypeAddSheetState
               selectedColor: _selectedColor,
               onColorChanged: (c) =>
                   setState(() => _selectedColor = c),
+              existingCodes: widget.existingCodes,
             ),
             const SizedBox(height: AppSpacing.xl),
             Row(
@@ -632,6 +633,15 @@ class _ShiftTypeEditSheetState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // 현재 수정 중인 유형 제외한 다른 유형들의 코드 (중복 감지용)
+    final otherCodes = ref
+            .watch(teamDetailViewModelProvider(widget.teamId))
+            .valueOrNull
+            ?.shiftTypes
+            .where((t) => t.id != widget.existing.id)
+            .map((t) => t.code.toUpperCase())
+            .toSet() ??
+        {};
 
     return SingleChildScrollView(
       padding: EdgeInsets.only(
@@ -673,6 +683,7 @@ class _ShiftTypeEditSheetState
             selectedColor: _selectedColor,
             onColorChanged: (c) =>
                 setState(() => _selectedColor = c),
+            existingCodes: otherCodes,
           ),
           const SizedBox(height: AppSpacing.xl),
           FilledButton(

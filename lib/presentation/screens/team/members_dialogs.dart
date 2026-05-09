@@ -148,7 +148,7 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
 
   String _attrConflictMessage(String code) {
     if (_nightDedicated && code != 'N') return '나이트 전담 속성으로 데이·이브닝 선호를 설정할 수 없습니다';
-    if (_dayOnly && code != 'D') return '데이 전용 속성으로 이브닝·나이트 선호를 설정할 수 없습니다';
+    if (_dayOnly && code != 'D') return '데이 전담 속성으로 이브닝·나이트 선호를 설정할 수 없습니다';
     if (_nightExempt && code == 'N') return '나이트 제외 속성으로 나이트 선호를 설정할 수 없습니다';
     return '근무 속성과 충돌하는 선호 근무입니다';
   }
@@ -347,12 +347,12 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
                 _AttrToggleCard(
                   icon: Icons.wb_sunny_outlined,
                   color: AppColors.shiftDay,
-                  title: '데이 전용',
+                  title: '데이 전담',
                   subtitle: '데이 근무만 배정',
                   value: _dayOnly,
                   disabled: _saving || _nightDedicated,
                   onChanged: (v) {
-                    // 데이전용 ON → D 이외 선호 제거
+                    // 데이전담 ON → D 이외 선호 제거
                     final newPref = v
                         ? _preferredShifts.where((c) => c == 'D').toList()
                         : _preferredShifts;

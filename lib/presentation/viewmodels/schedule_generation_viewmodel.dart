@@ -96,6 +96,7 @@ class ScheduleGenerationViewModel
         teamId: teamId,
         periodStart: nextMonth,
         periodEnd: nextMonthEnd,
+        currentMemberIds: members.map((m) => m.userId).toSet(),
       );
     } catch (_) {}
 
@@ -133,6 +134,7 @@ class ScheduleGenerationViewModel
         teamId: current.teamId,
         periodStart: periodStart,
         periodEnd: periodEnd,
+        currentMemberIds: current.members.map((m) => m.userId).toSet(),
       );
       final latest = state.valueOrNull;
       if (latest == null) return;
@@ -459,6 +461,7 @@ class ScheduleGenerationViewModel
     required String teamId,
     required DateTime periodStart,
     required DateTime periodEnd,
+    Set<String> currentMemberIds = const {},
   }) async {
     final wantedRepo = ref.read(wantedRepositoryProvider);
     final allRequests = await wantedRepo.getWantedRequests(teamId);
@@ -517,7 +520,9 @@ class ScheduleGenerationViewModel
       final bt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       return at.compareTo(bt);
     });
-    return entries;
+    // Filter out departed members
+    if (currentMemberIds.isEmpty) return entries;
+    return entries.where((e) => currentMemberIds.contains(e.userId)).toList();
   }
 
   WantedRequestModel? _latestRequestByTypeAndStatus(
@@ -1270,31 +1275,46 @@ class ScheduleGenerationViewModel
         t.code.toUpperCase() == 'E' ||
         t.name.contains('이브닝') ||
         t.name.contains('저녁');
+
+    // 교육 등 비D/E/N 근무 유형 ID 집합 (wantedEntries 처리 전 필요)
+    final educationShiftTypeIds = shiftTypes
+        .where((t) => !isDayType(t) && !isEveningType(t) && !isNightType(t))
+        .map((t) => t.id)
+        .toSet();
+
     // 원티드 날짜 맵
-    // wantedDaysOff: day_off P1 — 하드 제약 (배정 완전 차단)
-    // wantedPriority: day_off P2/P3 — 소프트 페널티 계산용 (preferred_shift 제외)
-    // preferredShiftMap: preferred_shift — 희망 근무 유형 보너스/페널티용
+    // wantedDaysOff: day_off (hard) — 하드 제약 (D/E/N 배정 완전 차단)
+    // wantedPriority: day_off (soft) — 소프트 페널티 계산용
+    // preferredShiftMap: preferred_shift (D/E/N) — 희망 근무 유형 보너스/페널티용
     // preferredShiftPriority: preferred_shift 우선순위 — 보너스 강도 조절
+    // educationWantedByUserDate: preferred_shift (교육 등 비D/E/N) — 무조건 반영
     final wantedDaysOff = <String, Set<String>>{};
     final wantedPriority = <String, Map<String, int>>{};
     final preferredShiftMap = <String, Map<String, String>>{};
     final preferredShiftPriority = <String, Map<String, int>>{};
+    final educationWantedByUserDate = <String, Map<String, String>>{}; // userId → dateStr → shiftTypeId
     for (final entry in wantedEntries) {
       final dateStr =
           '${entry.wantedDate.year}-${entry.wantedDate.month.toString().padLeft(2, '0')}-${entry.wantedDate.day.toString().padLeft(2, '0')}';
       final p = entry.priority;
       if (entry.shiftTypeId != null) {
-        // preferred_shift 엔트리: 희망 근무 유형 매핑 (day_off 로직과 분리)
-        preferredShiftMap.putIfAbsent(entry.userId, () => {})[dateStr] =
-            entry.shiftTypeId!;
-        preferredShiftPriority.putIfAbsent(entry.userId, () => {})[dateStr] = p;
+        if (educationShiftTypeIds.contains(entry.shiftTypeId)) {
+          // 교육 등 비D/E/N preferred_shift: 우선순위 무관 무조건 반영
+          educationWantedByUserDate
+              .putIfAbsent(entry.userId, () => {})[dateStr] = entry.shiftTypeId!;
+        } else {
+          // D/E/N preferred_shift 엔트리: 희망 근무 유형 매핑
+          preferredShiftMap.putIfAbsent(entry.userId, () => {})[dateStr] =
+              entry.shiftTypeId!;
+          preferredShiftPriority.putIfAbsent(entry.userId, () => {})[dateStr] = p;
+        }
       } else {
         // day_off 엔트리: 오프 희망
-        // P1 + 특수 타입(생리휴가/연차/필수교육) → 하드 제약
+        // 생리휴가/연차/필수교육 → 우선순위 무관 하드 제약 (D/E/N 배정 차단)
         // P1 custom(직접 입력) → 강한 소프트 페널티 (-200)
         // P2 → 중간 소프트 페널티 (-150)
         const hardReasons = {'#생리휴가', '#연차', '#필수교육'};
-        final isHard = p == 1 && hardReasons.contains(entry.reason);
+        final isHard = hardReasons.contains(entry.reason);
         if (isHard) {
           wantedDaysOff.putIfAbsent(entry.userId, () => {}).add(dateStr);
         } else {
@@ -1358,6 +1378,33 @@ class ScheduleGenerationViewModel
       final dateStr = fmt(date);
       // 오늘까지 진행된 비율 (0.0 ~ 1.0)
       final progressRatio = (d + 1) / dayCount;
+
+      // ── 교육 선배정: 원티드에 교육 근무 유형 등록 시 무조건 먼저 배정 ──
+      for (final entry in educationWantedByUserDate.entries) {
+        final userId = entry.key;
+        final eduShiftId = entry.value[dateStr];
+        if (eduShiftId == null) continue;
+        // 이미 오늘 배정된 멤버 제외
+        if (shifts.any((s) => s['user_id'] == userId && s['shift_date'] == dateStr)) continue;
+        // active members에 없는 멤버 제외 (제외 멤버 처리)
+        if (!members.any((m) => m.userId == userId)) continue;
+        shifts.add({
+          'schedule_id': scheduleId,
+          'team_id': teamId,
+          'user_id': userId,
+          'shift_date': dateStr,
+          'shift_type_id': eduShiftId,
+        });
+        shiftCount[userId] = (shiftCount[userId] ?? 0) + 1;
+        final prevDateEdu = lastWorkedDate[userId];
+        if (prevDateEdu != null && date.difference(prevDateEdu).inDays == 1) {
+          consecutiveWork[userId] = (consecutiveWork[userId] ?? 0) + 1;
+        } else {
+          consecutiveWork[userId] = 1;
+        }
+        lastWorkedDate[userId] = date;
+        recentWorkDates[userId]!.add(date);
+      }
 
       for (final shiftType in workShiftTypes) {
         final isNight = isNightType(shiftType);

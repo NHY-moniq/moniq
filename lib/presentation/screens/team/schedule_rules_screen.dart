@@ -34,7 +34,7 @@ class ScheduleRulesScreen extends HookConsumerWidget {
     final detailAsync = ref.watch(teamDetailViewModelProvider(teamId));
 
     return Scaffold(
-      appBar: const MoniqAppBar(title: '스케줄 생성 규칙'),
+      appBar: const MoniqAppBar(title: '생성 규칙 설정'),
       body: detailAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
@@ -434,8 +434,7 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
                           '/teams/${widget.teamId}/schedule/generate',
                         );
                       },
-                icon: const Icon(Icons.auto_awesome),
-                label: const Text('스케줄 생성하기'),
+                label: const Text('생성 규칙 확정하기'),
               ),
             ),
 

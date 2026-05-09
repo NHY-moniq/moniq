@@ -14,6 +14,7 @@ import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
+import '../wanted/wanted_request_widgets.dart';
 import 'widgets/schedule_common_widgets.dart';
 import 'widgets/schedule_preview_widgets.dart';
 
@@ -697,6 +698,7 @@ void _showWantedDetailSheet(
             date: e.wantedDate,
             priority: e.priority,
             shiftTypeId: e.shiftTypeId,
+            reason: e.reason,
           ),
         );
   }
@@ -834,7 +836,10 @@ void _showWantedDetailSheet(
                                 chipColor = AppColors.shiftOff;
                                 avatarLabel = 'O';
                               }
-                              return Chip(
+                              final hasReason =
+                                  e.reason != null &&
+                                  e.reason!.isNotEmpty;
+                              final chip = Chip(
                                 avatar: CircleAvatar(
                                   backgroundColor: chipColor.withValues(
                                     alpha: 0.25,
@@ -863,6 +868,11 @@ void _showWantedDetailSheet(
                                   color: chipColor.withValues(alpha: 0.2),
                                 ),
                                 padding: EdgeInsets.zero,
+                              );
+                              if (!hasReason) return chip;
+                              return WantedReasonChip(
+                                chip: chip,
+                                reason: e.reason!,
                               );
                             }).toList(),
                           ),
@@ -1041,10 +1051,12 @@ class _WantedEntryRow {
     required this.date,
     required this.priority,
     this.shiftTypeId,
+    this.reason,
   });
   final DateTime date;
   final int priority;
   final String? shiftTypeId;
+  final String? reason;
 }
 
 String _customRuleTypeLabel(String type) {

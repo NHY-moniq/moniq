@@ -37,7 +37,42 @@ class TeamScreen extends HookConsumerWidget {
     final teamsAsync = ref.watch(teamViewModelProvider);
     final favoriteTeamAsync = ref.watch(favoriteTeamProvider);
 
-    if (teamsAsync.isLoading || favoriteTeamAsync.isLoading) {
+    if (favoriteTeamAsync.isLoading) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        appBar: AdaptiveLayout.isWide(context)
+            ? null
+            : const MoniqAppBar(title: '팀', showBack: false),
+        body: const MoniqLoadingView(),
+      );
+    }
+
+    if (favoriteTeamAsync.hasError) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        appBar: AdaptiveLayout.isWide(context)
+            ? null
+            : const MoniqAppBar(title: '팀', showBack: false),
+        body: MoniqErrorView(
+          message: '팀 정보를 불러올 수 없습니다',
+          onRetry: () {
+            ref.invalidate(favoriteTeamProvider);
+            ref.read(teamViewModelProvider.notifier).refresh();
+          },
+        ),
+      );
+    }
+
+    final favoriteTeam = favoriteTeamAsync.valueOrNull;
+
+    // 즐겨찾기 팀이 있으면 teamsAsync를 기다리지 않고 바로 캘린더 렌더링
+    if (favoriteTeam != null) {
+      final teams = teamsAsync.valueOrNull ?? [favoriteTeam];
+      return _TeamCalendarView(team: favoriteTeam, teams: teams);
+    }
+
+    // 즐겨찾기가 없으면 팀 목록이 필요함
+    if (teamsAsync.isLoading) {
       return Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
         appBar: AdaptiveLayout.isWide(context)
@@ -54,27 +89,13 @@ class TeamScreen extends HookConsumerWidget {
             ? null
             : const MoniqAppBar(title: '팀', showBack: false),
         body: MoniqErrorView(
-          message: '팀 정보를 불러올 수 없습니다',
+          message: '팀 목록을 불러올 수 없습니다',
           onRetry: () => ref.read(teamViewModelProvider.notifier).refresh(),
         ),
       );
     }
 
-    if (favoriteTeamAsync.hasError) {
-      return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-        appBar: AdaptiveLayout.isWide(context)
-            ? null
-            : const MoniqAppBar(title: '팀', showBack: false),
-        body: MoniqErrorView(
-          message: '즐겨찾기 팀을 불러올 수 없습니다',
-          onRetry: () => ref.invalidate(favoriteTeamProvider),
-        ),
-      );
-    }
-
     final teams = teamsAsync.valueOrNull ?? [];
-    final favoriteTeam = favoriteTeamAsync.valueOrNull;
 
     if (teams.isEmpty) {
       return Scaffold(
@@ -97,11 +118,7 @@ class TeamScreen extends HookConsumerWidget {
       );
     }
 
-    if (favoriteTeam == null) {
-      return _NoFavoriteView(teams: teams);
-    }
-
-    return _TeamCalendarView(team: favoriteTeam, teams: teams);
+    return _NoFavoriteView(teams: teams);
   }
 }
 

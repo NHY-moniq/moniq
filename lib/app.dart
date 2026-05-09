@@ -15,7 +15,7 @@ class MoniqApp extends HookConsumerWidget {
     final fontScale = ref.watch(fontScaleProvider);
 
     return MaterialApp.router(
-      title: 'Moniq',
+      title: 'OnorOff',
       debugShowCheckedModeBanner: false,
       locale: const Locale('ko', 'KR'),
       supportedLocales: const [Locale('ko', 'KR')],

@@ -201,7 +201,7 @@ class _WebLayout extends StatelessWidget {
                       isSelf: m.userId == state.currentUserId,
                       isAdmin: state.isAdmin,
                       isSelected: isSelected,
-                      onTap: state.isAdmin
+                      onTap: (state.isAdmin || m.userId == state.currentUserId)
                           ? () => onSelectMember(
                                 isSelected ? null : m,
                               )

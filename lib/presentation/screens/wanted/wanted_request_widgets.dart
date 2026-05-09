@@ -324,6 +324,7 @@ class WantedRequestActiveView extends HookConsumerWidget {
           date: ew.entry.wantedDate,
           priority: ew.entry.priority,
           shiftTypeId: ew.entry.shiftTypeId,
+          reason: ew.entry.reason,
         ),
       );
     }
@@ -344,7 +345,7 @@ class WantedRequestActiveView extends HookConsumerWidget {
         chipColor = AppColors.shiftOff;
         avatarLabel = 'O';
       }
-      return Chip(
+      final chip = Chip(
         avatar: CircleAvatar(
           backgroundColor: chipColor.withValues(alpha: 0.25),
           child: Text(
@@ -367,6 +368,9 @@ class WantedRequestActiveView extends HookConsumerWidget {
         side: BorderSide(color: chipColor.withValues(alpha: 0.2)),
         padding: EdgeInsets.zero,
       );
+      final hasReason = item.reason != null && item.reason!.isNotEmpty;
+      if (!hasReason) return chip;
+      return WantedReasonChip(chip: chip, reason: item.reason!);
     }
 
     // D-day 텍스트 계산
@@ -832,6 +836,7 @@ class WantedRequestClosedView extends HookConsumerWidget {
           date: ew.entry.wantedDate,
           priority: ew.entry.priority,
           shiftTypeId: ew.entry.shiftTypeId,
+          reason: ew.entry.reason,
         ),
       );
     }
@@ -858,7 +863,7 @@ class WantedRequestClosedView extends HookConsumerWidget {
             : AppColors.success;
         avatarLabel = '${item.priority}';
       }
-      return Chip(
+      final chip = Chip(
         avatar: CircleAvatar(
           backgroundColor: chipColor.withValues(alpha: 0.25),
           child: Text(
@@ -883,6 +888,9 @@ class WantedRequestClosedView extends HookConsumerWidget {
         side: BorderSide(color: chipColor.withValues(alpha: 0.2)),
         padding: EdgeInsets.zero,
       );
+      final hasReason = item.reason != null && item.reason!.isNotEmpty;
+      if (!hasReason) return chip;
+      return WantedReasonChip(chip: chip, reason: item.reason!);
     }
 
     // 타입 전환 칩
@@ -1479,16 +1487,171 @@ class WantedEntryDisplayItem {
     required this.date,
     this.priority = 1,
     this.shiftTypeId,
+    this.reason,
   });
   final DateTime date;
   final int priority;
   final String? shiftTypeId;
+  final String? reason;
 }
 
 class WantedRequestUserEntryGroup {
   WantedRequestUserEntryGroup({required this.displayName, required this.items});
   final String displayName;
   final List<WantedEntryDisplayItem> items;
+}
+
+// ─── reason helpers ───────────────────────────────────────────────────────────
+
+/// 시스템 reason 태그를 사람이 읽기 좋은 레이블로 변환한다.
+String _reasonDisplayLabel(String reason) {
+  switch (reason) {
+    case '#생리휴가':
+      return '생리휴가';
+    case '#연차':
+      return '연차';
+    case '#필수교육':
+      return '필수교육';
+    default:
+      return reason;
+  }
+}
+
+/// 사유가 있는 원티드 칩을 탭하면 칩 근처에 작은 툴팁 카드를 띄운다.
+///
+/// AlertDialog 대신 OverlayEntry + CompositedTransformFollower를 사용해
+/// 칩 바로 아래에 인라인 카드를 표시한다. 외부 탭 시 자동으로 닫힌다.
+class WantedReasonChip extends StatefulWidget {
+  const WantedReasonChip({
+    super.key,
+    required this.chip,
+    required this.reason,
+  });
+
+  /// 실제로 렌더링할 Chip 위젯
+  final Widget chip;
+
+  /// 원시 reason 문자열 (레이블 변환은 내부에서 처리)
+  final String reason;
+
+  @override
+  State<WantedReasonChip> createState() => _WantedReasonChipState();
+}
+
+class _WantedReasonChipState extends State<WantedReasonChip> {
+  final _link = LayerLink();
+  OverlayEntry? _entry;
+
+  void _show() {
+    if (_entry != null) {
+      _hide();
+      return;
+    }
+    final label = _reasonDisplayLabel(widget.reason);
+    final overlay = Overlay.of(context);
+    _entry = OverlayEntry(
+      builder: (_) => _ReasonOverlay(
+        link: _link,
+        label: label,
+        onDismiss: _hide,
+      ),
+    );
+    overlay.insert(_entry!);
+  }
+
+  void _hide() {
+    _entry?.remove();
+    _entry = null;
+  }
+
+  @override
+  void dispose() {
+    _hide();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _link,
+      child: GestureDetector(
+        onTap: _show,
+        child: widget.chip,
+      ),
+    );
+  }
+}
+
+/// 칩 아래에 위치하는 오버레이 카드.
+///
+/// 배경 배리어를 탭하면 [onDismiss]를 호출한다.
+class _ReasonOverlay extends StatelessWidget {
+  const _ReasonOverlay({
+    required this.link,
+    required this.label,
+    required this.onDismiss,
+  });
+
+  final LayerLink link;
+  final String label;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Stack(
+      children: [
+        // 배경 배리어: 탭하면 닫힘
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: onDismiss,
+            child: const SizedBox.expand(),
+          ),
+        ),
+        // 칩 아래 카드
+        CompositedTransformFollower(
+          link: link,
+          showWhenUnlinked: false,
+          offset: const Offset(0, 28),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              color: colorScheme.surfaceContainerHigh,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 14,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      label,
+                      style: textTheme.labelMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class WantedRequestDatePickerRow extends StatelessWidget {

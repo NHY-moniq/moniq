@@ -694,6 +694,10 @@ class _EntryView extends HookConsumerWidget {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
+          // 교육 등 비 D/E/N 근무 유형 선택 여부
+          final isEducationSelected = currentShiftTypeId != null &&
+              !canonicalTypeIds.contains(currentShiftTypeId);
+
           // P1-2: 타입 셀렉터 아이템 목록 구성
           final typeItems = <_TypeItem>[
             if (hasDayOff)
@@ -767,7 +771,9 @@ class _EntryView extends HookConsumerWidget {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '근무 유형과 우선순위를 고른 뒤 날짜를 탭하세요.',
+                    isEducationSelected
+                        ? '근무 유형을 고른 뒤 날짜를 탭하세요.'
+                        : '근무 유형과 우선순위를 고른 뒤 날짜를 탭하세요.',
                     style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                           color: Theme.of(ctx)
                               .colorScheme
@@ -781,91 +787,97 @@ class _EntryView extends HookConsumerWidget {
                     _WantedTypeSelector(
                       items: typeItems,
                       selectedId: currentShiftTypeId,
-                      onSelected: (v) =>
-                          setSheetState(() => currentShiftTypeId = v),
+                      onSelected: (v) => setSheetState(() {
+                        currentShiftTypeId = v;
+                        if (v != null && !canonicalTypeIds.contains(v)) {
+                          currentPriority = 1;
+                        }
+                      }),
                     ),
 
                   const SizedBox(height: AppSpacing.md),
 
-                  // ── P1-3: 우선순위 라디오 스타일 ──
-                  Text(
-                    '우선순위',
-                    style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
-                          color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Row(
-                    children: [1, 2].map((p) {
-                      final isSelected = currentPriority == p;
-                      final color = p == 1
-                          ? AppColors.error
-                          : AppColors.brandOrange;
-                      final label = p == 1 ? '1순위 필수' : '2순위 희망';
-                      return Expanded(
-                        child: GestureDetector(
-                          onTap: () =>
-                              setSheetState(() => currentPriority = p),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            padding: const EdgeInsets.symmetric(
-                              vertical: AppSpacing.md,
-                            ),
-                            margin: EdgeInsets.only(
-                              right: p == 1 ? AppSpacing.sm : 0,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? color.withValues(alpha: 0.08)
-                                  : null,
-                              border: Border.all(
-                                color: isSelected
-                                    ? color
-                                    : Theme.of(ctx)
-                                        .colorScheme
-                                        .outlineVariant,
-                                width: isSelected ? 1.5 : 1,
+                  // ── P1-3: 우선순위 라디오 스타일 (교육 유형은 숨김) ──
+                  if (!isEducationSelected) ...[
+                    Text(
+                      '우선순위',
+                      style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
+                            color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Row(
+                      children: [1, 2].map((p) {
+                        final isSelected = currentPriority == p;
+                        final color = p == 1
+                            ? AppColors.error
+                            : AppColors.brandOrange;
+                        final label = p == 1 ? '1순위 필수' : '2순위 희망';
+                        return Expanded(
+                          child: GestureDetector(
+                            onTap: () =>
+                                setSheetState(() => currentPriority = p),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppSpacing.md,
                               ),
-                              borderRadius:
-                                  BorderRadius.circular(AppRadius.sm),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  isSelected
-                                      ? Icons.radio_button_checked
-                                      : Icons.radio_button_unchecked,
-                                  size: 16,
+                              margin: EdgeInsets.only(
+                                right: p == 1 ? AppSpacing.sm : 0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? color.withValues(alpha: 0.08)
+                                    : null,
+                                border: Border.all(
                                   color: isSelected
                                       ? color
                                       : Theme.of(ctx)
                                           .colorScheme
-                                          .onSurfaceVariant,
+                                          .outlineVariant,
+                                  width: isSelected ? 1.5 : 1,
                                 ),
-                                const SizedBox(width: AppSpacing.xs),
-                                Text(
-                                  label,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: isSelected
-                                        ? FontWeight.w700
-                                        : FontWeight.w400,
+                                borderRadius:
+                                    BorderRadius.circular(AppRadius.sm),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    isSelected
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_unchecked,
+                                    size: 16,
                                     color: isSelected
                                         ? color
                                         : Theme.of(ctx)
                                             .colorScheme
                                             .onSurfaceVariant,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: AppSpacing.xs),
+                                  Text(
+                                    label,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w700
+                                          : FontWeight.w400,
+                                      color: isSelected
+                                          ? color
+                                          : Theme.of(ctx)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
 
                   // ── P1-4: 오프 사유 인라인 칩 / D·E·N 공통 사유 텍스트 ──
                   if (currentShiftTypeId == null) ...[

@@ -14,6 +14,7 @@ class CustomShiftForm extends StatefulWidget {
     required this.endC,
     required this.selectedColor,
     required this.onColorChanged,
+    this.existingCodes = const {},
   });
 
   final TextEditingController nameC;
@@ -22,6 +23,8 @@ class CustomShiftForm extends StatefulWidget {
   final TextEditingController endC;
   final String selectedColor;
   final ValueChanged<String> onColorChanged;
+  /// 이미 사용 중인 코드 목록. 중복 감지에 사용.
+  final Set<String> existingCodes;
 
   @override
   State<CustomShiftForm> createState() =>
@@ -32,6 +35,9 @@ class _CustomShiftFormState
     extends State<CustomShiftForm> {
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
+  bool _codeDuplicate = false;
+  bool _showCodeField = false;
+  bool _userEditedCode = false;
 
   @override
   void initState() {
@@ -40,7 +46,16 @@ class _CustomShiftFormState
         const TimeOfDay(hour: 7, minute: 0);
     _endTime = _parseTime(widget.endC.text) ??
         const TimeOfDay(hour: 15, minute: 0);
+    // 초기값이 이미 중복인 경우 대비
+    if (widget.codeC.text.isNotEmpty) {
+      _codeDuplicate = _isDuplicate(widget.codeC.text);
+      if (_codeDuplicate) _showCodeField = true;
+    }
   }
+
+  bool _isDuplicate(String code) =>
+      code.isNotEmpty &&
+      widget.existingCodes.contains(code.trim().toUpperCase());
 
   TimeOfDay? _parseTime(String text) {
     final t = text.trim();
@@ -63,14 +78,24 @@ class _CustomShiftFormState
   }
 
   void _autoCode(String name) {
-    if (name.trim().isEmpty) {
-      widget.codeC.text = '';
-    } else {
-      // 첫 글자를 코드로 (영문이면 대문자, 한글이면 그대로)
-      final first = name.trim().characters.first;
-      widget.codeC.text = first.toUpperCase();
+    if (!_userEditedCode) {
+      if (name.trim().isEmpty) {
+        widget.codeC.text = '';
+        setState(() => _codeDuplicate = false);
+      } else {
+        final first = name.trim().characters.first.toUpperCase();
+        widget.codeC.text = first;
+        final isDup = _isDuplicate(first);
+        if (isDup) _showCodeField = true;
+        setState(() => _codeDuplicate = isDup);
+      }
     }
     setState(() {});
+  }
+
+  void _onCodeFieldChanged(String code) {
+    _userEditedCode = code.trim().isNotEmpty;
+    setState(() => _codeDuplicate = _isDuplicate(code));
   }
 
   String _formatTime(TimeOfDay t) {
@@ -163,11 +188,9 @@ class _CustomShiftFormState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final badgeColor =
-        parseHexColor(widget.selectedColor);
-    final code = widget.codeC.text.isEmpty
-        ? '?'
-        : widget.codeC.text;
+    final cs = Theme.of(context).colorScheme;
+    final badgeColor = parseHexColor(widget.selectedColor);
+    final code = widget.codeC.text.isEmpty ? '?' : widget.codeC.text;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -175,14 +198,18 @@ class _CustomShiftFormState
         // ── 뱃지 + 이름 (한줄) ──
         Row(
           children: [
-            // 뱃지
+            // 뱃지 (중복이면 에러 색 테두리)
             Container(
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: badgeColor,
-                borderRadius:
-                    AppRadius.borderRadiusMd,
+                color: _codeDuplicate
+                    ? badgeColor.withValues(alpha: 0.5)
+                    : badgeColor,
+                borderRadius: AppRadius.borderRadiusMd,
+                border: _codeDuplicate
+                    ? Border.all(color: cs.error, width: 2)
+                    : null,
               ),
               alignment: Alignment.center,
               child: Text(
@@ -196,47 +223,29 @@ class _CustomShiftFormState
             ),
             const SizedBox(width: AppSpacing.md),
 
-            // 이름 입력 (underline only)
+            // 이름 입력
             Expanded(
               child: TextField(
                 controller: widget.nameC,
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
                 decoration: InputDecoration(
                   hintText: '근무 이름 입력',
                   hintStyle: TextStyle(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant,
+                    color: cs.onSurfaceVariant,
                     fontWeight: FontWeight.w400,
                   ),
                   border: UnderlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .outlineVariant,
-                    ),
+                    borderSide: BorderSide(color: cs.outlineVariant),
                   ),
                   enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .outlineVariant,
-                    ),
+                    borderSide: BorderSide(color: cs.outlineVariant),
                   ),
                   focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary,
-                      width: 2,
-                    ),
+                    borderSide: BorderSide(color: cs.primary, width: 2),
                   ),
-                  contentPadding: EdgeInsets.only(
-                    bottom: AppSpacing.xs,
-                  ),
+                  contentPadding: const EdgeInsets.only(bottom: AppSpacing.xs),
                   isDense: true,
                 ),
                 onChanged: _autoCode,
@@ -244,6 +253,44 @@ class _CustomShiftFormState
             ),
           ],
         ),
+
+        // ── 코드 중복 경고 + 직접 입력 ──
+        if (_showCodeField) ...[
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                size: 15,
+                color: _codeDuplicate ? cs.error : cs.primary,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _codeDuplicate
+                      ? '코드 \'${widget.codeC.text}\'가 이미 사용 중이에요'
+                      : '코드 \'${widget.codeC.text}\'로 설정됩니다',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: _codeDuplicate ? cs.error : cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            controller: widget.codeC,
+            maxLength: 2,
+            textCapitalization: TextCapitalization.characters,
+            decoration: InputDecoration(
+              labelText: '근무 코드 직접 입력',
+              counterText: '',
+              errorText: _codeDuplicate ? '이미 사용 중인 코드예요. 다른 코드를 입력해주세요.' : null,
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: _onCodeFieldChanged,
+          ),
+        ],
 
         const SizedBox(height: AppSpacing.xxl),
 

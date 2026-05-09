@@ -183,8 +183,21 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final readOnly = !widget.isAdmin;
-    final activeShiftTypes =
-        widget.shiftTypes.where((t) => t.isActive).toList();
+    // 인력 설정에는 D/E/N 유형만 표시.
+    // 교육 등 기타 유형은 근무 유형 설정에서 관리하며 스케줄링에서 별도 처리됨.
+    bool isDen(t) =>
+        t.code.toUpperCase() == 'D' ||
+        t.code.toUpperCase() == 'E' ||
+        t.code.toUpperCase() == 'N' ||
+        (t.name as String).contains('데이') ||
+        (t.name as String).contains('주간') ||
+        (t.name as String).contains('이브닝') ||
+        (t.name as String).contains('저녁') ||
+        (t.name as String).contains('나이트') ||
+        (t.name as String).contains('야간');
+    final activeShiftTypes = widget.shiftTypes
+        .where((t) => t.isActive && isDen(t))
+        .toList();
 
     return PopScope(
       canPop: !_isDirty,
