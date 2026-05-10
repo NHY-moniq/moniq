@@ -38,12 +38,18 @@ class TeamJoinScreen extends HookConsumerWidget {
             ref.invalidate(favoriteTeamProvider);
           }
 
-          // 조인 후 튜토리얼 트리거
+          // 해당 유형의 첫 팀일 때만 튜토리얼 트리거
           final teamType = result['team_type'] as String? ?? 'organizational';
-          ref.read(tutorialPendingProvider.notifier).state = TutorialPending(
-            teamId: teamId,
-            teamType: teamType,
-          );
+          final teams =
+              ref.read(teamViewModelProvider).valueOrNull ?? [];
+          final isFirstOfType =
+              teams.where((t) => t.teamType == teamType).length == 1;
+          if (isFirstOfType) {
+            ref.read(tutorialPendingProvider.notifier).state = TutorialPending(
+              teamId: teamId,
+              teamType: teamType,
+            );
+          }
         }
 
         if (context.mounted) {

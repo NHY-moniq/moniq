@@ -6,6 +6,7 @@ import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/wanted_request_model.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/wanted_providers.dart';
+import 'package:moniq/presentation/screens/wanted/wanted_request_widgets.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
@@ -36,61 +37,65 @@ class WantedHistoryGroup {
 
 final _historyShiftTypesProvider = FutureProvider.autoDispose
     .family<List<ShiftTypeModel>, String>(
-  (ref, teamId) => ref.watch(shiftRepositoryProvider).getShiftTypes(teamId),
-);
+      (ref, teamId) => ref.watch(shiftRepositoryProvider).getShiftTypes(teamId),
+    );
 
 // Key format: "teamId|true" or "teamId|false"
 final wantedHistoryProvider = FutureProvider.autoDispose
     .family<List<WantedHistoryGroup>, String>((ref, key) async {
-  final sep = key.lastIndexOf('|');
-  final teamId = key.substring(0, sep);
-  final isAdmin = key.substring(sep + 1) == 'true';
+      final sep = key.lastIndexOf('|');
+      final teamId = key.substring(0, sep);
+      final isAdmin = key.substring(sep + 1) == 'true';
 
-  final repo = ref.watch(wantedRepositoryProvider);
-  final allRequests = await repo.getWantedRequests(teamId);
-  final closed = allRequests.where((r) => r.status == 'closed').toList();
+      final repo = ref.watch(wantedRepositoryProvider);
+      final allRequests = await repo.getWantedRequests(teamId);
+      final closed = allRequests.where((r) => r.status == 'closed').toList();
 
-  // Group by period (same periodStart + periodEnd)
-  final groupMap = <String, List<WantedRequestModel>>{};
-  for (final r in closed) {
-    final key =
-        '${r.periodStart.millisecondsSinceEpoch}__${r.periodEnd.millisecondsSinceEpoch}';
-    groupMap.putIfAbsent(key, () => []).add(r);
-  }
-
-  const typeOrder = ['day_off', 'preferred_shift', 'night_dedicated'];
-  final groups = <WantedHistoryGroup>[];
-
-  for (final reqs in groupMap.values) {
-    reqs.sort((a, b) => typeOrder
-        .indexOf(a.wantedType)
-        .compareTo(typeOrder.indexOf(b.wantedType)));
-
-    final List<WantedEntryWithUser> allEntries = [];
-    final List<WantedEntryModel> myEntries = [];
-
-    if (isAdmin) {
-      for (final req in reqs) {
-        allEntries.addAll(await repo.getAllEntries(req.id));
+      // Group by period (same periodStart + periodEnd)
+      final groupMap = <String, List<WantedRequestModel>>{};
+      for (final r in closed) {
+        final key =
+            '${r.periodStart.millisecondsSinceEpoch}__${r.periodEnd.millisecondsSinceEpoch}';
+        groupMap.putIfAbsent(key, () => []).add(r);
       }
-    } else {
-      for (final req in reqs) {
-        myEntries.addAll(await repo.getMyEntries(req.id));
+
+      const typeOrder = ['day_off', 'preferred_shift', 'night_dedicated'];
+      final groups = <WantedHistoryGroup>[];
+
+      for (final reqs in groupMap.values) {
+        reqs.sort(
+          (a, b) => typeOrder
+              .indexOf(a.wantedType)
+              .compareTo(typeOrder.indexOf(b.wantedType)),
+        );
+
+        final List<WantedEntryWithUser> allEntries = [];
+        final List<WantedEntryModel> myEntries = [];
+
+        if (isAdmin) {
+          for (final req in reqs) {
+            allEntries.addAll(await repo.getAllEntries(req.id));
+          }
+        } else {
+          for (final req in reqs) {
+            myEntries.addAll(await repo.getMyEntries(req.id));
+          }
+        }
+
+        groups.add(
+          WantedHistoryGroup(
+            periodStart: reqs.first.periodStart,
+            periodEnd: reqs.first.periodEnd,
+            requests: reqs,
+            allEntries: allEntries,
+            myEntries: myEntries,
+          ),
+        );
       }
-    }
 
-    groups.add(WantedHistoryGroup(
-      periodStart: reqs.first.periodStart,
-      periodEnd: reqs.first.periodEnd,
-      requests: reqs,
-      allEntries: allEntries,
-      myEntries: myEntries,
-    ));
-  }
-
-  groups.sort((a, b) => b.periodStart.compareTo(a.periodStart));
-  return groups;
-});
+      groups.sort((a, b) => b.periodStart.compareTo(a.periodStart));
+      return groups;
+    });
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
@@ -126,8 +131,7 @@ class WantedHistoryScreen extends ConsumerWidget {
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
           message: '히스토리를 불러올 수 없습니다',
-          onRetry: () =>
-              ref.invalidate(wantedHistoryProvider(_providerKey)),
+          onRetry: () => ref.invalidate(wantedHistoryProvider(_providerKey)),
         ),
         data: (groups) {
           if (groups.isEmpty) {
@@ -182,13 +186,13 @@ class _HistoryGroupTile extends ConsumerWidget {
     final countText = isAdmin
         ? '${group.respondentCount}명 · ${group.allEntries.length}건'
         : group.myEntries.isEmpty
-            ? '내역 없음'
-            : '${group.myEntries.length}건 신청';
+        ? '내역 없음'
+        : '${group.myEntries.length}건 신청';
     final countColor = isAdmin
         ? colorScheme.onSurfaceVariant
         : group.myEntries.isEmpty
-            ? colorScheme.onSurfaceVariant
-            : colorScheme.primary;
+        ? colorScheme.onSurfaceVariant
+        : colorScheme.primary;
 
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -256,10 +260,7 @@ class _HistoryGroupTile extends ConsumerWidget {
 // ─── Admin entry list ─────────────────────────────────────────────────────────
 
 class _AdminEntryList extends StatelessWidget {
-  const _AdminEntryList({
-    required this.entries,
-    required this.shiftTypeMap,
-  });
+  const _AdminEntryList({required this.entries, required this.shiftTypeMap});
 
   final List<WantedEntryWithUser> entries;
   final Map<String, ShiftTypeModel> shiftTypeMap;
@@ -340,11 +341,9 @@ class _AdminEntryList extends StatelessWidget {
                             '${dateFormat.format(entry.wantedDate)} · '
                             '${entry.priority}순위';
                       }
-                      return Chip(
+                      final chip = Chip(
                         avatar: CircleAvatar(
-                          backgroundColor: chipColor.withValues(
-                            alpha: 0.25,
-                          ),
+                          backgroundColor: chipColor.withValues(alpha: 0.25),
                           child: Text(
                             avatarLabel,
                             style: TextStyle(
@@ -367,6 +366,9 @@ class _AdminEntryList extends StatelessWidget {
                         ),
                         padding: EdgeInsets.zero,
                       );
+                      final reason = entry.reason?.trim();
+                      if (reason == null || reason.isEmpty) return chip;
+                      return WantedReasonChip(chip: chip, reason: reason);
                     }).toList(),
                   ),
                 ),
@@ -382,10 +384,7 @@ class _AdminEntryList extends StatelessWidget {
 // ─── Member entry list ────────────────────────────────────────────────────────
 
 class _MemberEntryList extends StatelessWidget {
-  const _MemberEntryList({
-    required this.entries,
-    required this.shiftTypeMap,
-  });
+  const _MemberEntryList({required this.entries, required this.shiftTypeMap});
 
   final List<WantedEntryModel> entries;
   final Map<String, ShiftTypeModel> shiftTypeMap;
@@ -429,7 +428,7 @@ class _MemberEntryList extends StatelessWidget {
             chipColor = AppColors.shiftOff;
             avatarLabel = 'O';
           }
-          return Chip(
+          final chip = Chip(
             avatar: CircleAvatar(
               backgroundColor: chipColor.withValues(alpha: 0.25),
               child: Text(
@@ -452,6 +451,9 @@ class _MemberEntryList extends StatelessWidget {
             side: BorderSide(color: chipColor.withValues(alpha: 0.2)),
             padding: EdgeInsets.zero,
           );
+          final reason = entry.reason?.trim();
+          if (reason == null || reason.isEmpty) return chip;
+          return WantedReasonChip(chip: chip, reason: reason);
         }).toList(),
       ),
     );

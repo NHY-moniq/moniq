@@ -39,13 +39,6 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
   bool _tutorialScheduled = false; // 중복 스케줄 방지
 
   @override
-  void initState() {
-    super.initState();
-    // TEMP [testing]: 팀 진입 시 항상 튜토리얼 표시 — 출시 전 tutorialPendingProvider 조건부로 복구할 것.
-    _tutorialLaunched = true;
-  }
-
-  @override
   void dispose() {
     _tutorial?.dispose();
     super.dispose();
@@ -81,14 +74,14 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
               key: _settingsKey,
               title: '팀 상세 설정',
               message:
-                  '근무 유형(데이·이브닝·나이트 등)과 고정 규칙을 '
-                  '설정하면 자동 생성 품질이 높아져요.',
+                  '근무 유형(데이·이브닝·나이트 등)을 포함한 고정 규칙을 '
+                  '설정하여 근무표 자동 생성에 반영할 수 있어요.',
             ),
             TutorialStep(
               key: _wantedSectionKey,
               title: '원티드',
               message:
-                  '원티드 수집(관리자)으로 원하는 날짜를 팀원들에게 받고, '
+                  '원티드 수집으로 원하는 날짜를 팀원들에게 받고(관리자 기능), '
                   '원티드 입력으로 내 희망 날짜를 직접 등록할 수 있어요.',
             ),
             TutorialStep(
@@ -99,8 +92,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
             TutorialStep(
               key: _exchangeKey,
               title: '교환/변경 요청',
-              message:
-                  '근무표 확정 후 팀원 간 근무 교환·변경 요청을 여기서 관리해요.',
+              message: '근무표 확정 후 팀원 간 근무 교환·변경 요청을 여기서 관리해요.',
             ),
           ];
 
@@ -110,9 +102,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final detailAsync = ref.watch(
-      teamDetailViewModelProvider(widget.teamId),
-    );
+    final detailAsync = ref.watch(teamDetailViewModelProvider(widget.teamId));
 
     // 튜토리얼 펜딩 감지
     final pending = ref.watch(tutorialPendingProvider);
@@ -140,9 +130,8 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
           message: '팀 정보를 불러올 수 없습니다',
-          onRetry: () => ref.invalidate(
-            teamDetailViewModelProvider(widget.teamId),
-          ),
+          onRetry: () =>
+              ref.invalidate(teamDetailViewModelProvider(widget.teamId)),
         ),
         data: (state) {
           // 데이터 로드 완료 후 튜토리얼 시작 — 라우트 전환 애니메이션 끝난 뒤 실행
@@ -165,6 +154,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                     doStart();
                   }
                 }
+
                 animation.addStatusListener(onStatus);
               }
             });
@@ -203,8 +193,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                   iconColor: Theme.of(context).colorScheme.tertiary,
                   title: '멤버 관리',
                   subtitle: '${state.members.length}명',
-                  onTap: () =>
-                      context.push('/teams/${widget.teamId}/members'),
+                  onTap: () => context.push('/teams/${widget.teamId}/members'),
                 ),
 
                 // 개인 팀: 팀 상세 설정 숨김
@@ -232,7 +221,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                     icon: Icons.calendar_month_outlined,
                     iconColor: Theme.of(context).colorScheme.primary,
                     title: '멤버 근무 현황',
-                    subtitle: '즐겨찾기 팀 근무 기준',
+                    subtitle: '즐겨찾기 팀 근무 · 오프 겹침 보기',
                     onTap: () => context.push(
                       '/teams/${widget.teamId}/personal-calendar',
                     ),
@@ -303,8 +292,9 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                         iconColor: Theme.of(context).colorScheme.secondary,
                         title: '원티드 입력',
                         subtitle: '내 원티드 날짜 입력하기',
-                        onTap: () =>
-                            context.push('/teams/${widget.teamId}/wanted/entry'),
+                        onTap: () => context.push(
+                          '/teams/${widget.teamId}/wanted/entry',
+                        ),
                       ),
                     ],
                   ),
@@ -327,8 +317,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                 // Leave / Delete
                 TeamDetailBubbleMenuCard(
                   icon: Icons.exit_to_app,
-                  iconColor:
-                      Theme.of(context).colorScheme.onSurfaceVariant,
+                  iconColor: Theme.of(context).colorScheme.onSurfaceVariant,
                   title: '팀 나가기',
                   onTap: () => showConfirmLeaveDialog(
                     context: context,
@@ -379,10 +368,9 @@ class _SectionHeader extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w800,
           letterSpacing: 2.0,
-          color: Theme.of(context)
-              .colorScheme
-              .onSurfaceVariant
-              .withValues(alpha: 0.6),
+          color: Theme.of(
+            context,
+          ).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
         ),
       ),
     );
