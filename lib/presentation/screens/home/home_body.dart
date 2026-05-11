@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/core/utils/time_utils.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
@@ -67,10 +68,12 @@ class HomeBody extends ConsumerWidget {
     final isOff = hasServerShift
         ? firstShift.shiftType.code.toUpperCase() == 'OFF'
         : !hasShift;
-    final startTime =
+    final rawStart =
         hasServerShift ? firstShift.shiftType.startTime : matchedShiftType?.startTime;
-    final endTime =
+    final rawEnd =
         hasServerShift ? firstShift.shiftType.endTime : matchedShiftType?.endTime;
+    final startTime = rawStart == null ? null : formatTimeString(rawStart);
+    final endTime = rawEnd == null ? null : formatTimeString(rawEnd);
     final teamName = hasServerShift ? firstShift.teamName : null;
 
     // Subtitle — 랜덤 인사말
@@ -120,19 +123,30 @@ class HomeBody extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // Stats row: Weekly Hours + On-Shift Team
-          Row(
-            children: [
-              Expanded(child: WeeklyHoursCard(shiftTheme: shiftTheme)),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(child: OnShiftTeamCard(shiftTheme: shiftTheme)),
-            ],
+          // 좌(Next Off + Handover) / 우(On-Shift NOW) — 좌측 합 == 우측 높이
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      Expanded(child: NextOffCard(shiftTheme: shiftTheme)),
+                      const SizedBox(height: AppSpacing.md),
+                      Expanded(child: HandoverCard(shiftTheme: shiftTheme)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(child: OnShiftTeamCard(shiftTheme: shiftTheme)),
+              ],
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
 
           // Title
           Text(
-            'Your Schedule',
+            '팀 소식',
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w900,

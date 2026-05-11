@@ -16,29 +16,38 @@ const ProofStrip = () => (
 const Testimonials = () => (
   <Section paddingY={120}>
     <div style={{ textAlign: 'center', marginBottom: 56 }}>
-      <LandingEyebrow>From the floor</LandingEyebrow>
+      <LandingEyebrow>출시 전 미리보기</LandingEyebrow>
       <h2 style={{ font: '900 52px/1.05 var(--font-family)', letterSpacing: -1.4, color: '#312F23', marginTop: 14, textWrap: 'balance' }}>
-        간호사님들이 직접 남긴 후기.
+        베타 테스터를 모집해요.
       </h2>
+      <p style={{
+        font: '500 17px/1.6 var(--font-family)',
+        color: '#5F5C4D',
+        maxWidth: 560,
+        margin: '20px auto 0',
+        textWrap: 'balance',
+      }}>
+        실제 병동에서 한 달간 함께 검증해주실 간호사·수간호사님을 찾고 있어요.<br />
+        피드백은 다음 버전에 가장 먼저 반영돼요.
+      </p>
     </div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
       {[
-        { quote: '매달 근무표 짜느라 새벽까지 남았었는데, 이젠 10분이면 끝나요.<br />요청 반영도 자동이라 팀원들 불만도 줄었어요.', name: '박수진', role: 'Head Nurse · Unit 4 Medical', color: '#FFC107' },
-        { quote: '교대 요청할 때 카톡 돌리면서 눈치 보던 게 사라졌어요.<br />앱 안에서 한 번에 해결되니까 너무 편해요.', name: '김하윤', role: 'RN · 3년차', color: '#FF8C00' },
-        { quote: '오늘 무슨 근무인지 색깔만 봐도 알 수 있어서 좋아요.<br />야간 근무 끝나고 화면이 바뀌면 진짜 쉬는 것 같아요.', name: '이태민', role: 'Charge Nurse', color: '#0061A4' },
+        { icon: 'medical_services', title: '병동 베타', sub: '내 병동에서 직접 써보고, 수간호사 모드까지 함께 검증해요.', color: '#FFC107', bg: 'rgba(255,193,7,.18)' },
+        { icon: 'forum', title: '직접 피드백', sub: '카톡·메일로 매주 한 번씩 짧게. 무엇이 불편한지 듣고 다음 주에 고쳐요.', color: '#FF8C00', bg: 'rgba(255,140,0,.16)' },
+        { icon: 'card_giftcard', title: '얼리 액세스', sub: '정식 출시 전 모든 기능을 먼저 써보고, 출시 후 혜택도 준비할게요.', color: '#0061A4', bg: 'rgba(0,97,164,.12)' },
       ].map((t, i) => (
         <LandingCard key={i} padding={28} hover>
-          <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-            {[0,1,2,3,4].map(n => <span key={n} style={{ color: '#FFC107', font: '900 16px/1 var(--font-family)' }}>★</span>)}
+          <div style={{
+            width: 48, height: 48, borderRadius: 16,
+            background: t.bg,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 18,
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 24, color: t.color, fontVariationSettings: "'FILL' 1" }}>{t.icon}</span>
           </div>
-          <p style={{ font: '600 16px/1.6 var(--font-family)', color: '#312F23', marginBottom: 24, textWrap: 'pretty' }} dangerouslySetInnerHTML={{ __html: `"${t.quote}"` }} />
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', background: t.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '900 14px/1 var(--font-family)' }}>{t.name[0]}</div>
-            <div>
-              <div style={{ font: '800 13px/1.2 var(--font-family)', color: '#312F23' }}>{t.name}</div>
-              <div style={{ font: '500 11px/1.2 var(--font-family)', color: '#7A7768', marginTop: 3 }}>{t.role}</div>
-            </div>
-          </div>
+          <div style={{ font: '900 19px/1.2 var(--font-family)', color: '#312F23', marginBottom: 10 }}>{t.title}</div>
+          <p style={{ font: '500 14px/1.55 var(--font-family)', color: '#5F5C4D', textWrap: 'pretty' }}>{t.sub}</p>
         </LandingCard>
       ))}
     </div>
@@ -59,10 +68,6 @@ const FAQ = () => {
     {
       q: '내 병동에 도입하려면 어떻게 하나요?',
       a: '수간호사님이 앱 안에서 팀을 만들면 바로 시작할 수 있어요.<br />대규모 도입은 출시 후 안내드릴게요.',
-    },
-    {
-      q: '기존 엑셀 근무표를 가져올 수 있나요?',
-      a: '네, CSV 업로드로 지난 근무표를 불러올 수 있어요.<br />팀원 요청이나 규칙도 한 번에 이관돼요.',
     },
     {
       q: '야간 근무 규칙 같은 것도 지킬 수 있나요?',

@@ -64,20 +64,18 @@ const LandingHero = ({ tweaks }) => {
             교대·변경 요청은 한 번의 탭으로 끝내세요.
           </p>
           <ComingSoonButtons kind="primary" />
-          <div style={{ display: 'flex', gap: 28, marginTop: 48, alignItems: 'center' }}>
-            <div>
-              <div style={{ font: '900 28px/1 var(--font-family)', color: '#312F23', letterSpacing: -.5 }}>4.8<span style={{ color: '#FFC107' }}>★</span></div>
-              <div style={{ font: '700 10px/1 var(--font-family)', letterSpacing: 1.6, textTransform: 'uppercase', color: '#7A7768', marginTop: 6 }}>App Store Rating</div>
+          <div style={{ display: 'flex', gap: 16, marginTop: 36, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              background: 'rgba(255,193,7,.18)', color: '#6B5300',
+              padding: '10px 16px', borderRadius: 9999,
+              font: '800 12px/1 var(--font-family)', letterSpacing: 1.2, textTransform: 'uppercase',
+            }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#FFC107', boxShadow: '0 0 0 4px rgba(255,193,7,.25)' }} />
+              사전 신청 열려있어요
             </div>
-            <div style={{ width: 1, height: 36, background: 'rgba(49,47,35,.12)' }} />
-            <div>
-              <div style={{ font: '900 28px/1 var(--font-family)', color: '#312F23', letterSpacing: -.5 }}>12,400+</div>
-              <div style={{ font: '700 10px/1 var(--font-family)', letterSpacing: 1.6, textTransform: 'uppercase', color: '#7A7768', marginTop: 6 }}>Nurses On-Shift</div>
-            </div>
-            <div style={{ width: 1, height: 36, background: 'rgba(49,47,35,.12)' }} />
-            <div>
-              <div style={{ font: '900 28px/1 var(--font-family)', color: '#312F23', letterSpacing: -.5 }}>320+</div>
-              <div style={{ font: '700 10px/1 var(--font-family)', letterSpacing: 1.6, textTransform: 'uppercase', color: '#7A7768', marginTop: 6 }}>Hospital Units</div>
+            <div style={{ font: '600 13px/1.5 var(--font-family)', color: '#5F5C4D' }}>
+              규칙 기반 자동 생성 · 자연어 커스텀 룰 · AI 공평성 리포트
             </div>
           </div>
         </div>

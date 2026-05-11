@@ -135,12 +135,9 @@ const FeatureSwap = () => (
 // Feature 3-A: Schedule auto-generation with strict rules — flagship section
 const FeatureScheduleAutoGen = () => {
   const rules = [
-    { icon: 'event_busy', label: '연차 · 휴가', sub: '신청한 휴가는 자동 보호' },
-    { icon: 'dark_mode', label: '연속 야간 제한', sub: '최대 N일 이상 연속 금지' },
-    { icon: 'bedtime', label: '최소 휴식', sub: '근무 사이 시간 보장' },
-    { icon: 'groups', label: '시프트별 인원', sub: 'Day 4명 / Night 2명 같은 룰' },
-    { icon: 'workspace_premium', label: '숙련도 배치', sub: '신입과 베테랑 균형' },
-    { icon: 'block', label: '금기 패턴', sub: 'ND·NE·EOD 같은 패턴 차단' },
+    { icon: 'dark_mode', label: '연속 야간 제한', sub: '야간 3일 이상 막아요' },
+    { icon: 'groups', label: '시프트별 인원', sub: 'Day 6 / Eve 4 / Night 3, 부족하면 경고' },
+    { icon: 'workspace_premium', label: '숙련도 배치', sub: '신입-베테랑 균형 자동 조정' },
   ];
   return (
     <Section paddingY={180}>
@@ -170,36 +167,36 @@ const FeatureScheduleAutoGen = () => {
         </p>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 60, alignItems: 'center', marginTop: 32 }}>
-        {/* Left: rule chips grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {/* Left: rule list — 1 column, 3 rows, more breathing room */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {rules.map(r => (
             <div key={r.label} style={{
-              background: '#FFFDF7', borderRadius: 24, padding: 22,
-              display: 'flex', gap: 14, alignItems: 'flex-start',
+              background: '#FFFDF7', borderRadius: 28, padding: '28px 32px',
+              display: 'flex', gap: 20, alignItems: 'center',
               border: '1px solid rgba(178,173,156,.25)',
               boxShadow: '0 8px 20px rgba(49,47,35,.04)',
             }}>
               <div style={{
-                width: 44, height: 44, borderRadius: 16,
+                width: 56, height: 56, borderRadius: 18,
                 background: '#FFECB3',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
               }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 22, color: '#B8860B', fontVariationSettings: "'FILL' 1" }}>{r.icon}</span>
+                <span className="material-symbols-outlined" style={{ fontSize: 28, color: '#B8860B', fontVariationSettings: "'FILL' 1" }}>{r.icon}</span>
               </div>
               <div>
-                <div style={{ font: '900 15px/1.2 var(--font-family)', color: '#312F23' }}>{r.label}</div>
-                <div style={{ font: '500 13px/1.4 var(--font-family)', color: '#5F5C4D', marginTop: 4 }}>{r.sub}</div>
+                <div style={{ font: '900 18px/1.2 var(--font-family)', color: '#312F23' }}>{r.label}</div>
+                <div style={{ font: '500 14px/1.45 var(--font-family)', color: '#5F5C4D', marginTop: 6 }}>{r.sub}</div>
               </div>
             </div>
           ))}
           <div style={{
-            gridColumn: 'span 2',
             background: 'linear-gradient(135deg, #FFD700, #FF8C00)',
             borderRadius: 24, padding: '20px 24px',
             display: 'flex', gap: 14, alignItems: 'center',
             boxShadow: '0 16px 32px rgba(255,140,0,.25)',
             color: '#312F23',
+            marginTop: 4,
           }}>
             <span className="material-symbols-outlined" style={{ fontSize: 28, fontVariationSettings: "'FILL' 1" }}>bolt</span>
             <div style={{ flex: 1 }}>
@@ -219,6 +216,83 @@ const FeatureScheduleAutoGen = () => {
               fallback={<MiniHomeScreen shift="day" />}
             />
           </PhoneFrame>
+        </div>
+      </div>
+    </Section>
+  );
+};
+
+// Feature 3-C: AI fairness report — runs right after schedule generation
+const FeatureAIReport = () => {
+  const cards = [
+    { icon: 'analytics', label: '팀원별 야간 분포', sub: '누가 더 힘든지 한눈에' },
+    { icon: 'rule', label: '룰 준수율', sub: '설정한 규칙이 % 단위로' },
+    { icon: 'compare_arrows', label: '이전 월 비교', sub: '지난달보다 공평해졌는지' },
+  ];
+  return (
+    <Section paddingY={180}>
+      {/* Subtle orange-tinted blob to echo the AI accent */}
+      <div aria-hidden style={{ position: 'absolute', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,140,0,.18), transparent 70%)', top: -80, right: -120, filter: 'blur(60px)', pointerEvents: 'none' }} />
+      <div style={{ textAlign: 'center', marginBottom: 56, position: 'relative' }}>
+        <LandingChip icon="auto_awesome" bg="rgba(255,140,0,.16)" color="#B05A00">AI 분석 리포트</LandingChip>
+        <h2 style={{
+          font: '900 72px/1.02 var(--font-family)',
+          letterSpacing: -2.2, color: '#312F23',
+          marginTop: 24, textWrap: 'balance',
+          maxWidth: 900, margin: '24px auto 0',
+        }}>
+          한 달 근무표,<br />
+          <span style={{
+            background: 'linear-gradient(120deg, #FFB300 0%, #FF8C00 55%, #E55A00 110%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}>공평했는지 바로 확인해요.</span>
+        </h2>
+        <p style={{
+          font: '500 19px/1.6 var(--font-family)',
+          color: '#5F5C4D',
+          maxWidth: 680, margin: '24px auto 0',
+          textWrap: 'balance',
+        }}>
+          생성 직후 야간 횟수·연속 근무·휴식 준수율을 팀원별로 분석해요.<br />
+          "제 야간이 왜 이렇게 많아요?" 물어볼 필요 없이, 숫자가 먼저 답해요.
+        </p>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center', marginTop: 32, position: 'relative' }}>
+        {/* Left: phone */}
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <PhoneFrame width={340} height={660} tilt={-3}>
+            <ScreenshotImage
+              src="assets/screenshots/ai_report.png"
+              alt="AI 분석 리포트 화면"
+              fallback={<MiniHomeScreen shift="evening" />}
+            />
+          </PhoneFrame>
+        </div>
+        {/* Right: 3 fairness cards stacked */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {cards.map(c => (
+            <div key={c.label} style={{
+              background: '#FFFDF7', borderRadius: 28, padding: '26px 30px',
+              display: 'flex', gap: 18, alignItems: 'center',
+              border: '1px solid rgba(178,173,156,.25)',
+              boxShadow: '0 8px 20px rgba(49,47,35,.04)',
+            }}>
+              <div style={{
+                width: 52, height: 52, borderRadius: 16,
+                background: 'linear-gradient(135deg, #FFD180, #FF8C00)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+                boxShadow: '0 8px 18px rgba(255,140,0,.28)',
+              }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 26, color: '#FFFDF7', fontVariationSettings: "'FILL' 1" }}>{c.icon}</span>
+              </div>
+              <div>
+                <div style={{ font: '900 17px/1.2 var(--font-family)', color: '#312F23' }}>{c.label}</div>
+                <div style={{ font: '500 14px/1.45 var(--font-family)', color: '#5F5C4D', marginTop: 6 }}>{c.sub}</div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </Section>
@@ -374,4 +448,4 @@ const FeatureShiftTheming = () => (
   </Section>
 );
 
-Object.assign(window, { FeaturePersonalCalendar, FeatureTeamCalendar, FeatureScheduleAutoGen, FeatureCustomRules, FeatureSwap, FeatureShiftTheming });
+Object.assign(window, { FeaturePersonalCalendar, FeatureTeamCalendar, FeatureScheduleAutoGen, FeatureAIReport, FeatureCustomRules, FeatureSwap, FeatureShiftTheming });
