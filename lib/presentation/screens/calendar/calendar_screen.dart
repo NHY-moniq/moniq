@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
+import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
@@ -272,7 +273,12 @@ class CalendarScreen extends HookConsumerWidget {
                     }
 
                     // 1) 서버 근무: 컬러 박스로 단문자 표시
-                    final dayShifts = state.monthlyShifts[key] ?? const [];
+                    //    "팀 근무 숨기기" 토글이 ON이면 서버 근무는 스킵
+                    final hideTeamShiftsPv =
+                        ref.watch(hideTeamShiftsInPersonalProvider);
+                    final dayShifts = hideTeamShiftsPv
+                        ? const <ShiftWithType>[]
+                        : (state.monthlyShifts[key] ?? const []);
                     for (final s in dayShifts) {
                       final label =
                           labelOf(s.shiftType.name, s.shiftType.code);

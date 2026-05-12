@@ -899,62 +899,162 @@ class _RecurrenceField extends StatelessWidget {
   final List<(String, String)> options;
   final ValueChanged<String> onChanged;
 
+  /// 각 옵션 값에 매핑되는 아이콘 — 빈도의 의미를 시각적으로 보조.
+  IconData _iconFor(String val) {
+    switch (val) {
+      case 'none':
+        return Icons.do_disturb_alt_outlined;
+      case 'daily':
+        return Icons.today_outlined;
+      case 'weekly':
+        return Icons.calendar_view_week_rounded;
+      case 'biweekly':
+        return Icons.event_repeat_rounded;
+      case 'monthly':
+        return Icons.calendar_month_outlined;
+      case 'yearly':
+        return Icons.cake_outlined;
+      default:
+        return Icons.repeat_rounded;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return DropdownButtonFormField<String>(
-      value: value,
-      isExpanded: true,
-      icon: Icon(Icons.expand_more_rounded, color: cs.onSurfaceVariant),
-      style: tt.bodyMedium?.copyWith(
-        color: cs.onSurface,
-        fontWeight: FontWeight.w700,
-      ),
-      dropdownColor: cs.surfaceContainerHigh,
-      borderRadius: AppRadius.borderRadiusLg,
-      decoration: InputDecoration(
-        labelText: '반복',
-        labelStyle: tt.labelSmall?.copyWith(
-          color: cs.onSurfaceVariant,
-          fontWeight: FontWeight.w700,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 라벨을 박스 외부 위로 배치 — floating label이 fill 위에 떠 겹치는
+        // 시각 이슈를 회피.
+        Padding(
+          padding: const EdgeInsets.only(
+            left: AppSpacing.xs,
+            bottom: AppSpacing.xs,
+          ),
+          child: Text(
+            '반복',
+            style: tt.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ),
-        floatingLabelStyle: tt.labelMedium?.copyWith(
-          color: cs.primary,
-          fontWeight: FontWeight.w700,
-        ),
-        prefixIcon: Icon(
-          Icons.repeat_rounded,
-          size: 20,
-          color: cs.onSurfaceVariant,
-        ),
-        filled: true,
-        fillColor: cs.surfaceContainerHigh,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.md,
-        ),
-        border: OutlineInputBorder(
+        DropdownButtonFormField<String>(
+          value: value,
+          isExpanded: true,
+          icon: Icon(Icons.expand_more_rounded, color: cs.onSurfaceVariant),
+          style: tt.bodyMedium?.copyWith(
+            color: cs.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+          dropdownColor: cs.surfaceContainerHigh,
           borderRadius: AppRadius.borderRadiusLg,
-          borderSide: BorderSide.none,
+          // 항목이 6개라 길어지지 않지만, 안전하게 상한을 둠.
+          menuMaxHeight: 360,
+          // 닫힌 상태에서는 prefixIcon(반복 아이콘)이 이미 보이므로,
+          // 라벨만 깔끔하게 노출.
+          selectedItemBuilder: (context) {
+            return options.map((opt) {
+              final (_, label) = opt;
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  label,
+                  style: tt.bodyMedium?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              );
+            }).toList();
+          },
+          decoration: InputDecoration(
+            prefixIcon: Icon(
+              Icons.repeat_rounded,
+              size: 20,
+              color: cs.onSurfaceVariant,
+            ),
+            filled: true,
+            fillColor: cs.surfaceContainerHigh,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: AppRadius.borderRadiusLg,
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: AppRadius.borderRadiusLg,
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: AppRadius.borderRadiusLg,
+              borderSide: BorderSide(color: cs.primary, width: 1.5),
+            ),
+          ),
+          items: options.map((opt) {
+            final (val, label) = opt;
+            final isSelected = val == value;
+            return DropdownMenuItem(
+              value: val,
+              child: Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  // 선택 시 primaryContainer 배경 + onPrimaryContainer 텍스트로
+                  // cream 배경에서도 대비/가독성 확보
+                  color: isSelected
+                      ? cs.primaryContainer
+                      : Colors.transparent,
+                  borderRadius: AppRadius.borderRadiusMd,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _iconFor(val),
+                      size: 18,
+                      color: isSelected
+                          ? cs.onPrimaryContainer
+                          : cs.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: tt.bodyMedium?.copyWith(
+                          color: isSelected
+                              ? cs.onPrimaryContainer
+                              : cs.onSurface,
+                          fontWeight: isSelected
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (isSelected)
+                      Icon(
+                        Icons.check_rounded,
+                        size: 18,
+                        color: cs.onPrimaryContainer,
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusLg,
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusLg,
-          borderSide: BorderSide(color: cs.primary, width: 1.5),
-        ),
-      ),
-      items: options.map((opt) {
-        final (val, label) = opt;
-        return DropdownMenuItem(value: val, child: Text(label));
-      }).toList(),
-      onChanged: (v) {
-        if (v != null) onChanged(v);
-      },
+      ],
     );
   }
 }
