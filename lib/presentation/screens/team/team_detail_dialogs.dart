@@ -9,6 +9,8 @@ import 'package:moniq/data/providers/schedule_providers.dart';
 import 'package:moniq/data/repositories/schedule_repository.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
+import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
@@ -209,34 +211,13 @@ void showDeleteScheduleSheet({
                     final month = selectedDate.month;
 
                     // 2차 확인
-                    final confirm = await showDialog<bool>(
+                    final confirm = await showMoniqDestructiveConfirm(
                       context: context,
-                      builder: (dCtx) => AlertDialog(
-                        title: const Text('정말 삭제하시겠습니까?'),
-                        content: Text(
-                          '$year년 $month월의 모든 팀 일정이\n'
-                          '삭제되며 복구할 수 없습니다.',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () =>
-                                Navigator.pop(dCtx, false),
-                            child: const Text('취소'),
-                          ),
-                          TextButton(
-                            onPressed: () =>
-                                Navigator.pop(dCtx, true),
-                            child: Text('삭제',
-                                style: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .error,
-                                )),
-                          ),
-                        ],
-                      ),
+                      title: '정말 삭제하시겠습니까?',
+                      message:
+                          '$year년 $month월의 모든 팀 일정이\n삭제되며 복구할 수 없습니다.',
                     );
-                    if (confirm != true) return;
+                    if (!confirm) return;
 
                     try {
                       await repo.deleteSchedulesByMonth(
@@ -244,8 +225,7 @@ void showDeleteScheduleSheet({
                         year: year,
                         month: month,
                       );
-                      // 삭제 후 팀 캘린더/팀 상세 자동 리프레시.
-                      // invalidate 대신 refresh()를 사용해 현재 보고 있던 월/선택일을 유지.
+                      // 삭제 후 팀 캘린더/팀 상세/개인 캘린더 자동 리프레시.
                       if (ref != null) {
                         try {
                           await ref
@@ -254,6 +234,12 @@ void showDeleteScheduleSheet({
                               .refresh();
                         } catch (_) {}
                         ref.invalidate(teamDetailViewModelProvider(teamId));
+                        // 개인 캘린더의 monthlyShifts도 함께 갱신
+                        try {
+                          await ref
+                              .read(homeViewModelProvider.notifier)
+                              .refresh();
+                        } catch (_) {}
                       }
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(

@@ -317,6 +317,342 @@ class MoniqConfirmSheetBody extends StatelessWidget {
   }
 }
 
+/// Themed destructive confirmation dialog.
+///
+/// A polished replacement for the default [AlertDialog] used for
+/// destructive actions (e.g. "이번 달 일정 모두 삭제"). Uses design system
+/// tokens only — fully dark-mode safe.
+///
+/// Visual structure:
+///  - Top icon chip (48×48, [ColorScheme.errorContainer] background +
+///    [ColorScheme.onErrorContainer] foreground)
+///  - Centered headline title
+///  - Centered body message with relaxed line-height
+///  - Right-aligned action row: text "취소" + filled destructive confirm
+///
+/// Pops `true` on confirm, `false` on cancel (including barrier dismiss).
+Future<bool> showMoniqDestructiveConfirm({
+  required BuildContext context,
+  required String title,
+  required String message,
+  String confirmLabel = '삭제',
+  String cancelLabel = '취소',
+  IconData icon = Icons.delete_outline_rounded,
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.42),
+    builder: (ctx) => _MoniqDestructiveConfirmDialog(
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+      cancelLabel: cancelLabel,
+      icon: icon,
+    ),
+  );
+  return result ?? false;
+}
+
+class _MoniqDestructiveConfirmDialog extends StatelessWidget {
+  const _MoniqDestructiveConfirmDialog({
+    required this.title,
+    required this.message,
+    required this.confirmLabel,
+    required this.cancelLabel,
+    required this.icon,
+  });
+
+  final String title;
+  final String message;
+  final String confirmLabel;
+  final String cancelLabel;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Dialog(
+      backgroundColor: cs.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.borderRadiusLg,
+      ),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xxl,
+        vertical: AppSpacing.xxl,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.sm,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Destructive icon chip
+            Center(
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: cs.errorContainer,
+                  borderRadius: AppRadius.borderRadiusMd,
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  icon,
+                  size: 22,
+                  color: cs.onErrorContainer,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            // Title
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: AppTypography.titleLarge.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            // Message
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: AppTypography.bodyMedium.copyWith(
+                color: cs.onSurfaceVariant,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            // Actions — right aligned
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: cs.onSurfaceVariant,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.sm,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.borderRadiusFull,
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(
+                    cancelLabel,
+                    style: AppTypography.labelLarge.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: cs.error,
+                    foregroundColor: cs.onError,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xl,
+                      vertical: AppSpacing.sm + 2,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.borderRadiusFull,
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(
+                    confirmLabel,
+                    style: AppTypography.labelLarge.copyWith(
+                      color: cs.onError,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Themed informational confirmation dialog.
+///
+/// Visual sibling of [showMoniqDestructiveConfirm], but tuned for
+/// *non-destructive* confirmations — e.g. "이 동작을 진행할까요?" prompts that
+/// just need a soft, branded acknowledgement instead of a warning.
+///
+/// Visual structure mirrors the destructive variant:
+///  - Top icon chip (40×40, [ColorScheme.primaryContainer] background +
+///    [ColorScheme.onPrimaryContainer] foreground)
+///  - Centered headline title
+///  - Centered body message with relaxed line-height
+///  - Right-aligned action row: text "취소" + filled primary confirm
+///
+/// Pops `true` on confirm, `false` on cancel (including barrier dismiss).
+Future<bool> showMoniqInfoConfirm({
+  required BuildContext context,
+  required String title,
+  required String message,
+  String confirmLabel = '진행',
+  String cancelLabel = '취소',
+  IconData icon = Icons.star_outline_rounded,
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.42),
+    builder: (ctx) => _MoniqInfoConfirmDialog(
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+      cancelLabel: cancelLabel,
+      icon: icon,
+    ),
+  );
+  return result ?? false;
+}
+
+class _MoniqInfoConfirmDialog extends StatelessWidget {
+  const _MoniqInfoConfirmDialog({
+    required this.title,
+    required this.message,
+    required this.confirmLabel,
+    required this.cancelLabel,
+    required this.icon,
+  });
+
+  final String title;
+  final String message;
+  final String confirmLabel;
+  final String cancelLabel;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Dialog(
+      backgroundColor: cs.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.borderRadiusLg,
+      ),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xxl,
+        vertical: AppSpacing.xxl,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.sm,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Info icon chip
+            Center(
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer,
+                  borderRadius: AppRadius.borderRadiusMd,
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  icon,
+                  size: 24,
+                  color: cs.onPrimaryContainer,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            // Title
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: AppTypography.titleLarge.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            // Message
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: AppTypography.bodyMedium.copyWith(
+                color: cs.onSurfaceVariant,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            // Actions — right aligned
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: cs.onSurfaceVariant,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.sm,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.borderRadiusFull,
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(
+                    cancelLabel,
+                    style: AppTypography.labelLarge.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: cs.primary,
+                    foregroundColor: cs.onPrimary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xl,
+                      vertical: AppSpacing.sm + 2,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.borderRadiusFull,
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(
+                    confirmLabel,
+                    style: AppTypography.labelLarge.copyWith(
+                      color: cs.onPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Pre-styled row for sheet option lists.
 /// Replaces ad-hoc `ListTile` use inside bottom sheets.
 class MoniqSheetOption extends StatelessWidget {

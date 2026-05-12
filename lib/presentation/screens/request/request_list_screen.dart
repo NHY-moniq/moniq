@@ -221,7 +221,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
       appBar: MoniqAppBar(
         title: _selectionMode
             ? '${_selectedIds.length}건 선택됨'
-            : '변경 요청',
+            : '근무 변경 요청',
         leading: _selectionMode
             ? IconButton(
                 icon: const Icon(Icons.close_rounded),
@@ -1073,77 +1073,87 @@ class RequestCard extends StatelessWidget {
                 : colorScheme.outlineVariant,
           ),
         ),
-        child: Row(
-          children: [
-            // 왼쪽 컬러 accent bar
-            Container(
-              width: 4,
-              height: 52,
-              decoration: BoxDecoration(
-                color: statusColor,
-                borderRadius: const BorderRadius.horizontal(
-                    left: Radius.circular(AppRadius.sm)),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 왼쪽 컬러 accent bar — 카드 전체 높이에 맞춤
+              Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  borderRadius: const BorderRadius.horizontal(
+                      left: Radius.circular(AppRadius.sm)),
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.md),
+              const SizedBox(width: AppSpacing.md),
 
-            if (selectionMode) ...[
-              Icon(
-                selected
-                    ? Icons.check_box_rounded
-                    : Icons.check_box_outline_blank_rounded,
-                color: selected ? AppColors.primary : colorScheme.outline,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-            ],
+              if (selectionMode) ...[
+                Align(
+                  alignment: Alignment.center,
+                  child: Icon(
+                    selected
+                        ? Icons.check_box_rounded
+                        : Icons.check_box_outline_blank_rounded,
+                    color:
+                        selected ? AppColors.primary : colorScheme.outline,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+              ],
 
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.sm, horizontal: AppSpacing.xs),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.md, horizontal: AppSpacing.xs),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // 상단 라인: 요청 유형 — 날짜 — 상태 뱃지 (동일 선상)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Text(
-                            changeTypeLabel(request.changeType),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600),
-                          ),
-                          if (request.reason != null &&
-                              request.reason!.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              request.reason!,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
+                          Expanded(
+                            child: Text(
+                              changeTypeLabel(request.changeType),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                          ],
+                          ),
                           if (request.createdAt != null) ...[
-                            const SizedBox(height: 2),
                             Text(
                               dateFormat.format(request.createdAt!),
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),
                             ),
+                            const SizedBox(width: AppSpacing.sm),
                           ],
+                          StatusBadge(status: request.status),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    StatusBadge(status: request.status),
-                  ],
+                      if (request.reason != null &&
+                          request.reason!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          request.reason!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-          ],
+              const SizedBox(width: AppSpacing.sm),
+            ],
+          ),
         ),
       ),
     );
@@ -1245,9 +1255,9 @@ List<RequestModel> _filtered(RequestListState state) => state.filter == 'all'
 }
 
 String changeTypeLabel(String type) => switch (type) {
-      'swap' => '근무 교환',
-      'day_off' => '휴무 요청',
-      'shift_change' => '근무 변경',
+      'swap' => '멤버 간 근무 변경',
+      'day_off' => '내 근무 변경 (휴무)',
+      'shift_change' => '내 근무 변경',
       'schedule_change' => '일정 변경',
       _ => type,
     };

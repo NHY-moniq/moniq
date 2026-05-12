@@ -37,6 +37,8 @@ class MoniqAppBar extends StatelessWidget
     this.trailing,
     this.backgroundColor,
     this.showBack = true,
+    this.onTitleTap,
+    this.titleTrailing,
   });
 
   /// Screen title — 800 weight, 20-22px.
@@ -62,6 +64,14 @@ class MoniqAppBar extends StatelessWidget
 
   /// Whether the automatic back button is shown when no [leading] is provided.
   final bool showBack;
+
+  /// 제목을 탭했을 때 호출. 지정 시 제목이 InkWell 로 감싸지며 우측에
+  /// 작은 chevron 아이콘이 추가된다 (드롭다운 affordance).
+  final VoidCallback? onTitleTap;
+
+  /// 제목 우측에 작은 chevron 등 추가 위젯을 표시. onTitleTap 사용 시
+  /// 기본값으로 arrow_drop_down 아이콘이 자동 추가된다.
+  final Widget? titleTrailing;
 
   @override
   Size get preferredSize =>
@@ -99,35 +109,64 @@ class MoniqAppBar extends StatelessWidget
               ] else
                 const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (hasEyebrow)
-                      Padding(
-                        padding:
-                            const EdgeInsets.only(bottom: 2),
-                        child: Text(
-                          eyebrow!,
-                          style: AppTypography.captionSmall
-                              .copyWith(
-                            color: cs.onSurfaceVariant,
-                            letterSpacing: 1.8,
+                child: () {
+                  final titleColumn = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (hasEyebrow)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Text(
+                            eyebrow!,
+                            style: AppTypography.captionSmall.copyWith(
+                              color: cs.onSurfaceVariant,
+                              letterSpacing: 1.8,
+                            ),
                           ),
                         ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              style: AppTypography.headlineMedium.copyWith(
+                                color: cs.onSurface,
+                                fontWeight: FontWeight.w800,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (titleTrailing != null) ...[
+                            const SizedBox(width: 4),
+                            titleTrailing!,
+                          ] else if (onTitleTap != null) ...[
+                            const SizedBox(width: 2),
+                            Icon(
+                              Icons.arrow_drop_down_rounded,
+                              size: 24,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ],
+                        ],
                       ),
-                    Text(
-                      title,
-                      style: AppTypography.headlineMedium
-                          .copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w800,
+                    ],
+                  );
+                  if (onTitleTap == null) return titleColumn;
+                  return InkWell(
+                    onTap: onTitleTap,
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      child: titleColumn,
                     ),
-                  ],
-                ),
+                  );
+                }(),
               ),
               if (trailing != null) trailing!,
             ],

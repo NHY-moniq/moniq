@@ -58,6 +58,11 @@ final teamCalendarViewModelProvider =
 final pendingTeamCalendarFocusProvider =
     StateProvider.family<DateTime?, String>((ref, teamId) => null);
 
+/// 팀 캘린더 탭에서 현재 보고 있는 팀 ID. null이면 즐겨찾기 팀 사용.
+/// 팀 선택 바텀시트로 잠시 다른 팀을 보고 싶을 때 favorite을 바꾸지 않고
+/// 이 값만 변경한다. 앱 재시작 시 초기화돼 다시 favorite으로 돌아간다.
+final viewingTeamIdOverrideProvider = StateProvider<String?>((ref) => null);
+
 final favoriteTeamProvider = FutureProvider<TeamModel?>((ref) async {
   final authState = ref.watch(authStateChangesProvider);
   final userId = authState.whenOrNull(data: (auth) => auth.session?.user.id);

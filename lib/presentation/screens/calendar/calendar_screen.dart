@@ -2,8 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
-import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
-import 'package:moniq/data/models/shift_with_type.dart';
+import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
@@ -153,6 +152,15 @@ class CalendarScreen extends HookConsumerWidget {
                         icon: Icons.ios_share_outlined,
                         onTap: () => exportCalendar(context, ref, state),
                       ),
+                      // 팀 캘린더와 동일한 휴지통 — 월별 개인 일정/메모 일괄 삭제
+                      MoniqAppBarAction(
+                        icon: Icons.delete_outline_rounded,
+                        tint: AppColors.error,
+                        onTap: () => showDeletePersonalScheduleSheet(
+                          context: context,
+                          ref: ref,
+                        ),
+                      ),
                       if (!AdaptiveLayout.isWide(context))
                         Builder(
                           builder: (ctx) => MoniqAppBarAction(
@@ -192,14 +200,9 @@ class CalendarScreen extends HookConsumerWidget {
                 children: [
                   const SizedBox(height: AppSpacing.sm),
 
-                // ── Calendar (범례는 개인 근무유형에서 동적 생성) ──
+                // ── Calendar (근무 범례/프리뷰 제거됨) ──
                 MoniqCalendar(
-                  legendItems: ref.watch(personalShiftTypesProvider)
-                      .map((st) => (
-                            color: parseHexColor(st.color),
-                            label: st.code.toUpperCase(),
-                          ))
-                      .toList(),
+                  legendItems: const [],
                   focusedDay: state.focusedMonth,
                   selectedDay: state.selectedDate,
                   startingDayOfWeek: startingDay,
@@ -227,68 +230,86 @@ class CalendarScreen extends HookConsumerWidget {
                   },
                   eventLoader: (day) {
                     final key = DateTime(day.year, day.month, day.day);
+                    final hideTeamShifts =
+                        ref.watch(hideTeamShiftsInPersonalProvider);
                     return [
-                      ...state.monthlyShifts[key] ?? [],
+                      // 팀 로스터 근무: 설정에 따라 숨김 가능
+                      if (!hideTeamShifts)
+                        ...state.monthlyShifts[key] ?? [],
                       ...monthlyEvents[key] ?? [],
                       ...monthlyNotes[key] ?? [],
                     ];
                   },
-                  markerBuilder: (context, day, events) {
-                    if (events.isEmpty) return null;
-                    final dots = <Widget>[];
-                    final shiftTypeNames = ref
-                        .read(personalShiftTypesProvider)
-                        .map((st) => st.name)
-                        .toSet();
+                  // dots/markers는 사용하지 않음 — 근무는 previewBuilder의
+                  // 컬러 박스(D/E/N/O)로, 개인 일정은 plain 텍스트로 표시.
+                  markerBuilder: (context, day, events) => null,
+                  previewBuilder: (day) {
+                    final key = DateTime(day.year, day.month, day.day);
+                    final result = <CalendarPreview>[];
+                    final personalShiftTypes =
+                        ref.read(personalShiftTypesProvider);
+                    final shiftTypeByName = {
+                      for (final st in personalShiftTypes) st.name: st,
+                    };
                     final overrides = ref
                             .watch(personalShiftOverridesProvider)
                             .valueOrNull ??
                         const {};
-                    // 서버 근무만 dot (오버라이드 색상 적용)
-                    for (final s
-                        in events.whereType<ShiftWithType>().take(2)) {
+                    final seenWorkLabels = <String>{};
+
+                    String labelOf(String name, String code) {
+                      final personalType = shiftTypeByName[name];
+                      if (personalType != null) {
+                        return displayShiftLabel(
+                            personalType, personalShiftTypes);
+                      }
+                      final c = code.toUpperCase();
+                      if (c == 'OFF') return 'O';
+                      if (c.isEmpty) {
+                        return name.isEmpty ? '?' : name[0].toUpperCase();
+                      }
+                      return c.length > 1 ? c[0] : c;
+                    }
+
+                    // 1) 서버 근무: 컬러 박스로 단문자 표시
+                    final dayShifts = state.monthlyShifts[key] ?? const [];
+                    for (final s in dayShifts) {
+                      final label =
+                          labelOf(s.shiftType.name, s.shiftType.code);
+                      if (!seenWorkLabels.add(label)) continue;
                       final ov = overrides[s.shift.id];
                       final colorHex = ov?.color ?? s.shiftType.color;
-                      dots.add(_shiftDot(parseHexColor(colorHex)));
+                      result.add(CalendarPreview(
+                        text: label,
+                        color: parseHexColor(colorHex),
+                        isWork: true,
+                      ));
                     }
-                    // 개인 일정 중 근무 유형 매칭만 dot
-                    for (final e in events.whereType<PersonalEvent>()) {
-                      if (dots.length >= 3) break;
-                      if (shiftTypeNames.contains(e.title)) {
-                        final c = e.color != null
-                            ? parseHexColor(e.color!)
-                            : AppColors.shiftDay;
-                        dots.add(_shiftDot(c));
-                      }
-                    }
-                    if (dots.isEmpty) return null;
-                    return Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: dots,
-                    );
-                  },
-                  previewBuilder: (day) {
-                    final key = DateTime(day.year, day.month, day.day);
-                    final result = <CalendarPreview>[];
-                    final shiftTypeNames = ref
-                        .read(personalShiftTypesProvider)
-                        .map((st) => st.name)
-                        .toSet();
-
-                    // Server shifts — dot으로만 표시 (previewBuilder 스킵)
-                    // Personal events — 근무 유형 매칭은 스킵, 비근무만 태그
+                    // 2) 개인 일정: 근무 매칭이면 컬러 박스(중복 제거), 아니면 plain
                     final evts = monthlyEvents[key];
                     if (evts != null && evts.isNotEmpty) {
                       for (final e in evts) {
                         if (result.length >= 3) break;
-                        if (shiftTypeNames.contains(e.title)) continue;
-                        result.add(CalendarPreview(
-                          text: e.title,
-                          color: e.color != null
-                              ? parseHexColor(e.color!)
-                              : null,
-                          isWork: false,
-                        ));
+                        final matchedType = shiftTypeByName[e.title];
+                        if (matchedType != null) {
+                          final label = displayShiftLabel(
+                              matchedType, personalShiftTypes);
+                          if (!seenWorkLabels.add(label)) continue;
+                          final colorHex = e.color ?? matchedType.color;
+                          result.add(CalendarPreview(
+                            text: label,
+                            color: parseHexColor(colorHex),
+                            isWork: true,
+                          ));
+                        } else {
+                          result.add(CalendarPreview(
+                            text: e.title,
+                            color: e.color != null
+                                ? parseHexColor(e.color!)
+                                : null,
+                            isWork: false,
+                          ));
+                        }
                       }
                     }
                     return result;
@@ -311,27 +332,6 @@ class CalendarScreen extends HookConsumerWidget {
           ),
         );
       },
-    );
-  }
-
-  /// Small colored dot widget for calendar markers.
-  static Widget _shiftDot(Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 1),
-      child: Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.3),
-              blurRadius: 1.5,
-            ),
-          ],
-        ),
-      ),
     );
   }
 

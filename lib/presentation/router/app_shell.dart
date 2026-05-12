@@ -488,7 +488,7 @@ class _TeamContextItems extends ConsumerWidget {
           ),
           _FlyoutTile(
             icon: Icons.swap_horiz,
-            label: '변경 요청',
+            label: '근무 변경 요청',
             onTap: () => context.push('/teams/$teamId/requests'),
           ),
         ],

@@ -9,6 +9,7 @@ import 'package:moniq/data/datasources/personal_shift_override_remote_data_sourc
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/providers/request_providers.dart';
+import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
@@ -56,13 +57,22 @@ class DateItemsPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final events = _sortedEvents;
-    // 팀 스케줄이 있는데 이 날 근무가 없으면 오프로 간주
-    final isTeamOff = hasTeamSchedule && shifts.isEmpty;
-    final hasItems =
-        shifts.isNotEmpty || isTeamOff || events.isNotEmpty || notes.isNotEmpty;
+    // "팀 근무 숨기기" 토글이 켜져 있으면 server-side 팀 로스터 근무를
+    // 카드/카운트에서 모두 제외. 다른 팀에서 admin이 만든 근무가 거슬리는
+    // 경우 사용자가 한 번에 가릴 수 있도록 함.
+    final hideTeamShifts = ref.watch(hideTeamShiftsInPersonalProvider);
+    final visibleShifts = hideTeamShifts ? const <ShiftWithType>[] : shifts;
+    // 팀 스케줄이 있는데 이 날 근무가 없으면 오프로 간주 (숨김 모드면 무시)
+    final isTeamOff =
+        !hideTeamShifts && hasTeamSchedule && visibleShifts.isEmpty;
+    final hasItems = visibleShifts.isNotEmpty ||
+        isTeamOff ||
+        events.isNotEmpty ||
+        notes.isNotEmpty;
     final weekday = _weekdays[date.weekday - 1];
     final offCount = isTeamOff ? 1 : 0;
-    final totalItems = shifts.length + offCount + events.length + notes.length;
+    final totalItems =
+        visibleShifts.length + offCount + events.length + notes.length;
     final dateKey = DateTime(date.year, date.month, date.day);
     final isExpanded = ref.watch(dateExpandedProvider(dateKey));
 
@@ -150,8 +160,8 @@ class DateItemsPanel extends ConsumerWidget {
                       Text(
                         hasItems
                             ? [
-                                if (shifts.isNotEmpty)
-                                  '\uADFC\uBB34 ${shifts.length}\uAC74',
+                                if (visibleShifts.isNotEmpty)
+                                  '\uADFC\uBB34 ${visibleShifts.length}\uAC74',
                                 if (events.isNotEmpty)
                                   '\uC77C\uC815 ${events.length}\uAC74',
                                 if (notes.isNotEmpty)
@@ -215,7 +225,10 @@ class DateItemsPanel extends ConsumerWidget {
           ],
 
           // ── 근무 일정 섹션 ──
-          if ((shifts.isNotEmpty || shiftEvents.isNotEmpty || isTeamOff) && isExpanded) ...[
+          if ((visibleShifts.isNotEmpty ||
+                  shiftEvents.isNotEmpty ||
+                  isTeamOff) &&
+              isExpanded) ...[
             const SizedBox(height: AppSpacing.lg),
             _buildSectionHeader(theme, '근무 일정'),
             const SizedBox(height: AppSpacing.sm),
@@ -228,7 +241,7 @@ class DateItemsPanel extends ConsumerWidget {
                 name: 'Off',
               ),
             // 서버 근무 (원격 오버라이드 적용)
-            ...shifts.map((s) {
+            ...visibleShifts.map((s) {
               final overrides = ref
                       .watch(personalShiftOverridesProvider)
                       .valueOrNull ??
@@ -448,9 +461,10 @@ class DateItemsPanel extends ConsumerWidget {
                   ),
                   child: Center(
                     child: Text(
-                      code,
+                      // OFF는 'O'로, 그 외 2글자 이상 코드는 첫 글자만 표시
+                      _displayShiftCode(code, name),
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: ThemeData.estimateBrightnessForColor(shiftColor) ==
                                 Brightness.dark
@@ -870,3 +884,17 @@ class DateItemsPanel extends ConsumerWidget {
   }
 }
 
+
+/// 근무 카드 라벨용 — OFF는 'O', 그 외 2글자 이상 코드는 첫 글자만.
+String _displayShiftCode(String code, String name) {
+  final c = code.toUpperCase();
+  if (c == 'OFF' ||
+      name.contains('오프') ||
+      name.toLowerCase().contains('off')) {
+    return 'O';
+  }
+  if (c.isEmpty) {
+    return name.isEmpty ? '?' : name[0].toUpperCase();
+  }
+  return c.length > 1 ? c[0] : c;
+}

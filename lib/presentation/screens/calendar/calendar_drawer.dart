@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
+import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 
 import 'calendar_providers.dart';
@@ -52,12 +53,13 @@ class CalendarDrawer extends HookConsumerWidget {
               ),
               child: Row(
                 children: [
+                  // 팀 캘린더의 TeamProfileAvatar와 동일한 원형 표시
                   Container(
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
                       color: cs.primaryContainer,
-                      borderRadius: AppRadius.borderRadiusMd,
+                      shape: BoxShape.circle,
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: avatarUrl != null && avatarUrl.isNotEmpty
@@ -127,6 +129,14 @@ class CalendarDrawer extends HookConsumerWidget {
                       Navigator.pop(context);
                       onImportCalendar();
                     },
+                  ),
+                  _DrawerToggleItem(
+                    icon: Icons.visibility_off_outlined,
+                    label: '팀 근무 숨기기',
+                    value: ref.watch(hideTeamShiftsInPersonalProvider),
+                    onChanged: (v) => ref
+                        .read(hideTeamShiftsInPersonalProvider.notifier)
+                        .setHide(v),
                   ),
                 ],
               ),
@@ -297,6 +307,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
               itemBuilder: (context, index) {
                 final st = shiftTypes[index];
                 final color = parseHexColor(st.color);
+                final label = displayShiftLabel(st, shiftTypes);
                 return Card(
                   margin:
                       const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -309,7 +320,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                         borderRadius: AppRadius.borderRadiusSm,
                       ),
                       child: Center(
-                        child: Text(st.code,
+                        child: Text(label,
                             style: TextStyle(
                               color: color,
                               fontWeight: FontWeight.w700,
@@ -739,6 +750,57 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                   selected = TimeOfDay(hour: dt.hour, minute: dt.minute);
                 },
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Drawer Toggle Item — 스위치형 항목 ──
+
+class _DrawerToggleItem extends StatelessWidget {
+  const _DrawerToggleItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return InkWell(
+      onTap: () => onChanged(!value),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xxl,
+          vertical: AppSpacing.md,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: cs.onSurfaceVariant, size: 22),
+            const SizedBox(width: AppSpacing.lg),
+            Expanded(
+              child: Text(
+                label,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurface,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Switch.adaptive(
+              value: value,
+              onChanged: onChanged,
+              activeThumbColor: cs.primary,
             ),
           ],
         ),
