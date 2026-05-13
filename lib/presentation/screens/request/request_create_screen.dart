@@ -3,11 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/data/datasources/push_service.dart';
-import 'package:moniq/data/models/roster_entry.dart';
-import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/request_providers.dart';
-import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/presentation/screens/request/request_create_widgets.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
@@ -23,7 +20,7 @@ class RequestCreateScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: const MoniqAppBar(title: '변경 요청'),
+      appBar: const MoniqAppBar(title: '근무 변경 요청'),
       body: _RequestCreateForm(teamId: teamId),
     );
   }
@@ -39,119 +36,66 @@ class _RequestCreateForm extends ConsumerStatefulWidget {
 }
 
 class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
-  String _changeType = 'day_off';
-  DateTime? _requestedDate;
-  String? _selectedShiftTypeId;
-  // 근무 교환 — 다중 entry 지원 (1행~N행)
+  /// UI 카테고리: 'self' = 내 근무 변경 · 'swap' = 멤버 간 근무 변경.
+  /// 실제 서버 changeType은 제출 시 entry별로 결정된다.
+  String _category = 'self';
+
+  /// 내 근무 변경 — 다중 entry (1행~N행)
+  final List<SelfChangeEntry> _selfEntries = [SelfChangeEntry()];
+
+  /// 멤버 간 근무 변경 (swap) — 다중 entry (1행~N행)
   final List<SwapEntry> _swapEntries = [SwapEntry()];
-  String _reason = '';
-  String _note = '';
+
   bool _isSubmitting = false;
   String? _errorMessage;
   String? _successMessage;
 
-  List<ShiftTypeModel> _shiftTypes = [];
-  List<RosterEntry> _roster = [];
-  String? _myShiftTypeName;
-  bool _isLoadingRoster = false;
-
-  static const _changeTypes = [
-    ('day_off', '휴무 요청', Icons.event_busy),
-    ('shift_change', '근무 변경', Icons.swap_vert),
-    ('swap', '근무 교환', Icons.swap_horiz),
-  ];
-
-  static const _presetReasons = [
-    '개인 사유',
-    '병원 방문',
-    '가족 행사',
-    '학업/시험',
-    '기타',
+  static const _categories = [
+    ('self', '내 근무 변경', Icons.swap_vert),
+    ('swap', '멤버 간 근무 변경', Icons.swap_horiz),
   ];
 
   @override
   void initState() {
     super.initState();
-    _requestedDate = DateTime.now();
-    _loadShiftTypes();
-  }
-
-  Future<void> _loadShiftTypes() async {
-    final shiftRepo = ref.read(shiftRepositoryProvider);
-    _shiftTypes = await shiftRepo.getShiftTypes(widget.teamId);
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _loadRoster() async {
-    if (_requestedDate == null) return;
-    setState(() => _isLoadingRoster = true);
-
-    final shiftRepo = ref.read(shiftRepositoryProvider);
-    _roster = await shiftRepo.getTeamRoster(
-      teamId: widget.teamId,
-      date: _requestedDate!,
-    );
-
-    final myUserId = ref.read(currentUserProvider)?.id;
-    _myShiftTypeName = null;
-    for (final entry in _roster) {
-      for (final w in entry.workers) {
-        if (w.user.id == myUserId) {
-          _myShiftTypeName = entry.shiftType.name;
-          break;
-        }
-      }
-      if (_myShiftTypeName != null) break;
-    }
-
-    if (mounted) setState(() => _isLoadingRoster = false);
+    _selfEntries.first.date = DateTime.now();
   }
 
   /// 다중 swap entry 중 완료된(제출 가능한) 것만 추출
   List<SwapEntry> get _validSwapEntries =>
       _swapEntries.where((e) => e.isComplete).toList();
 
+  /// 다중 self-change entry 중 완료된 것만 추출
+  List<SelfChangeEntry> get _validSelfEntries =>
+      _selfEntries.where((e) => e.isComplete).toList();
+
   bool get _canSubmit {
     if (_isSubmitting) return false;
-    if (_changeType == 'swap') {
-      // swap은 reason 불필요. 완료된 entry가 1건 이상이어야 함
+    if (_category == 'swap') {
       return _validSwapEntries.isNotEmpty;
     }
-    if (_reason.isEmpty) return false;
-    if (_changeType == 'shift_change' && _selectedShiftTypeId == null) {
-      return false;
-    }
-    return true;
+    return _validSelfEntries.isNotEmpty;
   }
 
-  /// 0=요청 유형 · 1=상세(날짜/근무) · 2=사유/메모
+  /// 0=카테고리 선택 · 1=상세 입력 완료
   int get _currentStep {
-    if (_changeType == 'swap') {
-      // swap: detail 완료(entry 1건 이상)면 step=2 (사유 단계 없음)
-      return _validSwapEntries.isNotEmpty ? 2 : 0;
+    if (_category == 'swap') {
+      return _validSwapEntries.isNotEmpty ? 1 : 0;
     }
-    if (_reason.isNotEmpty) return 2;
-    final detailDone = switch (_changeType) {
-      'day_off' => _requestedDate != null,
-      'shift_change' =>
-        _requestedDate != null && _selectedShiftTypeId != null,
-      _ => false,
-    };
-    if (detailDone) return 1;
-    return 0;
+    return _validSelfEntries.isNotEmpty ? 1 : 0;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isSwap = _changeType == 'swap';
+    final isSwap = _category == 'swap';
 
     return SingleChildScrollView(
       padding: AppSpacing.screenAll,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          MoniqStepper.bars(current: _currentStep, total: 3),
+          MoniqStepper.bars(current: _currentStep, total: 2),
           const SizedBox(height: AppSpacing.xxl),
           // Step 1: 요청 유형
           Text('요청 유형',
@@ -161,149 +105,66 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
           Wrap(
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,
-            children: _changeTypes.map((t) {
+            children: _categories.map((t) {
               final (type, label, icon) = t;
-              final selected = _changeType == type;
+              final selected = _category == type;
+              final cs = theme.colorScheme;
               return ChoiceChip(
-                avatar: Icon(icon, size: 18),
+                avatar: Icon(
+                  icon,
+                  size: 18,
+                  color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+                ),
                 label: Text(label),
+                labelStyle: theme.textTheme.bodyMedium?.copyWith(
+                  color: selected ? cs.onPrimaryContainer : cs.onSurface,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                ),
                 selected: selected,
                 showCheckmark: false,
                 onSelected: (_) {
                   setState(() {
-                    _changeType = type;
-                    _selectedShiftTypeId = null;
-                    _swapEntries
-                      ..clear()
-                      ..add(SwapEntry());
+                    _category = type;
                   });
-                  if (type == 'shift_change' && _requestedDate != null) {
-                    _loadRoster();
-                  }
                 },
-                selectedColor:
-                    theme.colorScheme.primary.withValues(alpha: 0.15),
+                backgroundColor: cs.surface,
+                selectedColor: cs.primaryContainer,
+                side: BorderSide(
+                  color: selected
+                      ? cs.primary.withValues(alpha: 0.4)
+                      : cs.outlineVariant,
+                  width: 1,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.full),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.xs,
+                ),
               );
             }).toList(),
           ),
 
-          // 휴무 / 근무 변경: 희망 날짜 상단 단계
-          if (!isSwap) ...[
-            const SizedBox(height: AppSpacing.xxl),
-            Text('희망 날짜',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: AppSpacing.md),
-            InkWell(
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _requestedDate ?? DateTime.now(),
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime.now().add(const Duration(days: 90)),
-                );
-                if (picked != null) {
-                  setState(() => _requestedDate = picked);
-                  if (_changeType == 'shift_change') {
-                    _loadRoster();
-                  }
-                }
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: theme.colorScheme.outlineVariant,
-                  ),
-                  borderRadius: AppRadius.borderRadiusMd,
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.calendar_today,
-                        size: 20, color: theme.colorScheme.primary),
-                    const SizedBox(width: AppSpacing.md),
-                    Text(
-                      _requestedDate != null
-                          ? DateFormat('yyyy년 MM월 dd일').format(_requestedDate!)
-                          : '날짜를 선택해주세요',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: _requestedDate != null
-                            ? null
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          const SizedBox(height: AppSpacing.xxl),
 
-          // 근무 변경 섹션
-          if (_changeType == 'shift_change') ...[
-            const SizedBox(height: AppSpacing.xxl),
-            RequestCreateShiftChangeSection(
-              isLoading: _isLoadingRoster,
-              myShiftTypeName: _myShiftTypeName,
-              shiftTypes: _shiftTypes,
-              selectedShiftTypeId: _selectedShiftTypeId,
-              onShiftTypeSelected: (id) =>
-                  setState(() => _selectedShiftTypeId = id),
+          // 내 근무 변경 — 다중 entry (날짜 → 변경 근무)
+          if (!isSwap)
+            SelfChangeEntriesSection(
+              teamId: widget.teamId,
+              myUserId: ref.read(currentUserProvider)?.id,
+              entries: _selfEntries,
+              onChanged: () => setState(() {}),
             ),
-          ],
 
-          // 근무 교환 섹션 — 다중 entry (팀원 → 날짜 → as-is/to-be)
-          if (isSwap) ...[
-            const SizedBox(height: AppSpacing.xxl),
+          // 멤버 간 근무 변경 (swap) — 다중 entry (팀원 → 날짜 → 변경 근무)
+          if (isSwap)
             SwapEntriesSection(
               teamId: widget.teamId,
               myUserId: ref.read(currentUserProvider)?.id,
               entries: _swapEntries,
               onChanged: () => setState(() {}),
             ),
-          ],
-
-          // 사유 — 휴무/근무 변경 전용 (swap은 사유 제거)
-          if (!isSwap) ...[
-            const SizedBox(height: AppSpacing.xxl),
-            Text('사유',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: AppSpacing.md),
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: _presetReasons.map((reason) {
-                final selected = _reason == reason;
-                return ChoiceChip(
-                  label: Text(reason),
-                  selected: selected,
-                  onSelected: (_) =>
-                      setState(() => _reason = selected ? '' : reason),
-                  selectedColor:
-                      theme.colorScheme.primary.withValues(alpha: 0.15),
-                );
-              }).toList(),
-            ),
-
-            const SizedBox(height: AppSpacing.xxl),
-
-            // 메모 (선택)
-            Text('메모 (선택)',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: AppSpacing.md),
-            TextField(
-              onChanged: (v) => _note = v,
-              decoration: const InputDecoration(
-                hintText: '추가 메모를 입력해주세요',
-              ),
-              textCapitalization: TextCapitalization.sentences,
-              keyboardType: TextInputType.text,
-              textInputAction: TextInputAction.done,
-              maxLines: 3,
-            ),
-          ],
 
           const SizedBox(height: AppSpacing.xxxl),
 
@@ -336,6 +197,11 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: _canSubmit ? () => _submit(context) : null,
+              style: ElevatedButton.styleFrom(
+                disabledBackgroundColor: theme.colorScheme.surfaceContainerHigh,
+                disabledForegroundColor: theme.colorScheme.onSurfaceVariant
+                    .withValues(alpha: 0.7),
+              ),
               child: _isSubmitting
                   ? const SizedBox(
                       width: 20,
@@ -353,31 +219,6 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
   }
 
   Future<void> _submit(BuildContext context) async {
-    // 휴무 요청 시 이미 휴무인지 체크
-    if (_changeType == 'day_off' && _requestedDate != null) {
-      final shiftRepo = ref.read(shiftRepositoryProvider);
-      final roster = await shiftRepo.getTeamRoster(
-        teamId: widget.teamId,
-        date: _requestedDate!,
-      );
-      final myUserId = ref.read(currentUserProvider)?.id;
-      bool hasShift = false;
-      for (final entry in roster) {
-        if (entry.shiftType.code.toUpperCase() == 'OFF') continue;
-        for (final w in entry.workers) {
-          if (w.user.id == myUserId) {
-            hasShift = true;
-            break;
-          }
-        }
-        if (hasShift) break;
-      }
-      if (!hasShift && mounted) {
-        setState(() => _errorMessage = '이미 휴무인 날입니다!');
-        return;
-      }
-    }
-
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -386,17 +227,14 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
 
     try {
       final repo = ref.read(requestRepositoryProvider);
-
-      String? noteText = _note.isNotEmpty ? _note : null;
       final myName = ref
               .read(currentUserProvider)
               ?.userMetadata?['display_name'] as String? ??
           '동료';
 
-      if (_changeType == 'swap') {
-        // 다중 swap entry — 완료된 항목별로 1건씩 createRequest
-        final entries = _validSwapEntries;
-        for (final e in entries) {
+      if (_category == 'swap') {
+        // 멤버 간 근무 변경 (swap) — 완료된 entry별로 1건씩 createRequest
+        for (final e in _validSwapEntries) {
           await repo.createRequest(
             teamId: widget.teamId,
             changeType: 'swap',
@@ -421,14 +259,19 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
           } catch (_) {}
         }
       } else {
-        await repo.createRequest(
-          teamId: widget.teamId,
-          changeType: _changeType,
-          requestedDate: _requestedDate,
-          requestedShiftTypeId: _selectedShiftTypeId,
-          reason: _reason,
-          note: noteText,
-        );
+        // 내 근무 변경 — entry별로 submit. OFF면 day_off, 그 외엔 shift_change.
+        for (final e in _validSelfEntries) {
+          final isOff = e.isOff;
+          await repo.createRequest(
+            teamId: widget.teamId,
+            changeType: isOff ? 'day_off' : 'shift_change',
+            requestedDate: e.date,
+            requestedShiftTypeId: isOff ? null : e.desiredShiftType?.id,
+            reason: isOff
+                ? '휴무 요청'
+                : '${e.desiredShiftType?.name ?? ''}(으)로 근무 변경',
+          );
+        }
       }
 
       ref.invalidate(

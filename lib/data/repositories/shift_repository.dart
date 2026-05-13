@@ -45,6 +45,27 @@ class ShiftRepository {
     return result;
   }
 
+  /// 특정 팀에서 내 근무를 [start, end] 범위로 조회 (shift_type 포함).
+  /// 팀 → 개인 캘린더 import 등에서 사용.
+  Future<List<ShiftWithType>> getMyShiftsForTeam({
+    required String teamId,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final allShifts = await _dataSource.getMyShifts(start: start, end: end);
+    final mine = allShifts.where((s) => s.teamId == teamId).toList();
+    if (mine.isEmpty) return const [];
+    final types = await _dataSource.getShiftTypes(teamId);
+    final typeMap = {for (final t in types) t.id: t};
+    final result = <ShiftWithType>[];
+    for (final s in mine) {
+      final type = typeMap[s.shiftTypeId];
+      if (type == null) continue;
+      result.add(ShiftWithType(shift: s, shiftType: type));
+    }
+    return result;
+  }
+
   /// 팀 캘린더: 월간 근무를 날짜별로 그룹핑
   Future<Map<DateTime, List<ShiftWithType>>> getTeamMonthlyShifts({
     required String teamId,

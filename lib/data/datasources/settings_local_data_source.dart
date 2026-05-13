@@ -10,6 +10,8 @@ class SettingsLocalDataSource {
   static const _keyCalendarStartDay = 'settings_calendar_start_day';
   static const _keyNotificationsEnabled = 'settings_notifications_enabled';
   static const _keyCalendarSyncEnabled = 'settings_calendar_sync_enabled';
+  static const _keyHideTeamShiftsInPersonal =
+      'settings_hide_team_shifts_in_personal';
 
   String getThemeMode() => _prefs.getString(_keyThemeMode) ?? 'light';
   Future<void> setThemeMode(String mode) => _prefs.setString(_keyThemeMode, mode);
@@ -31,4 +33,11 @@ class SettingsLocalDataSource {
       _prefs.getBool(_keyCalendarSyncEnabled) ?? false;
   Future<void> setCalendarSyncEnabled(bool enabled) =>
       _prefs.setBool(_keyCalendarSyncEnabled, enabled);
+
+  /// 개인 캘린더에서 팀 로스터 근무(dot/preview) 숨김 여부.
+  /// false면 팀 근무를 표시 (기본값).
+  bool getHideTeamShiftsInPersonal() =>
+      _prefs.getBool(_keyHideTeamShiftsInPersonal) ?? false;
+  Future<void> setHideTeamShiftsInPersonal(bool hide) =>
+      _prefs.setBool(_keyHideTeamShiftsInPersonal, hide);
 }

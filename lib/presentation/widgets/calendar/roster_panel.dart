@@ -1124,81 +1124,89 @@ class _ShiftTypeGroup extends ConsumerWidget {
                     )),
             const SizedBox(height: AppSpacing.xxl),
 
-            // 교환 정보 카드
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLow,
-                borderRadius: AppRadius.borderRadiusMd,
-              ),
-              child: Column(
-                children: [
-                  // 날짜
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today,
-                          size: 16, color: AppColors.onSurfaceVariant),
-                      const SizedBox(width: AppSpacing.sm),
-                      Text(dateStr,
-                          style: Theme.of(ctx).textTheme.bodyMedium),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  // 내 근무 → 상대 근무
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Text('내 근무',
+            // 교환 정보 카드 — theme-aware로 다크모드 텍스트 대비 확보
+            Builder(builder: (ctx) {
+              final cs = Theme.of(ctx).colorScheme;
+              return Container(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerLow,
+                  borderRadius: AppRadius.borderRadiusMd,
+                ),
+                child: Column(
+                  children: [
+                    // 날짜
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today,
+                            size: 16, color: cs.onSurfaceVariant),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(dateStr,
+                            style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                                  color: cs.onSurface,
+                                )),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    // 내 근무 → 상대 근무
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            children: [
+                              Text('내 근무',
+                                  style: Theme.of(ctx)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: cs.onSurfaceVariant,
+                                      )),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                myShiftType ?? '없음',
                                 style: Theme.of(ctx)
                                     .textTheme
-                                    .bodySmall
+                                    .titleSmall
                                     ?.copyWith(
-                                      color: AppColors.onSurfaceVariant,
-                                    )),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              myShiftType ?? '없음',
-                              style: Theme.of(ctx)
-                                  .textTheme
-                                  .titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ],
+                                      fontWeight: FontWeight.w600,
+                                      color: cs.onSurface,
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      Icon(Icons.swap_horiz,
-                          color: AppColors.primary, size: 28),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Text(targetName,
+                        Icon(Icons.swap_horiz,
+                            color: cs.primary, size: 28),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              Text(targetName,
+                                  style: Theme.of(ctx)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: cs.onSurfaceVariant,
+                                      )),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                targetShiftType,
                                 style: Theme.of(ctx)
                                     .textTheme
-                                    .bodySmall
+                                    .titleSmall
                                     ?.copyWith(
-                                      color: AppColors.onSurfaceVariant,
-                                    )),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              targetShiftType,
-                              style: Theme.of(ctx)
-                                  .textTheme
-                                  .titleSmall
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: targetShiftColor,
-                                  ),
-                            ),
-                          ],
+                                      fontWeight: FontWeight.w600,
+                                      color: targetShiftColor,
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }),
 
             const SizedBox(height: AppSpacing.lg),
 

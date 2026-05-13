@@ -38,19 +38,63 @@ class PersonalShiftType {
       );
 }
 
+/// 근무 유형 이름에서 1글자 표준 라벨을 추출.
+/// 데이→D, 이브닝→E, 나이트→N, 오프→O, 그 외 → 이름 첫 글자(대문자).
+String _baseLetter(String name) {
+  if (name.contains('데이') || name.toLowerCase().contains('day')) return 'D';
+  if (name.contains('이브닝')) return 'E';
+  if (name.contains('나이트')) return 'N';
+  if (name.contains('오프')) return 'O';
+  if (name.isEmpty) return '?';
+  return name[0].toUpperCase();
+}
+
+bool _isKoreanStandardName(String name) =>
+    name.contains('데이') ||
+    name.contains('이브닝') ||
+    name.contains('나이트') ||
+    name.contains('오프');
+
+/// 다른 shift type과 같은 1글자 라벨이 충돌하면 이름 앞 2글자를 반환.
+/// 표준 한국어 이름(데이/이브닝/나이트/오프)은 충돌해도 1글자 우선권 유지.
+///
+/// 예: 이브닝(E) + Education(E) → 이브닝='E', Education='ED'
+String displayShiftLabel(
+  PersonalShiftType target,
+  List<PersonalShiftType> all,
+) {
+  final myLabel = _baseLetter(target.name);
+  final hasConflict = all.any(
+    (st) => st.id != target.id && _baseLetter(st.name) == myLabel,
+  );
+  if (!hasConflict) return myLabel;
+  if (_isKoreanStandardName(target.name)) return myLabel;
+  final n = target.name;
+  if (n.length >= 2) return n.substring(0, 2).toUpperCase();
+  return n.toUpperCase();
+}
+
 class PersonalShiftTypeLocalDataSource {
   PersonalShiftTypeLocalDataSource({
     required SharedPreferences prefs,
     required String userId,
   })  : _prefs = prefs,
-        _key = 'personal_shift_types:$userId';
+        _key = 'personal_shift_types:$userId',
+        _initKey = 'personal_shift_types_initialized:$userId';
 
   final SharedPreferences _prefs;
   final String _key;
+  final String _initKey;
 
   List<PersonalShiftType> getAll() {
+    // 사용자가 한 번이라도 초기화를 끝냈으면 빈 리스트도 그대로 존중
+    // (전체 삭제 후 기본값 자동 복구 방지)
+    final initialized = _prefs.getBool(_initKey) ?? false;
     final raw = _prefs.getStringList(_key);
-    if (raw == null || raw.isEmpty) return _defaults();
+    if (!initialized && (raw == null || raw.isEmpty)) {
+      return _defaults();
+    }
+    if (raw == null) return const [];
     return raw
         .map((s) =>
             PersonalShiftType.fromJson(jsonDecode(s) as Map<String, dynamic>))
@@ -60,6 +104,7 @@ class PersonalShiftTypeLocalDataSource {
   Future<void> save(List<PersonalShiftType> types) async {
     final raw = types.map((t) => jsonEncode(t.toJson())).toList();
     await _prefs.setStringList(_key, raw);
+    await _prefs.setBool(_initKey, true);
   }
 
   Future<void> add(PersonalShiftType type) async {
@@ -83,7 +128,8 @@ class PersonalShiftTypeLocalDataSource {
     await save(list);
   }
 
-  /// 기본 근무 유형
+  /// 기본 근무 유형 — 최초 1회만 생성. OFF는 캘린더가 자동으로 처리하므로
+  /// 사용자 설정 목록에는 포함하지 않는다.
   List<PersonalShiftType> _defaults() {
     final defaults = [
       PersonalShiftType(
@@ -98,12 +144,7 @@ class PersonalShiftTypeLocalDataSource {
         id: 'night', name: '나이트', code: 'N',
         startTime: '23:00', endTime: '07:00', color: '#0061A4',
       ),
-      PersonalShiftType(
-        id: 'off', name: '오프', code: 'OFF',
-        color: '#A0AEC0',
-      ),
     ];
-    // 저장해둠
     save(defaults);
     return defaults;
   }

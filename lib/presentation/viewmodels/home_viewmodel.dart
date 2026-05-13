@@ -27,10 +27,39 @@ final homeViewModelProvider =
 class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
   late ShiftRepository _shiftRepository;
 
+  /// 개인 캘린더에 표시할 monthlyShifts를 즐겨찾기 팀만으로 필터.
+  /// 즐겨찾기 팀이 없거나 그 팀에 근무가 없으면 빈 맵을 반환.
+  Future<Map<DateTime, List<ShiftWithType>>> _loadFavoriteTeamShifts(
+    DateTime month,
+  ) async {
+    final favorite =
+        await ref.read(favoriteTeamProvider.future);
+    if (favorite == null) return const {};
+    final start = DateTime(month.year, month.month, 1);
+    final end = DateTime(month.year, month.month + 1, 0);
+    final list = await _shiftRepository.getMyShiftsForTeam(
+      teamId: favorite.id,
+      start: start,
+      end: end,
+    );
+    final map = <DateTime, List<ShiftWithType>>{};
+    for (final sw in list) {
+      final d = DateTime(
+        sw.shift.shiftDate.year,
+        sw.shift.shiftDate.month,
+        sw.shift.shiftDate.day,
+      );
+      map.putIfAbsent(d, () => []).add(sw);
+    }
+    return map;
+  }
+
   @override
   Future<HomeCalendarState> build() async {
     final authState = ref.watch(authStateChangesProvider);
     final userId = authState.whenOrNull(data: (auth) => auth.session?.user.id);
+    // 즐겨찾기 변경 시 자동 재빌드
+    ref.watch(favoriteTeamProvider);
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -41,7 +70,7 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
     }
 
     _shiftRepository = ref.watch(shiftRepositoryProvider);
-    final monthlyShifts = await _shiftRepository.getMyMonthlyShifts(month: now);
+    final monthlyShifts = await _loadFavoriteTeamShifts(now);
 
     return HomeCalendarState(
       focusedMonth: monthStart,
@@ -86,9 +115,7 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
     );
 
     try {
-      final monthlyShifts = await _shiftRepository.getMyMonthlyShifts(
-        month: month,
-      );
+      final monthlyShifts = await _loadFavoriteTeamShifts(month);
 
       state = AsyncData(
         current.copyWith(

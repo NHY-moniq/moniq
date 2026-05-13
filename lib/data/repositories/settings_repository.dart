@@ -23,4 +23,9 @@ class SettingsRepository {
   bool getCalendarSyncEnabled() => _dataSource.getCalendarSyncEnabled();
   Future<void> setCalendarSyncEnabled(bool enabled) =>
       _dataSource.setCalendarSyncEnabled(enabled);
+
+  bool getHideTeamShiftsInPersonal() =>
+      _dataSource.getHideTeamShiftsInPersonal();
+  Future<void> setHideTeamShiftsInPersonal(bool hide) =>
+      _dataSource.setHideTeamShiftsInPersonal(hide);
 }
