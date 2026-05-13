@@ -65,11 +65,15 @@ class TeamListScreen extends HookConsumerWidget {
 
           final favoriteTeamId = favoriteAsync.valueOrNull?.id;
 
-          return SlidableAutoCloseBehavior(
-            child: ReorderableListView.builder(
-              padding: const EdgeInsets.symmetric(
-                vertical: AppSpacing.sm,
-              ),
+          return Column(
+            children: [
+              const _FavoriteInfoBanner(),
+              Expanded(
+                child: SlidableAutoCloseBehavior(
+                  child: ReorderableListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.sm,
+                    ),
               itemCount: teams.length,
               buildDefaultDragHandles: false,
               onReorder: (oldIndex, newIndex) {
@@ -114,6 +118,9 @@ class TeamListScreen extends HookConsumerWidget {
                 );
               },
             ),
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -237,6 +244,47 @@ class TeamListScreen extends HookConsumerWidget {
   }
 }
 
+class _FavoriteInfoBanner extends StatelessWidget {
+  const _FavoriteInfoBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        0,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.star_rounded, size: 15, color: cs.primary),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              '조직 팀에 즐겨찾기(★)를 설정하면 해당 팀의 근무가 캘린더 탭에 표시됩니다. 개인 팀은 즐겨찾기 대상이 아닙니다.',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: cs.onPrimaryContainer,
+                    height: 1.5,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TeamSlidableTile extends StatelessWidget {
   const _TeamSlidableTile({
     super.key,
@@ -295,16 +343,17 @@ class _TeamSlidableTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            GestureDetector(
-              onTap: onFavorite,
-              child: Icon(
-                isFavorite ? Icons.star : Icons.star_border,
-                color: isFavorite
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.outline,
-                size: 20,
+            if (team.teamType != 'personal')
+              GestureDetector(
+                onTap: onFavorite,
+                child: Icon(
+                  isFavorite ? Icons.star : Icons.star_border,
+                  color: isFavorite
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.outline,
+                  size: 20,
+                ),
               ),
-            ),
             const SizedBox(width: 8),
             ReorderableDragStartListener(
               index: index,

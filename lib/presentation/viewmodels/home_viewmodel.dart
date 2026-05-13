@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/core/utils/time_utils.dart';
+import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/models/user_model.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
@@ -153,5 +155,109 @@ final todayCoworkersProvider =
     teamId: myShift.shift.teamId,
     date: todayKey,
     shiftTypeId: myShift.shiftType.id,
+  );
+});
+
+/// OnShiftTeam 모달용 — 현재 시프트 + 다음 시프트의 코워커 목록
+class OnShiftTeamData {
+  const OnShiftTeamData({
+    this.teamId,
+    this.currentType,
+    this.nextType,
+    this.currentCoworkers = const [],
+    this.nextCoworkers = const [],
+  });
+
+  final String? teamId;
+  final ShiftTypeModel? currentType;
+  final ShiftTypeModel? nextType;
+  final List<UserModel> currentCoworkers;
+  final List<UserModel> nextCoworkers;
+}
+
+final onShiftTeamDataProvider =
+    FutureProvider.autoDispose<OnShiftTeamData>((ref) async {
+  final homeAsync = ref.watch(homeViewModelProvider);
+  final state = homeAsync.valueOrNull;
+  if (state == null) return const OnShiftTeamData();
+
+  final now = DateTime.now();
+  final todayKey = DateTime(now.year, now.month, now.day);
+  final todayShifts = state.monthlyShifts[todayKey];
+
+  // teamId: 본인이 그날 schedule되어 있으면 그 팀(OFF여도 OK),
+  // 아니면 favorite team. 둘 다 없으면 표시할 팀이 없음.
+  String? teamId;
+  if (todayShifts != null && todayShifts.isNotEmpty) {
+    teamId = todayShifts.first.shift.teamId;
+  } else {
+    final fav = await ref.watch(favoriteTeamProvider.future);
+    teamId = fav?.id;
+  }
+  if (teamId == null) return const OnShiftTeamData();
+
+  final repo = ref.watch(shiftRepositoryProvider);
+  final allTypes = await repo.getShiftTypes(teamId);
+  final scheduled = allTypes
+      .where((t) =>
+          t.code.toUpperCase() != 'OFF' &&
+          t.startTime != null &&
+          t.startTime!.isNotEmpty &&
+          t.endTime != null &&
+          t.endTime!.isNotEmpty)
+      .toList()
+    ..sort((a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''));
+
+  if (scheduled.isEmpty) return const OnShiftTeamData();
+
+  // 현재 시각에 매치되는 shift_type
+  ShiftTypeModel? currentType;
+  for (final t in scheduled) {
+    if (isNowInShiftRange(t, now)) {
+      currentType = t;
+      break;
+    }
+  }
+
+  // 다음 shift_type (scheduled가 비어있지 않으므로 항상 non-null)
+  final ShiftTypeModel nextType;
+  if (currentType != null) {
+    final idx = scheduled.indexWhere((t) => t.id == currentType!.id);
+    nextType = idx >= 0 && idx < scheduled.length - 1
+        ? scheduled[idx + 1]
+        : scheduled.first; // 마지막이면 다음날 첫 시프트로 wrap
+  } else {
+    // 현재 매치 없으면 startTime이 현재 이후로 가장 가까운 것, 없으면 첫 시프트
+    final nowMin = now.hour * 60 + now.minute;
+    ShiftTypeModel? upcoming;
+    for (final t in scheduled) {
+      final s = parseTimeToMinutes(t.startTime);
+      if (s != null && s > nowMin) {
+        upcoming = t;
+        break;
+      }
+    }
+    nextType = upcoming ?? scheduled.first;
+  }
+
+  final currentCoworkers = currentType == null
+      ? const <UserModel>[]
+      : await repo.getCoworkers(
+          teamId: teamId,
+          date: todayKey,
+          shiftTypeId: currentType.id,
+        );
+  final nextCoworkers = await repo.getCoworkers(
+    teamId: teamId,
+    date: todayKey,
+    shiftTypeId: nextType.id,
+  );
+
+  return OnShiftTeamData(
+    teamId: teamId,
+    currentType: currentType,
+    nextType: nextType,
+    currentCoworkers: currentCoworkers,
+    nextCoworkers: nextCoworkers,
   );
 });

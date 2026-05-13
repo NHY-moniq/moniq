@@ -8,7 +8,7 @@ String formatTimeString(String? timeStr) {
 }
 
 /// `"HH:mm"` 또는 `"HH:mm:ss"` 문자열을 minutes(int)로.
-int? _parseTimeToMinutes(String? timeStr) {
+int? parseTimeToMinutes(String? timeStr) {
   if (timeStr == null || timeStr.length < 4) return null;
   final parts = timeStr.split(':');
   if (parts.length < 2) return null;
@@ -16,6 +16,24 @@ int? _parseTimeToMinutes(String? timeStr) {
   final m = int.tryParse(parts[1]);
   if (h == null || m == null) return null;
   return h * 60 + m;
+}
+
+// 내부 alias (기존 호출 호환)
+int? _parseTimeToMinutes(String? s) => parseTimeToMinutes(s);
+
+/// 현재 시각이 shiftType의 startTime~endTime 범위에 속하는지.
+/// 야간 교대(end <= start)는 자정을 넘기는 것으로 간주.
+bool isNowInShiftRange(ShiftTypeModel t, DateTime now) {
+  if (t.code.toUpperCase() == 'OFF') return false;
+  final startMin = parseTimeToMinutes(t.startTime);
+  final endMin = parseTimeToMinutes(t.endTime);
+  if (startMin == null || endMin == null) return false;
+  final nowMin = now.hour * 60 + now.minute;
+  if (endMin > startMin) {
+    return nowMin >= startMin && nowMin < endMin;
+  }
+  // 야간 교대 (예: 23:00 ~ 07:00)
+  return nowMin >= startMin || nowMin < endMin;
 }
 
 /// ShiftType의 startTime/endTime으로 근무 시간(시간 단위, double)을 계산.

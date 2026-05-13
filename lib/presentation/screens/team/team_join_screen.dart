@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/providers/team_providers.dart';
+import 'package:moniq/data/providers/tutorial_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
@@ -36,6 +37,19 @@ class TeamJoinScreen extends HookConsumerWidget {
             await teamRepo.setFavoriteTeam(teamId);
             ref.invalidate(favoriteTeamProvider);
           }
+
+          // 해당 유형의 첫 팀일 때만 튜토리얼 트리거
+          final teamType = result['team_type'] as String? ?? 'organizational';
+          final teams =
+              ref.read(teamViewModelProvider).valueOrNull ?? [];
+          final isFirstOfType =
+              teams.where((t) => t.teamType == teamType).length == 1;
+          if (isFirstOfType) {
+            ref.read(tutorialPendingProvider.notifier).state = TutorialPending(
+              teamId: teamId,
+              teamType: teamType,
+            );
+          }
         }
 
         if (context.mounted) {
@@ -43,7 +57,11 @@ class TeamJoinScreen extends HookConsumerWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('$teamName에 참여했습니다!')),
           );
-          context.go('/teams');
+          if (teamId != null) {
+            context.go('/teams/$teamId/detail');
+          } else {
+            context.go('/teams');
+          }
         }
       } catch (e) {
         errorMessage.value = e.toString();

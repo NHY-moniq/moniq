@@ -383,12 +383,18 @@ void showEditTeamSheet({
 
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(hintText: '팀 이름'),
+              decoration: const InputDecoration(
+                labelText: '팀 이름',
+                hintText: '팀 이름을 입력하세요',
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: descController,
-              decoration: const InputDecoration(hintText: '설명 (선택)'),
+              decoration: const InputDecoration(
+                labelText: '팀 설명',
+                hintText: '간단한 설명을 입력하세요 (선택)',
+              ),
               maxLines: 2,
             ),
             const SizedBox(height: AppSpacing.xxl),

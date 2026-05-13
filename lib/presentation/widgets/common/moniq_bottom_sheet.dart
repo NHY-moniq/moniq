@@ -35,6 +35,8 @@ Future<T?> showMoniqBottomSheet<T>({
     context: context,
     isScrollControlled: isScrollControlled,
     useSafeArea: useSafeArea,
+    // ShellRoute의 BottomNavigation을 가리도록 root Navigator 사용
+    useRootNavigator: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.42),
     builder: (ctx) => MoniqBottomSheetShell(

@@ -1,5 +1,6 @@
 import 'package:moniq/data/datasources/shift_remote_data_source.dart';
 import 'package:moniq/data/models/roster_entry.dart';
+import 'package:moniq/data/models/shift_model.dart';
 import 'package:moniq/data/models/shift_rule_model.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
@@ -73,11 +74,13 @@ class ShiftRepository {
     final start = DateTime(month.year, month.month, 1);
     final end = DateTime(month.year, month.month + 1, 0);
 
-    final shifts =
-        await _dataSource.getTeamShifts(teamId: teamId, start: start, end: end);
+    final results = await Future.wait<dynamic>([
+      _dataSource.getTeamShifts(teamId: teamId, start: start, end: end),
+      _dataSource.getShiftTypes(teamId),
+    ]);
+    final shifts = results[0] as List<ShiftModel>;
     if (shifts.isEmpty) return {};
-
-    final shiftTypes = await _dataSource.getShiftTypes(teamId);
+    final shiftTypes = results[1] as List<ShiftTypeModel>;
     final typeMap = {for (final t in shiftTypes) t.id: t};
 
     final result = <DateTime, List<ShiftWithType>>{};
@@ -97,14 +100,14 @@ class ShiftRepository {
     required String teamId,
     required DateTime date,
   }) async {
-    final shifts = await _dataSource.getTeamShifts(
-      teamId: teamId,
-      start: date,
-      end: date,
-    );
-
-    final shiftTypes = await _dataSource.getShiftTypes(teamId);
-    final users = await _dataSource.getTeamUsers(teamId);
+    final results = await Future.wait<dynamic>([
+      _dataSource.getTeamShifts(teamId: teamId, start: date, end: date),
+      _dataSource.getShiftTypes(teamId),
+      _dataSource.getTeamUsers(teamId),
+    ]);
+    final shifts = results[0] as List<ShiftModel>;
+    final shiftTypes = results[1] as List<ShiftTypeModel>;
+    final users = results[2] as List<UserModel>;
 
     // 근무가 하나도 없으면 전원 Off
     if (shifts.isEmpty) {

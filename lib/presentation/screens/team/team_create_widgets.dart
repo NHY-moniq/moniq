@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/data/models/team_model.dart';
+import 'package:moniq/data/providers/tutorial_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 
 /// 프로필 미리보기: 이모지 탭하면 입력, 카메라 버튼으로 이미지 선택
 class TeamCreateProfilePreview extends StatelessWidget {
@@ -158,13 +161,13 @@ class TeamCreateProfilePreview extends StatelessWidget {
   }
 }
 
-class TeamCreateSuccessView extends StatelessWidget {
+class TeamCreateSuccessView extends ConsumerWidget {
   const TeamCreateSuccessView({super.key, required this.team});
 
   final TeamModel team;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('팀 생성 완료'),
@@ -246,9 +249,23 @@ class TeamCreateSuccessView extends StatelessWidget {
               const SizedBox(height: AppSpacing.xxxl),
 
               ElevatedButton(
-                onPressed: () => context.go(
-                  '/teams/${team.id}/detail',
-                ),
+                onPressed: () {
+                  // 해당 유형의 첫 팀일 때만 튜토리얼 트리거
+                  final teams =
+                      ref.read(teamViewModelProvider).valueOrNull ?? [];
+                  final isFirstOfType = teams
+                          .where((t) => t.teamType == team.teamType)
+                          .length ==
+                      1;
+                  if (isFirstOfType) {
+                    ref.read(tutorialPendingProvider.notifier).state =
+                        TutorialPending(
+                      teamId: team.id,
+                      teamType: team.teamType,
+                    );
+                  }
+                  context.go('/teams/${team.id}/detail');
+                },
                 child: const Text('팀 설정하기'),
               ),
               const SizedBox(height: AppSpacing.sm),

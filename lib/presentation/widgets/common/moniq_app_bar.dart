@@ -83,7 +83,8 @@ class MoniqAppBar extends StatelessWidget
     final hasEyebrow = eyebrow != null && eyebrow!.isNotEmpty;
 
     Widget? resolvedLeading = leading;
-    if (resolvedLeading == null && showBack && Navigator.of(context).canPop()) {
+    if (resolvedLeading == null && showBack &&
+        (Navigator.of(context).canPop() || onLeadingTap != null)) {
       resolvedLeading = _BackPill(
         onTap: onLeadingTap ?? () => Navigator.of(context).maybePop(),
       );

@@ -7,6 +7,7 @@ import 'package:moniq/data/providers/custom_rule_providers.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 
 // ──────────────────────────────────────────────
 // Providers (package-visible for screen)
@@ -421,28 +422,9 @@ class CustomRulesEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.rule_rounded, size: 56, color: AppColors.outline),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            '등록된 커스텀 규칙이 없습니다',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            '팀 상황에 맞는 규칙을 자연어로 입력하면\nAI가 자동으로 분석합니다.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.outline,
-                ),
-          ),
-        ],
-      ),
+    return MoniqEmptyState.peaceful(
+      title: '등록된 커스텀 규칙이 없어요',
+      message: '팀 상황에 맞는 규칙을 자연어로 입력하면\nAI가 자동으로 분석합니다.',
     );
   }
 }

@@ -43,7 +43,7 @@ class TeamCreateScreen extends HookConsumerWidget {
           final client = ref.read(supabaseClientProvider);
           final userId = client.auth.currentUser?.id ?? '';
           final path =
-              'team-icons/$userId-${DateTime.now().millisecondsSinceEpoch}.png';
+              '$userId/team-icons/${DateTime.now().millisecondsSinceEpoch}.png';
           await client.storage
               .from('avatars')
               .uploadBinary(path, pickedImageBytes.value!);
@@ -73,12 +73,14 @@ class TeamCreateScreen extends HookConsumerWidget {
               teamType: selectedTeamType.value,
             );
 
-        // 즐겨찾기 팀이 없으면 자동 설정
-        final teamRepo = ref.read(teamRepositoryProvider);
-        final favorite = await teamRepo.getFavoriteTeam();
-        if (favorite == null) {
-          await teamRepo.setFavoriteTeam(team.id);
-          ref.invalidate(favoriteTeamProvider);
+        // 즐겨찾기 팀이 없고 조직 팀일 때만 자동 설정 (개인 팀은 즐겨찾기 불가)
+        if (selectedTeamType.value != 'personal') {
+          final teamRepo = ref.read(teamRepositoryProvider);
+          final favorite = await teamRepo.getFavoriteTeam();
+          if (favorite == null) {
+            await teamRepo.setFavoriteTeam(team.id);
+            ref.invalidate(favoriteTeamProvider);
+          }
         }
 
         createdTeam.value = team;
