@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/shift_rule_model.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
+import 'package:moniq/presentation/screens/team/shift_type_manage_widgets.dart';
 import 'package:moniq/presentation/screens/team/shift_types_list_widgets.dart';
 import 'package:moniq/presentation/screens/team/team_settings_widgets.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
@@ -78,6 +79,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
   late int _minWeeklyOffDays;
   late bool _noNightThenEvening;
   late bool _noEveningThenDay;
+  late bool _nodDisabled; // N→O→D 패턴 금지
 
   bool _isDirty = false;
   bool _saving = false;
@@ -136,6 +138,8 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
         ((ruleMap['no_evening_then_day'] ??
                 {})['enabled'] as bool?) ??
             true;
+    _nodDisabled =
+        ((ruleMap['nod_disabled'] ?? {})['enabled'] as bool?) ?? true;
 
     _wantedP1Limit =
         ((ruleMap['wanted_p1_limit'] ?? {})['count'] as num?)?.toInt() ?? 0;
@@ -161,6 +165,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
     await notifier.upsertRule('min_weekly_off_days', {'days': _minWeeklyOffDays});
     await notifier.upsertRule('no_night_then_evening', {'enabled': _noNightThenEvening});
     await notifier.upsertRule('no_evening_then_day', {'enabled': _noEveningThenDay});
+    await notifier.upsertRule('nod_disabled', {'enabled': _nodDisabled});
     await notifier.upsertRule('wanted_p1_limit', {'count': _wantedP1Limit});
     await notifier.upsertRule('wanted_p2_limit', {'count': _wantedP2Limit});
 
@@ -179,12 +184,39 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
     if (!_isDirty) setState(() => _isDirty = true);
   }
 
+  void _showAddShiftTypeSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (ctx) => ShiftTypeAddSheet(
+        teamId: widget.teamId,
+        existingCodes: widget.shiftTypes.map((t) => t.code).toSet(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final readOnly = !widget.isAdmin;
-    final activeShiftTypes =
-        widget.shiftTypes.where((t) => t.isActive).toList();
+    // 인력 설정에는 D/E/N 유형만 표시.
+    // 교육 등 기타 유형은 근무 유형 설정에서 관리하며 스케줄링에서 별도 처리됨.
+    bool isDen(t) =>
+        t.code.toUpperCase() == 'D' ||
+        t.code.toUpperCase() == 'E' ||
+        t.code.toUpperCase() == 'N' ||
+        (t.name as String).contains('데이') ||
+        (t.name as String).contains('주간') ||
+        (t.name as String).contains('이브닝') ||
+        (t.name as String).contains('저녁') ||
+        (t.name as String).contains('나이트') ||
+        (t.name as String).contains('야간');
+    final activeShiftTypes = widget.shiftTypes
+        .where((t) => t.isActive && isDen(t))
+        .toList();
 
     return PopScope(
       canPop: !_isDirty,
@@ -201,7 +233,24 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
             // ── 근무 유형 섹션 ──
             SectionHeader(
               title: '근무 유형',
-              subtitle: '팀에서 사용하는 근무 유형을 관리합니다',
+              action: widget.isAdmin
+                  ? GestureDetector(
+                      onTap: () => _showAddShiftTypeSheet(context),
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.add_rounded,
+                          size: 18,
+                          color: theme.colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(height: AppSpacing.sm),
             ShiftTypesList(
@@ -215,24 +264,24 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
             // ── 인력 설정 섹션 ──
             SectionHeader(
               title: '인력 설정',
-              subtitle: '근무 유형별 배치 인원 및 월 근무 횟수를 설정합니다',
             ),
             const SizedBox(height: AppSpacing.md),
 
             if (activeShiftTypes.isNotEmpty) ...[
-              // 근무 유형별 최소 인원
               RuleCard(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: AppSpacing.xs,
-                      bottom: AppSpacing.xxs,
-                    ),
-                    child: Text(
-                      '근무 유형별 최소 인원',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        top: AppSpacing.xs,
+                        bottom: AppSpacing.xxs,
+                      ),
+                      child: Text(
+                        '근무 유형별 최소 인원',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ),
@@ -251,8 +300,6 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
                   }),
                 ],
               ),
-
-
               const SizedBox(height: AppSpacing.lg),
             ],
 
@@ -289,10 +336,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
 
             // ── 고정 규칙 섹션 ──
             SectionHeader(
-              title: '고정 규칙',
-              subtitle:
-                  '병원에서 정해진 필수 규칙입니다. '
-                  '한번 설정하면 거의 변하지 않습니다.',
+              title: '필수 규칙',
             ),
             const SizedBox(height: AppSpacing.md),
 
@@ -342,8 +386,8 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
             RuleCard(
               children: [
                 ToggleRuleRow(
-                  label: '야간→저녁 금지 (N→E)',
-                  description: '야간 근무 다음날 저녁 근무 불가',
+                  label: 'N→E 근무 금지',
+                  description: '나이트 근무 다음날 이브닝 근무 불가',
                   value: _noNightThenEvening,
                   readOnly: readOnly,
                   onChanged: (v) {
@@ -353,12 +397,23 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
                 ),
                 const Divider(height: 1),
                 ToggleRuleRow(
-                  label: '저녁→주간 금지 (E→D)',
-                  description: '저녁 근무 다음날 주간 근무 불가',
+                  label: 'E→D 근무 금지',
+                  description: '이브닝 근무 다음날 데이 근무 불가',
                   value: _noEveningThenDay,
                   readOnly: readOnly,
                   onChanged: (v) {
                     setState(() => _noEveningThenDay = v);
+                    _markDirty();
+                  },
+                ),
+                const Divider(height: 1),
+                ToggleRuleRow(
+                  label: 'N→O→D 근무 금지',
+                  description: '나이트 → 오프 → 데이 연속 근무 불가',
+                  value: _nodDisabled,
+                  readOnly: readOnly,
+                  onChanged: (v) {
+                    setState(() => _nodDisabled = v);
                     _markDirty();
                   },
                 ),

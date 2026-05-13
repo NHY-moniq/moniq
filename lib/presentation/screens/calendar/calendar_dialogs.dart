@@ -7,6 +7,7 @@ import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
 import 'calendar_providers.dart';
@@ -206,222 +207,289 @@ void showEventForm(BuildContext context, WidgetRef ref,
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
+    backgroundColor: Theme.of(context).colorScheme.surface,
     shape: const RoundedRectangleBorder(
       borderRadius:
           BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
     ),
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setSheetState) => Padding(
-        padding: EdgeInsets.only(
-          left: AppSpacing.lg,
-          right: AppSpacing.lg,
-          top: AppSpacing.lg,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-                  decoration: BoxDecoration(
-                    color: Theme.of(ctx).colorScheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
+    builder: (ctx) {
+      final cs = Theme.of(ctx).colorScheme;
+      final tt = Theme.of(ctx).textTheme;
+
+      return StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+            left: AppSpacing.lg,
+            right: AppSpacing.lg,
+            top: AppSpacing.md,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+                    decoration: BoxDecoration(
+                      color: cs.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-              ),
-              Text(
-                index == null ? '일정 추가' : '일정 수정',
-                style: Theme.of(ctx)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              TextField(
-                controller: titleController,
-                autofocus: true,
-                maxLength: 30,
-                maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                inputFormatters: [LengthLimitingTextInputFormatter(30)],
-                decoration: const InputDecoration(
+                // Header — stronger weight, more breathing room
+                Padding(
+                  padding: const EdgeInsets.only(
+                    top: AppSpacing.xs,
+                    bottom: AppSpacing.lg,
+                  ),
+                  child: Text(
+                    index == null ? '일정 추가' : '일정 수정',
+                    style: tt.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: cs.onSurface,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ),
+                // Title input
+                TextField(
+                  controller: titleController,
+                  autofocus: true,
+                  maxLength: 30,
+                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                  inputFormatters: [LengthLimitingTextInputFormatter(30)],
+                  style: tt.bodyLarge?.copyWith(color: cs.onSurface),
+                  decoration: InputDecoration(
                     hintText: '일정 제목',
-                    prefixIcon: Icon(Icons.event)),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        showCupertinoTimePicker(
-                          context: ctx,
-                          initialHour: startTime?.hour ?? 9,
-                          initialMinute: startTime?.minute ?? 0,
-                          onChanged: (h, m) {
-                            setSheetState(() => startTime =
-                                TimeOfDay(hour: h, minute: m));
-                          },
-                        );
-                      },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: '시작',
-                          prefixIcon:
-                              Icon(Icons.access_time, size: 20),
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                              vertical: AppSpacing.sm),
-                        ),
-                        child: Text(startTime != null
+                    hintStyle: tt.bodyLarge?.copyWith(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                    prefixIcon: Icon(
+                      Icons.event_outlined,
+                      color: cs.onSurfaceVariant,
+                      size: 20,
+                    ),
+                    filled: true,
+                    fillColor: cs.surfaceContainerHigh,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.lg,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: AppRadius.borderRadiusLg,
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.borderRadiusLg,
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.borderRadiusLg,
+                      borderSide: BorderSide(
+                        color: cs.primary,
+                        width: 1.5,
+                      ),
+                    ),
+                    counterStyle: tt.labelMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                // Start / End time cards
+                Row(
+                  children: [
+                    Expanded(
+                      child: _TimeFieldCard(
+                        label: '시작',
+                        value: startTime != null
                             ? formatTime(startTime!)
-                            : '종일'),
+                            : '종일',
+                        isPlaceholder: startTime == null,
+                        onTap: () {
+                          showCupertinoTimePicker(
+                            context: ctx,
+                            initialHour: startTime?.hour ?? 9,
+                            initialMinute: startTime?.minute ?? 0,
+                            onChanged: (h, m) {
+                              setSheetState(() => startTime =
+                                  TimeOfDay(hour: h, minute: m));
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: _TimeFieldCard(
+                        label: '종료',
+                        value:
+                            endTime != null ? formatTime(endTime!) : '-',
+                        isPlaceholder: endTime == null,
+                        onTap: () {
+                          showCupertinoTimePicker(
+                            context: ctx,
+                            initialHour: endTime?.hour ??
+                                (startTime?.hour ?? 9) + 1,
+                            initialMinute: endTime?.minute ??
+                                startTime?.minute ??
+                                0,
+                            onChanged: (h, m) {
+                              setSheetState(() => endTime =
+                                  TimeOfDay(hour: h, minute: m));
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                // Color picker row
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xs),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: colorOptions.map((hex) {
+                      return _ColorChip(
+                        hex: hex,
+                        isSelected: selectedColor == hex,
+                        onTap: () => setSheetState(
+                            () => selectedColor = hex),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                // Description input
+                TextField(
+                  controller: descController,
+                  maxLines: 2,
+                  style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+                  decoration: InputDecoration(
+                    hintText: '설명 (선택)',
+                    hintStyle: tt.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                    prefixIcon: Padding(
+                      padding: const EdgeInsets.only(
+                        left: AppSpacing.md,
+                        right: AppSpacing.sm,
+                        top: AppSpacing.md,
+                      ),
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        widthFactor: 1.0,
+                        heightFactor: 1.0,
+                        child: Icon(
+                          Icons.notes_rounded,
+                          color: cs.onSurfaceVariant,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                    prefixIconConstraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    filled: true,
+                    fillColor: cs.surfaceContainerHigh,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.md,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: AppRadius.borderRadiusLg,
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.borderRadiusLg,
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.borderRadiusLg,
+                      borderSide: BorderSide(
+                        color: cs.primary,
+                        width: 1.5,
                       ),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        showCupertinoTimePicker(
-                          context: ctx,
-                          initialHour: endTime?.hour ??
-                              (startTime?.hour ?? 9) + 1,
-                          initialMinute: endTime?.minute ??
-                              startTime?.minute ??
-                              0,
-                          onChanged: (h, m) {
-                            setSheetState(() => endTime =
-                                TimeOfDay(hour: h, minute: m));
-                          },
-                        );
-                      },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: '종료',
-                          prefixIcon:
-                              Icon(Icons.access_time, size: 20),
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                              vertical: AppSpacing.sm),
-                        ),
-                        child: Text(endTime != null
-                            ? formatTime(endTime!)
-                            : '-'),
-                      ),
-                    ),
+                ),
+                // 반복 설정 (새 일정만)
+                if (index == null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _RecurrenceField(
+                    value: selectedRecurrence,
+                    options: recurrenceOptions,
+                    onChanged: (v) =>
+                        setSheetState(() => selectedRecurrence = v),
                   ),
                 ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: colorOptions.map((hex) {
-                  final isSelected = selectedColor == hex;
-                  return Padding(
-                    padding:
-                        const EdgeInsets.only(right: AppSpacing.sm),
-                    child: GestureDetector(
-                      onTap: () => setSheetState(
-                          () => selectedColor = hex),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: isSelected ? 36 : 32,
-                        height: isSelected ? 36 : 32,
-                        decoration: BoxDecoration(
-                          color: parseHexColor(hex),
-                          shape: BoxShape.circle,
-                          border: isSelected
-                              ? Border.all(
-                                  color: Theme.of(ctx).colorScheme.onSurface,
-                                  width: 2.5)
-                              : null,
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                      color: parseHexColor(hex)
-                                          .withValues(alpha: 0.4),
-                                      blurRadius: 6)
-                                ]
-                              : null,
-                        ),
+                const SizedBox(height: AppSpacing.xl),
+                // CTA
+                SizedBox(
+                  height: 52,
+                  child: FilledButton(
+                    onPressed: () async {
+                      final title = titleController.text.trim();
+                      if (title.isEmpty) return;
+                      final event = PersonalEvent(
+                        date: DateTime(date.year, date.month, date.day),
+                        title: title,
+                        startTime: startTime != null
+                            ? formatTime(startTime!)
+                            : null,
+                        endTime: endTime != null
+                            ? formatTime(endTime!)
+                            : null,
+                        description:
+                            descController.text.trim().isNotEmpty
+                                ? descController.text.trim()
+                                : null,
+                        color: selectedColor,
+                        createdAt: DateTime.now(),
+                        recurrence:
+                            index == null ? selectedRecurrence : null,
+                      );
+                      final ds =
+                          ref.read(personalEventDataSourceProvider);
+                      if (index == null) {
+                        await ds.addEvent(event);
+                      } else {
+                        await ds.updateEvent(date, index, event);
+                      }
+                      refreshAll(ref, date);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: cs.primary,
+                      foregroundColor: cs.onPrimary,
+                      elevation: 2,
+                      shadowColor: cs.primary.withValues(alpha: 0.35),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.borderRadiusFull,
+                      ),
+                      textStyle: tt.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextField(
-                controller: descController,
-                decoration: const InputDecoration(
-                    hintText: '설명 (선택)',
-                    prefixIcon: Icon(Icons.notes)),
-                maxLines: 2,
-              ),
-              // 반복 설정 (새 일정만)
-              if (index == null) ...[
-                const SizedBox(height: AppSpacing.md),
-                DropdownButtonFormField<String>(
-                  value: selectedRecurrence,
-                  decoration: const InputDecoration(
-                    labelText: '반복',
-                    prefixIcon: Icon(Icons.repeat),
-                    contentPadding: EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.sm),
+                    child: Text(index == null ? '추가' : '저장'),
                   ),
-                  items: recurrenceOptions.map((opt) {
-                    final (value, label) = opt;
-                    return DropdownMenuItem(
-                        value: value, child: Text(label));
-                  }).toList(),
-                  onChanged: (v) =>
-                      setSheetState(() => selectedRecurrence = v!),
                 ),
               ],
-              const SizedBox(height: AppSpacing.lg),
-              ElevatedButton(
-                onPressed: () async {
-                  final title = titleController.text.trim();
-                  if (title.isEmpty) return;
-                  final event = PersonalEvent(
-                    date:
-                        DateTime(date.year, date.month, date.day),
-                    title: title,
-                    startTime: startTime != null
-                        ? formatTime(startTime!)
-                        : null,
-                    endTime: endTime != null
-                        ? formatTime(endTime!)
-                        : null,
-                    description:
-                        descController.text.trim().isNotEmpty
-                            ? descController.text.trim()
-                            : null,
-                    color: selectedColor,
-                    createdAt: DateTime.now(),
-                    recurrence: index == null ? selectedRecurrence : null,
-                  );
-                  final ds =
-                      ref.read(personalEventDataSourceProvider);
-                  if (index == null) {
-                    await ds.addEvent(event);
-                  } else {
-                    await ds.updateEvent(date, index, event);
-                  }
-                  refreshAll(ref, date);
-                  if (ctx.mounted) Navigator.pop(ctx);
-                },
-                child: Text(index == null ? '추가' : '저장'),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
-    ),
+      );
+    },
   );
 }
 
@@ -686,3 +754,428 @@ void showEventEditWithShiftTypes(BuildContext context,
   );
 }
 
+
+// ── Event form helper widgets ─────────────────────────────────────────
+
+/// 시작/종료 시간을 보여주는 카드. 탭하면 시간 선택 picker가 뜬다.
+class _TimeFieldCard extends StatelessWidget {
+  const _TimeFieldCard({
+    required this.label,
+    required this.value,
+    required this.isPlaceholder,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final bool isPlaceholder;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Material(
+      color: cs.surfaceContainerHigh,
+      borderRadius: AppRadius.borderRadiusLg,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: tt.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Row(
+                children: [
+                  Icon(
+                    Icons.access_time_rounded,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      value,
+                      style: tt.bodyMedium?.copyWith(
+                        color: isPlaceholder
+                            ? cs.onSurfaceVariant
+                            : cs.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 색상 chip — 선택 시 흰색 inner ring + primary 2px outer outline로 강조.
+class _ColorChip extends StatelessWidget {
+  const _ColorChip({
+    required this.hex,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String hex;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final color = parseHexColor(hex);
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          // Outer primary ring when selected
+          border: isSelected
+              ? Border.all(color: cs.primary, width: 2)
+              : null,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        padding: EdgeInsets.all(isSelected ? 3 : 0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            // Inner white ring for the double-ring effect
+            border: isSelected
+                ? Border.all(color: cs.surface, width: 2)
+                : null,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 반복 선택 — 다른 입력과 동일한 fill bg + radius로 통일.
+class _RecurrenceField extends StatelessWidget {
+  const _RecurrenceField({
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String value;
+  final List<(String, String)> options;
+  final ValueChanged<String> onChanged;
+
+  /// 각 옵션 값에 매핑되는 아이콘 — 빈도의 의미를 시각적으로 보조.
+  IconData _iconFor(String val) {
+    switch (val) {
+      case 'none':
+        return Icons.do_disturb_alt_outlined;
+      case 'daily':
+        return Icons.today_outlined;
+      case 'weekly':
+        return Icons.calendar_view_week_rounded;
+      case 'biweekly':
+        return Icons.event_repeat_rounded;
+      case 'monthly':
+        return Icons.calendar_month_outlined;
+      case 'yearly':
+        return Icons.cake_outlined;
+      default:
+        return Icons.repeat_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 라벨을 박스 외부 위로 배치 — floating label이 fill 위에 떠 겹치는
+        // 시각 이슈를 회피.
+        Padding(
+          padding: const EdgeInsets.only(
+            left: AppSpacing.xs,
+            bottom: AppSpacing.xs,
+          ),
+          child: Text(
+            '반복',
+            style: tt.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        DropdownButtonFormField<String>(
+          value: value,
+          isExpanded: true,
+          icon: Icon(Icons.expand_more_rounded, color: cs.onSurfaceVariant),
+          style: tt.bodyMedium?.copyWith(
+            color: cs.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+          dropdownColor: cs.surfaceContainerHigh,
+          borderRadius: AppRadius.borderRadiusLg,
+          // 항목이 6개라 길어지지 않지만, 안전하게 상한을 둠.
+          menuMaxHeight: 360,
+          // 닫힌 상태에서는 prefixIcon(반복 아이콘)이 이미 보이므로,
+          // 라벨만 깔끔하게 노출.
+          selectedItemBuilder: (context) {
+            return options.map((opt) {
+              final (_, label) = opt;
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  label,
+                  style: tt.bodyMedium?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              );
+            }).toList();
+          },
+          decoration: InputDecoration(
+            prefixIcon: Icon(
+              Icons.repeat_rounded,
+              size: 20,
+              color: cs.onSurfaceVariant,
+            ),
+            filled: true,
+            fillColor: cs.surfaceContainerHigh,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: AppRadius.borderRadiusLg,
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: AppRadius.borderRadiusLg,
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: AppRadius.borderRadiusLg,
+              borderSide: BorderSide(color: cs.primary, width: 1.5),
+            ),
+          ),
+          items: options.map((opt) {
+            final (val, label) = opt;
+            final isSelected = val == value;
+            return DropdownMenuItem(
+              value: val,
+              child: Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  // 선택 시 primaryContainer 배경 + onPrimaryContainer 텍스트로
+                  // cream 배경에서도 대비/가독성 확보
+                  color: isSelected
+                      ? cs.primaryContainer
+                      : Colors.transparent,
+                  borderRadius: AppRadius.borderRadiusMd,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _iconFor(val),
+                      size: 18,
+                      color: isSelected
+                          ? cs.onPrimaryContainer
+                          : cs.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: tt.bodyMedium?.copyWith(
+                          color: isSelected
+                              ? cs.onPrimaryContainer
+                              : cs.onSurface,
+                          fontWeight: isSelected
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (isSelected)
+                      Icon(
+                        Icons.check_rounded,
+                        size: 18,
+                        color: cs.onPrimaryContainer,
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// 개인 캘린더 — 연/월 선택 후 해당 월의 개인 일정(personal_events) +
+/// 메모(personal_notes)를 일괄 삭제하는 바텀시트. team의 showDeleteScheduleSheet
+/// 와 시각/플로우를 일치.
+void showDeletePersonalScheduleSheet({
+  required BuildContext context,
+  required WidgetRef ref,
+}) {
+  final now = DateTime.now();
+  DateTime selectedDate = DateTime(now.year, now.month);
+
+  showModalBottomSheet<void>(
+    context: context,
+    useRootNavigator: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius:
+          BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+    ),
+    builder: (ctx) => SizedBox(
+      height: 350,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('취소'),
+                ),
+                Text('삭제할 연월 선택',
+                    style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        )),
+                TextButton(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    final year = selectedDate.year;
+                    final month = selectedDate.month;
+
+                    final confirm = await showMoniqDestructiveConfirm(
+                      context: context,
+                      title: '정말 삭제하시겠습니까?',
+                      message:
+                          '$year년 $month월의 내 개인 일정과 메모가\n삭제되며 복구할 수 없습니다.',
+                    );
+                    if (!confirm) return;
+
+                    try {
+                      final eventDs =
+                          ref.read(personalEventDataSourceProvider);
+                      final noteLocal =
+                          ref.read(personalNoteDataSourceProvider);
+                      final removedEvents = await eventDs
+                          .deleteEventsByMonth(year: year, month: month);
+                      final removedNotes = await noteLocal
+                          .deleteNotesByMonth(year: year, month: month);
+
+                      // 캐시 무효화 — 이벤트/메모/날짜 단위 모두
+                      ref.read(eventRefreshProvider.notifier).state++;
+                      ref.invalidate(monthlyEventsProvider);
+                      ref.invalidate(monthlyNotesProvider);
+                      ref.invalidate(dateEventsProvider);
+                      ref.invalidate(dateNotesProvider);
+                      // 개인 캘린더 화면(homeViewModel) 자체도 강제 리프레시
+                      try {
+                        await ref
+                            .read(homeViewModelProvider.notifier)
+                            .refresh();
+                      } catch (_) {}
+
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '$year년 $month월 일정 $removedEvents건, '
+                              '메모 $removedNotes건이 삭제되었습니다',
+                            ),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('삭제 실패: $e')),
+                        );
+                      }
+                    }
+                  },
+                  child: Text(
+                    '삭제',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: StatefulBuilder(
+              builder: (ctx, setSheetState) => CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.monthYear,
+                initialDateTime: selectedDate,
+                onDateTimeChanged: (d) {
+                  setSheetState(() {
+                    selectedDate = DateTime(d.year, d.month);
+                  });
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}

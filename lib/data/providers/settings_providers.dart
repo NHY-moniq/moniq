@@ -175,3 +175,22 @@ class CalendarStartDayNotifier extends Notifier<String> {
     state = day;
   }
 }
+
+/// 개인 캘린더에서 팀 로스터의 근무(dot/preview)를 숨길지 여부
+final hideTeamShiftsInPersonalProvider =
+    NotifierProvider<HideTeamShiftsNotifier, bool>(
+        HideTeamShiftsNotifier.new);
+
+class HideTeamShiftsNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    final repo = ref.watch(settingsRepositoryProvider);
+    return repo.getHideTeamShiftsInPersonal();
+  }
+
+  Future<void> setHide(bool hide) async {
+    final repo = ref.read(settingsRepositoryProvider);
+    await repo.setHideTeamShiftsInPersonal(hide);
+    state = hide;
+  }
+}

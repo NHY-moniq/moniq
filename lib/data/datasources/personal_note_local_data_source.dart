@@ -97,6 +97,25 @@ class PersonalNoteLocalDataSource {
     }
   }
 
+  /// 특정 연/월의 모든 메모 일괄 삭제. 반환값: 삭제된 메모 개수.
+  Future<int> deleteNotesByMonth({
+    required int year,
+    required int month,
+  }) async {
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    int removed = 0;
+    for (int d = 1; d <= daysInMonth; d++) {
+      final date = DateTime(year, month, d);
+      final key = '$_keyPrefix:$_userId:${_dateKey(date)}';
+      final existing = _prefs.getStringList(key);
+      if (existing != null && existing.isNotEmpty) {
+        removed += existing.length;
+        await _prefs.remove(key);
+      }
+    }
+    return removed;
+  }
+
   /// 메모 수정
   Future<void> updateNote(DateTime date, int index, String content) async {
     final key = '$_keyPrefix:$_userId:${_dateKey(date)}';

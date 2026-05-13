@@ -1,6 +1,9 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/app_typography.dart';
+import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 // Shift colors are mode-invariant, kept from AppColors.
@@ -27,9 +30,11 @@ class MoniqCalendar extends StatelessWidget {
     this.markerBuilder,
     this.startingDayOfWeek = StartingDayOfWeek.monday,
     this.previewBuilder,
-    this.rowHeight = 52,
+    this.rowHeight = 58,
     this.onTodayPressed,
     this.legendItems,
+    this.viewMode,
+    this.onViewModeChanged,
   });
 
   final DateTime focusedDay;
@@ -47,8 +52,15 @@ class MoniqCalendar extends StatelessWidget {
   /// 범례 항목 (null이면 기본 DAY/EVENING/NIGHT/OFF)
   final List<({Color color, String label})>? legendItems;
 
+  /// 헤더 우측에 월/주 segmented pill을 표시하려면 함께 전달.
+  /// 둘 다 null이면 토글이 표시되지 않는다.
+  final CalendarViewMode? viewMode;
+  final ValueChanged<CalendarViewMode>? onViewModeChanged;
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: AppSpacing.screenHorizontal,
       child: Column(
@@ -57,21 +69,23 @@ class MoniqCalendar extends StatelessWidget {
           _buildExternalHeader(context),
           const SizedBox(height: AppSpacing.md),
 
-          // Calendar card
+          // Calendar card — 라이트: 부드러운 shadow / 다크: 1px outline
           Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
+              color: isDark ? cs.surfaceContainerHigh : cs.surface,
               borderRadius: BorderRadius.circular(AppRadius.lg),
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .shadow
-                      .withValues(alpha: 0.06),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              border: isDark
+                  ? Border.all(color: cs.outlineVariant, width: 1)
+                  : null,
+              boxShadow: isDark
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: cs.shadow.withValues(alpha: 0.06),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
             ),
             padding: const EdgeInsets.only(bottom: 8, top: 8),
             child: TableCalendar<dynamic>(
@@ -155,6 +169,7 @@ class MoniqCalendar extends StatelessWidget {
   }
 
   Widget _buildExternalHeader(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final now = DateTime.now();
     final isCurrentMonth =
         focusedDay.year == now.year && focusedDay.month == now.month;
@@ -162,7 +177,7 @@ class MoniqCalendar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 년월 + 화살표
+        // 1줄: 년월 (displayMedium) + 우측 컨트롤 라인
         Row(
           children: [
             Expanded(
@@ -170,80 +185,67 @@ class MoniqCalendar extends StatelessWidget {
                 onTap: () => _showYearMonthPicker(context, focusedDay),
                 child: Text(
                   '${focusedDay.year}년 ${focusedDay.month}월',
-                  style: Theme.of(context).textTheme.titleLarge!.copyWith(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 22,
-                      ),
+                  style: AppTypography.displayMedium.copyWith(
+                    color: cs.onSurface,
+                  ),
                 ),
               ),
             ),
-            if (!isCurrentMonth && onTodayPressed != null)
-              GestureDetector(
-                onTap: onTodayPressed,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  margin: const EdgeInsets.only(right: 4),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.calendar_today,
-                    size: 16,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onPrimaryContainer,
-                  ),
+            if (!isCurrentMonth && onTodayPressed != null) ...[
+              _HeaderPill(
+                onTap: onTodayPressed!,
+                child: Icon(
+                  Icons.today_outlined,
+                  size: 16,
+                  color: cs.onSurface,
                 ),
               ),
-            GestureDetector(
+              const SizedBox(width: 6),
+            ],
+            _HeaderPill(
               onTap: () {
-                final prev =
-                    DateTime(focusedDay.year, focusedDay.month - 1, 1);
+                // 주 모드: 1주 전, 월 모드: 전월 1일
+                final prev = viewMode == CalendarViewMode.week
+                    ? focusedDay.subtract(const Duration(days: 7))
+                    : DateTime(focusedDay.year, focusedDay.month - 1, 1);
                 onPageChanged(prev);
               },
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .surfaceContainerHigh,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.chevron_left, size: 18),
-              ),
+              child:
+                  Icon(Icons.chevron_left, size: 18, color: cs.onSurface),
             ),
-            const SizedBox(width: 8),
-            GestureDetector(
+            const SizedBox(width: 6),
+            _HeaderPill(
               onTap: () {
-                final next =
-                    DateTime(focusedDay.year, focusedDay.month + 1, 1);
+                final next = viewMode == CalendarViewMode.week
+                    ? focusedDay.add(const Duration(days: 7))
+                    : DateTime(focusedDay.year, focusedDay.month + 1, 1);
                 onPageChanged(next);
               },
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .surfaceContainerHigh,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.chevron_right, size: 18),
-              ),
+              child:
+                  Icon(Icons.chevron_right, size: 18, color: cs.onSurface),
             ),
           ],
         ),
-        const SizedBox(height: 6),
-        // 범례
-        Wrap(
-          spacing: 12,
-          runSpacing: 4,
-          children: (legendItems ?? _defaultLegendItems)
-              .map((item) => _legendDot(context, item.color, item.label))
-              .toList(),
+        const SizedBox(height: AppSpacing.sm),
+        // 2줄: 범례 + 월/주 segmented pill
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 4,
+                children: (legendItems ?? _defaultLegendItems)
+                    .map((item) => _legendDot(context, item.color, item.label))
+                    .toList(),
+              ),
+            ),
+            if (viewMode != null && onViewModeChanged != null)
+              _ViewModeSegmentedPill(
+                mode: viewMode!,
+                onChanged: onViewModeChanged!,
+              ),
+          ],
         ),
       ],
     );
@@ -345,18 +347,19 @@ class MoniqCalendar extends StatelessWidget {
               ),
             ),
 
-          // Today — blob shape + centered number
+          // Today — 일반 날짜 텍스트와 동일한 vertical 영역(top=4..28)
+          // 안에 들어가는 작은 blob. 미리보기가 밀리지 않도록 사이즈를 줄임.
           if (isToday)
             Positioned(
-              top: 2,
+              top: 4,
               child: SizedBox(
-                width: 32,
-                height: 32,
+                width: 24,
+                height: 24,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
                     CustomPaint(
-                      size: const Size(32, 32),
+                      size: const Size(24, 24),
                       painter: _BlobPainter(todayColor),
                     ),
                     Text(
@@ -364,7 +367,7 @@ class MoniqCalendar extends StatelessWidget {
                       style: TextStyle(
                         color: textColor,
                         fontWeight: FontWeight.w800,
-                        fontSize: 13,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -388,14 +391,14 @@ class MoniqCalendar extends StatelessWidget {
               ),
             ),
 
-          // Color dots below date
+          // 마커/미리보기 시작 y — today/non-today 동일 (밀림 방지)
           if (markers != null)
             Positioned(
               top: 30,
               child: markers,
             ),
 
-          // Preview tags below dots
+          // Preview tags below dots — 셀 가로 폭 가득 채움
           if (previews.isNotEmpty)
             Positioned(
               top: markers != null ? 42 : 30,
@@ -403,12 +406,11 @@ class MoniqCalendar extends StatelessWidget {
               right: 0,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: previews
                     .take(2)
                     .map((p) => Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: 1,
-                          ),
+                          padding: const EdgeInsets.only(bottom: 1),
                           child: _buildTag(context, p),
                         ))
                     .toList(),
@@ -420,28 +422,47 @@ class MoniqCalendar extends StatelessWidget {
   }
 
   Widget _buildTag(BuildContext context, CalendarPreview preview) {
-    final tagColor = preview.color ??
-        Theme.of(context).colorScheme.onSurfaceVariant;
+    final cs = Theme.of(context).colorScheme;
+    final color = preview.color ?? cs.onSurfaceVariant;
+
+    if (preview.isWork) {
+      // 근무: 셀 가로 폭을 가득 채우는 컬러 박스 (D/E/N/O 단문자).
+      // 테두리 없이 fill alpha만 적용.
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.22),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          preview.text,
+          style: TextStyle(
+            fontSize: 9,
+            color: color,
+            fontWeight: FontWeight.w800,
+            height: 1.1,
+            letterSpacing: 0.2,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    // 개인 일정: 배경 없는 plain 텍스트 — 셀 가운데 정렬,
+    // 사용자가 추가 시 지정한 색상으로 텍스트 채색 (없으면 onSurface)
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1.5),
-      margin: const EdgeInsets.symmetric(horizontal: 2),
-      decoration: BoxDecoration(
-        color: tagColor.withValues(alpha: preview.isWork ? 0.25 : 0.12),
-        borderRadius: BorderRadius.circular(4),
-        border: preview.isWork
-            ? Border.all(
-                color: tagColor.withValues(alpha: 0.4),
-                width: 0.8,
-              )
-            : null,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 0.5),
       child: Text(
         preview.text,
         style: TextStyle(
-          fontSize: 8,
-          color: tagColor,
-          fontWeight: FontWeight.w700,
+          fontSize: 9,
+          color: preview.color ?? cs.onSurface,
+          fontWeight: FontWeight.w600,
           height: 1.1,
         ),
         maxLines: 1,
@@ -452,103 +473,71 @@ class MoniqCalendar extends StatelessWidget {
   }
 
   void _showYearMonthPicker(BuildContext context, DateTime day) async {
-    final theme = Theme.of(context);
-    final style =
-        theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w600);
-    int selectedYear = day.year;
-    int selectedMonth = day.month;
+    DateTime selected = DateTime(day.year, day.month);
 
-    final result = await showDialog<DateTime>(
+    final result = await showModalBottomSheet<DateTime>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('연월 선택', textAlign: TextAlign.center),
-          contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          content: SizedBox(
-            width: 280,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
+      useRootNavigator: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final cs = theme.colorScheme;
+        return SizedBox(
+          height: 350,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.chevron_left),
-                      onPressed: () =>
-                          setDialogState(() => selectedYear--),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('취소'),
                     ),
-                    Text('$selectedYear년', style: style),
-                    IconButton(
-                      icon: const Icon(Icons.chevron_right),
-                      onPressed: () =>
-                          setDialogState(() => selectedYear++),
+                    Text(
+                      '연월 선택',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(
+                        ctx,
+                        DateTime(selected.year, selected.month, 1),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: cs.primary,
+                      ),
+                      child: const Text(
+                        '이동',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: List.generate(12, (i) {
-                    final m = i + 1;
-                    final isSel = m == selectedMonth;
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () =>
-                          setDialogState(() => selectedMonth = m),
-                      child: Builder(
-                        builder: (innerCtx) {
-                          final dcs =
-                              Theme.of(innerCtx).colorScheme;
-                          return Container(
-                            width: 56,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: isSel
-                                  ? dcs.primary
-                                  : null,
-                              borderRadius:
-                                  BorderRadius.circular(8),
-                              border: isSel
-                                  ? Border.all(
-                                      color: dcs.primary,
-                                      width: 1.5,
-                                    )
-                                  : null,
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              '$m월',
-                              style: style.copyWith(
-                                color: isSel
-                                    ? dcs.onPrimary
-                                    : null,
-                                fontSize: 14,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  }),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.monthYear,
+                  initialDateTime: selected,
+                  onDateTimeChanged: (d) {
+                    selected = DateTime(d.year, d.month);
+                  },
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('취소'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(
-                  ctx, DateTime(selectedYear, selectedMonth, 1)),
-              child: const Text('이동'),
-            ),
-          ],
-        ),
-      ),
+        );
+      },
     );
 
     if (result != null) {
@@ -592,5 +581,82 @@ class _BlobPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BlobPainter old) => old.color != color;
+}
+
+/// 헤더 우측 원형 pill 버튼 (chevron / today / 등).
+class _HeaderPill extends StatelessWidget {
+  const _HeaderPill({required this.onTap, required this.child});
+
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surfaceContainerHigh,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(7),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+/// 헤더 우측 월/주 segmented pill 토글.
+class _ViewModeSegmentedPill extends StatelessWidget {
+  const _ViewModeSegmentedPill({
+    required this.mode,
+    required this.onChanged,
+  });
+
+  final CalendarViewMode mode;
+  final ValueChanged<CalendarViewMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: CalendarViewMode.values.map((m) {
+          final selected = m == mode;
+          final label = m == CalendarViewMode.month ? '월' : '주';
+          return GestureDetector(
+            onTap: () => onChanged(m),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 5,
+              ),
+              decoration: BoxDecoration(
+                color: selected ? cs.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
 }
 

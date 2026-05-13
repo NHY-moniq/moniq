@@ -9,8 +9,8 @@ import 'package:moniq/presentation/screens/team/shift_type_manage_widgets.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 
-/// 근무 유형 목록 (등록된 카드 + 추가 버튼)
-class ShiftTypesList extends ConsumerWidget {
+/// 근무 유형 목록
+class ShiftTypesList extends ConsumerStatefulWidget {
   const ShiftTypesList({
     super.key,
     required this.shiftTypes,
@@ -23,27 +23,35 @@ class ShiftTypesList extends ConsumerWidget {
   final String teamId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (shiftTypes.isEmpty && isAdmin) {
-      return EmptyShiftTypesView(
-        teamId: teamId,
-      );
+  ConsumerState<ShiftTypesList> createState() => _ShiftTypesListState();
+}
+
+class _ShiftTypesListState extends ConsumerState<ShiftTypesList> {
+  static const _previewCount = 4;
+  static const _defaultCodes = {'D', 'E', 'N', 'ED'};
+
+  List<ShiftTypeModel> _sorted(List<ShiftTypeModel> types) {
+    final defaults = types.where((t) => _defaultCodes.contains(t.code.toUpperCase())).toList();
+    final customs = types.where((t) => !_defaultCodes.contains(t.code.toUpperCase())).toList();
+    return [...defaults, ...customs];
+  }
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.shiftTypes.isEmpty && widget.isAdmin) {
+      return EmptyShiftTypesView(teamId: widget.teamId);
     }
 
-    if (shiftTypes.isEmpty) {
+    if (widget.shiftTypes.isEmpty) {
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Center(
             child: Text(
               '등록된 근무 유형이 없습니다',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
           ),
@@ -51,45 +59,54 @@ class ShiftTypesList extends ConsumerWidget {
       );
     }
 
+    final sorted = _sorted(widget.shiftTypes);
+    final hasMore = sorted.length > _previewCount;
+    final visible = hasMore && !_expanded
+        ? sorted.take(_previewCount).toList()
+        : sorted;
+
     return Column(
       children: [
-        ...shiftTypes.map((t) => ShiftTypeCard(
+        ...visible.map((t) => ShiftTypeCard(
               shiftType: t,
-              isAdmin: isAdmin,
-              teamId: teamId,
+              isAdmin: widget.isAdmin,
+              teamId: widget.teamId,
             )),
-        if (isAdmin) ...[
-          const SizedBox(height: AppSpacing.sm),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => _showAddSheet(context, ref),
-              icon: const Icon(Icons.add_rounded, size: 20),
-              label: const Text('근무 유형 추가'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor:
-                  Theme.of(context).colorScheme.primary,
-                side: BorderSide(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primary,
-                  width: 1.5,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadius.borderRadiusMd,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppSpacing.md,
-                ),
+        if (hasMore)
+          GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _expanded
+                        ? '접기'
+                        : '${sorted.length - _previewCount}개 더 보기',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  const SizedBox(width: 4),
+                  AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ],
       ],
     );
   }
 
-  void _showAddSheet(BuildContext context, WidgetRef ref) {
+  void _showAddSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -99,8 +116,8 @@ class ShiftTypesList extends ConsumerWidget {
         ),
       ),
       builder: (ctx) => ShiftTypeAddSheet(
-        teamId: teamId,
-        existingCodes: shiftTypes.map((t) => t.code).toSet(),
+        teamId: widget.teamId,
+        existingCodes: widget.shiftTypes.map((t) => t.code).toSet(),
       ),
     );
   }

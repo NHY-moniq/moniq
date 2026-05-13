@@ -44,6 +44,7 @@ class ScheduleGenerationState with _$ScheduleGenerationState {
     Map<String, List<String>> softViolations, // {'NOD':['홍길동 05-03',...], ...}
     @Default([]) List<String> wantedUnsatisfied, // ['홍길동 05-10 (휴무 요청)', ...]
     @Default([]) List<String> customRuleViolations,
+    @Default([]) List<String> softCustomViolations,
     @Default(false) bool isAnalyzing,
     String? aiAnalysis,
     String? error,
@@ -96,6 +97,7 @@ class ScheduleGenerationViewModel
         teamId: teamId,
         periodStart: nextMonth,
         periodEnd: nextMonthEnd,
+        currentMemberIds: members.map((m) => m.userId).toSet(),
       );
     } catch (_) {}
 
@@ -133,6 +135,7 @@ class ScheduleGenerationViewModel
         teamId: current.teamId,
         periodStart: periodStart,
         periodEnd: periodEnd,
+        currentMemberIds: current.members.map((m) => m.userId).toSet(),
       );
       final latest = state.valueOrNull;
       if (latest == null) return;
@@ -226,10 +229,14 @@ class ScheduleGenerationViewModel
         softViolations: result.softViolations,
         wantedUnsatisfied: result.wantedUnsatisfied,
         customRuleViolations: [],
+        softCustomViolations: [],
       );
-      final customViolations = _computeCustomRuleViolations(stateAfterGen);
+      final (:hard, :soft) = _computeCustomRuleViolations(stateAfterGen);
       state = AsyncData(
-        stateAfterGen.copyWith(customRuleViolations: customViolations),
+        stateAfterGen.copyWith(
+          customRuleViolations: hard,
+          softCustomViolations: soft,
+        ),
       );
     } catch (e) {
       state = AsyncData(
@@ -303,8 +310,13 @@ class ScheduleGenerationViewModel
 
     final updatedPreview = await scheduleRepo.getShiftsBySchedule(scheduleId);
     final updated = current.copyWith(previewShifts: updatedPreview);
-    final customViolations = _computeCustomRuleViolations(updated);
-    state = AsyncData(updated.copyWith(customRuleViolations: customViolations));
+    final (:hard, :soft) = _computeCustomRuleViolations(updated);
+    state = AsyncData(
+      updated.copyWith(
+        customRuleViolations: hard,
+        softCustomViolations: soft,
+      ),
+    );
     return true;
   }
 
@@ -345,9 +357,12 @@ class ScheduleGenerationViewModel
         generatedSchedule: newSchedule,
         previewShifts: refreshed,
       );
-      final customViolations = _computeCustomRuleViolations(nextState);
+      final (:hard, :soft) = _computeCustomRuleViolations(nextState);
       state = AsyncData(
-        nextState.copyWith(customRuleViolations: customViolations),
+        nextState.copyWith(
+          customRuleViolations: hard,
+          softCustomViolations: soft,
+        ),
       );
       return true;
     } catch (e) {
@@ -459,6 +474,7 @@ class ScheduleGenerationViewModel
     required String teamId,
     required DateTime periodStart,
     required DateTime periodEnd,
+    Set<String> currentMemberIds = const {},
   }) async {
     final wantedRepo = ref.read(wantedRepositoryProvider);
     final allRequests = await wantedRepo.getWantedRequests(teamId);
@@ -517,7 +533,9 @@ class ScheduleGenerationViewModel
       final bt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       return at.compareTo(bt);
     });
-    return entries;
+    // Filter out departed members
+    if (currentMemberIds.isEmpty) return entries;
+    return entries.where((e) => currentMemberIds.contains(e.userId)).toList();
   }
 
   WantedRequestModel? _latestRequestByTypeAndStatus(
@@ -709,17 +727,21 @@ class ScheduleGenerationViewModel
           if (hasN) hardViolations.add('${m.displayName}: 야간제외 멤버에게 나이트 배정됨');
         }
         if (m.member.dayOnly) {
-          final hasNonD = shifts.any(
-            (s) => s.userId == uid && shiftCodeFor(s.shiftTypeId) != 'D',
-          );
-          if (hasNonD)
+          // 교육 등 D/E/N 외 근무는 위반 제외 — E·N 배정만 위반으로 간주
+          final hasEveningOrNight = shifts.any((s) {
+            final code = shiftCodeFor(s.shiftTypeId);
+            return s.userId == uid && (code == 'E' || code == 'N');
+          });
+          if (hasEveningOrNight)
             hardViolations.add('${m.displayName}: 데이전용 멤버에게 비데이 배정됨');
         }
         if (m.member.nightDedicated) {
-          final hasNonN = shifts.any(
-            (s) => s.userId == uid && shiftCodeFor(s.shiftTypeId) != 'N',
-          );
-          if (hasNonN)
+          // 교육 등 D/E/N 외 근무는 위반 제외 — D·E 배정만 위반으로 간주
+          final hasDayOrEvening = shifts.any((s) {
+            final code = shiftCodeFor(s.shiftTypeId);
+            return s.userId == uid && (code == 'D' || code == 'E');
+          });
+          if (hasDayOrEvening)
             hardViolations.add('${m.displayName}: 나이트전담 멤버에게 비나이트 배정됨');
         }
       }
@@ -859,9 +881,13 @@ class ScheduleGenerationViewModel
   }
 
   /// 커스텀 룰 위반 감지 (generate 완료 후 즉시 호출)
-  List<String> _computeCustomRuleViolations(ScheduleGenerationState s) {
+  /// hard 룰 위반 → customRuleViolations; soft 룰 위반 → softCustomViolations
+  ({List<String> hard, List<String> soft}) _computeCustomRuleViolations(
+    ScheduleGenerationState s,
+  ) {
     final shifts = s.previewShifts ?? [];
-    final violations = <String>[];
+    final hardViolations = <String>[];
+    final softViolations = <String>[];
 
     String dateFmt(DateTime d) =>
         '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -888,6 +914,10 @@ class ScheduleGenerationViewModel
       return st.code.toUpperCase();
     }
 
+    void addViolation(String message, String priority) {
+      (priority == 'hard' ? hardViolations : softViolations).add(message);
+    }
+
     for (final rule in s.customRules.where((r) => r.isActive)) {
       final rv = rule.ruleValue;
       switch (rule.ruleType) {
@@ -906,8 +936,9 @@ class ScheduleGenerationViewModel
                   .toList()
                 ..sort();
           if (banViolDates.isNotEmpty) {
-            violations.add(
+            addViolation(
               '근무 금지 위반: ${mName(uid)}에게 $code 배정됨 → ${banViolDates.join(', ')} ("${rule.originalText}")',
+              rule.priority,
             );
           }
 
@@ -933,8 +964,9 @@ class ScheduleGenerationViewModel
             final dates = conflictEntries
                 .map((e) => e.key.substring(5))
                 .join(', '); // MM-DD
-            violations.add(
+            addViolation(
               '동시 배정 금지 위반: ${mName(uidA)}, ${mName(uidB)} → ${conflictEntries.length}일 (${dates}) ("${rule.originalText}")',
+              rule.priority,
             );
           }
 
@@ -957,8 +989,9 @@ class ScheduleGenerationViewModel
           }).toList()..sort((a, b) => a.key.compareTo(b.key));
           if (missEntries.isNotEmpty) {
             final dates = missEntries.map((e) => e.key.substring(5)).join(', ');
-            violations.add(
+            addViolation(
               '함께 배정 미충족: ${mName(uidA)}, ${mName(uidB)} → ${missEntries.length}일 (${dates}) ("${rule.originalText}")',
+              rule.priority,
             );
           }
 
@@ -974,9 +1007,74 @@ class ScheduleGenerationViewModel
               )
               .toList();
           if (violated.isNotEmpty) {
-            violations.add(
+            addViolation(
               '날짜 오프 위반: ${mName(uid)}이 ${violated.join(', ')} 근무 배정 ("${rule.originalText}")',
+              rule.priority,
             );
+          }
+
+        case 'skill_condition':
+          // hard는 validationWarnings에서 처리, soft는 여기서 소프트 위반으로 수집
+          if (rule.priority == 'hard') break;
+          final shiftCodeFilter =
+              (rv['shift_code'] as String?)?.toUpperCase() ?? '';
+          final minSkill = (rv['min_skill'] as num?)?.toInt() ?? 1;
+          final minCount = (rv['min_count'] as num?)?.toInt() ?? 1;
+          if (shiftCodeFilter.isEmpty) break;
+          final dateSet =
+              shifts.map((sh) => dateFmt(sh.shiftDate)).toSet().toList()
+                ..sort();
+          for (final dStr in dateSet) {
+            final stList = s.shiftTypes.where((t) {
+              final bool isD =
+                  t.code.toUpperCase() == 'D' ||
+                  t.name.contains('데이') ||
+                  t.name.contains('주간');
+              final bool isE =
+                  t.code.toUpperCase() == 'E' ||
+                  t.name.contains('이브닝') ||
+                  t.name.contains('저녁');
+              final bool isN =
+                  t.code.toUpperCase() == 'N' ||
+                  t.name.contains('나이트') ||
+                  t.name.contains('야간');
+              final code =
+                  isN
+                  ? 'N'
+                  : isE
+                  ? 'E'
+                  : isD
+                  ? 'D'
+                  : t.code.toUpperCase();
+              return code == shiftCodeFilter;
+            }).toList();
+            if (stList.isEmpty) continue;
+            final stId = stList.first.id;
+            final assignedUids = shifts
+                .where(
+                  (sh) =>
+                      dateFmt(sh.shiftDate) == dStr && sh.shiftTypeId == stId,
+                )
+                .map((sh) => sh.userId)
+                .toList();
+            final qualifiedCount = assignedUids.where((uid) {
+              final member = s.members.firstWhere(
+                (m) => m.userId == uid,
+                orElse: () => s.members.first,
+              );
+              return ScheduleGenerationViewModel._skillLevelNum(
+                    member.member.skillLevel,
+                  ) >=
+                  minSkill;
+            }).length;
+            if (qualifiedCount < minCount) {
+              final skillLabel = ScheduleGenerationViewModel._skillLevelLabel(
+                minSkill,
+              );
+              softViolations.add(
+                '$dStr $shiftCodeFilter 근무: $skillLabel 이상 ${minCount}명 조건 미충족 ($qualifiedCount명) ("${rule.originalText}")',
+              );
+            }
           }
 
         case 'skill_balance':
@@ -1042,8 +1140,9 @@ class ScheduleGenerationViewModel
               );
 
               if (hasJunior && !hasSeniorOrMid) {
-                violations.add(
+                addViolation(
                   '숙련도 불균형: $dStr ${st.name} 근무에 신규만 배정되고 올드/중간 없음 ("${rule.originalText}")',
+                  rule.priority,
                 );
               }
             }
@@ -1051,7 +1150,7 @@ class ScheduleGenerationViewModel
       }
     }
 
-    return violations;
+    return (hard: hardViolations, soft: softViolations);
   }
 
   /// 스케줄 생성 알고리즘 (하드 제약 + 소프트 스코어링)
@@ -1130,15 +1229,20 @@ class ScheduleGenerationViewModel
     final activeCustomRules = customRules.where((r) => r.isActive).toList();
 
     // member_shift_ban: { member_id, shift_code }
-    // userId → set of banned shift codes
-    final memberShiftBans = <String, Set<String>>{};
+    // hard → eligibility block; soft → score penalty
+    final hardMemberShiftBans = <String, Set<String>>{};
+    final softMemberShiftBans = <String, Set<String>>{};
     for (final r in activeCustomRules.where(
       (r) => r.ruleType == 'member_shift_ban',
     )) {
       final memberId = r.ruleValue['member_id'] as String?;
       final shiftCode = (r.ruleValue['shift_code'] as String?)?.toUpperCase();
       if (memberId != null && shiftCode != null) {
-        memberShiftBans.putIfAbsent(memberId, () => {}).add(shiftCode);
+        if (r.priority == 'hard') {
+          hardMemberShiftBans.putIfAbsent(memberId, () => {}).add(shiftCode);
+        } else {
+          softMemberShiftBans.putIfAbsent(memberId, () => {}).add(shiftCode);
+        }
       }
     }
 
@@ -1168,9 +1272,20 @@ class ScheduleGenerationViewModel
         .where((p) => p.a.isNotEmpty && p.b.isNotEmpty)
         .toList();
 
-    // require_pair: { member_id_a, member_id_b, shift_code? } — soft bonus
-    final requirePairs = activeCustomRules
-        .where((r) => r.ruleType == 'require_pair')
+    // require_pair: hard → strong bonus (+200); soft → weak bonus (+80)
+    final hardRequirePairs = activeCustomRules
+        .where((r) => r.ruleType == 'require_pair' && r.priority == 'hard')
+        .map(
+          (r) => (
+            a: r.ruleValue['member_id_a'] as String? ?? '',
+            b: r.ruleValue['member_id_b'] as String? ?? '',
+            code: (r.ruleValue['shift_code'] as String?)?.toUpperCase(),
+          ),
+        )
+        .where((p) => p.a.isNotEmpty && p.b.isNotEmpty)
+        .toList();
+    final softRequirePairs = activeCustomRules
+        .where((r) => r.ruleType == 'require_pair' && r.priority != 'hard')
         .map(
           (r) => (
             a: r.ruleValue['member_id_a'] as String? ?? '',
@@ -1182,20 +1297,35 @@ class ScheduleGenerationViewModel
         .toList();
 
     // date_off: { member_id, dates: [YYYY-MM-DD, ...] }
-    // userId → set of forced-off dates
-    final forcedOffDates = <String, Set<String>>{};
+    // hard → eligibility block; soft → score penalty (-200)
+    final hardForcedOffDates = <String, Set<String>>{};
+    final softForcedOffDates = <String, Set<String>>{};
     for (final r in activeCustomRules.where((r) => r.ruleType == 'date_off')) {
       final memberId = r.ruleValue['member_id'] as String?;
       final dates = (r.ruleValue['dates'] as List?)?.cast<String>() ?? [];
       if (memberId != null && dates.isNotEmpty) {
-        forcedOffDates.putIfAbsent(memberId, () => {}).addAll(dates);
+        if (r.priority == 'hard') {
+          hardForcedOffDates.putIfAbsent(memberId, () => {}).addAll(dates);
+        } else {
+          softForcedOffDates.putIfAbsent(memberId, () => {}).addAll(dates);
+        }
       }
     }
 
     // post_night_off: { consecutive_nights, min_off_days }
-    // Applied per-member: once consecutive nights reached, add mandatory off gap
-    final postNightOffRules = activeCustomRules
-        .where((r) => r.ruleType == 'post_night_off')
+    // hard → eligibility block; soft → score penalty
+    final hardPostNightOffRules = activeCustomRules
+        .where((r) => r.ruleType == 'post_night_off' && r.priority == 'hard')
+        .map(
+          (r) => (
+            consecutiveNights:
+                (r.ruleValue['consecutive_nights'] as num?)?.toInt() ?? 3,
+            minOffDays: (r.ruleValue['min_off_days'] as num?)?.toInt() ?? 2,
+          ),
+        )
+        .toList();
+    final softPostNightOffRules = activeCustomRules
+        .where((r) => r.ruleType == 'post_night_off' && r.priority != 'hard')
         .map(
           (r) => (
             consecutiveNights:
@@ -1206,9 +1336,11 @@ class ScheduleGenerationViewModel
         .toList();
 
     // skill_condition: { shift_code, min_skill, min_count }
-    // Evaluated post-generation as warning only (can't enforce mid-fill)
-    final skillConditions = activeCustomRules
-        .where((r) => r.ruleType == 'skill_condition')
+    // hard → warning in validationWarnings; soft → soft violation
+    final hardSkillConditions = activeCustomRules
+        .where(
+          (r) => r.ruleType == 'skill_condition' && r.priority == 'hard',
+        )
         .map(
           (r) => (
             shiftCode:
@@ -1219,6 +1351,7 @@ class ScheduleGenerationViewModel
         )
         .where((c) => c.shiftCode.isNotEmpty)
         .toList();
+    // soft skill_condition violations are computed post-gen in _computeCustomRuleViolations
 
     // skill_balance: { shift_code? }
     // "신규가 있으면 올드 한명은 있어야 한다" — soft/hard 모두 지원
@@ -1270,31 +1403,46 @@ class ScheduleGenerationViewModel
         t.code.toUpperCase() == 'E' ||
         t.name.contains('이브닝') ||
         t.name.contains('저녁');
+
+    // 교육 등 비D/E/N 근무 유형 ID 집합 (wantedEntries 처리 전 필요)
+    final educationShiftTypeIds = shiftTypes
+        .where((t) => !isDayType(t) && !isEveningType(t) && !isNightType(t))
+        .map((t) => t.id)
+        .toSet();
+
     // 원티드 날짜 맵
-    // wantedDaysOff: day_off P1 — 하드 제약 (배정 완전 차단)
-    // wantedPriority: day_off P2/P3 — 소프트 페널티 계산용 (preferred_shift 제외)
-    // preferredShiftMap: preferred_shift — 희망 근무 유형 보너스/페널티용
+    // wantedDaysOff: day_off (hard) — 하드 제약 (D/E/N 배정 완전 차단)
+    // wantedPriority: day_off (soft) — 소프트 페널티 계산용
+    // preferredShiftMap: preferred_shift (D/E/N) — 희망 근무 유형 보너스/페널티용
     // preferredShiftPriority: preferred_shift 우선순위 — 보너스 강도 조절
+    // educationWantedByUserDate: preferred_shift (교육 등 비D/E/N) — 무조건 반영
     final wantedDaysOff = <String, Set<String>>{};
     final wantedPriority = <String, Map<String, int>>{};
     final preferredShiftMap = <String, Map<String, String>>{};
     final preferredShiftPriority = <String, Map<String, int>>{};
+    final educationWantedByUserDate = <String, Map<String, String>>{}; // userId → dateStr → shiftTypeId
     for (final entry in wantedEntries) {
       final dateStr =
           '${entry.wantedDate.year}-${entry.wantedDate.month.toString().padLeft(2, '0')}-${entry.wantedDate.day.toString().padLeft(2, '0')}';
       final p = entry.priority;
       if (entry.shiftTypeId != null) {
-        // preferred_shift 엔트리: 희망 근무 유형 매핑 (day_off 로직과 분리)
-        preferredShiftMap.putIfAbsent(entry.userId, () => {})[dateStr] =
-            entry.shiftTypeId!;
-        preferredShiftPriority.putIfAbsent(entry.userId, () => {})[dateStr] = p;
+        if (educationShiftTypeIds.contains(entry.shiftTypeId)) {
+          // 교육 등 비D/E/N preferred_shift: 우선순위 무관 무조건 반영
+          educationWantedByUserDate
+              .putIfAbsent(entry.userId, () => {})[dateStr] = entry.shiftTypeId!;
+        } else {
+          // D/E/N preferred_shift 엔트리: 희망 근무 유형 매핑
+          preferredShiftMap.putIfAbsent(entry.userId, () => {})[dateStr] =
+              entry.shiftTypeId!;
+          preferredShiftPriority.putIfAbsent(entry.userId, () => {})[dateStr] = p;
+        }
       } else {
         // day_off 엔트리: 오프 희망
-        // P1 + 특수 타입(생리휴가/연차/필수교육) → 하드 제약
+        // 생리휴가/연차/필수교육 → 우선순위 무관 하드 제약 (D/E/N 배정 차단)
         // P1 custom(직접 입력) → 강한 소프트 페널티 (-200)
         // P2 → 중간 소프트 페널티 (-150)
         const hardReasons = {'#생리휴가', '#연차', '#필수교육'};
-        final isHard = p == 1 && hardReasons.contains(entry.reason);
+        final isHard = hardReasons.contains(entry.reason);
         if (isHard) {
           wantedDaysOff.putIfAbsent(entry.userId, () => {}).add(dateStr);
         } else {
@@ -1358,6 +1506,33 @@ class ScheduleGenerationViewModel
       final dateStr = fmt(date);
       // 오늘까지 진행된 비율 (0.0 ~ 1.0)
       final progressRatio = (d + 1) / dayCount;
+
+      // ── 교육 선배정: 원티드에 교육 근무 유형 등록 시 무조건 먼저 배정 ──
+      for (final entry in educationWantedByUserDate.entries) {
+        final userId = entry.key;
+        final eduShiftId = entry.value[dateStr];
+        if (eduShiftId == null) continue;
+        // 이미 오늘 배정된 멤버 제외
+        if (shifts.any((s) => s['user_id'] == userId && s['shift_date'] == dateStr)) continue;
+        // active members에 없는 멤버 제외 (제외 멤버 처리)
+        if (!members.any((m) => m.userId == userId)) continue;
+        shifts.add({
+          'schedule_id': scheduleId,
+          'team_id': teamId,
+          'user_id': userId,
+          'shift_date': dateStr,
+          'shift_type_id': eduShiftId,
+        });
+        shiftCount[userId] = (shiftCount[userId] ?? 0) + 1;
+        final prevDateEdu = lastWorkedDate[userId];
+        if (prevDateEdu != null && date.difference(prevDateEdu).inDays == 1) {
+          consecutiveWork[userId] = (consecutiveWork[userId] ?? 0) + 1;
+        } else {
+          consecutiveWork[userId] = 1;
+        }
+        lastWorkedDate[userId] = date;
+        recentWorkDates[userId]!.add(date);
+      }
 
       for (final shiftType in workShiftTypes) {
         final isNight = isNightType(shiftType);
@@ -1494,18 +1669,18 @@ class ScheduleGenerationViewModel
 
           // ── 커스텀 하드 룰 ──
 
-          // member_shift_ban: 특정 멤버 특정 근무 금지
-          final bannedCodes = memberShiftBans[uid];
+          // member_shift_ban (hard only): 특정 멤버 특정 근무 금지
+          final bannedCodes = hardMemberShiftBans[uid];
           if (bannedCodes != null && bannedCodes.contains(shiftCode))
             return false;
 
-          // date_off: 날짜 강제 오프
-          if (forcedOffDates[uid]?.contains(dateStr) == true) return false;
+          // date_off (hard only): 날짜 강제 오프
+          if (hardForcedOffDates[uid]?.contains(dateStr) == true) return false;
 
-          // post_night_off: 나이트 N연속 후 최소 오프 강제
+          // post_night_off (hard only): 나이트 N연속 후 최소 오프 강제
           // 나이트 전담은 자체 최소 2오프 규칙으로 관리되므로 이 커스텀 룰 적용 제외
           if (!m.member.nightDedicated) {
-            for (final rule in postNightOffRules) {
+            for (final rule in hardPostNightOffRules) {
               if ((consecutiveNight[uid] ?? 0) >= rule.consecutiveNights) {
                 return false;
               }
@@ -1789,6 +1964,24 @@ class ScheduleGenerationViewModel
 
           // ── 커스텀 소프트 룰 ──
 
+          // soft member_shift_ban: 특정 멤버 특정 근무 기피 패널티
+          final softBannedCodes = softMemberShiftBans[uid];
+          if (softBannedCodes != null && softBannedCodes.contains(shiftCode)) {
+            s -= 200;
+          }
+
+          // soft date_off: 날짜 오프 기피 패널티
+          if (softForcedOffDates[uid]?.contains(dateStr) == true) s -= 200;
+
+          // soft post_night_off: 나이트 N연속 후 오프 기피 패널티
+          if (!m.member.nightDedicated) {
+            for (final rule in softPostNightOffRules) {
+              if ((consecutiveNight[uid] ?? 0) >= rule.consecutiveNights) {
+                s -= 150;
+              }
+            }
+          }
+
           // soft anti_pair: 쌍 배정 기피 패널티
           for (final pair in softAntiPairs) {
             final partner = uid == pair.a
@@ -1807,8 +2000,26 @@ class ScheduleGenerationViewModel
             if (partnerAssigned) s -= 100;
           }
 
-          // require_pair: 쌍 배정 선호 보너스
-          for (final pair in requirePairs) {
+          // require_pair (hard): 강한 쌍 배정 선호 보너스
+          for (final pair in hardRequirePairs) {
+            final partner = uid == pair.a
+                ? pair.b
+                : uid == pair.b
+                ? pair.a
+                : null;
+            if (partner == null) continue;
+            if (pair.code != null && pair.code != shiftCode) continue;
+            final partnerAssigned = shifts.any(
+              (s) =>
+                  s['user_id'] == partner &&
+                  s['shift_date'] == dateStr &&
+                  s['shift_type_id'] == shiftType.id,
+            );
+            if (partnerAssigned) s += 200;
+          }
+
+          // require_pair (soft): 약한 쌍 배정 선호 보너스
+          for (final pair in softRequirePairs) {
             final partner = uid == pair.a
                 ? pair.b
                 : uid == pair.b
@@ -2018,12 +2229,12 @@ class ScheduleGenerationViewModel
       }
     }
 
-    // ── skill_condition 사후 검증 ──
-    if (skillConditions.isNotEmpty) {
+    // ── skill_condition 사후 검증 (하드만 warning에 추가) ──
+    if (hardSkillConditions.isNotEmpty) {
       for (int d = 0; d < dayCount; d++) {
         final date = start.add(Duration(days: d));
         final dateStr = fmt(date);
-        for (final cond in skillConditions) {
+        for (final cond in hardSkillConditions) {
           // 해당 shiftType 찾기
           final st = shiftTypes.where((t) {
             final code = isNightType(t)

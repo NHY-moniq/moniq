@@ -50,7 +50,8 @@ class _ViolationSheetState extends ConsumerState<ViolationSheet>
     final customViolCount = state.customRuleViolations.length;
     final totalHard = hardWarnings.length + customViolCount;
     final softTotal =
-        state.softViolations.values.fold(0, (s, v) => s + v.length);
+        state.softViolations.values.fold(0, (s, v) => s + v.length) +
+        state.softCustomViolations.length;
     final wantedPct = state.wantedTotal > 0
         ? (state.wantedSatisfied / state.wantedTotal * 100).round()
         : 100;
@@ -207,9 +208,10 @@ class _HardViolationTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final allItems = [...hardWarnings, ...customViolations];
+    final hasWarnings = hardWarnings.isNotEmpty;
+    final hasCustom = customViolations.isNotEmpty;
 
-    if (allItems.isEmpty) {
+    if (!hasWarnings && !hasCustom) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -244,30 +246,48 @@ class _HardViolationTab extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
+    return ListView(
       controller: scrollCtrl,
       padding: const EdgeInsets.all(AppSpacing.lg),
-      itemCount: allItems.length,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (_, i) => Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.error.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(AppRadius.xs),
-          border: Border.all(color: AppColors.error.withValues(alpha: 0.15)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.error_outline_rounded,
-                color: AppColors.error, size: 18),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(allItems[i], style: theme.textTheme.bodySmall),
+      children: [
+        // ── 일반 하드 위반 (규칙 위반, 인원 부족 등) ──
+        if (hasWarnings) ...[
+          const _SectionHeader(label: '규칙 위반', color: AppColors.error),
+          const SizedBox(height: AppSpacing.sm),
+          ...hardWarnings.map(
+            (msg) => Container(
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(AppRadius.xs),
+                border: Border.all(
+                    color: AppColors.error.withValues(alpha: 0.15)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.error_outline_rounded,
+                      color: AppColors.error, size: 18),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(msg, style: theme.textTheme.bodySmall),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
+          ),
+          if (hasCustom) const SizedBox(height: AppSpacing.lg),
+        ],
+
+        // ── 하드 커스텀 룰 위반 ──
+        if (hasCustom) ...[
+          const _SectionHeader(label: '하드 커스텀 룰', color: AppColors.error),
+          const SizedBox(height: AppSpacing.sm),
+          ...CustomRuleViolationGroup.groupBy(customViolations)
+              .map((g) => CustomRuleViolationGroup(group: g)),
+        ],
+      ],
     );
   }
 }
@@ -518,6 +538,7 @@ class ViolationSummaryBanner extends StatelessWidget {
     final theme = Theme.of(context);
     final hardCount = (state.validationWarnings ?? []).length;
     final customViolCount = state.customRuleViolations.length;
+    final softCustomCount = state.softCustomViolations.length;
     final hasIssue = hardCount > 0 || customViolCount > 0;
 
     const patternKeys = {'NOD', 'NOOD', 'NOE', 'EOD'};
@@ -564,6 +585,10 @@ class ViolationSummaryBanner extends StatelessWidget {
                     BannerChip(
                         label: '커스텀 룰 위반 $customViolCount건',
                         color: AppColors.error),
+                  if (softCustomCount > 0)
+                    BannerChip(
+                        label: '소프트 커스텀 $softCustomCount건',
+                        color: AppColors.brandOrange),
                   if (softPatternTotal > 0)
                     BannerChip(
                         label: '기피패턴 $softPatternTotal회',
@@ -582,6 +607,7 @@ class ViolationSummaryBanner extends StatelessWidget {
                   if (!hasIssue &&
                       softPatternTotal == 0 &&
                       skillViolTotal == 0 &&
+                      softCustomCount == 0 &&
                       state.wantedTotal == 0)
                     Text(
                       '위반 없음',
@@ -668,13 +694,13 @@ class SoftSummaryTab extends StatelessWidget {
     const patternKeys = {'NOD', 'NOOD', 'NOE', 'EOD'};
     final hasSoftPattern = softViol.entries
         .any((e) => patternKeys.contains(e.key) && e.value.isNotEmpty);
-    final customViols = state.customRuleViolations;
+    final softCustomViols = state.softCustomViolations;
     final hasSkill = (softViol['신규단독'] ?? []).isNotEmpty;
 
     final allGood = state.wantedTotal == 0 &&
         !hasSoftPattern &&
         !hasSkill &&
-        customViols.isEmpty;
+        softCustomViols.isEmpty;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -789,12 +815,15 @@ class SoftSummaryTab extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
         ],
 
-        // ── 커스텀 룰 위반 ──
-        if (customViols.isNotEmpty) ...[
-          const _SectionHeader(label: '커스텀 룰 위반', color: AppColors.error),
+        // ── 소프트 커스텀 룰 위반 ──
+        if (softCustomViols.isNotEmpty) ...[
+          const _SectionHeader(
+            label: '소프트 커스텀 룰',
+            color: AppColors.brandOrange,
+          ),
           const SizedBox(height: AppSpacing.sm),
-          ...CustomRuleViolationGroup.groupBy(customViols)
-              .map((g) => CustomRuleViolationGroup(group: g)),
+          ...CustomRuleViolationGroup.groupBy(softCustomViols, isHard: false)
+              .map((g) => CustomRuleViolationGroup(group: g, isHard: false)),
           const SizedBox(height: AppSpacing.md),
         ],
 
@@ -993,8 +1022,13 @@ class CustomRuleGroup {
 }
 
 class CustomRuleViolationGroup extends StatelessWidget {
-  const CustomRuleViolationGroup({super.key, required this.group});
+  const CustomRuleViolationGroup({
+    super.key,
+    required this.group,
+    this.isHard = true,
+  });
   final CustomRuleGroup group;
+  final bool isHard;
 
   static (String rule, String body) _parse(String v) {
     final match = RegExp(r'^(.*)\s*\("(.+)"\)$').firstMatch(v.trim());
@@ -1002,7 +1036,10 @@ class CustomRuleViolationGroup extends StatelessWidget {
     return ('기타', v);
   }
 
-  static List<CustomRuleGroup> groupBy(List<String> viols) {
+  static List<CustomRuleGroup> groupBy(
+    List<String> viols, {
+    bool isHard = true,
+  }) {
     final map = <String, List<String>>{};
     for (final v in viols) {
       final (rule, body) = _parse(v);
@@ -1016,12 +1053,15 @@ class CustomRuleViolationGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final color = isHard ? AppColors.error : AppColors.brandOrange;
+    final icon = isHard ? Icons.gavel_rounded : Icons.warning_amber_rounded;
+    final itemIcon = isHard ? Icons.error_outline : Icons.info_outline;
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.04),
+        color: color.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(AppRadius.xs),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.15)),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1031,28 +1071,27 @@ class CustomRuleViolationGroup extends StatelessWidget {
             padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.md, vertical: AppSpacing.sm),
             decoration: BoxDecoration(
-              color: AppColors.error.withValues(alpha: 0.08),
+              color: color.withValues(alpha: 0.08),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(7)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.gavel_rounded,
-                    size: 14, color: AppColors.error),
+                Icon(icon, size: 14, color: color),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     '"${group.ruleText}"',
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: AppColors.error,
+                      color: color,
                     ),
                   ),
                 ),
                 Text(
                   '${group.items.length}건',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.error,
+                    color: color,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1070,8 +1109,7 @@ class CustomRuleViolationGroup extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.error_outline,
-                              size: 14, color: AppColors.error),
+                          Icon(itemIcon, size: 14, color: color),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(

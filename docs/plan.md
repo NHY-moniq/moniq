@@ -169,7 +169,7 @@ int _calcScore(member, date, shiftType, rules, wantedRequests, feedback) {
 멤버 편집 bottom sheet에 추가:
 - 숙련도 (int 입력, 0=미설정)
 - 야간 제외 토글 (`night_exempt`) — 나이트 완전 제외
-- 데이 전용 토글 (`day_only`) — 데이만 배정
+- 데이 전담 토글 (`day_only`) — 데이만 배정
 - 나이트 전담 토글 (`night_dedicated`) — 나이트만 배정 (이전: schedule_rules_screen의 목록에서 이동)
 - 서브팀 텍스트 (`sub_team`)
 - 역할 구분 드롭다운 (staff/charge/acting)

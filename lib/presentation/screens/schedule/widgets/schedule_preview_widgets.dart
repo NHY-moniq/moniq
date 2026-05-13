@@ -479,18 +479,63 @@ class PreviewView extends HookConsumerWidget {
         const SizedBox(height: 40),
         ...members.map((m) {
           final counts = memberShiftCounts[m.userId] ?? {};
-          final countParts = <String>[];
-          for (final code in orderedCodes) {
-            final cnt = counts[code] ?? 0;
-            if (cnt > 0) countParts.add('$code:$cnt');
+          // D/E/N 각각
+          final dCount = counts['D'] ?? 0;
+          final eCount = counts['E'] ?? 0;
+          final nCount = counts['N'] ?? 0;
+          // D/E/N 외 코드도 총합에 포함
+          final workTotal = counts.values.fold(0, (s, v) => s + v);
+          final offCount = sortedDays.length - workTotal;
+
+          // D·E·N 중 하나라도 있으면 색상 칩으로 표시
+          final denParts = <InlineSpan>[];
+          if (dCount > 0) {
+            denParts.add(
+              TextSpan(
+                text: 'D:$dCount',
+                style: TextStyle(
+                  color: codeColors['D'] ?? AppColors.brandBlue,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            );
           }
-          final countText = countParts.join(' ');
+          if (eCount > 0) {
+            if (denParts.isNotEmpty) {
+              denParts.add(const TextSpan(text: ' '));
+            }
+            denParts.add(
+              TextSpan(
+                text: 'E:$eCount',
+                style: TextStyle(
+                  color: codeColors['E'] ?? AppColors.brandOrange,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            );
+          }
+          if (nCount > 0) {
+            if (denParts.isNotEmpty) {
+              denParts.add(const TextSpan(text: ' '));
+            }
+            denParts.add(
+              TextSpan(
+                text: 'N:$nCount',
+                style: TextStyle(
+                  color: codeColors['N'] ?? colorScheme.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            );
+          }
+
           return SizedBox(
             width: memberColWidth,
             height: memberRowHeight,
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     m.displayName.length > 4
@@ -502,18 +547,24 @@ class PreviewView extends HookConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                   ),
-                  if (countText.isNotEmpty) ...[
+                  if (denParts.isNotEmpty) ...[
                     const SizedBox(height: 2),
-                    Text(
-                      countText,
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1,
-                      ),
+                    Text.rich(
+                      TextSpan(children: denParts),
+                      style: const TextStyle(fontSize: 9, height: 1),
                       textAlign: TextAlign.center,
                     ),
                   ],
+                  const SizedBox(height: 1),
+                  Text(
+                    '총:$workTotal OFF:$offCount',
+                    style: TextStyle(
+                      fontSize: 8,
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
@@ -768,7 +819,7 @@ class PreviewView extends HookConsumerWidget {
         .publish();
     if (success && context.mounted) {
       await _showPublishFeedback(context, ref);
-      if (context.mounted) context.pop();
+      if (context.mounted) context.go('/teams');
     }
   }
 

@@ -37,7 +37,42 @@ class TeamScreen extends HookConsumerWidget {
     final teamsAsync = ref.watch(teamViewModelProvider);
     final favoriteTeamAsync = ref.watch(favoriteTeamProvider);
 
-    if (teamsAsync.isLoading || favoriteTeamAsync.isLoading) {
+    if (favoriteTeamAsync.isLoading) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        appBar: AdaptiveLayout.isWide(context)
+            ? null
+            : const MoniqAppBar(title: '팀', showBack: false),
+        body: const MoniqLoadingView(),
+      );
+    }
+
+    if (favoriteTeamAsync.hasError) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        appBar: AdaptiveLayout.isWide(context)
+            ? null
+            : const MoniqAppBar(title: '팀', showBack: false),
+        body: MoniqErrorView(
+          message: '팀 정보를 불러올 수 없습니다',
+          onRetry: () {
+            ref.invalidate(favoriteTeamProvider);
+            ref.read(teamViewModelProvider.notifier).refresh();
+          },
+        ),
+      );
+    }
+
+    final favoriteTeam = favoriteTeamAsync.valueOrNull;
+
+    // 즐겨찾기 팀이 있으면 teamsAsync를 기다리지 않고 바로 캘린더 렌더링
+    if (favoriteTeam != null) {
+      final teams = teamsAsync.valueOrNull ?? [favoriteTeam];
+      return _TeamCalendarView(team: favoriteTeam, teams: teams);
+    }
+
+    // 즐겨찾기가 없으면 팀 목록이 필요함
+    if (teamsAsync.isLoading) {
       return Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
         appBar: AdaptiveLayout.isWide(context)
@@ -54,27 +89,13 @@ class TeamScreen extends HookConsumerWidget {
             ? null
             : const MoniqAppBar(title: '팀', showBack: false),
         body: MoniqErrorView(
-          message: '팀 정보를 불러올 수 없습니다',
+          message: '팀 목록을 불러올 수 없습니다',
           onRetry: () => ref.read(teamViewModelProvider.notifier).refresh(),
         ),
       );
     }
 
-    if (favoriteTeamAsync.hasError) {
-      return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-        appBar: AdaptiveLayout.isWide(context)
-            ? null
-            : const MoniqAppBar(title: '팀', showBack: false),
-        body: MoniqErrorView(
-          message: '즐겨찾기 팀을 불러올 수 없습니다',
-          onRetry: () => ref.invalidate(favoriteTeamProvider),
-        ),
-      );
-    }
-
     final teams = teamsAsync.valueOrNull ?? [];
-    final favoriteTeam = favoriteTeamAsync.valueOrNull;
 
     if (teams.isEmpty) {
       return Scaffold(
@@ -101,7 +122,17 @@ class TeamScreen extends HookConsumerWidget {
       return _NoFavoriteView(teams: teams);
     }
 
-    return _TeamCalendarView(team: favoriteTeam, teams: teams);
+    // 사용자가 잠시 다른 팀을 보고 있는 경우 favorite을 바꾸지 않고 view만 전환
+    final viewingTeamIdOverride =
+        ref.watch(viewingTeamIdOverrideProvider);
+    final viewingTeam = viewingTeamIdOverride == null
+        ? favoriteTeam
+        : teams.firstWhere(
+            (t) => t.id == viewingTeamIdOverride,
+            orElse: () => favoriteTeam,
+          );
+
+    return _TeamCalendarView(team: viewingTeam, teams: teams);
   }
 }
 
@@ -145,14 +176,26 @@ class _NoFavoriteView extends HookConsumerWidget {
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final team = teams[index];
+                  final isPersonal = team.teamType == 'personal';
                   return ListTile(
                     leading: TeamProfileAvatar(
                       icon: team.icon,
                       radius: 20,
                     ),
                     title: Text(team.name),
-                    trailing: const Icon(Icons.star_outline),
+                    subtitle: isPersonal
+                        ? Text(
+                            '개인',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          )
+                        : null,
+                    trailing: isPersonal
+                        ? null
+                        : const Icon(Icons.star_outline),
                     onTap: () async {
+                      if (isPersonal) return;
                       final teamRepo = ref.read(teamRepositoryProvider);
                       await teamRepo.setFavoriteTeam(team.id);
                       ref.invalidate(favoriteTeamProvider);
@@ -163,6 +206,194 @@ class _NoFavoriteView extends HookConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 팀 캘린더 상단 팀명 탭 → 본인 속한 팀 목록 바텀시트.
+/// 선택한 팀을 즐겨찾기로 설정해 즉시 캘린더가 해당 팀으로 전환된다.
+/// 현재 즐겨찾기 팀에는 별 아이콘으로 표시한다.
+void _showTeamPickerSheet(
+  BuildContext context, {
+  required WidgetRef ref,
+  required List<TeamModel> teams,
+  required String currentTeamId,
+  String? favoriteTeamId,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius:
+          BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+    ),
+    builder: (ctx) {
+      final theme = Theme.of(ctx);
+      final cs = theme.colorScheme;
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            AppSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header — eyebrow caption + large title for clear hierarchy.
+              // 상단 공백 축소 (drag handle 바로 아래)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xs,
+                  0,
+                  AppSpacing.xs,
+                  AppSpacing.md,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'TEAM',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      '팀 선택',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: teams.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSpacing.xs),
+                  itemBuilder: (_, i) {
+                    final t = teams[i];
+                    final selected = t.id == currentTeamId;
+                    final isFavorite = t.id == favoriteTeamId;
+                    return _TeamPickerTile(
+                      team: t,
+                      selected: selected,
+                      isFavorite: isFavorite,
+                      onTap: selected
+                          ? () => Navigator.pop(ctx)
+                          : () {
+                              // favorite은 그대로 두고 view만 전환
+                              Navigator.pop(ctx);
+                              ref
+                                  .read(viewingTeamIdOverrideProvider
+                                      .notifier)
+                                  .state = t.id;
+                            },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+/// 팀 선택 바텀시트의 단일 행.
+/// - selected: primary outline + tonal background + trailing check
+/// - isFavorite: subtitle 라인의 작은 별 + "기본 팀" 캡션 (inline 별 제거)
+/// - selected & favorite 둘 다인 경우: selected 톤 우선, 캡션도 함께 노출
+class _TeamPickerTile extends StatelessWidget {
+  const _TeamPickerTile({
+    required this.team,
+    required this.selected,
+    required this.isFavorite,
+    required this.onTap,
+  });
+
+  final TeamModel team;
+  final bool selected;
+  final bool isFavorite;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    // 비선택 행은 테두리 없이 plain — 선택된 행만 primary outline 강조
+    final bgColor =
+        selected ? cs.primary.withValues(alpha: 0.06) : Colors.transparent;
+
+    final titleColor = selected ? cs.primary : cs.onSurface;
+    final titleWeight = selected ? FontWeight.w800 : FontWeight.w600;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: selected
+                ? Border.all(color: cs.primary, width: 1.5)
+                : null,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            child: Row(
+              children: [
+                TeamProfileAvatar(icon: team.icon, radius: 20),
+                const SizedBox(width: AppSpacing.md),
+                // 팀명 + 우측 inline "기본 팀" 뱃지
+                Flexible(
+                  child: Text(
+                    team.name,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: titleWeight,
+                      color: titleColor,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (isFavorite) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  Icon(
+                    Icons.star_rounded,
+                    size: 16,
+                    color: cs.secondary,
+                  ),
+                ],
+                const Spacer(),
+                if (selected) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  Icon(
+                    Icons.check_rounded,
+                    size: 22,
+                    color: cs.primary,
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -195,6 +426,18 @@ class _TeamCalendarView extends HookConsumerWidget {
               title: team.name,
               eyebrow: 'TEAM',
               showBack: false,
+              onTitleTap: teams.length > 1
+                  ? () => _showTeamPickerSheet(
+                        context,
+                        ref: ref,
+                        teams: teams,
+                        currentTeamId: team.id,
+                        favoriteTeamId: ref
+                            .read(favoriteTeamProvider)
+                            .valueOrNull
+                            ?.id,
+                      )
+                  : null,
               leading: Padding(
                 padding: const EdgeInsets.only(left: AppSpacing.sm),
                 child: TeamProfileAvatar(icon: team.icon, radius: 16),
@@ -214,7 +457,7 @@ class _TeamCalendarView extends HookConsumerWidget {
                     _ExcelImportMenuButton(teamId: team.id),
                   if (isAdmin)
                     MoniqAppBarAction(
-                      icon: Icons.delete_sweep_outlined,
+                      icon: Icons.delete_outline_rounded,
                       tint: AppColors.error,
                       onTap: () {
                         final state = ref
@@ -261,25 +504,31 @@ class _TeamCalendarView extends HookConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // View mode toggle
-                Center(
-                  child: ViewModeToggle(
-                    currentMode: state.viewMode,
-                    onChanged: (_) => ref
-                        .read(teamCalendarViewModelProvider(team.id).notifier)
-                        .toggleViewMode(),
-                  ),
-                ),
-
-              // Calendar
+                const SizedBox(height: AppSpacing.sm),
+              // Calendar (월/주 토글은 헤더 내부로 흡수됨)
               MoniqCalendar(
-                legendItems: state.shiftTypes
-                    .where((st) => st.isActive)
-                    .map((st) => (
-                          color: parseHexColor(st.color),
-                          label: st.code.toUpperCase(),
-                        ))
-                    .toList(),
+                rowHeight: 80,
+                viewMode: state.viewMode,
+                onViewModeChanged: (_) => ref
+                    .read(teamCalendarViewModelProvider(team.id).notifier)
+                    .toggleViewMode(),
+                legendItems: (() {
+                  // ED 등 교육 근무유형은 프리뷰 범례에서 제외하고,
+                  // D → E → N → 기타 순으로 정렬해 D/E/N이 항상 앞에 오도록 함.
+                  final filtered = state.shiftTypes
+                      .where((st) =>
+                          st.isActive &&
+                          !_isEducation(st.code, st.name))
+                      .toList()
+                    ..sort((a, b) => _legendSortKey(a.code, a.name)
+                        .compareTo(_legendSortKey(b.code, b.name)));
+                  return filtered
+                      .map((st) => (
+                            color: parseHexColor(st.color),
+                            label: st.code.toUpperCase(),
+                          ))
+                      .toList();
+                })(),
                 focusedDay: state.focusedMonth,
                 selectedDay: state.selectedDate,
                 startingDayOfWeek: startingDay,
@@ -444,7 +693,7 @@ class _TeamDrawer extends HookConsumerWidget {
                           ),
                           const SizedBox(height: AppSpacing.xxs),
                           Text(
-                            'TEAM MANAGER',
+                            'TEAM SETTINGS',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: cs.onSurfaceVariant,
                               fontWeight: FontWeight.w600,
@@ -497,7 +746,7 @@ class _TeamDrawer extends HookConsumerWidget {
                   ),
                   _TeamDrawerNavItem(
                     icon: Icons.swap_horiz,
-                    label: '변경 요청',
+                    label: '근무 변경 요청',
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/teams/$currentTeamId/requests');
@@ -618,6 +867,21 @@ int _shiftSortKey(_ShiftTypeInfo info) {
     return 1;
   }
   if (c == 'N' || n.contains('나이트') || n.toLowerCase().contains('night')) {
+    return 2;
+  }
+  return 3;
+}
+
+/// 캘린더 범례 정렬 키 — D(0) → E(1) → N(2) → 기타(3)
+int _legendSortKey(String code, String name) {
+  final c = code.toUpperCase();
+  if (c == 'D' || name.contains('데이') || name.toLowerCase().contains('day')) {
+    return 0;
+  }
+  if (c == 'E' || name.contains('이브닝') || name.toLowerCase().contains('eve')) {
+    return 1;
+  }
+  if (c == 'N' || name.contains('나이트') || name.toLowerCase().contains('night')) {
     return 2;
   }
   return 3;

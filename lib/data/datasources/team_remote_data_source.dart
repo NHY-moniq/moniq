@@ -102,26 +102,18 @@ class TeamRemoteDataSource {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('Not authenticated');
 
-    final memberRow = await _client
+    final row = await _client
         .from('team_members')
-        .select('team_id')
+        .select('team_id, teams(*)')
         .eq('user_id', userId)
         .eq('is_favorite', true)
         .eq('is_deleted', false)
         .maybeSingle();
 
-    if (memberRow == null) return null;
-
-    final teamRow = await _client
-        .from('teams')
-        .select()
-        .eq('id', memberRow['team_id'] as String)
-        .eq('is_deleted', false)
-        .maybeSingle();
-
-    if (teamRow == null) return null;
-
-    return TeamModel.fromJson(teamRow);
+    if (row == null) return null;
+    final teamData = row['teams'] as Map<String, dynamic>?;
+    if (teamData == null || teamData['is_deleted'] == true) return null;
+    return TeamModel.fromJson(teamData);
   }
 
   Future<void> setFavoriteTeam(String teamId) async {

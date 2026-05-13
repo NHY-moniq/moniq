@@ -187,11 +187,11 @@ class RequestListViewModel
   String _changeTypeLabel(String? type) {
     switch (type) {
       case 'swap':
-        return '근무 교환';
+        return '멤버 간 근무 변경';
       case 'shift_change':
-        return '근무 변경';
+        return '내 근무 변경';
       case 'day_off':
-        return '휴무';
+        return '내 근무 변경(휴무)';
       case 'schedule_change':
         return '스케줄 변경';
       default:

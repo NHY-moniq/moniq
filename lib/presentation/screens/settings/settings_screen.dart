@@ -42,22 +42,35 @@ class SettingsScreen extends HookConsumerWidget {
       body: MaxWidthLayout(
         maxWidth: 680,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xxl,
-            AppSpacing.sm,
-            AppSpacing.xxl,
-            AppSpacing.massive,
+          padding: const EdgeInsets.only(
+            top: AppSpacing.sm,
+            // 하단 BottomNavigation(72)과 safe area에 가려지지 않도록 충분히 확보
+            bottom: 120,
           ),
           children: const [
+            // 프로필 hero — 좌우 패딩 없이 edge-to-edge
             _ShiftThemedProfileHero(),
             SizedBox(height: AppSpacing.xxl),
-            _AppSettingsSection(),
+            // 그 외 섹션은 좌우 패딩 유지
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+              child: _AppSettingsSection(),
+            ),
             SizedBox(height: AppSpacing.lg),
-            _NotificationsSection(),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+              child: _NotificationsSection(),
+            ),
             SizedBox(height: AppSpacing.lg),
-            _AccountSection(),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+              child: _AccountSection(),
+            ),
             SizedBox(height: AppSpacing.lg),
-            _InfoSection(),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+              child: _InfoSection(),
+            ),
           ],
         ),
       ),
@@ -81,79 +94,89 @@ class _ShiftThemedProfileHero extends ConsumerWidget {
     final avatarUrl = meta?['avatar_url'] as String?;
     final initial = name.isNotEmpty ? name.characters.first.toUpperCase() : 'M';
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      decoration: BoxDecoration(
+        borderRadius: AppRadius.borderRadiusLg,
+        boxShadow: [
+          BoxShadow(
+            color: shift.cardColor.withValues(alpha: 0.35),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: AppRadius.borderRadiusLg,
+        child: Container(
+          color: shift.cardColor,
           padding: const EdgeInsets.all(AppSpacing.xl),
-          decoration: BoxDecoration(
-            color: shift.cardColor,
-            borderRadius: AppRadius.borderRadiusLg,
-            boxShadow: [
-              BoxShadow(
-                color: shift.cardColor.withValues(alpha: 0.35),
-                blurRadius: 28,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
-          child: Row(
+          child: Stack(
             children: [
-              _HeroAvatar(
-                url: avatarUrl,
-                initial: initial,
-                onEdit: () => context.go('/settings/profile'),
-              ),
-              const SizedBox(width: AppSpacing.lg),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'PROFILE · ${shift.displayName.toUpperCase()}',
-                      style: AppTypography.captionSmall.copyWith(
-                        color: shift.onPrimary.withValues(alpha: 0.75),
-                        letterSpacing: 1.6,
+              // 마스코트는 카드 우하단 코너로 살짝 걸쳐서 표시.
+              // 카드 높이보다 크면 상단이 잘리므로 사이즈/오프셋을 컴팩트하게.
+              Positioned(
+                right: -6,
+                bottom: -10,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: 0.28,
+                    child: Transform.rotate(
+                      angle: 0.18,
+                      child: Image.asset(
+                        shift.characterAsset,
+                        width: 96,
+                        height: 96,
+                        fit: BoxFit.contain,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      name,
-                      style: AppTypography.headlineLarge.copyWith(
-                        color: shift.onPrimary,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 22,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    _MoniqIdPill(userId: user?.id, onColor: shift.onPrimary),
-                  ],
+                  ),
                 ),
+              ),
+              Row(
+                children: [
+                  _HeroAvatar(
+                    url: avatarUrl,
+                    initial: initial,
+                    onEdit: () => context.go('/settings/profile'),
+                  ),
+                  const SizedBox(width: AppSpacing.lg),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'PROFILE · ${shift.displayName.toUpperCase()}',
+                          style: AppTypography.captionSmall.copyWith(
+                            color: shift.onPrimary.withValues(alpha: 0.75),
+                            letterSpacing: 1.6,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          name,
+                          style: AppTypography.headlineLarge.copyWith(
+                            color: shift.onPrimary,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 22,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        _MoniqIdPill(
+                          userId: user?.id,
+                          onColor: shift.onPrimary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        Positioned(
-          right: -12,
-          bottom: -18,
-          child: IgnorePointer(
-            child: Opacity(
-              opacity: 0.28,
-              child: Transform.rotate(
-                angle: 0.18,
-                child: Image.asset(
-                  shift.characterAsset,
-                  width: 130,
-                  height: 130,
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -171,38 +194,44 @@ class _HeroAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 그림자가 사각형처럼 보이지 않도록 다크 모드에서도 자연스러운 강도로 유지
+    final shadowColor =
+        Colors.black.withValues(alpha: isDark ? 0.24 : 0.10);
+    // edit 펜 아이콘 — 흰색 배지 위라 항상 어두운 색
+    const editIconColor = Color(0xFF1A1A1A);
+
+    final hasImage = url != null && url!.isNotEmpty;
+
     return Stack(
       clipBehavior: Clip.none,
       children: [
+        // 아바타 본체 — BoxDecoration.image로 원형 클리핑을 결정적으로 보장.
+        // (ClipOval + CachedNetworkImage 조합은 일부 케이스에서 사각 잔상이 남는
+        //  걸 봤어서 가장 견고한 방식을 사용.)
         Container(
           width: 72,
           height: 72,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Colors.white,
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.6),
-              width: 3,
-            ),
+            image: hasImage
+                ? DecorationImage(
+                    image: CachedNetworkImageProvider(url!),
+                    fit: BoxFit.cover,
+                  )
+                : null,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
+                color: shadowColor,
+                blurRadius: 18,
+                spreadRadius: -2,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          clipBehavior: Clip.antiAlias,
           alignment: Alignment.center,
-          child: (url != null && url!.isNotEmpty)
-              ? CachedNetworkImage(
-                  imageUrl: url!,
-                  fit: BoxFit.cover,
-                  width: 72,
-                  height: 72,
-                  errorWidget: (_, __, ___) => _InitialBadge(text: initial),
-                )
-              : _InitialBadge(text: initial),
+          child: hasImage ? null : _InitialBadge(text: initial),
         ),
         Positioned(
           bottom: -2,
@@ -215,7 +244,11 @@ class _HeroAvatar extends StatelessWidget {
               onTap: onEdit,
               child: const Padding(
                 padding: EdgeInsets.all(6),
-                child: Icon(Icons.edit_rounded, size: 14),
+                child: Icon(
+                  Icons.edit_rounded,
+                  size: 14,
+                  color: editIconColor,
+                ),
               ),
             ),
           ),

@@ -59,7 +59,14 @@ class ShiftRemoteDataSource {
         .toList();
   }
 
-  /// 팀 전체 근무 — 팀 캘린더용
+  /// 팀 전체 근무 — 팀 캘린더용.
+  ///
+  /// 발행 정책: 한 날짜 D는 D를 기간에 포함하는 published schedule 중
+  /// version_no가 가장 큰 schedule이 "소유"한다. 해당 schedule의 shifts만
+  /// 표시하고, 더 낮은 버전 schedule의 shifts는 그 날짜에 대해 무시한다.
+  /// 이렇게 해야 새 버전이 일부 사용자를 OFF로 바꾼 경우, 이전 버전의
+  /// 시프트가 누락된 슬롯을 채우며 잘못된 데이터가 노출되는 문제를 막을
+  /// 수 있다.
   Future<List<ShiftModel>> getTeamShifts({
     required String teamId,
     required DateTime start,
@@ -68,7 +75,8 @@ class ShiftRemoteDataSource {
     final startStr = _dateStr(start);
     final endStr = _dateStr(end);
 
-    final rows = await _client
+    // shifts와 published schedules 메타를 병렬 조회
+    final shiftsFuture = _client
         .from('shifts')
         .select()
         .eq('team_id', teamId)
@@ -76,28 +84,56 @@ class ShiftRemoteDataSource {
         .lte('shift_date', endStr)
         .order('shift_date');
 
-    final shifts = (rows as List)
+    // 해당 기간과 겹치는 모든 published schedule 조회
+    final schedulesFuture = _client
+        .from('schedules')
+        .select('id, period_start, period_end, version_no')
+        .eq('team_id', teamId)
+        .eq('status', 'published')
+        .lte('period_start', endStr)
+        .gte('period_end', startStr);
+
+    final results = await Future.wait([shiftsFuture, schedulesFuture]);
+    final shifts = (results[0] as List)
         .map((r) => ShiftModel.fromJson(r as Map<String, dynamic>))
         .toList();
-
     if (shifts.isEmpty) return const [];
 
-    final scheduleIds = shifts.map((s) => s.scheduleId).toSet().toList();
-    final scheduleVersionMap = await _getPublishedScheduleVersionMap(
-      scheduleIds: scheduleIds,
-      teamId: teamId,
-    );
+    final schedules = results[1] as List;
+    if (schedules.isEmpty) return const [];
 
-    // (userId, date) 기준 최신 버전 시프트만 유지 — 동일 기간 incremental publish 대응
-    final best = <String, (int version, ShiftModel shift)>{};
+    // 날짜별 owner schedule id 계산: 해당 날짜를 포함하는 published schedule 중
+    // 최대 version_no를 가진 schedule.
+    final dateOwnerScheduleId = <String, String>{};
     for (final s in shifts) {
-      final version = scheduleVersionMap[s.scheduleId];
-      if (version == null) continue;
-      final key = '${s.userId}_${_dateStr(s.shiftDate)}';
-      final cur = best[key];
-      if (cur == null || version > cur.$1) best[key] = (version, s);
+      final dateStr = _dateStr(s.shiftDate);
+      if (dateOwnerScheduleId.containsKey(dateStr)) continue;
+      String? winnerId;
+      int winnerVersion = -1;
+      for (final raw in schedules) {
+        final row = raw as Map<String, dynamic>;
+        final pStart = row['period_start']?.toString() ?? '';
+        final pEnd = row['period_end']?.toString() ?? '';
+        if (dateStr.compareTo(pStart) < 0 ||
+            dateStr.compareTo(pEnd) > 0) {
+          continue;
+        }
+        final version = (row['version_no'] as num?)?.toInt() ?? 0;
+        if (version > winnerVersion) {
+          winnerVersion = version;
+          winnerId = row['id'] as String;
+        }
+      }
+      if (winnerId != null) {
+        dateOwnerScheduleId[dateStr] = winnerId;
+      }
     }
-    return best.values.map((e) => e.$2).toList();
+
+    // owner schedule의 shifts만 노출
+    return shifts.where((s) {
+      final owner = dateOwnerScheduleId[_dateStr(s.shiftDate)];
+      return owner != null && owner == s.scheduleId;
+    }).toList();
   }
 
   /// 특정 날짜 + 팀 + shift_type 에 배정된 팀원(본인 제외) 목록
@@ -215,29 +251,6 @@ class ShiftRemoteDataSource {
     }
 
     return latestByPeriod.values.toSet();
-  }
-
-  /// 팀 캘린더용: published 상태인 스케줄들의 id → version_no 맵 반환
-  Future<Map<String, int>> _getPublishedScheduleVersionMap({
-    required List<String> scheduleIds,
-    String? teamId,
-  }) async {
-    if (scheduleIds.isEmpty) return const {};
-
-    var query = _client
-        .from('schedules')
-        .select('id, version_no')
-        .inFilter('id', scheduleIds)
-        .eq('status', 'published');
-
-    if (teamId != null) query = query.eq('team_id', teamId);
-
-    final rows = await query;
-    return {
-      for (final r in (rows as List))
-        (r as Map<String, dynamic>)['id'] as String:
-            ((r['version_no'] as num?)?.toInt() ?? 0),
-    };
   }
 
   // ── 근무 유형 CRUD ──

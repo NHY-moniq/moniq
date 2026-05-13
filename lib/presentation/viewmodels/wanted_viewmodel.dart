@@ -350,7 +350,8 @@ class WantedAdminViewModel
     try {
       final repo = ref.read(wantedRepositoryProvider);
       await repo.closeWantedRequest(closingRequest.id);
-      state = AsyncData(current.copyWith(activeRequest: null, allEntries: []));
+      // 즉시 로딩 상태로 전환해 중간 화면(생성 폼 등)이 잠깐 뜨지 않도록 함
+      state = const AsyncLoading();
 
       // 팀원 전체에게 종료 알림 (관리자 본인 제외)
       try {
@@ -381,7 +382,8 @@ class WantedAdminViewModel
     } catch (_) {}
   }
 
-  /// 마감된 수집 재개 — lastClosedRequests를 모두 collecting으로 되돌림
+  /// 마감된 수집 재개 — lastClosedRequests를 모두 collecting으로 되돌림.
+  /// 재개 시 createWantedRequest와 동일하게 팀원에게 로컬/FCM 푸시 발송.
   Future<bool> reopenRequests() async {
     final current = state.valueOrNull;
     if (current == null || current.lastClosedRequests.isEmpty) return false;
@@ -391,6 +393,35 @@ class WantedAdminViewModel
       for (final req in current.lastClosedRequests) {
         await repo.reopenWantedRequest(req.id);
       }
+
+      // 팀원에게 재개 푸시 (관리자 본인 제외). 타입별로 1건씩 발송.
+      try {
+        final team = await ref
+            .read(teamRepositoryProvider)
+            .getTeamById(current.teamId);
+        for (final req in current.lastClosedRequests) {
+          final typeLabel = _wantedTypeLabel(req.wantedType);
+          final startStr = '${req.periodStart.month}/${req.periodStart.day}';
+          final endStr = '${req.periodEnd.month}/${req.periodEnd.day}';
+          final body = '$startStr~$endStr 기간의 $typeLabel 수집이 재개되었어요. 입력해주세요.';
+
+          await NotificationService.instance.showScheduleChangeNotification(
+            teamName: team.name,
+            message: body,
+          );
+          await PushService.instance.sendToTeam(
+            teamId: current.teamId,
+            title: '[${team.name}] $typeLabel 수집 재개',
+            body: body,
+            data: {
+              'type': 'wanted_open',
+              'team_id': current.teamId,
+              'wanted_type': req.wantedType,
+            },
+          );
+        }
+      } catch (_) {}
+
       // build() 재실행 → 재개된 요청이 activeRequests로 로드됨
       ref.invalidateSelf();
       ref.invalidate(wantedMemberViewModelProvider(current.teamId));
@@ -655,7 +686,7 @@ class WantedMemberViewModel
           }
           if (member.dayOnly && (isEvening || isNight)) {
             state = AsyncData(current.copyWith(
-              error: '데이 전용 속성으로 이브닝·나이트 근무를 원티드 신청할 수 없습니다',
+              error: '데이 전담 속성으로 이브닝·나이트 근무를 원티드 신청할 수 없습니다',
             ));
             return false;
           }

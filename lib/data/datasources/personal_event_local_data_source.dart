@@ -233,6 +233,62 @@ class PersonalEventLocalDataSource {
     }
   }
 
+  /// 팀 캘린더 import 이벤트를 새 리스트로 교체. 기존 team-import 이벤트는 삭제,
+  /// 사용자가 직접 추가한 이벤트는 보존된다. 로컬 캐시도 함께 재구축.
+  /// 반환값: 새로 insert된 이벤트 개수.
+  Future<int> replaceTeamImports(List<PersonalEvent> events) async {
+    int inserted = 0;
+    try {
+      await _remote.deleteAllTeamImports();
+      if (events.isNotEmpty) {
+        final result = await _remote.insertMany(events);
+        inserted = result.length;
+      }
+    } catch (_) {
+      // 원격 실패 시 로컬 캐시 재구축으로 정합성 회복
+    }
+    // 로컬 캐시 전체 재구축 (서버 상태와 동기화)
+    await pullFromRemote();
+    return inserted;
+  }
+
+  /// 특정 연/월의 모든 개인 이벤트 일괄 삭제. 로컬 캐시 + Supabase 모두 정리.
+  /// 반환값: 삭제된 이벤트 개수.
+  ///
+  /// 동작:
+  /// 1) Supabase에서 해당 월의 personal_events를 범위 쿼리로 일괄 삭제 시도
+  /// 2) 그래도 남은 row가 있으면 id별로 개별 삭제 (RLS 회피 등 fallback)
+  /// 3) `pullFromRemote()`로 로컬 캐시를 서버 상태에 다시 동기화
+  Future<int> deleteEventsByMonth({
+    required int year,
+    required int month,
+  }) async {
+    int removed = 0;
+    // 1) 범위 쿼리 일괄 삭제
+    try {
+      removed = await _remote.deleteByMonth(year: year, month: month);
+    } catch (_) {}
+
+    // 2) Fallback — fetchAll로 잔존 row 확인 후 id별 개별 삭제
+    try {
+      final all = await _remote.fetchAll();
+      final stale = all.where((e) =>
+          e.id != null &&
+          e.date.year == year &&
+          e.date.month == month).toList();
+      for (final e in stale) {
+        try {
+          await _remote.delete(e.id!);
+          removed++;
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    // 3) 로컬 캐시를 서버 상태로 강제 재구축
+    await pullFromRemote();
+    return removed;
+  }
+
   /// 특정 날짜 이후의 동일 반복 일정 전체 삭제
   Future<void> removeRecurringEventsFrom({
     required DateTime date,
