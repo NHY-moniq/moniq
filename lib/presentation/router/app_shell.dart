@@ -269,7 +269,7 @@ class _FixedSidebar extends StatelessWidget {
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Image.asset(
-                    'assets/images/logo.png',
+                    'assets/icon/app_icon.png',
                     width: 32,
                     height: 32,
                     errorBuilder: (_, __, ___) =>
@@ -462,7 +462,8 @@ class _TeamContextItems extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final favoriteTeam = ref.watch(favoriteTeamProvider).valueOrNull;
+    final favoriteAsync = ref.watch(favoriteTeamProvider);
+    final favoriteTeam = favoriteAsync.valueOrNull;
     final teamId = favoriteTeam?.id;
 
     return Column(
@@ -474,7 +475,12 @@ class _TeamContextItems extends ConsumerWidget {
           label: '팀 목록',
           onTap: () => context.push('/teams/list'),
         ),
-        if (teamId != null) ...[
+        if (favoriteAsync.isLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            child: LinearProgressIndicator(minHeight: 2),
+          )
+        else if (teamId != null) ...[
           _FlyoutTile(
             icon: Icons.campaign_outlined,
             label: '팀 공지사항',
@@ -535,7 +541,7 @@ class _FlyoutTeamHeader extends StatelessWidget {
                       maxLines: 1,
                     ),
                     Text(
-                      'TEAM MANAGER',
+                      'TEAM SETTINGS',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: cs.onSurfaceVariant,
                         fontSize: 9,
@@ -766,9 +772,11 @@ class _UserAvatarButtonState extends ConsumerState<_UserAvatarButton>
 
     final offset = renderBox.localToGlobal(Offset.zero);
     final size = renderBox.size;
+    // Capture the State's context before OverlayEntry builder shadows it.
+    final stateContext = context;
 
     _overlayEntry = OverlayEntry(
-      builder: (context) => Stack(
+      builder: (overlayContext) => Stack(
         children: [
           // 백드롭 탭으로 닫기
           Positioned.fill(
@@ -782,17 +790,20 @@ class _UserAvatarButtonState extends ConsumerState<_UserAvatarButton>
           ),
           Positioned(
             top: offset.dy + size.height + 4,
-            right: MediaQuery.of(context).size.width - offset.dx - size.width,
+            right: MediaQuery.of(overlayContext).size.width - offset.dx - size.width,
             child: FadeTransition(
               opacity: _fadeAnim,
               child: SlideTransition(
                 position: _slideAnim,
                 child: _DropdownMenu(
+                  mountedContext: stateContext,
                   onClose: () {
                     _animController.reverse().then((_) => _removeOverlay());
                     if (mounted) setState(() {});
                   },
                   onBranchSelect: widget.onBranchSelect,
+                  onSignOut: () =>
+                      ref.read(authViewModelProvider.notifier).signOut(),
                 ),
               ),
             ),
@@ -900,22 +911,27 @@ class _AvatarFallback extends StatelessWidget {
   }
 }
 
-class _DropdownMenu extends ConsumerWidget {
-  const _DropdownMenu({required this.onClose, required this.onBranchSelect});
+class _DropdownMenu extends StatelessWidget {
+  const _DropdownMenu({
+    required this.mountedContext,
+    required this.onClose,
+    required this.onBranchSelect,
+    required this.onSignOut,
+  });
 
+  // Context from the parent ConsumerState — survives after the overlay is removed.
+  final BuildContext mountedContext;
   final VoidCallback onClose;
   final ValueChanged<int> onBranchSelect;
+  // signOut action using the parent State's ref (not the overlay's ref).
+  final Future<void> Function() onSignOut;
 
-  Future<void> _confirmSignOut(
-    BuildContext context,
-    WidgetRef ref,
-    VoidCallback onClose,
-  ) async {
+  Future<void> _confirmSignOut() async {
     onClose();
-    if (!context.mounted) return;
+    if (!mountedContext.mounted) return;
 
     final confirmed = await showDialog<bool>(
-      context: context,
+      context: mountedContext,
       builder: (ctx) => AlertDialog(
         title: const Text('로그아웃'),
         content: const Text('정말 로그아웃 하시겠습니까?'),
@@ -931,21 +947,21 @@ class _DropdownMenu extends ConsumerWidget {
         ],
       ),
     );
-    if (confirmed != true || !context.mounted) return;
+    if (confirmed != true || !mountedContext.mounted) return;
 
     try {
-      await ref.read(authViewModelProvider.notifier).signOut();
-      if (context.mounted) context.go('/login');
+      await onSignOut();
+      // GoRouter redirect handles navigation to /login via authStateChangesProvider.
     } catch (error) {
-      if (!context.mounted) return;
+      if (!mountedContext.mounted) return;
       ScaffoldMessenger.of(
-        context,
+        mountedContext,
       ).showSnackBar(SnackBar(content: Text(friendlyAuthError(error))));
     }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Material(
@@ -991,7 +1007,7 @@ class _DropdownMenu extends ConsumerWidget {
               icon: Icons.logout_rounded,
               label: '로그아웃',
               isDestructive: true,
-              onTap: () => _confirmSignOut(context, ref, onClose),
+              onTap: () => _confirmSignOut(),
             ),
           ],
         ),

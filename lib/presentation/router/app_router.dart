@@ -32,6 +32,7 @@ import 'package:moniq/presentation/screens/announcement/my_announcements_screen.
 import 'package:moniq/presentation/screens/wanted/wanted_request_screen.dart';
 import 'package:moniq/presentation/screens/wanted/wanted_day_off_screen.dart';
 import 'package:moniq/presentation/screens/wanted/wanted_history_screen.dart';
+import 'package:moniq/presentation/screens/team/personal_team_calendar_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _homeNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'home');
@@ -309,50 +310,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // My Announcements (홈에서 진입)
+      // Personal team calendar
       GoRoute(
-        path: '/announcements',
+        path: '/teams/:teamId/personal-calendar',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const MyAnnouncementsScreen(),
-      ),
-
-      // 알림 히스토리 (홈 종 아이콘에서 진입)
-      GoRoute(
-        path: '/notifications',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const NotificationsScreen(),
-      ),
-
-      // Team Announcements (팀 관리에서 진입)
-      GoRoute(
-        path: '/teams/:teamId/announcements',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => AnnouncementScreen(
-          teamId: state.pathParameters['teamId']!,
-        ),
-      ),
-
-      // Schedule generation
-      GoRoute(
-        path: '/teams/:teamId/schedule/generate',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => ScheduleGenerationScreen(
-          teamId: state.pathParameters['teamId']!,
-        ),
-      ),
-
-      // Requests (교환/변경 요청)
-      GoRoute(
-        path: '/teams/:teamId/requests',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => RequestListScreen(
-          teamId: state.pathParameters['teamId']!,
-        ),
-      ),
-      GoRoute(
-        path: '/teams/:teamId/requests/create',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => RequestCreateScreen(
+        builder: (context, state) => PersonalTeamCalendarScreen(
           teamId: state.pathParameters['teamId']!,
         ),
       ),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// 768px 이상을 웹/와이드 레이아웃으로 간주한다.
-const double kWebBreakpoint = 768;
+/// 1024px 이상을 웹/와이드 레이아웃으로 간주한다.
+/// 768px는 가로 모드 스마트폰이 걸려 웹 레이아웃이 의도치 않게 활성화되므로
+/// 1024px(일반적인 태블릿/노트북 기준)로 상향 조정.
+const double kWebBreakpoint = 1024;
 
 /// 화면 너비에 따라 모바일 / 웹 위젯을 전환하는 레이아웃 헬퍼.
 ///

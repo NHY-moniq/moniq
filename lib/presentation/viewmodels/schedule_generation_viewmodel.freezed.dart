@@ -40,6 +40,7 @@ mixin _$ScheduleGenerationState {
   List<String> get wantedUnsatisfied =>
       throw _privateConstructorUsedError; // ['홍길동 05-10 (휴무 요청)', ...]
   List<String> get customRuleViolations => throw _privateConstructorUsedError;
+  List<String> get softCustomViolations => throw _privateConstructorUsedError;
   bool get isAnalyzing => throw _privateConstructorUsedError;
   String? get aiAnalysis => throw _privateConstructorUsedError;
   String? get error => throw _privateConstructorUsedError;
@@ -79,6 +80,7 @@ abstract class $ScheduleGenerationStateCopyWith<$Res> {
     Map<String, List<String>> softViolations,
     List<String> wantedUnsatisfied,
     List<String> customRuleViolations,
+    List<String> softCustomViolations,
     bool isAnalyzing,
     String? aiAnalysis,
     String? error,
@@ -125,6 +127,7 @@ class _$ScheduleGenerationStateCopyWithImpl<
     Object? softViolations = null,
     Object? wantedUnsatisfied = null,
     Object? customRuleViolations = null,
+    Object? softCustomViolations = null,
     Object? isAnalyzing = null,
     Object? aiAnalysis = freezed,
     Object? error = freezed,
@@ -211,6 +214,10 @@ class _$ScheduleGenerationStateCopyWithImpl<
                 ? _value.customRuleViolations
                 : customRuleViolations // ignore: cast_nullable_to_non_nullable
                       as List<String>,
+            softCustomViolations: null == softCustomViolations
+                ? _value.softCustomViolations
+                : softCustomViolations // ignore: cast_nullable_to_non_nullable
+                      as List<String>,
             isAnalyzing: null == isAnalyzing
                 ? _value.isAnalyzing
                 : isAnalyzing // ignore: cast_nullable_to_non_nullable
@@ -273,6 +280,7 @@ abstract class _$$ScheduleGenerationStateImplCopyWith<$Res>
     Map<String, List<String>> softViolations,
     List<String> wantedUnsatisfied,
     List<String> customRuleViolations,
+    List<String> softCustomViolations,
     bool isAnalyzing,
     String? aiAnalysis,
     String? error,
@@ -320,6 +328,7 @@ class __$$ScheduleGenerationStateImplCopyWithImpl<$Res>
     Object? softViolations = null,
     Object? wantedUnsatisfied = null,
     Object? customRuleViolations = null,
+    Object? softCustomViolations = null,
     Object? isAnalyzing = null,
     Object? aiAnalysis = freezed,
     Object? error = freezed,
@@ -406,6 +415,10 @@ class __$$ScheduleGenerationStateImplCopyWithImpl<$Res>
             ? _value._customRuleViolations
             : customRuleViolations // ignore: cast_nullable_to_non_nullable
                   as List<String>,
+        softCustomViolations: null == softCustomViolations
+            ? _value._softCustomViolations
+            : softCustomViolations // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
         isAnalyzing: null == isAnalyzing
             ? _value.isAnalyzing
             : isAnalyzing // ignore: cast_nullable_to_non_nullable
@@ -447,6 +460,7 @@ class _$ScheduleGenerationStateImpl implements _ScheduleGenerationState {
     final Map<String, List<String>> softViolations = const {},
     final List<String> wantedUnsatisfied = const [],
     final List<String> customRuleViolations = const [],
+    final List<String> softCustomViolations = const [],
     this.isAnalyzing = false,
     this.aiAnalysis,
     this.error,
@@ -460,7 +474,8 @@ class _$ScheduleGenerationStateImpl implements _ScheduleGenerationState {
        _validationWarnings = validationWarnings,
        _softViolations = softViolations,
        _wantedUnsatisfied = wantedUnsatisfied,
-       _customRuleViolations = customRuleViolations;
+       _customRuleViolations = customRuleViolations,
+       _softCustomViolations = softCustomViolations;
 
   @override
   final String teamId;
@@ -591,6 +606,16 @@ class _$ScheduleGenerationStateImpl implements _ScheduleGenerationState {
     return EqualUnmodifiableListView(_customRuleViolations);
   }
 
+  final List<String> _softCustomViolations;
+  @override
+  @JsonKey()
+  List<String> get softCustomViolations {
+    if (_softCustomViolations is EqualUnmodifiableListView)
+      return _softCustomViolations;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_softCustomViolations);
+  }
+
   @override
   @JsonKey()
   final bool isAnalyzing;
@@ -601,7 +626,7 @@ class _$ScheduleGenerationStateImpl implements _ScheduleGenerationState {
 
   @override
   String toString() {
-    return 'ScheduleGenerationState(teamId: $teamId, shiftTypes: $shiftTypes, members: $members, rules: $rules, customRules: $customRules, periodStart: $periodStart, periodEnd: $periodEnd, wantedEntries: $wantedEntries, excludedMemberIds: $excludedMemberIds, isGenerating: $isGenerating, isPublishing: $isPublishing, generatedSchedule: $generatedSchedule, previewShifts: $previewShifts, validationWarnings: $validationWarnings, understaffedCount: $understaffedCount, wantedTotal: $wantedTotal, wantedSatisfied: $wantedSatisfied, softViolations: $softViolations, wantedUnsatisfied: $wantedUnsatisfied, customRuleViolations: $customRuleViolations, isAnalyzing: $isAnalyzing, aiAnalysis: $aiAnalysis, error: $error)';
+    return 'ScheduleGenerationState(teamId: $teamId, shiftTypes: $shiftTypes, members: $members, rules: $rules, customRules: $customRules, periodStart: $periodStart, periodEnd: $periodEnd, wantedEntries: $wantedEntries, excludedMemberIds: $excludedMemberIds, isGenerating: $isGenerating, isPublishing: $isPublishing, generatedSchedule: $generatedSchedule, previewShifts: $previewShifts, validationWarnings: $validationWarnings, understaffedCount: $understaffedCount, wantedTotal: $wantedTotal, wantedSatisfied: $wantedSatisfied, softViolations: $softViolations, wantedUnsatisfied: $wantedUnsatisfied, customRuleViolations: $customRuleViolations, softCustomViolations: $softCustomViolations, isAnalyzing: $isAnalyzing, aiAnalysis: $aiAnalysis, error: $error)';
   }
 
   @override
@@ -664,6 +689,10 @@ class _$ScheduleGenerationStateImpl implements _ScheduleGenerationState {
               other._customRuleViolations,
               _customRuleViolations,
             ) &&
+            const DeepCollectionEquality().equals(
+              other._softCustomViolations,
+              _softCustomViolations,
+            ) &&
             (identical(other.isAnalyzing, isAnalyzing) ||
                 other.isAnalyzing == isAnalyzing) &&
             (identical(other.aiAnalysis, aiAnalysis) ||
@@ -694,6 +723,7 @@ class _$ScheduleGenerationStateImpl implements _ScheduleGenerationState {
     const DeepCollectionEquality().hash(_softViolations),
     const DeepCollectionEquality().hash(_wantedUnsatisfied),
     const DeepCollectionEquality().hash(_customRuleViolations),
+    const DeepCollectionEquality().hash(_softCustomViolations),
     isAnalyzing,
     aiAnalysis,
     error,
@@ -733,6 +763,7 @@ abstract class _ScheduleGenerationState implements ScheduleGenerationState {
     final Map<String, List<String>> softViolations,
     final List<String> wantedUnsatisfied,
     final List<String> customRuleViolations,
+    final List<String> softCustomViolations,
     final bool isAnalyzing,
     final String? aiAnalysis,
     final String? error,
@@ -778,6 +809,8 @@ abstract class _ScheduleGenerationState implements ScheduleGenerationState {
   List<String> get wantedUnsatisfied; // ['홍길동 05-10 (휴무 요청)', ...]
   @override
   List<String> get customRuleViolations;
+  @override
+  List<String> get softCustomViolations;
   @override
   bool get isAnalyzing;
   @override

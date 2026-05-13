@@ -428,7 +428,7 @@ Future<String?> _showExportFormatDialog(BuildContext context) {
   return showDialog<String>(
     context: context,
     builder: (ctx) => SimpleDialog(
-      title: const Text('내보내기 형식 선택'),
+      title: const Text('내보내기'),
       children: [
         SimpleDialogOption(
           onPressed: () => Navigator.pop(ctx, 'album'),
