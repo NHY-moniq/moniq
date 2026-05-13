@@ -124,6 +124,50 @@ const FeatureSwap = () => (
   </Section>
 );
 
+// Feature 2.5: Wanted collection — 자동생성 직전 단계, 팀원 의견 수집
+const FeatureWantedCollection = () => {
+  const cards = [
+    { icon: 'how_to_vote', title: '팀원이 직접 입력', sub: '카톡방 대신 앱 한 곳에서 받아요' },
+    { icon: 'star', title: '1·2순위 우선순위', sub: '날짜·시프트별로 우선순위까지' },
+    { icon: 'group', title: '응답률 추적', sub: '누가 몇 건 냈는지 한눈에' },
+    { icon: 'event_available', title: '마감·재개·재시작', sub: '수집 운영도 한 화면에서' },
+  ];
+  return (
+    <Section bg="#FCF6E3" paddingY={140}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <PhoneFrame width={340} height={660} tilt={3}>
+            <MiniWantedCollectionScreen />
+          </PhoneFrame>
+        </div>
+        <div>
+          <LandingEyebrow style={{ color: '#B8860B' }}>Feature · 03 — Wanted Collection</LandingEyebrow>
+          <h2 style={{ font: '900 54px/1.05 var(--font-family)', letterSpacing: -1.6, color: '#312F23', marginTop: 18, textWrap: 'balance' }}>
+            카톡방 대신 원티드,<br />앱 한 곳에서 정리돼요.
+          </h2>
+          <p style={{ font: '500 18px/1.55 var(--font-family)', color: '#5F5C4D', marginTop: 22, maxWidth: 520 }}>
+            "이번 달 원티드 받습니다~" 카톡과 엑셀 정리는 이제 그만.<br />
+            팀원이 직접 원하는 날짜·시프트를 1·2순위로 입력하고, 수집이 끝나면 자동생성에 그대로 흘러들어가요.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 32 }}>
+            {cards.map(f => (
+              <div key={f.title} style={{ background: '#FFFDF7', borderRadius: 24, padding: 18, display: 'flex', gap: 12, alignItems: 'flex-start', border: '1px solid rgba(178,173,156,.25)' }}>
+                <div style={{ width: 38, height: 38, borderRadius: 14, background: '#FFECB3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#B8860B', fontVariationSettings: "'FILL' 1" }}>{f.icon}</span>
+                </div>
+                <div>
+                  <div style={{ font: '800 14px/1.2 var(--font-family)', color: '#312F23' }}>{f.title}</div>
+                  <div style={{ font: '500 12px/1.4 var(--font-family)', color: '#5F5C4D', marginTop: 4 }}>{f.sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Section>
+  );
+};
+
 // Feature 3-A: Schedule auto-generation with strict rules — flagship section
 const FeatureScheduleAutoGen = () => {
   const rules = [
@@ -419,4 +463,4 @@ const FeatureCustomRules = () => {
   );
 };
 
-Object.assign(window, { FeaturePersonalCalendar, FeatureTeamCalendar, FeatureScheduleAutoGen, FeatureAIReport, FeatureCustomRules, FeatureSwap });
+Object.assign(window, { FeaturePersonalCalendar, FeatureTeamCalendar, FeatureScheduleAutoGen, FeatureAIReport, FeatureCustomRules, FeatureSwap, FeatureWantedCollection });

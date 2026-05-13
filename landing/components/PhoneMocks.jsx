@@ -697,6 +697,166 @@ const MiniAIReportCard = () => {
 };
 
 // ─────────────────────────────────────────────
+// MiniWantedCollectionScreen — 원티드 수집 결과 화면
+// 사용자 첨부 캡쳐 기반: 수집 마감 배너 + 원티드/나이트 전담 토글
+//   + 멤버별 우선순위 칩 리스트 + 수집 재개/새 수집 액션
+// ─────────────────────────────────────────────
+const MiniWantedCollectionScreen = () => {
+  // 우선순위 칩: code(D/E/N/O/ED), date, rank(1/2)
+  const chipStyle = (code, rank) => {
+    const palette = {
+      D:  { soft: '#FFF1B8', strong: '#FFD45A', text: '#7A5A00' },
+      E:  { soft: '#FFE3C2', strong: '#FFB36A', text: '#8B4500' },
+      N:  { soft: '#CFE0F4', strong: '#7AAEE8', text: '#0F4F88' },
+      O:  { soft: '#E5E1D0', strong: '#C9C2A8', text: '#5F5C4D' },
+      ED: { soft: '#E9D8FF', strong: '#C2A4F2', text: '#5A2EB1' },
+    };
+    const c = palette[code] || palette.O;
+    return rank === 1
+      ? { bg: c.strong, fg: '#312F23', label: c.text }
+      : { bg: c.soft, fg: c.text, label: c.text };
+  };
+
+  const members = [
+    { name: '강수민', count: 7, picks: [
+      { code: 'O', date: '06.01', rank: 1 },
+      { code: 'O', date: '06.02', rank: 1 },
+      { code: 'ED', date: '06.03', rank: 2 },
+      { code: 'ED', date: '06.10', rank: 2 },
+      { code: 'O', date: '06.26', rank: 1 },
+    ] },
+    { name: '김간호', count: 7, picks: [
+      { code: 'ED', date: '06.03', rank: 2 },
+      { code: 'ED', date: '06.04', rank: 2 },
+      { code: 'O', date: '06.23', rank: 1 },
+      { code: 'O', date: '06.24', rank: 1 },
+    ] },
+    { name: '정간호', count: 8, picks: [
+      { code: 'O', date: '06.10', rank: 2 },
+      { code: 'D', date: '06.18', rank: 1 },
+      { code: 'D', date: '06.19', rank: 1 },
+      { code: 'E', date: '06.26', rank: 2 },
+    ] },
+    { name: '백하은', count: 3, picks: [
+      { code: 'E', date: '06.11', rank: 1 },
+      { code: 'E', date: '06.12', rank: 1 },
+      { code: 'E', date: '06.27', rank: 1 },
+    ] },
+  ];
+
+  const Pill = ({ pick }) => {
+    const s = chipStyle(pick.code, pick.rank);
+    return (
+      <div style={{
+        display: 'inline-flex', alignItems: 'center',
+        background: '#FFFDF7',
+        border: '1px solid rgba(178,173,156,.3)',
+        borderRadius: 9999, paddingRight: 8,
+        font: '700 8px/1 var(--font-family)', color: '#312F23',
+      }}>
+        <div style={{
+          width: 18, height: 18, borderRadius: '50%',
+          background: s.bg, color: s.fg,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          font: '800 7px/1 var(--font-family)',
+          marginRight: 5,
+        }}>{pick.code}</div>
+        <span>{pick.date} · {pick.rank}순위</span>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ height: '100%', position: 'relative', overflow: 'hidden', background: '#FCF6E3' }}>
+      <MiniStatusBar />
+      {/* App bar — 원티드 수집 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 16px 10px' }}>
+        <span className="material-symbols-outlined" style={{ color: '#5F5C4D', fontSize: 20 }}>arrow_back</span>
+        <div>
+          <div style={{ font: '800 8px/1 var(--font-family)', letterSpacing: 1.8, textTransform: 'uppercase', color: '#FF8F00' }}>TEAM</div>
+          <div style={{ font: '800 14px/1.2 var(--font-family)', color: '#312F23' }}>원티드 수집</div>
+        </div>
+        <span className="material-symbols-outlined" style={{ marginLeft: 'auto', color: '#5F5C4D', fontSize: 20 }}>history</span>
+      </div>
+
+      {/* 수집 결과 배너 */}
+      <div style={{ margin: '0 14px 8px', padding: '10px 12px', borderRadius: 14, background: '#EFE5CC' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', background: '#FFFDF7', borderRadius: 9999, font: '700 8px/1 var(--font-family)', color: '#5F5C4D', marginBottom: 6 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 10 }}>check_circle</span>
+          수집 마감
+        </div>
+        <div style={{ font: '900 12px/1.2 var(--font-family)', color: '#312F23' }}>원티드 수집 결과</div>
+        <div style={{ font: '600 9px/1.3 var(--font-family)', color: '#5F5C4D', marginTop: 2 }}>06.01 ~ 06.30</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 4, font: '600 9px/1 var(--font-family)', color: '#5F5C4D' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 11 }}>group</span>
+          5명 응답 · 28건
+        </div>
+      </div>
+
+      {/* 토글: 원티드 / 나이트 전담 */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, padding: '0 14px 8px' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 9999, background: '#FFD45A', font: '800 9px/1 var(--font-family)', color: '#7A5A00' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 11 }}>check</span>
+          원티드
+        </div>
+        <div style={{ padding: '5px 10px', borderRadius: 9999, background: '#FFFDF7', border: '1px solid rgba(178,173,156,.4)', font: '700 9px/1 var(--font-family)', color: '#5F5C4D' }}>
+          나이트 전담
+        </div>
+      </div>
+
+      {/* 멤버별 응답 카드 */}
+      <div style={{ padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {members.map((m, i) => (
+          <div key={i} style={{
+            background: '#FFFDF7', border: '1px solid rgba(178,173,156,.3)',
+            borderRadius: 14, padding: '8px 10px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+              <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#EEE8D3', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '800 8px/1 var(--font-family)', color: '#5F5C4D' }}>
+                {m.name[0]}
+              </div>
+              <div style={{ font: '800 10px/1 var(--font-family)', color: '#312F23' }}>{m.name}</div>
+              <div style={{ marginLeft: 'auto', font: '700 9px/1 var(--font-family)', color: '#7A7768' }}>{m.count}건</div>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {m.picks.map((p, j) => <Pill key={j} pick={p} />)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 액션 — 수집 재개 + 새 수집 시작 */}
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 56, padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{
+          padding: '8px 12px', borderRadius: 9999,
+          border: '1px solid rgba(178,173,156,.5)',
+          background: 'transparent',
+          textAlign: 'center',
+          font: '700 10px/1 var(--font-family)', color: '#5F5C4D',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 12 }}>refresh</span>
+          수집 재개
+        </div>
+        <div style={{
+          padding: '9px 12px', borderRadius: 9999,
+          background: '#FFC107',
+          textAlign: 'center',
+          font: '900 11px/1 var(--font-family)', color: '#453900',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+          boxShadow: '0 6px 14px rgba(255,193,7,.32)',
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 13, fontVariationSettings: "'FILL' 1" }}>add</span>
+          새 수집 시작
+        </div>
+      </div>
+
+      <MiniBottomNav active="teams" />
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────
 // MiniRequestScreen — Change request list (renewed)
 // Mirrors lib/presentation/screens/request/request_list_screen.dart
 //   FilterBar + RequestCard list + StatusBadge
@@ -1116,5 +1276,6 @@ Object.assign(window, {
   MiniStatusBar, MiniTopBar, MiniGlassBadge, MiniGlassChip, MiniBottomNav,
   MiniHomeScreen, MiniCalendarScreen, MiniTeamCalendarScreen,
   MiniCustomRulesScreen, MiniAIReportCard, MiniRequestScreen,
+  MiniWantedCollectionScreen,
   LaptopFrame, MiniScheduleGenScreen,
 });
