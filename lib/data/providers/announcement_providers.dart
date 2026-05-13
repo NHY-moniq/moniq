@@ -29,6 +29,19 @@ final myAnnouncementsProvider =
   return repo.getMyTeamsAnnouncements();
 });
 
+/// 홈탭 공지사항 카드의 팀 필터 (null = 전체)
+final selectedAnnouncementTeamFilterProvider =
+    StateProvider<String?>((_) => null);
+
+/// 홈탭 공지사항 카드용 — 선택된 팀 ID로 필터링된 공지 목록
+final filteredAnnouncementsProvider =
+    FutureProvider<List<AnnouncementWithTeam>>((ref) async {
+  final teamId = ref.watch(selectedAnnouncementTeamFilterProvider);
+  final all = await ref.watch(myAnnouncementsProvider.future);
+  if (teamId == null) return all;
+  return all.where((a) => a.announcement.teamId == teamId).toList();
+});
+
 /// 특정 팀 공지사항
 final teamAnnouncementsProvider =
     FutureProvider.family<List<AnnouncementModel>, String>((ref, teamId) async {

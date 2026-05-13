@@ -3,10 +3,12 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/data/models/notification_model.dart';
+import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/notification_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -17,7 +19,12 @@ class NotificationsScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final listAsync = ref.watch(myNotificationsProvider);
+    final listAsync = ref.watch(filteredNotificationsProvider);
+    final teamsAsync = ref.watch(teamViewModelProvider);
+    final selectedTeamId =
+        ref.watch(selectedNotificationTeamFilterProvider);
+    final unreadOnly = ref.watch(notificationUnreadOnlyProvider);
+    final teams = teamsAsync.valueOrNull ?? const [];
 
     return Scaffold(
       appBar: MoniqAppBar(
@@ -34,55 +41,212 @@ class NotificationsScreen extends HookConsumerWidget {
           },
         ),
       ),
-      body: listAsync.when(
-        loading: () => const MoniqLoadingView(),
-        error: (e, _) => MoniqErrorView(
-          message: '알림을 불러올 수 없습니다',
-          onRetry: () => ref.invalidate(myNotificationsProvider),
-        ),
-        data: (items) {
-          if (items.isEmpty) {
-            return MoniqEmptyState.peaceful(
-              title: '받은 알림이 없어요',
-              message: '조용한 하루네요 ☕',
-            );
-          }
-          return RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(myNotificationsProvider);
-              ref.invalidate(unreadNotificationCountProvider);
-            },
-            child: ListView.separated(
-              padding: AppSpacing.screenAll,
-              itemCount: items.length,
-              separatorBuilder: (_, __) =>
-                  const SizedBox(height: AppSpacing.sm),
-              itemBuilder: (context, index) {
-                return _NotificationTile(
-                  item: items[index],
-                  onTap: () async {
-                    final n = items[index];
-                    if (!n.isRead) {
-                      final repo = ref.read(notificationRepositoryProvider);
-                      await repo.markAsRead(n.id);
-                      ref.invalidate(myNotificationsProvider);
-                      ref.invalidate(unreadNotificationCountProvider);
-                    }
-                    if (!context.mounted) return;
-                    await _navigateForNotification(context, ref, n);
-                  },
-                  onDelete: () async {
-                    final n = items[index];
-                    final repo = ref.read(notificationRepositoryProvider);
-                    await repo.delete(n.id);
+      body: Column(
+        children: [
+          _NotificationFilterHeader(
+            teams: teams,
+            selectedTeamId: selectedTeamId,
+            unreadOnly: unreadOnly,
+            onTeamSelect: (id) => ref
+                .read(selectedNotificationTeamFilterProvider.notifier)
+                .state = id,
+            onToggleUnread: () => ref
+                .read(notificationUnreadOnlyProvider.notifier)
+                .update((v) => !v),
+          ),
+          Expanded(
+            child: listAsync.when(
+              loading: () => const MoniqLoadingView(),
+              error: (e, _) => MoniqErrorView(
+                message: '알림을 불러올 수 없습니다',
+                onRetry: () => ref.invalidate(myNotificationsProvider),
+              ),
+              data: (items) {
+                if (items.isEmpty) {
+                  final msg = unreadOnly
+                      ? '안 읽은 알림이 없어요'
+                      : selectedTeamId != null
+                          ? '이 팀의 알림이 없어요'
+                          : '받은 알림이 없어요';
+                  return MoniqEmptyState.peaceful(
+                    title: msg,
+                    message: '30일 이내 알림만 표시돼요',
+                  );
+                }
+                return RefreshIndicator(
+                  onRefresh: () async {
                     ref.invalidate(myNotificationsProvider);
                     ref.invalidate(unreadNotificationCountProvider);
                   },
+                  child: ListView.separated(
+                    padding: AppSpacing.screenAll,
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(height: AppSpacing.sm),
+                    itemBuilder: (context, index) {
+                      return _NotificationTile(
+                        item: items[index],
+                        onTap: () async {
+                          final n = items[index];
+                          if (!n.isRead) {
+                            final repo =
+                                ref.read(notificationRepositoryProvider);
+                            await repo.markAsRead(n.id);
+                            ref.invalidate(myNotificationsProvider);
+                            ref.invalidate(unreadNotificationCountProvider);
+                          }
+                          if (!context.mounted) return;
+                          await _navigateForNotification(context, ref, n);
+                        },
+                        onDelete: () async {
+                          final n = items[index];
+                          final repo =
+                              ref.read(notificationRepositoryProvider);
+                          await repo.delete(n.id);
+                          ref.invalidate(myNotificationsProvider);
+                          ref.invalidate(unreadNotificationCountProvider);
+                        },
+                      );
+                    },
+                  ),
                 );
               },
             ),
-          );
-        },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationFilterHeader extends StatelessWidget {
+  const _NotificationFilterHeader({
+    required this.teams,
+    required this.selectedTeamId,
+    required this.unreadOnly,
+    required this.onTeamSelect,
+    required this.onToggleUnread,
+  });
+
+  final List<TeamModel> teams;
+  final String? selectedTeamId;
+  final bool unreadOnly;
+  final ValueChanged<String?> onTeamSelect;
+  final VoidCallback onToggleUnread;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final selectedTeam = selectedTeamId == null
+        ? null
+        : teams.where((t) => t.id == selectedTeamId).firstOrNull;
+    final teamLabel = selectedTeam?.name ?? '전체';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xxl,
+        AppSpacing.sm,
+        AppSpacing.xxl,
+        AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          if (teams.length > 1)
+            PopupMenuButton<String?>(
+              tooltip: '팀 선택',
+              position: PopupMenuPosition.under,
+              onSelected: onTeamSelect,
+              itemBuilder: (ctx) => [
+                CheckedPopupMenuItem<String?>(
+                  value: null,
+                  checked: selectedTeamId == null,
+                  child: const Text('전체 보기'),
+                ),
+                for (final t in teams)
+                  CheckedPopupMenuItem<String?>(
+                    value: t.id,
+                    checked: selectedTeamId == t.id,
+                    child: Text(t.name),
+                  ),
+              ],
+              child: _Chip(
+                icon: Icons.groups_outlined,
+                label: teamLabel,
+                trailing: Icons.expand_more_rounded,
+                cs: cs,
+              ),
+            ),
+          if (teams.length > 1) const SizedBox(width: AppSpacing.sm),
+          InkWell(
+            onTap: onToggleUnread,
+            borderRadius: BorderRadius.circular(999),
+            child: _Chip(
+              icon:
+                  unreadOnly ? Icons.mark_email_unread : Icons.mark_email_read,
+              label: '안 읽음만',
+              cs: cs,
+              active: unreadOnly,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.icon,
+    required this.label,
+    required this.cs,
+    this.trailing,
+    this.active = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final IconData? trailing;
+  final ColorScheme cs;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = active
+        ? cs.primary.withValues(alpha: 0.15)
+        : cs.surfaceContainerLow;
+    final fg = active ? cs.primary : cs.onSurface;
+    final borderColor = active
+        ? cs.primary.withValues(alpha: 0.5)
+        : cs.outlineVariant.withValues(alpha: 0.5);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fg),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: fg,
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: 2),
+            Icon(trailing, size: 16, color: cs.onSurfaceVariant),
+          ],
+        ],
       ),
     );
   }

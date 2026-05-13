@@ -165,6 +165,14 @@ class GlassBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // textColor 대비 색으로 글래스를 도출 (밝은 텍스트 → 어두운 글래스)
+    final isLightText =
+        ThemeData.estimateBrightnessForColor(textColor) == Brightness.light;
+    final glassColor = (isLightText ? Colors.black : Colors.white)
+        .withValues(alpha: 0.22);
+    // 라이브 인디케이터 dot은 textColor와 무관한 의미 색(빨강)
+    const liveDotColor = Color(0xFFE53935);
+
     return ClipRRect(
       borderRadius: AppRadius.borderRadiusFull,
       child: BackdropFilter(
@@ -172,7 +180,7 @@ class GlassBadge extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.3),
+            color: glassColor,
             borderRadius: AppRadius.borderRadiusFull,
           ),
           child: Row(
@@ -182,12 +190,12 @@ class GlassBadge extends StatelessWidget {
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: textColor,
+                  color: liveDotColor,
                   shape: BoxShape.circle,
                   boxShadow: showPulse
                       ? [
                           BoxShadow(
-                            color: textColor.withValues(alpha: 0.6),
+                            color: liveDotColor.withValues(alpha: 0.6),
                             blurRadius: 4,
                             spreadRadius: 1,
                           ),
@@ -231,6 +239,13 @@ class GlassChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLightText =
+        ThemeData.estimateBrightnessForColor(textColor) == Brightness.light;
+    final glassBg = (isLightText ? Colors.black : Colors.white)
+        .withValues(alpha: 0.22);
+    final glassBorder = (isLightText ? Colors.black : Colors.white)
+        .withValues(alpha: 0.15);
+
     return ClipRRect(
       borderRadius: AppRadius.borderRadiusFull,
       child: BackdropFilter(
@@ -241,10 +256,10 @@ class GlassChip extends StatelessWidget {
             vertical: 10,
           ),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.3),
+            color: glassBg,
             borderRadius: AppRadius.borderRadiusFull,
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: glassBorder,
             ),
           ),
           child: Row(

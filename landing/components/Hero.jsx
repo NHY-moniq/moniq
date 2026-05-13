@@ -58,26 +58,24 @@ const LandingHero = ({ tweaks }) => {
             <span style={{ color: '#0061A4' }}>밤</span>도 한눈에.
           </h1>
           <p style={{ font: '500 19px/1.6 var(--font-family)', color: '#5F5C4D', maxWidth: 480, marginBottom: 36 }}>
-            Moniq는 교대근무자를 위한 근무표 관리 앱이에요.<br />
+            OnorOff는 교대근무자를 위한 근무표 관리 앱이에요.<br />
             내 스케줄을 깔끔하게 보고,<br />
             팀 근무표는 규칙 기반으로 자동 생성,<br />
             교대·변경 요청은 한 번의 탭으로 끝내세요.
           </p>
           <ComingSoonButtons kind="primary" />
-          <div style={{ display: 'flex', gap: 28, marginTop: 48, alignItems: 'center' }}>
-            <div>
-              <div style={{ font: '900 28px/1 var(--font-family)', color: '#312F23', letterSpacing: -.5 }}>4.8<span style={{ color: '#FFC107' }}>★</span></div>
-              <div style={{ font: '700 10px/1 var(--font-family)', letterSpacing: 1.6, textTransform: 'uppercase', color: '#7A7768', marginTop: 6 }}>App Store Rating</div>
+          <div style={{ display: 'flex', gap: 16, marginTop: 36, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              background: 'rgba(255,193,7,.18)', color: '#6B5300',
+              padding: '10px 16px', borderRadius: 9999,
+              font: '800 12px/1 var(--font-family)', letterSpacing: 1.2, textTransform: 'uppercase',
+            }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#FFC107', boxShadow: '0 0 0 4px rgba(255,193,7,.25)' }} />
+              사전 신청 열려있어요
             </div>
-            <div style={{ width: 1, height: 36, background: 'rgba(49,47,35,.12)' }} />
-            <div>
-              <div style={{ font: '900 28px/1 var(--font-family)', color: '#312F23', letterSpacing: -.5 }}>12,400+</div>
-              <div style={{ font: '700 10px/1 var(--font-family)', letterSpacing: 1.6, textTransform: 'uppercase', color: '#7A7768', marginTop: 6 }}>Nurses On-Shift</div>
-            </div>
-            <div style={{ width: 1, height: 36, background: 'rgba(49,47,35,.12)' }} />
-            <div>
-              <div style={{ font: '900 28px/1 var(--font-family)', color: '#312F23', letterSpacing: -.5 }}>320+</div>
-              <div style={{ font: '700 10px/1 var(--font-family)', letterSpacing: 1.6, textTransform: 'uppercase', color: '#7A7768', marginTop: 6 }}>Hospital Units</div>
+            <div style={{ font: '600 13px/1.5 var(--font-family)', color: '#5F5C4D' }}>
+              규칙 기반 자동 생성 · 자연어 커스텀 룰 · AI 공평성 리포트
             </div>
           </div>
         </div>
@@ -104,51 +102,4 @@ const LandingHero = ({ tweaks }) => {
   );
 };
 
-// Three characters intro strip
-const CharactersStrip = () => (
-  <Section bg="#312F23" paddingY={100} style={{ color: '#FCF6E3' }}>
-    <div style={{ textAlign: 'center', marginBottom: 64 }}>
-      <LandingEyebrow color="#FCF6E3" style={{ opacity: .6 }}>Meet the characters</LandingEyebrow>
-      <h2 style={{ font: '900 56px/1.05 var(--font-family)', letterSpacing: -1.4, marginTop: 14, color: '#FCF6E3', textWrap: 'balance' }}>
-        내 근무에<br />캐릭터를 입혀요.
-      </h2>
-      <p style={{
-        font: '500 17px/1.6 var(--font-family)',
-        color: 'rgba(252,246,227,.72)',
-        maxWidth: 560,
-        margin: '20px auto 0',
-        textWrap: 'balance',
-      }}>
-        Day · Evening · Night는 가장 흔한 3교대 예시예요.<br />
-        새벽조든 오프콜이든 직접 만들고, 색을 골라 캐릭터를 입힐 수 있어요.
-      </p>
-    </div>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
-      {[
-        { key: 'yellow', name: 'The Yellow One', shift: 'Day Shift', code: 'D', time: '08:00 — 16:00', color: '#FFD700', on: '#453900' },
-        { key: 'orange', name: 'The Orange One', shift: 'Evening Shift', code: 'E', time: '16:00 — 00:00', color: '#FF8C00', on: '#ffffff' },
-        { key: 'blue', name: 'The Blue One', shift: 'Night Shift', code: 'N', time: '00:00 — 08:00', color: '#0061A4', on: '#ffffff' },
-      ].map(c => (
-        <div key={c.key} style={{
-          position: 'relative', overflow: 'hidden',
-          background: `linear-gradient(160deg, ${c.color}, ${c.color}dd)`,
-          borderRadius: 36, padding: '36px 32px 32px', color: c.on,
-          minHeight: 300,
-          boxShadow: `0 18px 40px ${c.color}55`,
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <LandingEyebrow color={c.on} style={{ opacity: .75 }}>{c.code} · {c.time}</LandingEyebrow>
-            <div style={{ width: 32, height: 32, borderRadius: 9999, background: 'rgba(255,255,255,.3)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ font: '900 14px/1 var(--font-family)' }}>{c.code}</span>
-            </div>
-          </div>
-          <div style={{ font: '900 30px/1.05 var(--font-family)', letterSpacing: -.6, marginTop: 10, position: 'relative', zIndex: 2 }}>{c.name}</div>
-          <div style={{ font: '600 15px/1.35 var(--font-family)', opacity: .85, marginTop: 6, position: 'relative', zIndex: 2 }}>{c.shift}</div>
-          <img src={`assets/${c.key}.png`} style={{ position: 'absolute', right: -30, bottom: -40, width: 220, height: 220, opacity: .9 }} />
-        </div>
-      ))}
-    </div>
-  </Section>
-);
-
-Object.assign(window, { LandingNav, LandingHero, CharactersStrip });
+Object.assign(window, { LandingNav, LandingHero });
