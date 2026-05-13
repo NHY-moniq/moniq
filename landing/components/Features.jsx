@@ -6,10 +6,10 @@ const FeaturePersonalCalendar = () => (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
       <div>
         <LandingEyebrow style={{ color: '#B8860B' }}>Feature · 01</LandingEyebrow>
-        <h2 style={{ font: '900 60px/1.02 var(--font-family)', letterSpacing: -1.8, color: '#312F23', marginTop: 18, textWrap: 'balance' }}>
-          팀 근무는 자동으로,<br />내 일정은 함께.
+        <h2 style={{ font: '900 54px/1.05 var(--font-family)', letterSpacing: -1.6, color: '#312F23', marginTop: 18, textWrap: 'balance' }}>
+          개인 캘린더에서 근무와 개인 일정을<br />한번에 관리할 수 있어요.
         </h2>
-        <p style={{ font: '500 18px/1.55 var(--font-family)', color: '#5F5C4D', marginTop: 22, maxWidth: 480 }}>
+        <p style={{ font: '500 18px/1.55 var(--font-family)', color: '#5F5C4D', marginTop: 22, maxWidth: 520 }}>
           팀에 등록된 근무가 내 캘린더에 그대로 흘러들어와요.<br />
           그 위에 개인 일정·메모도 같이 적어두면, 근무와 사생활을 한 화면에서 정리할 수 있어요.
         </p>
@@ -34,11 +34,7 @@ const FeaturePersonalCalendar = () => (
       </div>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
         <PhoneFrame width={340} height={660} tilt={3}>
-          <ScreenshotImage
-            src="assets/screenshots/personal_calendar.png"
-            alt="개인 캘린더 화면"
-            fallback={<MiniCalendarScreen />}
-          />
+          <MiniCalendarScreen />
         </PhoneFrame>
       </div>
     </div>
@@ -51,17 +47,13 @@ const FeatureTeamCalendar = () => (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
         <PhoneFrame width={340} height={660} tilt={-3}>
-          <ScreenshotImage
-            src="assets/screenshots/team_calendar.png"
-            alt="팀 캘린더 화면"
-            fallback={<MiniHomeScreen shift="day" />}
-          />
+          <MiniTeamCalendarScreen />
         </PhoneFrame>
       </div>
       <div>
         <LandingEyebrow style={{ color: '#E07800' }}>Feature · 02</LandingEyebrow>
-        <h2 style={{ font: '900 60px/1.02 var(--font-family)', letterSpacing: -1.8, color: '#312F23', marginTop: 18, textWrap: 'balance' }}>
-          팀은 내가 만들고,<br />근무는 같이 봐요.
+        <h2 style={{ font: '900 54px/1.05 var(--font-family)', letterSpacing: -1.6, color: '#312F23', marginTop: 18, textWrap: 'balance' }}>
+          팀 캘린더 자동 연동으로<br />근무를 쉽고 빠르게 파악할 수 있어요.
         </h2>
         <p style={{ font: '500 18px/1.55 var(--font-family)', color: '#5F5C4D', marginTop: 22, maxWidth: 520 }}>
           병동이든 식당이든, 함께 일하는 사람이라면 팀이 돼요.<br />
@@ -135,9 +127,9 @@ const FeatureSwap = () => (
 // Feature 3-A: Schedule auto-generation with strict rules — flagship section
 const FeatureScheduleAutoGen = () => {
   const rules = [
-    { icon: 'dark_mode', label: '연속 야간 제한', sub: '야간 3일 이상 막아요' },
-    { icon: 'groups', label: '시프트별 인원', sub: 'Day 6 / Eve 4 / Night 3, 부족하면 경고' },
-    { icon: 'workspace_premium', label: '숙련도 배치', sub: '신입-베테랑 균형 자동 조정' },
+    { icon: 'block', label: '기피 근무 등록 및 고려', sub: '못 하는 시간대를 미리 알려두면 알아서 빼요' },
+    { icon: 'flag', label: '원티드 반영 우선순위 설정', sub: '누구의 요청을 먼저 반영할지 정해요' },
+    { icon: 'workspace_premium', label: '숙련도 배치', sub: '신입-베테랑 균형을 자동으로 조정해요' },
   ];
   return (
     <Section paddingY={180}>
@@ -149,7 +141,7 @@ const FeatureScheduleAutoGen = () => {
           marginTop: 24, textWrap: 'balance',
           maxWidth: 880, margin: '24px auto 0',
         }}>
-          자동 생성, 그런데<br />
+          근무표 자동생성, 그런데<br />
           <span style={{
             background: 'linear-gradient(120deg, #FFC107 0%, #FF8C00 60%, #0061A4 110%)',
             WebkitBackgroundClip: 'text',
@@ -159,63 +151,57 @@ const FeatureScheduleAutoGen = () => {
         <p style={{
           font: '500 19px/1.6 var(--font-family)',
           color: '#5F5C4D',
-          maxWidth: 640, margin: '24px auto 0',
+          maxWidth: 720, margin: '24px auto 0',
           textWrap: 'balance',
         }}>
           수간호사 혼자 엑셀 붙잡을 일은 없어요.<br />
-          연차·연속야간·최소휴식·시프트별 인원 같은 규칙을 세세하게 설정하면, 공평한 근무표를 몇 초 안에 만들어요.
+          <strong style={{ color: '#312F23', fontWeight: 800 }}>연차·연속야간·최소휴식·시프트별 인원</strong> 같은 규칙을 세세하게 설정하면, 공평한 근무표를 몇 초 안에 만들어요.
         </p>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 60, alignItems: 'center', marginTop: 32 }}>
-        {/* Left: rule list — 1 column, 3 rows, more breathing room */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {rules.map(r => (
-            <div key={r.label} style={{
-              background: '#FFFDF7', borderRadius: 28, padding: '28px 32px',
-              display: 'flex', gap: 20, alignItems: 'center',
-              border: '1px solid rgba(178,173,156,.25)',
-              boxShadow: '0 8px 20px rgba(49,47,35,.04)',
-            }}>
-              <div style={{
-                width: 56, height: 56, borderRadius: 18,
-                background: '#FFECB3',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 28, color: '#B8860B', fontVariationSettings: "'FILL' 1" }}>{r.icon}</span>
-              </div>
-              <div>
-                <div style={{ font: '900 18px/1.2 var(--font-family)', color: '#312F23' }}>{r.label}</div>
-                <div style={{ font: '500 14px/1.45 var(--font-family)', color: '#5F5C4D', marginTop: 6 }}>{r.sub}</div>
-              </div>
-            </div>
-          ))}
-          <div style={{
-            background: 'linear-gradient(135deg, #FFD700, #FF8C00)',
-            borderRadius: 24, padding: '20px 24px',
-            display: 'flex', gap: 14, alignItems: 'center',
-            boxShadow: '0 16px 32px rgba(255,140,0,.25)',
-            color: '#312F23',
-            marginTop: 4,
+      {/* Hero visual: 노트북에 자동 생성된 근무표가 떠 있는 모습 */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 40, marginBottom: 64 }}>
+        <LaptopFrame width={1040} tilt={-2}>
+          <MiniScheduleGenScreen />
+        </LaptopFrame>
+      </div>
+      {/* Rule cards — 3 카드 가로 배열 + 강조 CTA 카드 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 8 }}>
+        {rules.map(r => (
+          <div key={r.label} style={{
+            background: '#FFFDF7', borderRadius: 24, padding: '24px 26px',
+            display: 'flex', gap: 16, alignItems: 'flex-start',
+            border: '1px solid rgba(178,173,156,.25)',
+            boxShadow: '0 8px 20px rgba(49,47,35,.04)',
           }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 28, fontVariationSettings: "'FILL' 1" }}>bolt</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ font: '900 15px/1.2 var(--font-family)' }}>몇 초 안에 완성.</div>
-              <div style={{ font: '600 13px/1.4 var(--font-family)', marginTop: 4, color: 'rgba(49,47,35,.78)' }}>
-                규칙을 바꾸면 즉시 재생성해요.
-              </div>
+            <div style={{
+              width: 48, height: 48, borderRadius: 14,
+              background: '#FFECB3',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 24, color: '#B8860B', fontVariationSettings: "'FILL' 1" }}>{r.icon}</span>
+            </div>
+            <div>
+              <div style={{ font: '900 16px/1.25 var(--font-family)', color: '#312F23' }}>{r.label}</div>
+              <div style={{ font: '500 13px/1.5 var(--font-family)', color: '#5F5C4D', marginTop: 6 }}>{r.sub}</div>
             </div>
           </div>
-        </div>
-        {/* Right: phone */}
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <PhoneFrame width={340} height={660} tilt={3}>
-            <ScreenshotImage
-              src="assets/screenshots/schedule_rules.png"
-              alt="근무표 생성 규칙 설정 화면"
-              fallback={<MiniHomeScreen shift="day" />}
-            />
-          </PhoneFrame>
+        ))}
+      </div>
+      <div style={{
+        background: 'linear-gradient(135deg, #FFD700, #FF8C00)',
+        borderRadius: 24, padding: '20px 28px',
+        display: 'flex', gap: 16, alignItems: 'center',
+        boxShadow: '0 16px 32px rgba(255,140,0,.22)',
+        color: '#312F23',
+        marginTop: 16,
+      }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 28, fontVariationSettings: "'FILL' 1" }}>bolt</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ font: '900 15px/1.2 var(--font-family)' }}>몇 초 안에 완성.</div>
+          <div style={{ font: '600 13px/1.4 var(--font-family)', marginTop: 4, color: 'rgba(49,47,35,.78)' }}>
+            규칙을 바꾸면 즉시 재생성해요.
+          </div>
         </div>
       </div>
     </Section>
@@ -236,17 +222,17 @@ const FeatureAIReport = () => {
       <div style={{ textAlign: 'center', marginBottom: 56, position: 'relative' }}>
         <LandingChip icon="auto_awesome" bg="rgba(255,140,0,.16)" color="#B05A00">AI 분석 리포트</LandingChip>
         <h2 style={{
-          font: '900 72px/1.02 var(--font-family)',
-          letterSpacing: -2.2, color: '#312F23',
+          font: '900 68px/1.05 var(--font-family)',
+          letterSpacing: -2.0, color: '#312F23',
           marginTop: 24, textWrap: 'balance',
-          maxWidth: 900, margin: '24px auto 0',
+          maxWidth: 980, margin: '24px auto 0',
         }}>
-          한 달 근무표,<br />
+          AI 분석을 통한 스케줄 피드백으로<br />
           <span style={{
             background: 'linear-gradient(120deg, #FFB300 0%, #FF8C00 55%, #E55A00 110%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
-          }}>공평했는지 바로 확인해요.</span>
+          }}>점점 더 똑똑하게.</span>
         </h2>
         <p style={{
           font: '500 19px/1.6 var(--font-family)',
@@ -262,11 +248,7 @@ const FeatureAIReport = () => {
         {/* Left: phone */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <PhoneFrame width={340} height={660} tilt={-3}>
-            <ScreenshotImage
-              src="assets/screenshots/ai_report.png"
-              alt="AI 분석 리포트 화면"
-              fallback={<MiniHomeScreen shift="evening" />}
-            />
+            <MiniAIReportCard />
           </PhoneFrame>
         </div>
         {/* Right: 3 fairness cards stacked */}
@@ -319,13 +301,13 @@ const FeatureCustomRules = () => {
       <div style={{ textAlign: 'center', marginBottom: 56, position: 'relative' }}>
         <LandingChip icon="psychology" bg="rgba(255,215,0,.15)" color="#FFD700">Feature · 03 — Custom Rules</LandingChip>
         <h2 style={{
-          font: '900 76px/1 var(--font-family)',
-          letterSpacing: -2.4, color: '#FCF6E3',
+          font: '900 68px/1.05 var(--font-family)',
+          letterSpacing: -2.2, color: '#FCF6E3',
           marginTop: 24, textWrap: 'balance',
-          maxWidth: 880, margin: '24px auto 0',
+          maxWidth: 940, margin: '24px auto 0',
         }}>
-          규칙을 글로 쓰면<br />
-          <span style={{ color: '#FFD700' }}>Moniq가 알아들어요.</span>
+          우리만의 규칙이 있다면<br />
+          <span style={{ color: '#FFD700' }}>OnorOff에 규칙으로 등록하세요.</span>
         </h2>
         <p style={{
           font: '500 19px/1.6 var(--font-family)',
@@ -395,15 +377,41 @@ const FeatureCustomRules = () => {
               <span className="material-symbols-outlined" style={{ fontSize: 22, color: '#312F23', fontVariationSettings: "'FILL' 1" }}>arrow_upward</span>
             </button>
           </div>
+          {/* 소프트/하드 각주 — 입력 mock 바로 아래 */}
+          <div style={{
+            marginTop: 18,
+            paddingTop: 16,
+            borderTop: '1px solid rgba(252,246,227,.1)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            font: '500 12px/1.55 var(--font-family)',
+            color: 'rgba(252,246,227,.6)',
+          }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <span style={{
+                background: 'rgba(176,37,0,.18)', color: '#FF8C7A',
+                padding: '3px 8px', borderRadius: 9999,
+                font: '800 9px/1 var(--font-family)', letterSpacing: 1.2,
+                flexShrink: 0, marginTop: 1,
+              }}>하드</span>
+              <span>반드시 지켜야 하는 규칙. 위반 시 생성이 막혀요.</span>
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <span style={{
+                background: 'rgba(255,193,7,.2)', color: '#FFD700',
+                padding: '3px 8px', borderRadius: 9999,
+                font: '800 9px/1 var(--font-family)', letterSpacing: 1.2,
+                flexShrink: 0, marginTop: 1,
+              }}>소프트</span>
+              <span>가급적 지키도록 노력하는 규칙. 충돌하면 우선순위에 따라 조정해요.</span>
+            </div>
+          </div>
         </div>
         {/* Right: phone */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <PhoneFrame width={340} height={660} tilt={-3} shadow="0 40px 80px rgba(0,0,0,.4)">
-            <ScreenshotImage
-              src="assets/screenshots/custom_rules.png"
-              alt="자연어 커스텀 규칙 화면"
-              fallback={<MiniHomeScreen shift="night" />}
-            />
+            <MiniCustomRulesScreen />
           </PhoneFrame>
         </div>
       </div>
@@ -411,41 +419,4 @@ const FeatureCustomRules = () => {
   );
 };
 
-// Per-shift theming section — three phones on a gradient
-const FeatureShiftTheming = () => (
-  <Section bg="#1F1D14" paddingY={140} style={{ color: '#FCF6E3' }}>
-    <div style={{ textAlign: 'center', marginBottom: 72 }}>
-      <LandingEyebrow color="#FCF6E3" style={{ opacity: .6 }}>Per-shift theming</LandingEyebrow>
-      <h2 style={{ font: '900 60px/1.02 var(--font-family)', letterSpacing: -1.8, marginTop: 18, color: '#FCF6E3', textWrap: 'balance', maxWidth: 760, margin: '18px auto 20px' }}>
-        오늘의 근무에 맞춰<br />앱도 옷을 갈아입어요.
-      </h2>
-      <p style={{ font: '500 17px/1.6 var(--font-family)', color: 'rgba(252,246,227,.75)', maxWidth: 560, margin: '0 auto' }}>
-        Day는 따뜻한 크림, Night는 차분한 쿨톤.<br />
-        화면 색이 바뀌면 마음의 준비도 함께 돼요.
-      </p>
-    </div>
-    <div style={{ display: 'flex', justifyContent: 'center', gap: 24, flexWrap: 'wrap' }}>
-      {[
-        { shift: 'day', label: 'Day' },
-        { shift: 'evening', label: 'Evening' },
-        { shift: 'night', label: 'Night' },
-      ].map((t, i) => (
-        <div key={t.shift} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-          <PhoneFrame width={280} height={560} tilt={[-4, 0, 4][i]} shadow="0 40px 80px rgba(0,0,0,.4)">
-            <ScreenshotImage
-              src={`assets/screenshots/shift_${t.shift}.png`}
-              alt={`${t.label} 시프트 홈 화면`}
-              fallback={<MiniHomeScreen shift={t.shift} />}
-            />
-          </PhoneFrame>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: SHIFTS_LANDING[t.shift].card }} />
-            <div style={{ font: '800 11px/1 var(--font-family)', letterSpacing: 1.8, textTransform: 'uppercase', color: '#FCF6E3' }}>{t.label} Shift</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  </Section>
-);
-
-Object.assign(window, { FeaturePersonalCalendar, FeatureTeamCalendar, FeatureScheduleAutoGen, FeatureAIReport, FeatureCustomRules, FeatureSwap, FeatureShiftTheming });
+Object.assign(window, { FeaturePersonalCalendar, FeatureTeamCalendar, FeatureScheduleAutoGen, FeatureAIReport, FeatureCustomRules, FeatureSwap });

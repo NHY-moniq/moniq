@@ -32,7 +32,11 @@ class MoniqCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final bg = backgroundColor ?? cs.surfaceContainerLowest;
+    final isDark = cs.brightness == Brightness.dark;
+    // 다크 모드에서는 scaffold(surfaceContainerLow)보다 한 단계 밝은 surface를 사용해
+    // 카드가 함몰돼 보이는 현상을 방지한다. 라이트 모드는 기존 흰색 카드 유지.
+    final bg = backgroundColor ??
+        (isDark ? cs.surfaceContainer : cs.surfaceContainerLowest);
 
     final decoration = BoxDecoration(
       color: bg,
@@ -48,7 +52,7 @@ class MoniqCard extends StatelessWidget {
       boxShadow: elevated
           ? [
               BoxShadow(
-                color: cs.shadow.withValues(alpha: 0.04),
+                color: cs.shadow.withValues(alpha: isDark ? 0.32 : 0.04),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -96,6 +100,11 @@ class MoniqGroupedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    // 다크 모드에서는 scaffold보다 한 단계 밝은 surface를 사용해 카드가
+    // 스캐폴드 아래로 가라앉아 보이는 인버전을 방지한다.
+    final bg = backgroundColor ??
+        (isDark ? cs.surfaceContainer : cs.surfaceContainerLowest);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -119,12 +128,11 @@ class MoniqGroupedCard extends StatelessWidget {
         Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: backgroundColor ??
-                cs.surfaceContainerLowest,
+            color: bg,
             borderRadius: AppRadius.borderRadiusLg,
             boxShadow: [
               BoxShadow(
-                color: cs.shadow.withValues(alpha: 0.04),
+                color: cs.shadow.withValues(alpha: isDark ? 0.32 : 0.04),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -195,8 +203,14 @@ class MoniqCardRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
     final color =
         destructive ? cs.error : cs.onSurface;
+    // 카드 surface가 다크에서 surfaceContainer로 바뀌었으므로, 그 위에 놓이는
+    // 아이콘 타일은 한 단계 더 밝은 surfaceContainerHigh로 띄운다.
+    final iconTileColor = destructive
+        ? cs.error.withValues(alpha: 0.1)
+        : (isDark ? cs.surfaceContainerHigh : cs.surfaceContainerLow);
 
     final trailingWidget = trailing ??
         (valuePill != null
@@ -222,9 +236,7 @@ class MoniqCardRow extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: destructive
-                      ? cs.error.withValues(alpha: 0.1)
-                      : cs.surfaceContainerLow,
+                  color: iconTileColor,
                   borderRadius: AppRadius.borderRadiusMd,
                 ),
                 child: Icon(icon, size: 20, color: color),
@@ -273,13 +285,14 @@ class _ValuePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
         vertical: 4,
       ),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
+        color: isDark ? cs.surfaceContainerHigh : cs.surfaceContainerLow,
         borderRadius: AppRadius.borderRadiusFull,
       ),
       child: Text(

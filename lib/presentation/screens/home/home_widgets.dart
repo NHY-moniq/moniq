@@ -6,10 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/time_utils.dart';
+import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/user_model.dart';
 import 'package:moniq/data/providers/announcement_providers.dart';
 import 'package:moniq/data/providers/handover_providers.dart';
+import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/screens/handover/handover_modal.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
@@ -313,6 +315,135 @@ class HandoverCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+// ════════════════════════════════════════════════
+// Today Events Card — 오늘 개인 일정 간략 표시
+// ════════════════════════════════════════════════
+
+class TodayEventsCard extends ConsumerWidget {
+  const TodayEventsCard({super.key, required this.shiftTheme});
+
+  final ShiftThemeData shiftTheme;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    final now = DateTime.now();
+    final todayKey = DateTime(now.year, now.month, now.day);
+
+    // 개인 캘린더(SharedPreferences)는 초기화 전 접근 시 throw 가능 → 가드.
+    List<PersonalEvent> events = const [];
+    Set<String> shiftTypeNames = const {};
+    try {
+      events = ref.watch(dateEventsProvider(todayKey));
+      shiftTypeNames = ref
+          .watch(personalShiftTypesProvider)
+          .map((st) => st.name)
+          .toSet();
+    } catch (_) {
+      // 초기화 전 — 빈 상태로 표시
+    }
+
+    // 개인 시프트(=근무 카드에서 이미 표현됨)는 일정에서 제외
+    final dayEvents =
+        events.where((e) => !shiftTypeNames.contains(e.title)).toList();
+    final count = dayEvents.length;
+    final preview = dayEvents.firstOrNull;
+
+    return GestureDetector(
+      onTap: () => context.go('/calendar'),
+      child: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: shiftTheme.primary.withValues(alpha: isDark ? 0.18 : 0.08),
+          borderRadius: AppRadius.borderRadiusLg,
+          border: Border.all(
+            color:
+                shiftTheme.primary.withValues(alpha: isDark ? 0.40 : 0.12),
+          ),
+          boxShadow: isDark
+              ? const []
+              : [
+                  BoxShadow(
+                    color: shiftTheme.primary.withValues(alpha: 0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: shiftTheme.primary.withValues(alpha: 0.18),
+                borderRadius: AppRadius.borderRadiusSm,
+              ),
+              child: Icon(
+                Icons.event_note_outlined,
+                size: 16,
+                color: shiftTheme.accentText,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        '오늘 일정',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.3,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Text(
+                        '$count개',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: shiftTheme.accentText,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    _formatPreview(preview),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurface,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatPreview(PersonalEvent? e) {
+    if (e == null) return '일정 없음';
+    final t = e.startTime;
+    if (t == null || t.isEmpty) return e.title;
+    return '$t ${e.title}';
   }
 }
 

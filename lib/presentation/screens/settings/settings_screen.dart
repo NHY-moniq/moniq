@@ -44,7 +44,8 @@ class SettingsScreen extends HookConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.only(
             top: AppSpacing.sm,
-            bottom: AppSpacing.massive,
+            // 하단 BottomNavigation(72)과 safe area에 가려지지 않도록 충분히 확보
+            bottom: 120,
           ),
           children: const [
             // 프로필 hero — 좌우 패딩 없이 edge-to-edge
@@ -112,10 +113,11 @@ class _ShiftThemedProfileHero extends ConsumerWidget {
           padding: const EdgeInsets.all(AppSpacing.xl),
           child: Stack(
             children: [
-              // 마스코트는 카드 내부에서 우하단으로 (잘림 처리)
+              // 마스코트는 카드 우하단 코너로 살짝 걸쳐서 표시.
+              // 카드 높이보다 크면 상단이 잘리므로 사이즈/오프셋을 컴팩트하게.
               Positioned(
-                right: -12,
-                bottom: -18,
+                right: -6,
+                bottom: -10,
                 child: IgnorePointer(
                   child: Opacity(
                     opacity: 0.28,
@@ -123,8 +125,8 @@ class _ShiftThemedProfileHero extends ConsumerWidget {
                       angle: 0.18,
                       child: Image.asset(
                         shift.characterAsset,
-                        width: 130,
-                        height: 130,
+                        width: 96,
+                        height: 96,
                         fit: BoxFit.contain,
                       ),
                     ),
@@ -193,44 +195,43 @@ class _HeroAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // 다크 모드에서는 그림자가 의미 있게 보이도록 alpha 증대
+    // 그림자가 사각형처럼 보이지 않도록 다크 모드에서도 자연스러운 강도로 유지
     final shadowColor =
-        Colors.black.withValues(alpha: isDark ? 0.45 : 0.10);
+        Colors.black.withValues(alpha: isDark ? 0.24 : 0.10);
     // edit 펜 아이콘 — 흰색 배지 위라 항상 어두운 색
     const editIconColor = Color(0xFF1A1A1A);
+
+    final hasImage = url != null && url!.isNotEmpty;
 
     return Stack(
       clipBehavior: Clip.none,
       children: [
+        // 아바타 본체 — BoxDecoration.image로 원형 클리핑을 결정적으로 보장.
+        // (ClipOval + CachedNetworkImage 조합은 일부 케이스에서 사각 잔상이 남는
+        //  걸 봤어서 가장 견고한 방식을 사용.)
         Container(
           width: 72,
           height: 72,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Colors.white,
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.6),
-              width: 3,
-            ),
+            image: hasImage
+                ? DecorationImage(
+                    image: CachedNetworkImageProvider(url!),
+                    fit: BoxFit.cover,
+                  )
+                : null,
             boxShadow: [
               BoxShadow(
                 color: shadowColor,
-                blurRadius: 16,
-                offset: const Offset(0, 6),
+                blurRadius: 18,
+                spreadRadius: -2,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          clipBehavior: Clip.antiAlias,
           alignment: Alignment.center,
-          child: (url != null && url!.isNotEmpty)
-              ? CachedNetworkImage(
-                  imageUrl: url!,
-                  fit: BoxFit.cover,
-                  width: 72,
-                  height: 72,
-                  errorWidget: (_, __, ___) => _InitialBadge(text: initial),
-                )
-              : _InitialBadge(text: initial),
+          child: hasImage ? null : _InitialBadge(text: initial),
         ),
         Positioned(
           bottom: -2,

@@ -168,7 +168,7 @@ const LandingFooter = () => (
       ))}
     </div>
     <div style={{ maxWidth: 1280, margin: '48px auto 0', paddingTop: 28, borderTop: '1px solid rgba(252,246,227,.12)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-      <div style={{ font: '500 13px/1 var(--font-family)', color: 'rgba(252,246,227,.5)' }}>© 2026 OnorOff · Moniq. Built for the ones who work when we sleep.</div>
+      <div style={{ font: '500 13px/1 var(--font-family)', color: 'rgba(252,246,227,.5)' }}>© 2026 OnorOff. Built for the ones who work when we sleep.</div>
       <div style={{ display: 'flex', gap: 14 }}>
         {['mail','language','forum'].map(i => (
           <div key={i} style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(252,246,227,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>

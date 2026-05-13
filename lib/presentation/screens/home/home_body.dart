@@ -9,6 +9,7 @@ import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/screens/home/active_shift_card.dart';
 import 'package:moniq/presentation/screens/home/home_widgets.dart';
+import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 
 // ════════════════════════════════════════════════
 // Home Body
@@ -74,7 +75,17 @@ class HomeBody extends ConsumerWidget {
         hasServerShift ? firstShift.shiftType.endTime : matchedShiftType?.endTime;
     final startTime = rawStart == null ? null : formatTimeString(rawStart);
     final endTime = rawEnd == null ? null : formatTimeString(rawEnd);
-    final teamName = hasServerShift ? firstShift.teamName : null;
+
+    // 서버 shift는 teamId만 가지고 있어 팀 목록에서 이름을 조회.
+    // 개인 캘린더 기반(=서버 shift 없음) 항목은 팀이 없는 사적 일정이라 null.
+    String? teamName;
+    if (hasServerShift) {
+      final teams = ref.watch(teamViewModelProvider).valueOrNull ?? const [];
+      teamName = teams
+          .where((t) => t.id == firstShift.shift.teamId)
+          .map((t) => t.name)
+          .firstOrNull;
+    }
 
     // Subtitle — 랜덤 인사말
     final subtitle = isOff
@@ -133,7 +144,7 @@ class HomeBody extends ConsumerWidget {
                     children: [
                       Expanded(child: NextOffCard(shiftTheme: shiftTheme)),
                       const SizedBox(height: AppSpacing.md),
-                      Expanded(child: HandoverCard(shiftTheme: shiftTheme)),
+                      Expanded(child: TodayEventsCard(shiftTheme: shiftTheme)),
                     ],
                   ),
                 ),
