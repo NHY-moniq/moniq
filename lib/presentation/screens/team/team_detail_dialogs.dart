@@ -29,88 +29,54 @@ void showConfirmLeaveDialog({
   switch (result) {
     case LeaveResult.lastAdmin:
       // 유일한 관리자 -> 위임 안내
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('관리자 위임 필요'),
-          content: const Text(
-            '팀에 관리자가 최소 1명 필요합니다.\n'
-            '다른 멤버를 관리자로 지정한 후 나갈 수 있습니다.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('닫기'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                context.push('/teams/$teamId/members');
-              },
-              child: const Text('멤버 관리로 이동'),
-            ),
-          ],
-        ),
-      );
+      () async {
+        final goToMembers = await showMoniqConfirmSheet(
+          context: context,
+          title: '관리자 위임 필요',
+          message:
+              '팀에 관리자가 최소 1명 필요합니다.\n'
+              '다른 멤버를 관리자로 지정한 후 나갈 수 있습니다.',
+          confirmLabel: '멤버 관리로 이동',
+          cancelLabel: '닫기',
+        );
+        if (goToMembers && context.mounted) {
+          context.push('/teams/$teamId/members');
+        }
+      }();
 
     case LeaveResult.onlyMember:
       // 혼자 남은 팀 -> 삭제 시도하지 않고 안내만
-      showDialog(
+      showMoniqInfoSheet(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('팀 나가기 불가'),
-          content: const Text(
-            '혼자 남으셨습니다. 팀 제거를 해주세요.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('확인'),
-            ),
-          ],
-        ),
+        title: '팀 나가기 불가',
+        message: '혼자 남으셨습니다. 팀 제거를 해주세요.',
       );
 
     case LeaveResult.canLeave:
       // 일반 나가기
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('팀 나가기'),
-          content: Text('${state.team.name} 팀에서 나가시겠습니까?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                try {
-                  await notifier.leaveTeam();
-                  ref.invalidate(teamViewModelProvider);
-                  ref.invalidate(favoriteTeamProvider);
-                  if (context.mounted) context.go('/teams');
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('팀 나가기에 실패했습니다: $e'),
-                      ),
-                    );
-                  }
-                }
-              },
-              child: Text(
-                '나가기',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
+      () async {
+        final ok = await showMoniqConfirmSheet(
+          context: context,
+          title: '팀 나가기',
+          message: '${state.team.name} 팀에서 나가시겠습니까?',
+          confirmLabel: '나가기',
+          cancelLabel: '취소',
+          destructive: true,
+        );
+        if (!ok) return;
+        try {
+          await notifier.leaveTeam();
+          ref.invalidate(teamViewModelProvider);
+          ref.invalidate(favoriteTeamProvider);
+          if (context.mounted) context.go('/teams');
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('팀 나가기에 실패했습니다: $e')));
+          }
+        }
+      }();
   }
 }
 
@@ -121,47 +87,32 @@ void showConfirmDeleteDialog({
   required String teamId,
   required TeamDetailState state,
 }) {
-  showDialog(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('팀 삭제'),
-      content: Text(
-        '${state.team.name} 팀을 삭제하시겠습니까?\n'
-        '모든 멤버가 더 이상 이 팀에 접근할 수 없습니다.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('취소'),
-        ),
-        TextButton(
-          onPressed: () async {
-            Navigator.pop(ctx);
-            try {
-              await ref
-                  .read(teamDetailViewModelProvider(teamId).notifier)
-                  .deleteTeam();
-              ref.invalidate(teamViewModelProvider);
-              ref.invalidate(favoriteTeamProvider);
-              if (context.mounted) context.go('/teams');
-            } catch (e) {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('팀 삭제에 실패했습니다: $e')),
-                );
-              }
-            }
-          },
-          child: Text(
-            '삭제',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.error,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
+  () async {
+    final confirmed = await showMoniqConfirmSheet(
+      context: context,
+      title: '팀 삭제',
+      message:
+          '${state.team.name} 팀을 삭제하시겠습니까?\n'
+          '모든 멤버가 더 이상 이 팀에 접근할 수 없습니다.',
+      confirmLabel: '삭제',
+      cancelLabel: '취소',
+      destructive: true,
+    );
+    if (!confirmed) return;
+
+    try {
+      await ref.read(teamDetailViewModelProvider(teamId).notifier).deleteTeam();
+      ref.invalidate(teamViewModelProvider);
+      ref.invalidate(favoriteTeamProvider);
+      if (context.mounted) context.go('/teams');
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('팀 삭제에 실패했습니다: $e')));
+      }
+    }
+  }();
 }
 
 /// Delete schedule by month bottom sheet
@@ -183,8 +134,7 @@ void showDeleteScheduleSheet({
     // 루트 네비게이터로 띄워 하단 탭바 위에 표시 (탭바 가림)
     useRootNavigator: true,
     shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
     ),
     builder: (ctx) => SizedBox(
       height: 350,
@@ -192,7 +142,9 @@ void showDeleteScheduleSheet({
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -200,10 +152,12 @@ void showDeleteScheduleSheet({
                   onPressed: () => Navigator.pop(ctx),
                   child: const Text('취소'),
                 ),
-                Text('삭제할 연월 선택',
-                    style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        )),
+                Text(
+                  '삭제할 연월 선택',
+                  style: Theme.of(
+                    ctx,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
                 TextButton(
                   onPressed: () async {
                     Navigator.pop(ctx);
@@ -214,8 +168,7 @@ void showDeleteScheduleSheet({
                     final confirm = await showMoniqDestructiveConfirm(
                       context: context,
                       title: '정말 삭제하시겠습니까?',
-                      message:
-                          '$year년 $month월의 모든 팀 일정이\n삭제되며 복구할 수 없습니다.',
+                      message: '$year년 $month월의 모든 팀 일정이\n삭제되며 복구할 수 없습니다.',
                     );
                     if (!confirm) return;
 
@@ -229,8 +182,9 @@ void showDeleteScheduleSheet({
                       if (ref != null) {
                         try {
                           await ref
-                              .read(teamCalendarViewModelProvider(teamId)
-                                  .notifier)
+                              .read(
+                                teamCalendarViewModelProvider(teamId).notifier,
+                              )
                               .refresh();
                         } catch (_) {}
                         ref.invalidate(teamDetailViewModelProvider(teamId));
@@ -243,26 +197,23 @@ void showDeleteScheduleSheet({
                       }
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                                '$year년 $month월 일정이 삭제되었습니다'),
-                          ),
+                          SnackBar(content: Text('$year년 $month월 일정이 삭제되었습니다')),
                         );
                       }
                     } catch (e) {
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('삭제 실패: $e')),
-                        );
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('삭제 실패: $e')));
                       }
                     }
                   },
-                  child: Text('삭제',
-                      style: TextStyle(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .error,
-                      )),
+                  child: Text(
+                    '삭제',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -293,31 +244,24 @@ void showEditTeamSheet({
   required TeamDetailState state,
 }) {
   final nameController = TextEditingController(text: state.team.name);
-  final descController =
-      TextEditingController(text: state.team.description ?? '');
+  final descController = TextEditingController(
+    text: state.team.description ?? '',
+  );
   Uint8List? pickedImageBytes;
 
-  showModalBottomSheet(
+  showMoniqBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setSheetState) => Padding(
+    title: '팀 정보 수정',
+    eyebrow: 'TEAM',
+    child: StatefulBuilder(
+      builder: (ctx, setSheetState) => SingleChildScrollView(
         padding: EdgeInsets.only(
-          left: AppSpacing.xxl,
-          right: AppSpacing.xxl,
-          top: AppSpacing.xxl,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xxl,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.sm,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('팀 정보 수정',
-                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    )),
-            const SizedBox(height: AppSpacing.xxl),
-
             // 프로필 이미지
             Center(
               child: GestureDetector(
@@ -340,20 +284,20 @@ void showEditTeamSheet({
                   children: [
                     CircleAvatar(
                       radius: 44,
-                      backgroundColor: Theme.of(ctx)
-                          .colorScheme
-                          .primaryContainer,
+                      backgroundColor: Theme.of(
+                        ctx,
+                      ).colorScheme.primaryContainer,
                       backgroundImage: pickedImageBytes != null
                           ? MemoryImage(pickedImageBytes!)
                           : (state.team.icon != null &&
-                                  state.team.icon!.startsWith('http'))
-                              ? NetworkImage(state.team.icon!)
-                              : null,
-                      child: (pickedImageBytes == null &&
+                                state.team.icon!.startsWith('http'))
+                          ? NetworkImage(state.team.icon!)
+                          : null,
+                      child:
+                          (pickedImageBytes == null &&
                               (state.team.icon == null ||
                                   !state.team.icon!.startsWith('http')))
-                          ? TeamProfileAvatar(
-                              icon: state.team.icon, radius: 44)
+                          ? TeamProfileAvatar(icon: state.team.icon, radius: 44)
                           : null,
                     ),
                     Positioned(
@@ -363,23 +307,21 @@ void showEditTeamSheet({
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: Theme.of(ctx)
-                              .colorScheme
-                              .primary,
+                          color: Theme.of(ctx).colorScheme.primary,
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.camera_alt,
-                            size: 14,
-                            color: Theme.of(ctx)
-                                .colorScheme
-                                .surface),
+                        child: Icon(
+                          Icons.camera_alt,
+                          size: 14,
+                          color: Theme.of(ctx).colorScheme.surface,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: AppSpacing.xxl),
+            const SizedBox(height: AppSpacing.xl),
 
             TextField(
               controller: nameController,
@@ -398,7 +340,14 @@ void showEditTeamSheet({
               maxLines: 2,
             ),
             const SizedBox(height: AppSpacing.xxl),
-            ElevatedButton(
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(ctx).colorScheme.primary,
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.borderRadiusFull,
+                ),
+              ),
               onPressed: () async {
                 String? iconUrl;
 
@@ -409,15 +358,14 @@ void showEditTeamSheet({
                     final userId = client.auth.currentUser!.id;
                     final path =
                         '$userId/team_${state.team.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                    await client.storage.from('avatars').uploadBinary(
+                    await client.storage
+                        .from('avatars')
+                        .uploadBinary(
                           path,
                           pickedImageBytes!,
-                          fileOptions:
-                              const FileOptions(upsert: true),
+                          fileOptions: const FileOptions(upsert: true),
                         );
-                    iconUrl = client.storage
-                        .from('avatars')
-                        .getPublicUrl(path);
+                    iconUrl = client.storage.from('avatars').getPublicUrl(path);
                   } catch (_) {}
                 }
 

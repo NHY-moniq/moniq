@@ -5,7 +5,6 @@ import 'package:moniq/core/utils/time_utils.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/presentation/screens/team/custom_shift_form.dart';
 import 'package:moniq/presentation/screens/team/shift_template_data.dart';
-import 'package:moniq/presentation/screens/team/shift_types_list_widgets.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
@@ -204,7 +203,7 @@ class ShiftTypeCard extends ConsumerWidget {
   }
 }
 
-/// 근무 유형 추가 바텀시트 (템플릿 or 커스텀)
+/// 근무 유형 추가 바텀시트 (커스텀 폼)
 class ShiftTypeAddSheet extends ConsumerStatefulWidget {
   const ShiftTypeAddSheet({
     super.key,
@@ -220,9 +219,6 @@ class ShiftTypeAddSheet extends ConsumerStatefulWidget {
 }
 
 class _ShiftTypeAddSheetState extends ConsumerState<ShiftTypeAddSheet> {
-  bool _isCustom = false;
-
-  // 커스텀 입력용
   final _nameC = TextEditingController();
   final _codeC = TextEditingController();
   final _startC = TextEditingController();
@@ -237,20 +233,6 @@ class _ShiftTypeAddSheetState extends ConsumerState<ShiftTypeAddSheet> {
     _startC.dispose();
     _endC.dispose();
     super.dispose();
-  }
-
-  Future<void> _addTemplate(ShiftTemplate t) async {
-    setState(() => _saving = true);
-    await ref
-        .read(teamDetailViewModelProvider(widget.teamId).notifier)
-        .createShiftType(
-          name: t.name,
-          code: t.code,
-          startTime: t.startTime,
-          endTime: t.endTime,
-          color: t.color,
-        );
-    if (mounted) Navigator.pop(context);
   }
 
   Future<void> _addCustom() async {
@@ -277,220 +259,42 @@ class _ShiftTypeAddSheetState extends ConsumerState<ShiftTypeAddSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final cs = Theme.of(context).colorScheme;
 
     return SingleChildScrollView(
       padding: EdgeInsets.only(
-        left: AppSpacing.lg,
-        right: AppSpacing.lg,
-        top: AppSpacing.xl,
-        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.xl,
+        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.sm,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 핸들
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.outlineVariant,
-                borderRadius: AppRadius.borderRadiusFull,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-
-          Text(
-            '근무 유형 추가',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+          CustomShiftForm(
+            nameC: _nameC,
+            codeC: _codeC,
+            startC: _startC,
+            endC: _endC,
+            selectedColor: _selectedColor,
+            onColorChanged: (c) => setState(() => _selectedColor = c),
+            existingCodes: widget.existingCodes,
           ),
           const SizedBox(height: AppSpacing.xl),
-
-          if (!_isCustom) ...[
-            // 템플릿 선택
-            ...(defaultShiftTemplates
-                .where((t) => !widget.existingCodes.contains(t.code))
-                .map(
-                  (t) => TemplateTile(
-                    template: t,
-                    loading: _saving,
-                    onTap: () => _addTemplate(t),
-                  ),
-                )),
-
-            if (defaultShiftTemplates.every(
-              (t) => widget.existingCodes.contains(t.code),
-            ))
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                child: Text(
-                  '기본 유형이 모두 추가되었습니다',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-
-            const SizedBox(height: AppSpacing.md),
-            const Divider(),
-            const SizedBox(height: AppSpacing.sm),
-
-            // 커스텀 만들기 버튼
-            TextButton.icon(
-              onPressed: () => setState(() => _isCustom = true),
-              icon: const Icon(Icons.edit_rounded, size: 18),
-              label: const Text('직접 만들기'),
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ] else ...[
-            // 커스텀 입력 폼
-            CustomShiftForm(
-              nameC: _nameC,
-              codeC: _codeC,
-              startC: _startC,
-              endC: _endC,
-              selectedColor: _selectedColor,
-              onColorChanged: (c) => setState(() => _selectedColor = c),
-              existingCodes: widget.existingCodes,
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => setState(() => _isCustom = false),
-                    child: const Text('뒤로'),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  flex: 2,
-                  child: FilledButton(
-                    onPressed: _saving ? null : _addCustom,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
+          FilledButton(
+            onPressed: _saving ? null : _addCustom,
+            style: FilledButton.styleFrom(backgroundColor: cs.primary),
+            child: _saving
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: cs.onPrimary,
                     ),
-                    child: _saving
-                        ? SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Theme.of(context).colorScheme.onPrimary,
-                            ),
-                          )
-                        : const Text('추가'),
-                  ),
-                ),
-              ],
-            ),
-          ],
+                  )
+                : const Text('추가'),
+          ),
           const SizedBox(height: AppSpacing.sm),
         ],
-      ),
-    );
-  }
-}
-
-/// 템플릿 선택 타일 (애니메이션 아이콘 포함)
-class TemplateTile extends StatelessWidget {
-  const TemplateTile({
-    super.key,
-    required this.template,
-    required this.loading,
-    required this.onTap,
-  });
-
-  final ShiftTemplate template;
-  final bool loading;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = parseHexColor(template.color);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Material(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: AppRadius.borderRadiusMd,
-        child: InkWell(
-          onTap: loading ? null : onTap,
-          borderRadius: AppRadius.borderRadiusMd,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
-            ),
-            child: Row(
-              children: [
-                // 정적 아이콘
-                StaticShiftIcon(
-                  icon: template.icon,
-                  color: color,
-                  code: template.code,
-                ),
-                const SizedBox(width: AppSpacing.lg),
-
-                // 정보
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.sm,
-                              vertical: AppSpacing.xxs,
-                            ),
-                            decoration: BoxDecoration(
-                              color: color,
-                              borderRadius: AppRadius.borderRadiusSm,
-                            ),
-                            child: Text(
-                              template.code,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.surface,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Text(
-                            template.name,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xxs),
-                      Text(
-                        template.description,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                Icon(Icons.add_circle_rounded, color: color, size: 28),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -584,16 +388,13 @@ class _ShiftTypeEditSheetState extends ConsumerState<ShiftTypeEditSheet> {
 
     return SingleChildScrollView(
       padding: EdgeInsets.only(
-        left: AppSpacing.lg,
-        right: AppSpacing.lg,
-        top: AppSpacing.xl,
-        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.xl,
+        top: AppSpacing.xs,
+        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.sm,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: AppSpacing.sm),
           CustomShiftForm(
             nameC: _nameC,
             codeC: _codeC,
@@ -621,7 +422,7 @@ class _ShiftTypeEditSheetState extends ConsumerState<ShiftTypeEditSheet> {
                   )
                 : const Text('저장'),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.xs),
         ],
       ),
     );

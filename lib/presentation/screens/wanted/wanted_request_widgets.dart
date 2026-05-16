@@ -325,8 +325,11 @@ class WantedRequestActiveView extends HookConsumerWidget {
       final uid = ew.entry.userId;
       groupedByUser.putIfAbsent(
         uid,
-        () =>
-            WantedRequestUserEntryGroup(displayName: ew.displayName, items: []),
+        () => WantedRequestUserEntryGroup(
+          userId: uid,
+          displayName: ew.displayName,
+          items: [],
+        ),
       );
       groupedByUser[uid]!.items.add(
         WantedEntryDisplayItem(
@@ -341,6 +344,14 @@ class WantedRequestActiveView extends HookConsumerWidget {
       group.items.sort((a, b) => a.date.compareTo(b.date));
     }
     final userGroups = groupedByUser.values.toList();
+    final activeGroupSeed = userGroups.map((g) => g.userId).join(',');
+    final expandedActiveUserIds = useState<Set<String>>(
+      userGroups.map((g) => g.userId).toSet(),
+    );
+    useEffect(() {
+      expandedActiveUserIds.value = userGroups.map((g) => g.userId).toSet();
+      return null;
+    }, [activeGroupSeed, isNight]);
 
     // 엔트리 칩 빌더 (shiftTypeId 기반: null=오프/회색, non-null=근무 유형 색)
     Widget entryChip(WantedEntryDisplayItem item) {
@@ -719,6 +730,9 @@ class WantedRequestActiveView extends HookConsumerWidget {
                       itemCount: userGroups.length,
                       itemBuilder: (context, index) {
                         final group = userGroups[index];
+                        final isExpanded = expandedActiveUserIds.value.contains(
+                          group.userId,
+                        );
 
                         final initial = group.displayName.isNotEmpty
                             ? group.displayName[0].toUpperCase()
@@ -730,46 +744,87 @@ class WantedRequestActiveView extends HookConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 18,
-                                      backgroundColor: colorScheme.primary
-                                          .withValues(alpha: 0.12),
-                                      child: Text(
-                                        initial,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w700,
-                                          color: colorScheme.primary,
-                                        ),
-                                      ),
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.md,
+                                  ),
+                                  onTap: () {
+                                    final next = Set<String>.from(
+                                      expandedActiveUserIds.value,
+                                    );
+                                    if (isExpanded) {
+                                      next.remove(group.userId);
+                                    } else {
+                                      next.add(group.userId);
+                                    }
+                                    expandedActiveUserIds.value = next;
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: AppSpacing.xs,
                                     ),
-                                    const SizedBox(width: AppSpacing.md),
-                                    Expanded(
-                                      child: Text(
-                                        group.displayName,
-                                        style: theme.textTheme.titleSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w600,
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 18,
+                                          backgroundColor: colorScheme.primary
+                                              .withValues(alpha: 0.12),
+                                          child: Text(
+                                            initial,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: colorScheme.primary,
                                             ),
-                                      ),
-                                    ),
-                                    Text(
-                                      '${group.items.length}건',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: colorScheme.primary,
-                                            fontWeight: FontWeight.w600,
                                           ),
+                                        ),
+                                        const SizedBox(width: AppSpacing.md),
+                                        Expanded(
+                                          child: Text(
+                                            group.displayName,
+                                            style: theme.textTheme.titleSmall
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                        ),
+                                        Text(
+                                          '${group.items.length}건',
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: colorScheme.primary,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                        const SizedBox(width: AppSpacing.xs),
+                                        Icon(
+                                          isExpanded
+                                              ? Icons.keyboard_arrow_up
+                                              : Icons.keyboard_arrow_down,
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
-                                const SizedBox(height: AppSpacing.md),
-                                Wrap(
-                                  spacing: AppSpacing.sm,
-                                  runSpacing: AppSpacing.sm,
-                                  children: group.items.map(entryChip).toList(),
+                                AnimatedCrossFade(
+                                  firstChild: const SizedBox.shrink(),
+                                  secondChild: Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: AppSpacing.md,
+                                    ),
+                                    child: Wrap(
+                                      spacing: AppSpacing.sm,
+                                      runSpacing: AppSpacing.sm,
+                                      children: group.items
+                                          .map(entryChip)
+                                          .toList(),
+                                    ),
+                                  ),
+                                  crossFadeState: isExpanded
+                                      ? CrossFadeState.showSecond
+                                      : CrossFadeState.showFirst,
+                                  duration: const Duration(milliseconds: 180),
                                 ),
                               ],
                             ),
@@ -827,8 +882,11 @@ class WantedRequestClosedView extends HookConsumerWidget {
       final uid = ew.entry.userId;
       groupedByUser.putIfAbsent(
         uid,
-        () =>
-            WantedRequestUserEntryGroup(displayName: ew.displayName, items: []),
+        () => WantedRequestUserEntryGroup(
+          userId: uid,
+          displayName: ew.displayName,
+          items: [],
+        ),
       );
       groupedByUser[uid]!.items.add(
         WantedEntryDisplayItem(
@@ -843,6 +901,14 @@ class WantedRequestClosedView extends HookConsumerWidget {
       g.items.sort((a, b) => a.date.compareTo(b.date));
     }
     final userGroups = groupedByUser.values.toList();
+    final closedGroupSeed = userGroups.map((g) => g.userId).join(',');
+    final expandedClosedUserIds = useState<Set<String>>(
+      userGroups.map((g) => g.userId).toSet(),
+    );
+    useEffect(() {
+      expandedClosedUserIds.value = userGroups.map((g) => g.userId).toSet();
+      return null;
+    }, [closedGroupSeed, isNight]);
 
     // 엔트리 칩 빌더
     Widget entryChip(WantedEntryDisplayItem item) {
@@ -1074,6 +1140,9 @@ class WantedRequestClosedView extends HookConsumerWidget {
             itemCount: userGroups.length,
             itemBuilder: (context, index) {
               final group = userGroups[index];
+              final isExpanded = expandedClosedUserIds.value.contains(
+                group.userId,
+              );
               final closedInitial = group.displayName.isNotEmpty
                   ? group.displayName[0].toUpperCase()
                   : '?';
@@ -1084,60 +1153,97 @@ class WantedRequestClosedView extends HookConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: colorScheme.surfaceContainerHigh,
-                            child: Text(
-                              closedInitial,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        onTap: () {
+                          final next = Set<String>.from(
+                            expandedClosedUserIds.value,
+                          );
+                          if (isExpanded) {
+                            next.remove(group.userId);
+                          } else {
+                            next.add(group.userId);
+                          }
+                          expandedClosedUserIds.value = next;
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppSpacing.xs,
                           ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: Text(
-                              group.displayName,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          if (!isNight)
-                            Text(
-                              '${group.items.length}건',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      isNight
-                          ? Chip(
-                              label: Text(
-                                '${dateFormat.format(request.periodStart)} ~ ${dateFormat.format(request.periodEnd)}',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 18,
+                                backgroundColor:
+                                    colorScheme.surfaceContainerHigh,
+                                child: Text(
+                                  closedInitial,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ),
-                              visualDensity: VisualDensity.compact,
-                              backgroundColor: colorScheme.surfaceContainerHigh,
-                              side: BorderSide(
-                                color: colorScheme.outlineVariant,
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: Text(
+                                  group.displayName,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
-                              padding: EdgeInsets.zero,
-                            )
-                          : Wrap(
-                              spacing: AppSpacing.sm,
-                              runSpacing: AppSpacing.sm,
-                              children: group.items.map(entryChip).toList(),
-                            ),
+                              if (!isNight)
+                                Text(
+                                  '${group.items.length}건',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              const SizedBox(width: AppSpacing.xs),
+                              Icon(
+                                isExpanded
+                                    ? Icons.keyboard_arrow_up
+                                    : Icons.keyboard_arrow_down,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      AnimatedCrossFade(
+                        firstChild: const SizedBox.shrink(),
+                        secondChild: Padding(
+                          padding: const EdgeInsets.only(top: AppSpacing.md),
+                          child: isNight
+                              ? Chip(
+                                  label: Text(
+                                    '${dateFormat.format(request.periodStart)} ~ ${dateFormat.format(request.periodEnd)}',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                  backgroundColor:
+                                      colorScheme.surfaceContainerHigh,
+                                  side: BorderSide(
+                                    color: colorScheme.outlineVariant,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                )
+                              : Wrap(
+                                  spacing: AppSpacing.sm,
+                                  runSpacing: AppSpacing.sm,
+                                  children: group.items.map(entryChip).toList(),
+                                ),
+                        ),
+                        crossFadeState: isExpanded
+                            ? CrossFadeState.showSecond
+                            : CrossFadeState.showFirst,
+                        duration: const Duration(milliseconds: 180),
+                      ),
                     ],
                   ),
                 ),
@@ -1464,7 +1570,12 @@ class WantedEntryDisplayItem {
 }
 
 class WantedRequestUserEntryGroup {
-  WantedRequestUserEntryGroup({required this.displayName, required this.items});
+  WantedRequestUserEntryGroup({
+    required this.userId,
+    required this.displayName,
+    required this.items,
+  });
+  final String userId;
   final String displayName;
   final List<WantedEntryDisplayItem> items;
 }

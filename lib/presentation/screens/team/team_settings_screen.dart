@@ -179,13 +179,11 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
   }
 
   void _showAddShiftTypeSheet(BuildContext context) {
-    showModalBottomSheet(
+    showMoniqBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => ShiftTypeAddSheet(
+      title: '근무 유형 추가',
+      eyebrow: 'SHIFT TYPE',
+      child: ShiftTypeAddSheet(
         teamId: widget.teamId,
         existingCodes: widget.shiftTypes.map((t) => t.code).toSet(),
       ),
