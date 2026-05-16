@@ -23,16 +23,15 @@ class CustomShiftForm extends StatefulWidget {
   final TextEditingController endC;
   final String selectedColor;
   final ValueChanged<String> onColorChanged;
+
   /// 이미 사용 중인 코드 목록. 중복 감지에 사용.
   final Set<String> existingCodes;
 
   @override
-  State<CustomShiftForm> createState() =>
-      _CustomShiftFormState();
+  State<CustomShiftForm> createState() => _CustomShiftFormState();
 }
 
-class _CustomShiftFormState
-    extends State<CustomShiftForm> {
+class _CustomShiftFormState extends State<CustomShiftForm> {
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
   bool _codeDuplicate = false;
@@ -42,10 +41,10 @@ class _CustomShiftFormState
   @override
   void initState() {
     super.initState();
-    _startTime = _parseTime(widget.startC.text) ??
-        const TimeOfDay(hour: 7, minute: 0);
-    _endTime = _parseTime(widget.endC.text) ??
-        const TimeOfDay(hour: 15, minute: 0);
+    _startTime =
+        _parseTime(widget.startC.text) ?? const TimeOfDay(hour: 7, minute: 0);
+    _endTime =
+        _parseTime(widget.endC.text) ?? const TimeOfDay(hour: 15, minute: 0);
     // 컨트롤러가 비어있으면 기본 시간을 채워서 저장 시 누락되지 않도록
     if (widget.startC.text.isEmpty || widget.endC.text.isEmpty) {
       _syncControllers();
@@ -115,18 +114,14 @@ class _CustomShiftFormState
     return '밤';
   }
 
-  void _showTimePicker({
-    required bool isStart,
-  }) {
+  void _showTimePicker({required bool isStart}) {
     final current = isStart ? _startTime : _endTime;
     var selected = current;
 
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppRadius.xl),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
       builder: (ctx) => SizedBox(
         height: 280,
@@ -138,17 +133,13 @@ class _CustomShiftFormState
                 vertical: AppSpacing.md,
               ),
               child: Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     isStart ? '시작 시간' : '종료 시간',
-                    style: Theme.of(ctx)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                    style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   TextButton(
                     onPressed: () {
@@ -173,7 +164,11 @@ class _CustomShiftFormState
                 mode: CupertinoDatePickerMode.time,
                 use24hFormat: false,
                 initialDateTime: DateTime(
-                  2000, 1, 1, current.hour, current.minute,
+                  2000,
+                  1,
+                  1,
+                  current.hour,
+                  current.minute,
                 ),
                 onDateTimeChanged: (dateTime) {
                   selected = TimeOfDay(
@@ -289,7 +284,9 @@ class _CustomShiftFormState
             decoration: InputDecoration(
               labelText: '근무 코드 직접 입력',
               counterText: '',
-              errorText: _codeDuplicate ? '이미 사용 중인 코드예요. 다른 코드를 입력해주세요.' : null,
+              errorText: _codeDuplicate
+                  ? '이미 사용 중인 코드예요. 다른 코드를 입력해주세요.'
+                  : null,
               border: const OutlineInputBorder(),
             ),
             onChanged: _onCodeFieldChanged,
@@ -315,20 +312,18 @@ class _CustomShiftFormState
                 label: _periodLabel(_startTime),
                 time: _formatTime(_startTime),
                 color: badgeColor,
-                onTap: () =>
-                    _showTimePicker(isStart: true),
+                onTap: () => _showTimePicker(isStart: true),
               ),
             ),
 
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: Icon(
                 Icons.arrow_forward_rounded,
                 size: 18,
-                color: theme.colorScheme.onSurfaceVariant
-                    .withValues(alpha: 0.5),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.5,
+                ),
               ),
             ),
 
@@ -338,8 +333,7 @@ class _CustomShiftFormState
                 label: _periodLabel(_endTime),
                 time: _formatTime(_endTime),
                 color: badgeColor,
-                onTap: () =>
-                    _showTimePicker(isStart: false),
+                onTap: () => _showTimePicker(isStart: false),
               ),
             ),
           ],
@@ -357,36 +351,26 @@ class _CustomShiftFormState
         ),
         const SizedBox(height: AppSpacing.sm),
         Row(
-          mainAxisAlignment:
-              MainAxisAlignment.spaceEvenly,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: presetColors.map((c) {
-            final isSelected =
-                c == widget.selectedColor;
+            final isSelected = c == widget.selectedColor;
             final color = parseHexColor(c);
             return GestureDetector(
               onTap: () => widget.onColorChanged(c),
               child: AnimatedContainer(
-                duration: const Duration(
-                  milliseconds: 150,
-                ),
+                duration: const Duration(milliseconds: 150),
                 width: isSelected ? 32 : 28,
                 height: isSelected ? 32 : 28,
                 decoration: BoxDecoration(
                   color: color,
                   shape: BoxShape.circle,
                   border: isSelected
-                      ? Border.all(
-                          color: theme.colorScheme
-                              .surface,
-                          width: 2.5,
-                        )
+                      ? Border.all(color: theme.colorScheme.surface, width: 2.5)
                       : null,
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: color.withValues(
-                              alpha: 0.5,
-                            ),
+                            color: color.withValues(alpha: 0.5),
                             blurRadius: 8,
                           ),
                         ]
@@ -395,8 +379,7 @@ class _CustomShiftFormState
                 child: isSelected
                     ? Icon(
                         Icons.check_rounded,
-                        color: theme.colorScheme
-                            .surface,
+                        color: theme.colorScheme.surface,
                         size: 16,
                       )
                     : null,
@@ -435,9 +418,7 @@ class TimeTile extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           borderRadius: AppRadius.borderRadiusMd,
-          border: Border.all(
-            color: color.withValues(alpha: 0.25),
-          ),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
           color: color.withValues(alpha: 0.05),
         ),
         child: Column(

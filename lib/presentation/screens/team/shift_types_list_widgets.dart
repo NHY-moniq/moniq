@@ -31,10 +31,15 @@ class _ShiftTypesListState extends ConsumerState<ShiftTypesList> {
   static const _defaultCodes = {'D', 'E', 'N', 'ED'};
 
   List<ShiftTypeModel> _sorted(List<ShiftTypeModel> types) {
-    final defaults = types.where((t) => _defaultCodes.contains(t.code.toUpperCase())).toList();
-    final customs = types.where((t) => !_defaultCodes.contains(t.code.toUpperCase())).toList();
+    final defaults = types
+        .where((t) => _defaultCodes.contains(t.code.toUpperCase()))
+        .toList();
+    final customs = types
+        .where((t) => !_defaultCodes.contains(t.code.toUpperCase()))
+        .toList();
     return [...defaults, ...customs];
   }
+
   bool _expanded = false;
 
   @override
@@ -51,8 +56,8 @@ class _ShiftTypesListState extends ConsumerState<ShiftTypesList> {
             child: Text(
               '등록된 근무 유형이 없습니다',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ),
@@ -67,11 +72,13 @@ class _ShiftTypesListState extends ConsumerState<ShiftTypesList> {
 
     return Column(
       children: [
-        ...visible.map((t) => ShiftTypeCard(
-              shiftType: t,
-              isAdmin: widget.isAdmin,
-              teamId: widget.teamId,
-            )),
+        ...visible.map(
+          (t) => ShiftTypeCard(
+            shiftType: t,
+            isAdmin: widget.isAdmin,
+            teamId: widget.teamId,
+          ),
+        ),
         if (hasMore)
           GestureDetector(
             onTap: () => setState(() => _expanded = !_expanded),
@@ -81,12 +88,10 @@ class _ShiftTypesListState extends ConsumerState<ShiftTypesList> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    _expanded
-                        ? '접기'
-                        : '${sorted.length - _previewCount}개 더 보기',
+                    _expanded ? '접기' : '${sorted.length - _previewCount}개 더 보기',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(width: 4),
                   AnimatedRotation(
@@ -105,30 +110,11 @@ class _ShiftTypesListState extends ConsumerState<ShiftTypesList> {
       ],
     );
   }
-
-  void _showAddSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppRadius.xl),
-        ),
-      ),
-      builder: (ctx) => ShiftTypeAddSheet(
-        teamId: widget.teamId,
-        existingCodes: widget.shiftTypes.map((t) => t.code).toSet(),
-      ),
-    );
-  }
 }
 
 /// 빈 상태: 기본 근무 유형 템플릿 카드 4개 (데이 / 이브닝 / 나이트 / 교육)
 class EmptyShiftTypesView extends ConsumerStatefulWidget {
-  const EmptyShiftTypesView({
-    super.key,
-    required this.teamId,
-  });
+  const EmptyShiftTypesView({super.key, required this.teamId});
 
   final String teamId;
 
@@ -137,8 +123,7 @@ class EmptyShiftTypesView extends ConsumerStatefulWidget {
       _EmptyShiftTypesViewState();
 }
 
-class _EmptyShiftTypesViewState
-    extends ConsumerState<EmptyShiftTypesView> {
+class _EmptyShiftTypesViewState extends ConsumerState<EmptyShiftTypesView> {
   bool _loading = false;
 
   Future<void> _addAllDefaults() async {
@@ -160,15 +145,12 @@ class _EmptyShiftTypesViewState
     if (mounted) setState(() => _loading = false);
   }
 
-  void _showTemplateEditSheet(
-      BuildContext context, ShiftTemplate template) {
+  void _showTemplateEditSheet(BuildContext context, ShiftTemplate template) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppRadius.xl),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
       builder: (ctx) => ShiftTypeCreateFromTemplateSheet(
         teamId: widget.teamId,
@@ -202,9 +184,7 @@ class _EmptyShiftTypesViewState
                     ),
                     child: ShiftTemplateCard(
                       template: t,
-                      onTap: () =>
-                          _showTemplateEditSheet(
-                              context, t),
+                      onTap: () => _showTemplateEditSheet(context, t),
                     ),
                   ),
                 ),
@@ -228,21 +208,12 @@ class _EmptyShiftTypesViewState
                       color: theme.colorScheme.onPrimary,
                     ),
                   )
-                : const Icon(
-                    Icons.auto_awesome_rounded,
-                    size: 20,
-                  ),
-            label: Text(
-              _loading ? '추가 중...' : '기본 4개 한번에 추가',
-            ),
+                : const Icon(Icons.auto_awesome_rounded, size: 20),
+            label: Text(_loading ? '추가 중...' : '기본 4개 한번에 추가'),
             style: FilledButton.styleFrom(
-              backgroundColor:
-                  theme.colorScheme.primary,
-              foregroundColor:
-                  theme.colorScheme.onPrimary,
-              padding: const EdgeInsets.symmetric(
-                vertical: AppSpacing.md,
-              ),
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
               shape: RoundedRectangleBorder(
                 borderRadius: AppRadius.borderRadiusMd,
               ),
@@ -274,9 +245,7 @@ class ShiftTemplateCard extends StatelessWidget {
       onTap: onTap,
       child: Card(
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusLg,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
         child: Container(
           padding: const EdgeInsets.symmetric(
             vertical: AppSpacing.lg,
@@ -307,8 +276,7 @@ class ShiftTemplateCard extends StatelessWidget {
               // 이름
               Text(
                 template.name,
-                style:
-                    theme.textTheme.titleSmall?.copyWith(
+                style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: color,
                 ),
@@ -318,10 +286,8 @@ class ShiftTemplateCard extends StatelessWidget {
               // 시간
               Text(
                 template.description,
-                style:
-                    theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme
-                      .onSurfaceVariant,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                   fontSize: 10,
                 ),
                 textAlign: TextAlign.center,
@@ -332,8 +298,7 @@ class ShiftTemplateCard extends StatelessWidget {
               // 탭 힌트
               Text(
                 '탭하여 편집',
-                style:
-                    theme.textTheme.labelSmall?.copyWith(
+                style: theme.textTheme.labelSmall?.copyWith(
                   color: color.withValues(alpha: 0.6),
                   fontSize: 9,
                 ),
@@ -347,8 +312,7 @@ class ShiftTemplateCard extends StatelessWidget {
 }
 
 /// 템플릿 기반 생성 시트 (편집 가능)
-class ShiftTypeCreateFromTemplateSheet
-    extends ConsumerStatefulWidget {
+class ShiftTypeCreateFromTemplateSheet extends ConsumerStatefulWidget {
   const ShiftTypeCreateFromTemplateSheet({
     super.key,
     required this.teamId,
@@ -359,14 +323,12 @@ class ShiftTypeCreateFromTemplateSheet
   final ShiftTemplate template;
 
   @override
-  ConsumerState<ShiftTypeCreateFromTemplateSheet>
-      createState() =>
-          _ShiftTypeCreateFromTemplateSheetState();
+  ConsumerState<ShiftTypeCreateFromTemplateSheet> createState() =>
+      _ShiftTypeCreateFromTemplateSheetState();
 }
 
 class _ShiftTypeCreateFromTemplateSheetState
-    extends ConsumerState<
-        ShiftTypeCreateFromTemplateSheet> {
+    extends ConsumerState<ShiftTypeCreateFromTemplateSheet> {
   late final TextEditingController _nameC;
   late final TextEditingController _codeC;
   late final TextEditingController _startC;
@@ -380,12 +342,8 @@ class _ShiftTypeCreateFromTemplateSheetState
     final t = widget.template;
     _nameC = TextEditingController(text: t.name);
     _codeC = TextEditingController(text: t.code);
-    _startC = TextEditingController(
-      text: formatTimeString(t.startTime),
-    );
-    _endC = TextEditingController(
-      text: formatTimeString(t.endTime),
-    );
+    _startC = TextEditingController(text: formatTimeString(t.startTime));
+    _endC = TextEditingController(text: formatTimeString(t.endTime));
     _selectedColor = t.color;
   }
 
@@ -405,8 +363,7 @@ class _ShiftTypeCreateFromTemplateSheetState
 
     setState(() => _saving = true);
     await ref
-        .read(teamDetailViewModelProvider(widget.teamId)
-            .notifier)
+        .read(teamDetailViewModelProvider(widget.teamId).notifier)
         .createShiftType(
           name: name,
           code: code,
@@ -431,9 +388,7 @@ class _ShiftTypeCreateFromTemplateSheetState
         left: AppSpacing.lg,
         right: AppSpacing.lg,
         top: AppSpacing.xl,
-        bottom:
-            MediaQuery.of(context).viewInsets.bottom +
-                AppSpacing.xl,
+        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.xl,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -446,8 +401,7 @@ class _ShiftTypeCreateFromTemplateSheetState
               height: 4,
               decoration: BoxDecoration(
                 color: theme.colorScheme.outlineVariant,
-                borderRadius:
-                    AppRadius.borderRadiusFull,
+                borderRadius: AppRadius.borderRadiusFull,
               ),
             ),
           ),
@@ -464,22 +418,18 @@ class _ShiftTypeCreateFromTemplateSheetState
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       '${widget.template.name} 근무 추가',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
                       '기본값이 입력되어 있어요. 수정 후 추가하세요.',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(
-                        color: theme.colorScheme
-                            .onSurfaceVariant,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -495,8 +445,7 @@ class _ShiftTypeCreateFromTemplateSheetState
             startC: _startC,
             endC: _endC,
             selectedColor: _selectedColor,
-            onColorChanged: (c) =>
-                setState(() => _selectedColor = c),
+            onColorChanged: (c) => setState(() => _selectedColor = c),
           ),
           const SizedBox(height: AppSpacing.xl),
 
@@ -504,11 +453,8 @@ class _ShiftTypeCreateFromTemplateSheetState
             onPressed: _saving ? null : _create,
             style: FilledButton.styleFrom(
               backgroundColor: color,
-              foregroundColor:
-                  theme.colorScheme.onPrimary,
-              padding: const EdgeInsets.symmetric(
-                vertical: AppSpacing.md,
-              ),
+              foregroundColor: theme.colorScheme.onPrimary,
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
             ),
             child: _saving
                 ? SizedBox(
@@ -516,8 +462,7 @@ class _ShiftTypeCreateFromTemplateSheetState
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color:
-                          theme.colorScheme.onPrimary,
+                      color: theme.colorScheme.onPrimary,
                     ),
                   )
                 : const Text('추가'),
@@ -543,8 +488,7 @@ class BouncyShiftIcon extends StatefulWidget {
   final String code;
 
   @override
-  State<BouncyShiftIcon> createState() =>
-      _BouncyShiftIconState();
+  State<BouncyShiftIcon> createState() => _BouncyShiftIconState();
 }
 
 class _BouncyShiftIconState extends State<BouncyShiftIcon>
@@ -565,16 +509,13 @@ class _BouncyShiftIconState extends State<BouncyShiftIcon>
         milliseconds: widget.code == 'D'
             ? 1200
             : widget.code == 'E'
-                ? 1500
-                : 1800,
+            ? 1500
+            : 1800,
       ),
     )..repeat(reverse: true);
 
     _bounceAnim = Tween<double>(begin: 0, end: -8).animate(
-      CurvedAnimation(
-        parent: _bounceController,
-        curve: Curves.easeInOut,
-      ),
+      CurvedAnimation(parent: _bounceController, curve: Curves.easeInOut),
     );
 
     // 글로우: 빛나는 효과
@@ -583,11 +524,9 @@ class _BouncyShiftIconState extends State<BouncyShiftIcon>
       duration: const Duration(milliseconds: 2000),
     )..repeat(reverse: true);
 
-    _glowAnim = Tween<double>(begin: 0.3, end: 0.8)
-        .animate(CurvedAnimation(
-      parent: _glowController,
-      curve: Curves.easeInOut,
-    ));
+    _glowAnim = Tween<double>(begin: 0.3, end: 0.8).animate(
+      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -600,8 +539,7 @@ class _BouncyShiftIconState extends State<BouncyShiftIcon>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge(
-          [_bounceController, _glowController]),
+      animation: Listenable.merge([_bounceController, _glowController]),
       builder: (context, child) {
         return Transform.translate(
           offset: Offset(0, _bounceAnim.value),
@@ -610,13 +548,10 @@ class _BouncyShiftIconState extends State<BouncyShiftIcon>
             height: 56,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: widget.color
-                  .withValues(alpha: 0.2),
+              color: widget.color.withValues(alpha: 0.2),
               boxShadow: [
                 BoxShadow(
-                  color: widget.color.withValues(
-                    alpha: _glowAnim.value,
-                  ),
+                  color: widget.color.withValues(alpha: _glowAnim.value),
                   blurRadius: 16,
                   spreadRadius: 2,
                 ),
@@ -638,11 +573,7 @@ class _BouncyShiftIconState extends State<BouncyShiftIcon>
     } else if (widget.code == 'N') {
       return _buildMoonIcon();
     } else if (widget.code == 'ED') {
-      return Icon(
-        Icons.school_rounded,
-        size: 30,
-        color: widget.color,
-      );
+      return Icon(Icons.school_rounded, size: 30, color: widget.color);
     } else {
       return _buildMoonIcon();
     }
@@ -652,15 +583,10 @@ class _BouncyShiftIconState extends State<BouncyShiftIcon>
     return AnimatedBuilder(
       animation: _bounceController,
       builder: (context, _) {
-        final rotation =
-            _bounceController.value * 0.3;
+        final rotation = _bounceController.value * 0.3;
         return Transform.rotate(
           angle: rotation,
-          child: Icon(
-            Icons.wb_sunny_rounded,
-            size: 30,
-            color: widget.color,
-          ),
+          child: Icon(Icons.wb_sunny_rounded, size: 30, color: widget.color),
         );
       },
     );
@@ -670,11 +596,7 @@ class _BouncyShiftIconState extends State<BouncyShiftIcon>
     return Stack(
       alignment: Alignment.center,
       children: [
-        Icon(
-          Icons.wb_twilight_rounded,
-          size: 30,
-          color: widget.color,
-        ),
+        Icon(Icons.wb_twilight_rounded, size: 30, color: widget.color),
         // 작은 반짝이
         AnimatedBuilder(
           animation: _glowController,
@@ -687,8 +609,7 @@ class _BouncyShiftIconState extends State<BouncyShiftIcon>
                 child: Icon(
                   Icons.auto_awesome,
                   size: 12,
-                  color: widget.color
-                      .withValues(alpha: 0.6),
+                  color: widget.color.withValues(alpha: 0.6),
                 ),
               ),
             );
@@ -703,25 +624,19 @@ class _BouncyShiftIconState extends State<BouncyShiftIcon>
       animation: _bounceController,
       builder: (context, _) {
         // 살짝 기울기 변화
-        final tilt =
-            (_bounceController.value - 0.5) * 0.2;
+        final tilt = (_bounceController.value - 0.5) * 0.2;
         return Transform.rotate(
           angle: tilt,
           child: Stack(
             alignment: Alignment.center,
             children: [
-              Icon(
-                Icons.nightlight_round,
-                size: 28,
-                color: widget.color,
-              ),
+              Icon(Icons.nightlight_round, size: 28, color: widget.color),
               // 별 반짝임
               Positioned(
                 top: 8,
                 left: 10,
                 child: Opacity(
-                  opacity: (1 - _bounceController.value)
-                      .clamp(0.2, 1.0),
+                  opacity: (1 - _bounceController.value).clamp(0.2, 1.0),
                   child: const Icon(
                     Icons.star_rounded,
                     size: 10,
@@ -733,8 +648,7 @@ class _BouncyShiftIconState extends State<BouncyShiftIcon>
                 bottom: 10,
                 right: 8,
                 child: Opacity(
-                  opacity: _bounceController.value
-                      .clamp(0.2, 1.0),
+                  opacity: _bounceController.value.clamp(0.2, 1.0),
                   child: const Icon(
                     Icons.star_rounded,
                     size: 8,

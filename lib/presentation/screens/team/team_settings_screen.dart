@@ -14,10 +14,7 @@ import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
 class TeamSettingsScreen extends HookConsumerWidget {
-  const TeamSettingsScreen({
-    super.key,
-    required this.teamId,
-  });
+  const TeamSettingsScreen({super.key, required this.teamId});
 
   final String teamId;
 
@@ -31,9 +28,7 @@ class TeamSettingsScreen extends HookConsumerWidget {
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
           message: '설정을 불러올 수 없습니다',
-          onRetry: () => ref.invalidate(
-            teamDetailViewModelProvider(teamId),
-          ),
+          onRetry: () => ref.invalidate(teamDetailViewModelProvider(teamId)),
         ),
         data: (state) => _SettingsBody(
           teamId: teamId,
@@ -91,9 +86,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
   }
 
   void _loadRules() {
-    final ruleMap = {
-      for (final r in widget.rules) r.ruleType: r.ruleValue,
-    };
+    final ruleMap = {for (final r in widget.rules) r.ruleType: r.ruleValue};
 
     // 인력 설정 로드
     final minCountsRaw =
@@ -101,43 +94,31 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
 
     _minStaffing = {};
     for (final t in widget.shiftTypes) {
-      _minStaffing[t.id] =
-          (minCountsRaw[t.id] as num?)?.toInt() ?? 0;
+      _minStaffing[t.id] = (minCountsRaw[t.id] as num?)?.toInt() ?? 0;
     }
 
     _maxMonthlyShifts =
-        ((ruleMap['max_monthly_shifts'] ?? {})['count'] as num?)
-                ?.toInt() ??
-            25;
+        ((ruleMap['max_monthly_shifts'] ?? {})['count'] as num?)?.toInt() ?? 25;
     _maxMonthlyNightShifts =
-        ((ruleMap['max_monthly_night_shifts'] ?? {})['count']
-                    as num?)
-                ?.toInt() ??
-            8;
+        ((ruleMap['max_monthly_night_shifts'] ?? {})['count'] as num?)
+            ?.toInt() ??
+        8;
 
     // 고정 규칙 로드
     _maxConsecutiveWorkDays =
-        ((ruleMap['max_consecutive_work_days'] ??
-                    {})['days'] as num?)
-                ?.toInt() ??
-            5;
+        ((ruleMap['max_consecutive_work_days'] ?? {})['days'] as num?)
+            ?.toInt() ??
+        5;
     _maxConsecutiveNightShifts =
-        ((ruleMap['max_consecutive_night_shifts'] ??
-                    {})['days'] as num?)
-                ?.toInt() ??
-            5;
+        ((ruleMap['max_consecutive_night_shifts'] ?? {})['days'] as num?)
+            ?.toInt() ??
+        5;
     _minWeeklyOffDays =
-        ((ruleMap['min_weekly_off_days'] ?? {})['days'] as num?)
-                ?.toInt() ??
-            2;
+        ((ruleMap['min_weekly_off_days'] ?? {})['days'] as num?)?.toInt() ?? 2;
     _noNightThenEvening =
-        ((ruleMap['no_night_then_evening'] ??
-                {})['enabled'] as bool?) ??
-            true;
+        ((ruleMap['no_night_then_evening'] ?? {})['enabled'] as bool?) ?? true;
     _noEveningThenDay =
-        ((ruleMap['no_evening_then_day'] ??
-                {})['enabled'] as bool?) ??
-            true;
+        ((ruleMap['no_evening_then_day'] ?? {})['enabled'] as bool?) ?? true;
     _nodDisabled =
         ((ruleMap['nod_disabled'] ?? {})['enabled'] as bool?) ?? true;
 
@@ -154,17 +135,30 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
     );
 
     // 순차 저장: 병렬 시 ref.invalidateSelf() 충돌로 hang 발생
-    await notifier.upsertRule(
-      'min_staffing',
-      {'counts': {for (final e in _minStaffing.entries) e.key: e.value}},
-    );
-    await notifier.upsertRule('max_monthly_shifts', {'count': _maxMonthlyShifts});
-    await notifier.upsertRule('max_monthly_night_shifts', {'count': _maxMonthlyNightShifts});
-    await notifier.upsertRule('max_consecutive_work_days', {'days': _maxConsecutiveWorkDays});
-    await notifier.upsertRule('max_consecutive_night_shifts', {'days': _maxConsecutiveNightShifts});
-    await notifier.upsertRule('min_weekly_off_days', {'days': _minWeeklyOffDays});
-    await notifier.upsertRule('no_night_then_evening', {'enabled': _noNightThenEvening});
-    await notifier.upsertRule('no_evening_then_day', {'enabled': _noEveningThenDay});
+    await notifier.upsertRule('min_staffing', {
+      'counts': {for (final e in _minStaffing.entries) e.key: e.value},
+    });
+    await notifier.upsertRule('max_monthly_shifts', {
+      'count': _maxMonthlyShifts,
+    });
+    await notifier.upsertRule('max_monthly_night_shifts', {
+      'count': _maxMonthlyNightShifts,
+    });
+    await notifier.upsertRule('max_consecutive_work_days', {
+      'days': _maxConsecutiveWorkDays,
+    });
+    await notifier.upsertRule('max_consecutive_night_shifts', {
+      'days': _maxConsecutiveNightShifts,
+    });
+    await notifier.upsertRule('min_weekly_off_days', {
+      'days': _minWeeklyOffDays,
+    });
+    await notifier.upsertRule('no_night_then_evening', {
+      'enabled': _noNightThenEvening,
+    });
+    await notifier.upsertRule('no_evening_then_day', {
+      'enabled': _noEveningThenDay,
+    });
     await notifier.upsertRule('nod_disabled', {'enabled': _nodDisabled});
     await notifier.upsertRule('wanted_p1_limit', {'count': _wantedP1Limit});
     await notifier.upsertRule('wanted_p2_limit', {'count': _wantedP2Limit});
@@ -174,9 +168,9 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
       _isDirty = false;
     });
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('설정이 저장되었습니다')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('설정이 저장되었습니다')));
     }
   }
 
@@ -228,275 +222,263 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
         padding: AppSpacing.screenAll,
         child: MaxWidthLayout(
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── 근무 유형 섹션 ──
-            SectionHeader(
-              title: '근무 유형',
-              action: widget.isAdmin
-                  ? GestureDetector(
-                      onTap: () => _showAddShiftTypeSheet(context),
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(8),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── 근무 유형 섹션 ──
+              SectionHeader(
+                title: '근무 유형',
+                action: widget.isAdmin
+                    ? GestureDetector(
+                        onTap: () => _showAddShiftTypeSheet(context),
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.add_rounded,
+                            size: 18,
+                            color: theme.colorScheme.onPrimaryContainer,
+                          ),
                         ),
-                        child: Icon(
-                          Icons.add_rounded,
-                          size: 18,
-                          color: theme.colorScheme.onPrimaryContainer,
+                      )
+                    : null,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              ShiftTypesList(
+                shiftTypes: widget.shiftTypes,
+                isAdmin: widget.isAdmin,
+                teamId: widget.teamId,
+              ),
+
+              const SizedBox(height: AppSpacing.xxxl),
+
+              // ── 인력 설정 섹션 ──
+              SectionHeader(title: '인력 설정'),
+              const SizedBox(height: AppSpacing.md),
+
+              if (activeShiftTypes.isNotEmpty) ...[
+                RuleCard(
+                  children: [
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(
+                          top: AppSpacing.xs,
+                          bottom: AppSpacing.xxs,
+                        ),
+                        child: Text(
+                          '근무 유형별 최소 인원',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
-                    )
-                  : null,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            ShiftTypesList(
-              shiftTypes: widget.shiftTypes,
-              isAdmin: widget.isAdmin,
-              teamId: widget.teamId,
-            ),
+                    ),
+                    ...activeShiftTypes.map((t) {
+                      return ShiftStaffingRow(
+                        shiftType: t,
+                        value: _minStaffing[t.id] ?? 0,
+                        suffix: '명',
+                        minValue: 0,
+                        readOnly: readOnly,
+                        onChanged: (v) {
+                          setState(() => _minStaffing[t.id] = v);
+                          _markDirty();
+                        },
+                      );
+                    }),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+              ],
 
-            const SizedBox(height: AppSpacing.xxxl),
-
-            // ── 인력 설정 섹션 ──
-            SectionHeader(
-              title: '인력 설정',
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            if (activeShiftTypes.isNotEmpty) ...[
+              // 월 근무 횟수 설정
               RuleCard(
                 children: [
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Padding(
-                      padding: const EdgeInsets.only(
-                        top: AppSpacing.xs,
-                        bottom: AppSpacing.xxs,
-                      ),
-                      child: Text(
-                        '근무 유형별 최소 인원',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
+                  NumberRuleRow(
+                    label: '월 최대 근무 횟수',
+                    value: _maxMonthlyShifts,
+                    suffix: '회',
+                    minValue: 0,
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _maxMonthlyShifts = v);
+                      _markDirty();
+                    },
                   ),
-                  ...activeShiftTypes.map((t) {
-                    return ShiftStaffingRow(
-                      shiftType: t,
-                      value: _minStaffing[t.id] ?? 0,
-                      suffix: '명',
-                      minValue: 0,
-                      readOnly: readOnly,
-                      onChanged: (v) {
-                        setState(() => _minStaffing[t.id] = v);
-                        _markDirty();
-                      },
-                    );
-                  }),
+                  const Divider(height: 1),
+                  NumberRuleRow(
+                    label: '월 최대 야간(N) 횟수',
+                    value: _maxMonthlyNightShifts,
+                    suffix: '회',
+                    minValue: 0,
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _maxMonthlyNightShifts = v);
+                      _markDirty();
+                    },
+                  ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.lg),
-            ],
 
-            // 월 근무 횟수 설정
-            RuleCard(
-              children: [
-                NumberRuleRow(
-                  label: '월 최대 근무 횟수',
-                  value: _maxMonthlyShifts,
-                  suffix: '회',
-                  minValue: 0,
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _maxMonthlyShifts = v);
-                    _markDirty();
-                  },
-                ),
-                const Divider(height: 1),
-                NumberRuleRow(
-                  label: '월 최대 야간(N) 횟수',
-                  value: _maxMonthlyNightShifts,
-                  suffix: '회',
-                  minValue: 0,
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _maxMonthlyNightShifts = v);
-                    _markDirty();
-                  },
-                ),
-              ],
-            ),
+              const SizedBox(height: AppSpacing.xxxl),
 
-            const SizedBox(height: AppSpacing.xxxl),
+              // ── 고정 규칙 섹션 ──
+              SectionHeader(title: '필수 규칙'),
+              const SizedBox(height: AppSpacing.md),
 
-            // ── 고정 규칙 섹션 ──
-            SectionHeader(
-              title: '필수 규칙',
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // 숫자 규칙들
-            RuleCard(
-              children: [
-                NumberRuleRow(
-                  label: '최대 연속 근무일 수',
-                  value: _maxConsecutiveWorkDays,
-                  suffix: '일',
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _maxConsecutiveWorkDays = v);
-                    _markDirty();
-                  },
-                ),
-                const Divider(height: 1),
-                NumberRuleRow(
-                  label: '최대 연속 야간(N) 근무 수',
-                  value: _maxConsecutiveNightShifts,
-                  suffix: '일',
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(
-                      () => _maxConsecutiveNightShifts = v,
-                    );
-                    _markDirty();
-                  },
-                ),
-                const Divider(height: 1),
-                NumberRuleRow(
-                  label: '주당 최소 휴무 일수',
-                  value: _minWeeklyOffDays,
-                  suffix: '일',
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _minWeeklyOffDays = v);
-                    _markDirty();
-                  },
-                ),
-              ],
-            ),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // 금지 패턴 규칙들
-            RuleCard(
-              children: [
-                ToggleRuleRow(
-                  label: 'N→E 근무 금지',
-                  description: '나이트 근무 다음날 이브닝 근무 불가',
-                  value: _noNightThenEvening,
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _noNightThenEvening = v);
-                    _markDirty();
-                  },
-                ),
-                const Divider(height: 1),
-                ToggleRuleRow(
-                  label: 'E→D 근무 금지',
-                  description: '이브닝 근무 다음날 데이 근무 불가',
-                  value: _noEveningThenDay,
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _noEveningThenDay = v);
-                    _markDirty();
-                  },
-                ),
-                const Divider(height: 1),
-                ToggleRuleRow(
-                  label: 'N→O→D 근무 금지',
-                  description: '나이트 → 오프 → 데이 연속 근무 불가',
-                  value: _nodDisabled,
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _nodDisabled = v);
-                    _markDirty();
-                  },
-                ),
-              ],
-            ),
-
-            const SizedBox(height: AppSpacing.xxxl),
-
-            // ── 원티드 설정 섹션 ──
-            SectionHeader(
-              title: '원티드 설정',
-              subtitle: '인원별 원티드 신청 개수를 제한합니다 (0 = 제한 없음)',
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            RuleCard(
-              children: [
-                NumberRuleRow(
-                  label: '1순위 최대 신청 수',
-                  value: _wantedP1Limit,
-                  suffix: '개',
-                  minValue: 0,
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _wantedP1Limit = v);
-                    _markDirty();
-                  },
-                ),
-                const Divider(height: 1),
-                NumberRuleRow(
-                  label: '2순위 최대 신청 수',
-                  value: _wantedP2Limit,
-                  suffix: '개',
-                  minValue: 0,
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _wantedP2Limit = v);
-                    _markDirty();
-                  },
-                ),
-              ],
-            ),
-
-            const SizedBox(height: AppSpacing.xxl),
-
-            // 저장 버튼
-            if (widget.isAdmin)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed:
-                      _saving || !_isDirty ? null : _save,
-                  child: _saving
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : Text(
-                          _isDirty ? '저장' : '변경사항 없음',
-                        ),
-                ),
+              // 숫자 규칙들
+              RuleCard(
+                children: [
+                  NumberRuleRow(
+                    label: '최대 연속 근무일 수',
+                    value: _maxConsecutiveWorkDays,
+                    suffix: '일',
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _maxConsecutiveWorkDays = v);
+                      _markDirty();
+                    },
+                  ),
+                  const Divider(height: 1),
+                  NumberRuleRow(
+                    label: '최대 연속 야간(N) 근무 수',
+                    value: _maxConsecutiveNightShifts,
+                    suffix: '일',
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _maxConsecutiveNightShifts = v);
+                      _markDirty();
+                    },
+                  ),
+                  const Divider(height: 1),
+                  NumberRuleRow(
+                    label: '주당 최소 휴무 일수',
+                    value: _minWeeklyOffDays,
+                    suffix: '일',
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _minWeeklyOffDays = v);
+                      _markDirty();
+                    },
+                  ),
+                ],
               ),
 
-            if (!widget.isAdmin)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Text(
-                    '관리자만 설정을 수정할 수 있습니다',
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+              const SizedBox(height: AppSpacing.lg),
+
+              // 금지 패턴 규칙들
+              RuleCard(
+                children: [
+                  ToggleRuleRow(
+                    label: 'N→E 근무 금지',
+                    description: '나이트 근무 다음날 이브닝 근무 불가',
+                    value: _noNightThenEvening,
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _noNightThenEvening = v);
+                      _markDirty();
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ToggleRuleRow(
+                    label: 'E→D 근무 금지',
+                    description: '이브닝 근무 다음날 데이 근무 불가',
+                    value: _noEveningThenDay,
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _noEveningThenDay = v);
+                      _markDirty();
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ToggleRuleRow(
+                    label: 'N→O→D 근무 금지',
+                    description: '나이트 → 오프 → 데이 연속 근무 불가',
+                    value: _nodDisabled,
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _nodDisabled = v);
+                      _markDirty();
+                    },
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: AppSpacing.xxxl),
+
+              // ── 원티드 설정 섹션 ──
+              SectionHeader(
+                title: '원티드 설정',
+                subtitle: '인원별 원티드 신청 개수를 제한합니다 (0 = 제한 없음)',
+              ),
+              const SizedBox(height: AppSpacing.md),
+
+              RuleCard(
+                children: [
+                  NumberRuleRow(
+                    label: '1순위 최대 신청 수',
+                    value: _wantedP1Limit,
+                    suffix: '개',
+                    minValue: 0,
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _wantedP1Limit = v);
+                      _markDirty();
+                    },
+                  ),
+                  const Divider(height: 1),
+                  NumberRuleRow(
+                    label: '2순위 최대 신청 수',
+                    value: _wantedP2Limit,
+                    suffix: '개',
+                    minValue: 0,
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _wantedP2Limit = v);
+                      _markDirty();
+                    },
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: AppSpacing.xxl),
+
+              // 저장 버튼
+              if (widget.isAdmin)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _saving || !_isDirty ? null : _save,
+                    child: _saving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(_isDirty ? '저장' : '변경사항 없음'),
+                  ),
+                ),
+
+              if (!widget.isAdmin)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Text(
+                      '관리자만 설정을 수정할 수 있습니다',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
-              ),
 
-            const SizedBox(height: AppSpacing.xxxl),
-          ],
-        ),
+              const SizedBox(height: AppSpacing.xxxl),
+            ],
+          ),
         ),
       ),
     );
@@ -513,4 +495,3 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
     if (leave && mounted) Navigator.pop(context);
   }
 }
-

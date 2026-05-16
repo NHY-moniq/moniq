@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/widgets/common/moniq_stepper.dart';
+import 'package:moniq/presentation/widgets/common/moniq_date_picker_sheet.dart';
 
 // ────────────────────────────────────────
 // 공통 위젯
@@ -55,13 +56,16 @@ class ScheduleDatePickerRow extends StatelessWidget {
 
     return InkWell(
       onTap: () async {
-        final picked = await showDatePicker(
+        final picked = await showMoniqDatePickerSheet(
           context: context,
           initialDate: date ?? firstDate,
+          title: '$label 선택',
           firstDate: firstDate,
           lastDate: lastDate,
         );
-        if (picked != null) onPicked(picked);
+        if (picked != null) {
+          onPicked(DateTime(picked.year, picked.month, picked.day));
+        }
       },
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -77,11 +81,7 @@ class ScheduleDatePickerRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
-              Icon(
-                Icons.calendar_today,
-                size: 18,
-                color: colorScheme.primary,
-              ),
+              Icon(Icons.calendar_today, size: 18, color: colorScheme.primary),
             ],
           ),
         ],
@@ -107,18 +107,15 @@ class ScheduleInfoRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 18,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+        Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
         const SizedBox(width: AppSpacing.sm),
         Text(label, style: theme.textTheme.bodyMedium),
         const Spacer(),
         Text(
           value,
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(fontWeight: FontWeight.w500),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );
@@ -148,11 +145,7 @@ class ScheduleTappableInfoRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppRadius.xs),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 18,
-            color: colorScheme.onSurfaceVariant,
-          ),
+          Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
           const SizedBox(width: AppSpacing.sm),
           Text(label, style: theme.textTheme.bodyMedium),
           const Spacer(),
@@ -160,18 +153,12 @@ class ScheduleTappableInfoRow extends StatelessWidget {
             value,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w500,
-              color: onTap != null
-                  ? colorScheme.primary
-                  : null,
+              color: onTap != null ? colorScheme.primary : null,
             ),
           ),
           if (onTap != null) ...[
             const SizedBox(width: AppSpacing.xs),
-            Icon(
-              Icons.chevron_right,
-              size: 16,
-              color: colorScheme.primary,
-            ),
+            Icon(Icons.chevron_right, size: 16, color: colorScheme.primary),
           ],
         ],
       ),

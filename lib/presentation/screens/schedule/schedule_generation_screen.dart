@@ -487,8 +487,9 @@ void _showMembersDialog(
                     onToggle: () {
                       ref
                           .read(
-                            scheduleGenerationViewModelProvider(teamId)
-                                .notifier,
+                            scheduleGenerationViewModelProvider(
+                              teamId,
+                            ).notifier,
                           )
                           .toggleMemberExclusion(m.userId);
                       setLocal(() {}); // 시트 내 즉시 갱신
@@ -550,24 +551,24 @@ String? _ruleValueSummary(String ruleType, Map<String, dynamic> rv) {
     case 'max_consecutive_work_days':
       final days = rv['days'];
       if (days == null) return null;
-      return '최대 연속 근무: ${days}일';
+      return '최대 연속 근무: $days일';
     case 'max_monthly_shifts':
       final count = rv['count'];
       if (count == null) return null;
-      return '월 최대 근무: ${count}회';
+      return '월 최대 근무: $count회';
     case 'max_monthly_night_shifts':
       final count = rv['count'];
       if (count == null) return null;
-      return '월 최대 야간: ${count}회';
+      return '월 최대 야간: $count회';
     case 'max_consecutive_night_shifts':
       // team_settings에서 {'days': value}로 저장됨
       final days = rv['days'];
       if (days == null) return null;
-      return '최대 연속 야간: ${days}일';
+      return '최대 연속 야간: $days일';
     case 'min_weekly_off_days':
       final days = rv['days'];
       if (days == null) return null;
-      return '주 최소 오프: ${days}일';
+      return '주 최소 오프: $days일';
     case 'min_staffing':
     case 'max_staffing':
       // {'counts': {shiftTypeId: count}}
@@ -578,7 +579,7 @@ String? _ruleValueSummary(String ruleType, Map<String, dynamic> rv) {
         (s, v) => s + v.toInt(),
       );
       if (total == 0) return null;
-      return '${_ruleTypeLabels[ruleType]}: 합계 ${total}명';
+      return '${_ruleTypeLabels[ruleType]}: 합계 $total명';
     case 'wanted_priority_order':
       final order = rv['order'] as List?;
       if (order == null || order.isEmpty) return null;
@@ -657,16 +658,15 @@ void _showCustomRulesDialog(
               size: 18,
               color: rule.isActive
                   ? (rule.priority == 'hard'
-                      ? colorScheme.error
-                      : colorScheme.secondary)
+                        ? colorScheme.error
+                        : colorScheme.secondary)
                   : colorScheme.outline,
             ),
             title: Text(
               rule.originalText,
               style: TextStyle(
                 color: rule.isActive ? null : colorScheme.outline,
-                decoration:
-                    rule.isActive ? null : TextDecoration.lineThrough,
+                decoration: rule.isActive ? null : TextDecoration.lineThrough,
               ),
             ),
             subtitle: Text(
@@ -709,68 +709,31 @@ void _showWantedDetailSheet(
   final sortedUserIds = grouped.keys.toList()
     ..sort((a, b) => (nameMap[a] ?? a).compareTo(nameMap[b] ?? b));
 
-
-  showModalBottomSheet<void>(
+  showMoniqBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (ctx) {
-      final theme = Theme.of(ctx);
-      final colorScheme = theme.colorScheme;
-      final dateFormat = DateFormat('MM.dd');
+    title: '원티드 현황',
+    eyebrow: 'WANTED',
+    child: Builder(
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final colorScheme = theme.colorScheme;
+        final dateFormat = DateFormat('MM.dd');
 
-      return DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.6,
-        maxChildSize: 1.0,
-        minChildSize: 0.3,
-        snapSizes: const [0.6, 1.0],
-        snap: true,
-        builder: (_, controller) => Column(
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 핸들
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colorScheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+            Text(
+              '${state.wantedEntries.length}건 · ${grouped.length}명',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.sm,
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    '원티드 현황',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${state.wantedEntries.length}건 · ${grouped.length}명',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
+            const SizedBox(height: AppSpacing.md),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 520),
               child: ListView.builder(
-                controller: controller,
-                padding: const EdgeInsets.all(AppSpacing.lg),
+                shrinkWrap: true,
                 itemCount: sortedUserIds.length,
                 itemBuilder: (_, i) {
                   final uid = sortedUserIds[i];
@@ -837,8 +800,7 @@ void _showWantedDetailSheet(
                                 avatarLabel = 'O';
                               }
                               final hasReason =
-                                  e.reason != null &&
-                                  e.reason!.isNotEmpty;
+                                  e.reason != null && e.reason!.isNotEmpty;
                               final chip = Chip(
                                 avatar: CircleAvatar(
                                   backgroundColor: chipColor.withValues(
@@ -884,9 +846,9 @@ void _showWantedDetailSheet(
               ),
             ),
           ],
-        ),
-      );
-    },
+        );
+      },
+    ),
   );
 }
 
@@ -948,8 +910,7 @@ class _MemberSwitchTile extends StatelessWidget {
               backgroundColor: Color(0xFFFFECB3), // primaryContainer
               foregroundColor: Color(0xFF5B4B00), // onPrimaryContainer
             ),
-          for (final code in m.preferredShifts)
-            _PreferredShiftChip(code: code),
+          for (final code in m.preferredShifts) _PreferredShiftChip(code: code),
         ],
       ),
       trailing: Switch.adaptive(
@@ -1036,11 +997,7 @@ class _PreferredShiftChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: fg,
-        ),
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg),
       ),
     );
   }

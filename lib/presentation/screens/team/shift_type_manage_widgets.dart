@@ -8,6 +8,7 @@ import 'package:moniq/presentation/screens/team/shift_template_data.dart';
 import 'package:moniq/presentation/screens/team/shift_types_list_widgets.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
 /// 기존 근무 유형 카드 (등록된 상태)
 class ShiftTypeCard extends ConsumerWidget {
@@ -29,15 +30,11 @@ class ShiftTypeCard extends ConsumerWidget {
     final timeText = _buildTimeText(shiftType);
 
     return Padding(
-      padding: const EdgeInsets.only(
-        bottom: AppSpacing.sm,
-      ),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: isAdmin
-              ? () => _showEditSheet(context, ref)
-              : null,
+          onTap: isAdmin ? () => _showEditSheet(context, ref) : null,
           borderRadius: AppRadius.borderRadiusMd,
           child: Container(
             padding: const EdgeInsets.symmetric(
@@ -53,10 +50,9 @@ class ShiftTypeCard extends ConsumerWidget {
               ),
               color: shiftType.isActive
                   ? color.withValues(alpha: 0.06)
-                  : Theme.of(context)
-                      .colorScheme
-                      .onSurfaceVariant
-                      .withValues(alpha: 0.04),
+                  : Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.04),
             ),
             child: Row(
               children: [
@@ -68,16 +64,13 @@ class ShiftTypeCard extends ConsumerWidget {
                     color: shiftType.isActive
                         ? color
                         : Theme.of(context).colorScheme.onSurfaceVariant,
-                    borderRadius:
-                        AppRadius.borderRadiusMd,
+                    borderRadius: AppRadius.borderRadiusMd,
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     shiftType.code,
                     style: TextStyle(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surface,
+                      color: Theme.of(context).colorScheme.surface,
                       fontWeight: FontWeight.w800,
                       fontSize: 14,
                     ),
@@ -88,31 +81,25 @@ class ShiftTypeCard extends ConsumerWidget {
                 // 이름 + 시간
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         shiftType.name,
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(
+                        style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: shiftType.isActive
                               ? null
-                              : theme.colorScheme
-                                  .onSurfaceVariant,
+                              : theme.colorScheme.onSurfaceVariant,
                           decoration: shiftType.isActive
                               ? null
-                              : TextDecoration
-                                  .lineThrough,
+                              : TextDecoration.lineThrough,
                         ),
                       ),
                       if (timeText.isNotEmpty)
                         Text(
                           timeText,
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(
-                            color: theme.colorScheme
-                                .onSurfaceVariant,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
                     ],
@@ -124,16 +111,10 @@ class ShiftTypeCard extends ConsumerWidget {
                   Switch.adaptive(
                     value: shiftType.isActive,
                     onChanged: (val) => ref
-                        .read(
-                          teamDetailViewModelProvider(
-                            teamId,
-                          ).notifier,
-                        )
-                        .toggleShiftTypeActive(
-                          shiftType.id,
-                          val,
-                        ),
-                    activeColor: color,
+                        .read(teamDetailViewModelProvider(teamId).notifier)
+                        .toggleShiftTypeActive(shiftType.id, val),
+                    activeThumbColor: color,
+                    activeTrackColor: color.withValues(alpha: 0.4),
                   ),
                 // 삭제 버튼
                 if (isAdmin)
@@ -154,26 +135,13 @@ class ShiftTypeCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmDelete(
-      BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showMoniqConfirmSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('근무 유형 삭제'),
-        content: Text(
-            '"${shiftType.name}" 근무 유형을 삭제하시겠습니까?\n배정된 근무가 있으면 삭제할 수 없습니다.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('삭제'),
-          ),
-        ],
-      ),
+      title: '근무 유형 삭제',
+      message: '"${shiftType.name}" 근무 유형을 삭제하시겠습니까?\n배정된 근무가 있으면 삭제할 수 없습니다.',
+      confirmLabel: '삭제',
+      destructive: true,
     );
     if (confirmed != true || !context.mounted) return;
     try {
@@ -183,25 +151,16 @@ class ShiftTypeCard extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       final msg = e.toString().replaceFirst('Exception: ', '');
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(msg)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
 
-  void _showEditSheet(
-      BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
+  void _showEditSheet(BuildContext context, WidgetRef ref) {
+    showMoniqBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppRadius.xl),
-        ),
-      ),
-      builder: (ctx) => ShiftTypeEditSheet(
-        teamId: teamId,
-        existing: shiftType,
-      ),
+      title: '근무 유형 수정',
+      eyebrow: 'SHIFT TYPE',
+      child: ShiftTypeEditSheet(teamId: teamId, existing: shiftType),
     );
   }
 
@@ -209,12 +168,8 @@ class ShiftTypeCard extends ConsumerWidget {
     if (t.startTime == null && t.endTime == null) {
       return '';
     }
-    final start = t.startTime != null
-        ? formatTimeString(t.startTime!)
-        : '';
-    final end = t.endTime != null
-        ? formatTimeString(t.endTime!)
-        : '';
+    final start = t.startTime != null ? formatTimeString(t.startTime!) : '';
+    final end = t.endTime != null ? formatTimeString(t.endTime!) : '';
     if (start.isEmpty && end.isEmpty) return '';
     return '$start ~ $end';
   }
@@ -232,12 +187,10 @@ class ShiftTypeAddSheet extends ConsumerStatefulWidget {
   final Set<String> existingCodes;
 
   @override
-  ConsumerState<ShiftTypeAddSheet> createState() =>
-      _ShiftTypeAddSheetState();
+  ConsumerState<ShiftTypeAddSheet> createState() => _ShiftTypeAddSheetState();
 }
 
-class _ShiftTypeAddSheetState
-    extends ConsumerState<ShiftTypeAddSheet> {
+class _ShiftTypeAddSheetState extends ConsumerState<ShiftTypeAddSheet> {
   bool _isCustom = false;
 
   // 커스텀 입력용
@@ -260,8 +213,7 @@ class _ShiftTypeAddSheetState
   Future<void> _addTemplate(ShiftTemplate t) async {
     setState(() => _saving = true);
     await ref
-        .read(teamDetailViewModelProvider(widget.teamId)
-            .notifier)
+        .read(teamDetailViewModelProvider(widget.teamId).notifier)
         .createShiftType(
           name: t.name,
           code: t.code,
@@ -279,8 +231,7 @@ class _ShiftTypeAddSheetState
 
     setState(() => _saving = true);
     await ref
-        .read(teamDetailViewModelProvider(widget.teamId)
-            .notifier)
+        .read(teamDetailViewModelProvider(widget.teamId).notifier)
         .createShiftType(
           name: name,
           code: code,
@@ -304,9 +255,7 @@ class _ShiftTypeAddSheetState
         left: AppSpacing.lg,
         right: AppSpacing.lg,
         top: AppSpacing.xl,
-        bottom:
-            MediaQuery.of(context).viewInsets.bottom +
-                AppSpacing.xl,
+        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.xl,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -319,8 +268,7 @@ class _ShiftTypeAddSheetState
               height: 4,
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.outlineVariant,
-                borderRadius:
-                    AppRadius.borderRadiusFull,
+                borderRadius: AppRadius.borderRadiusFull,
               ),
             ),
           ),
@@ -337,25 +285,23 @@ class _ShiftTypeAddSheetState
           if (!_isCustom) ...[
             // 템플릿 선택
             ...(defaultShiftTemplates
-                .where((t) => !widget.existingCodes
-                    .contains(t.code))
-                .map((t) => TemplateTile(
-                      template: t,
-                      loading: _saving,
-                      onTap: () => _addTemplate(t),
-                    ))),
+                .where((t) => !widget.existingCodes.contains(t.code))
+                .map(
+                  (t) => TemplateTile(
+                    template: t,
+                    loading: _saving,
+                    onTap: () => _addTemplate(t),
+                  ),
+                )),
 
-            if (defaultShiftTemplates.every((t) =>
-                widget.existingCodes
-                    .contains(t.code)))
+            if (defaultShiftTemplates.every(
+              (t) => widget.existingCodes.contains(t.code),
+            ))
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppSpacing.lg,
-                ),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
                 child: Text(
                   '기본 유형이 모두 추가되었습니다',
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   textAlign: TextAlign.center,
@@ -368,16 +314,11 @@ class _ShiftTypeAddSheetState
 
             // 커스텀 만들기 버튼
             TextButton.icon(
-              onPressed: () =>
-                  setState(() => _isCustom = true),
-              icon: const Icon(
-                Icons.edit_rounded,
-                size: 18,
-              ),
+              onPressed: () => setState(() => _isCustom = true),
+              icon: const Icon(Icons.edit_rounded, size: 18),
               label: const Text('직접 만들기'),
               style: TextButton.styleFrom(
-                foregroundColor:
-                    Theme.of(context).colorScheme.onSurfaceVariant,
+                foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ] else ...[
@@ -388,8 +329,7 @@ class _ShiftTypeAddSheetState
               startC: _startC,
               endC: _endC,
               selectedColor: _selectedColor,
-              onColorChanged: (c) =>
-                  setState(() => _selectedColor = c),
+              onColorChanged: (c) => setState(() => _selectedColor = c),
               existingCodes: widget.existingCodes,
             ),
             const SizedBox(height: AppSpacing.xl),
@@ -397,8 +337,7 @@ class _ShiftTypeAddSheetState
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => setState(
-                        () => _isCustom = false),
+                    onPressed: () => setState(() => _isCustom = false),
                     child: const Text('뒤로'),
                   ),
                 ),
@@ -406,22 +345,17 @@ class _ShiftTypeAddSheetState
                 Expanded(
                   flex: 2,
                   child: FilledButton(
-                    onPressed:
-                        _saving ? null : _addCustom,
+                    onPressed: _saving ? null : _addCustom,
                     style: FilledButton.styleFrom(
-                      backgroundColor:
-                          Theme.of(context).colorScheme.primary,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
                     child: _saving
                         ? SizedBox(
                             width: 18,
                             height: 18,
-                            child:
-                                CircularProgressIndicator(
+                            child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onPrimary,
+                              color: Theme.of(context).colorScheme.onPrimary,
                             ),
                           )
                         : const Text('추가'),
@@ -456,9 +390,7 @@ class TemplateTile extends StatelessWidget {
     final color = parseHexColor(template.color);
 
     return Padding(
-      padding: const EdgeInsets.only(
-        bottom: AppSpacing.sm,
-      ),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Material(
         color: color.withValues(alpha: 0.08),
         borderRadius: AppRadius.borderRadiusMd,
@@ -483,67 +415,49 @@ class TemplateTile extends StatelessWidget {
                 // 정보
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
                           Container(
-                            padding:
-                                const EdgeInsets.symmetric(
+                            padding: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.sm,
                               vertical: AppSpacing.xxs,
                             ),
                             decoration: BoxDecoration(
                               color: color,
-                              borderRadius: AppRadius
-                                  .borderRadiusSm,
+                              borderRadius: AppRadius.borderRadiusSm,
                             ),
                             child: Text(
                               template.code,
                               style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surface,
-                                fontWeight:
-                                    FontWeight.w800,
+                                color: Theme.of(context).colorScheme.surface,
+                                fontWeight: FontWeight.w800,
                                 fontSize: 12,
                               ),
                             ),
                           ),
-                          const SizedBox(
-                            width: AppSpacing.sm,
-                          ),
+                          const SizedBox(width: AppSpacing.sm),
                           Text(
                             template.name,
-                            style: theme
-                                .textTheme.titleSmall
-                                ?.copyWith(
+                            style: theme.textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(
-                        height: AppSpacing.xxs,
-                      ),
+                      const SizedBox(height: AppSpacing.xxs),
                       Text(
                         template.description,
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(
-                          color: theme.colorScheme
-                              .onSurfaceVariant,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                Icon(
-                  Icons.add_circle_rounded,
-                  color: color,
-                  size: 28,
-                ),
+                Icon(Icons.add_circle_rounded, color: color, size: 28),
               ],
             ),
           ),
@@ -554,8 +468,7 @@ class TemplateTile extends StatelessWidget {
 }
 
 /// 근무 유형 수정 바텀시트
-class ShiftTypeEditSheet
-    extends ConsumerStatefulWidget {
+class ShiftTypeEditSheet extends ConsumerStatefulWidget {
   const ShiftTypeEditSheet({
     super.key,
     required this.teamId,
@@ -566,12 +479,10 @@ class ShiftTypeEditSheet
   final ShiftTypeModel existing;
 
   @override
-  ConsumerState<ShiftTypeEditSheet> createState() =>
-      _ShiftTypeEditSheetState();
+  ConsumerState<ShiftTypeEditSheet> createState() => _ShiftTypeEditSheetState();
 }
 
-class _ShiftTypeEditSheetState
-    extends ConsumerState<ShiftTypeEditSheet> {
+class _ShiftTypeEditSheetState extends ConsumerState<ShiftTypeEditSheet> {
   late final TextEditingController _nameC;
   late final TextEditingController _codeC;
   late final TextEditingController _startC;
@@ -582,14 +493,11 @@ class _ShiftTypeEditSheetState
   @override
   void initState() {
     super.initState();
-    _nameC = TextEditingController(
-        text: widget.existing.name);
-    _codeC = TextEditingController(
-        text: widget.existing.code);
+    _nameC = TextEditingController(text: widget.existing.name);
+    _codeC = TextEditingController(text: widget.existing.code);
     _startC = TextEditingController(
       text: widget.existing.startTime != null
-          ? formatTimeString(
-              widget.existing.startTime!)
+          ? formatTimeString(widget.existing.startTime!)
           : '',
     );
     _endC = TextEditingController(
@@ -616,8 +524,7 @@ class _ShiftTypeEditSheetState
 
     setState(() => _saving = true);
     await ref
-        .read(teamDetailViewModelProvider(widget.teamId)
-            .notifier)
+        .read(teamDetailViewModelProvider(widget.teamId).notifier)
         .updateShiftType(
           widget.existing.id,
           name: name,
@@ -635,9 +542,9 @@ class _ShiftTypeEditSheetState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     // 현재 수정 중인 유형 제외한 다른 유형들의 코드 (중복 감지용)
-    final otherCodes = ref
+    final otherCodes =
+        ref
             .watch(teamDetailViewModelProvider(widget.teamId))
             .valueOrNull
             ?.shiftTypes
@@ -651,41 +558,20 @@ class _ShiftTypeEditSheetState
         left: AppSpacing.lg,
         right: AppSpacing.lg,
         top: AppSpacing.xl,
-        bottom:
-            MediaQuery.of(context).viewInsets.bottom +
-                AppSpacing.xl,
+        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.xl,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.outlineVariant,
-                borderRadius:
-                    AppRadius.borderRadiusFull,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            '근무 유형 수정',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xl),
+          const SizedBox(height: AppSpacing.sm),
           CustomShiftForm(
             nameC: _nameC,
             codeC: _codeC,
             startC: _startC,
             endC: _endC,
             selectedColor: _selectedColor,
-            onColorChanged: (c) =>
-                setState(() => _selectedColor = c),
+            onColorChanged: (c) => setState(() => _selectedColor = c),
             existingCodes: otherCodes,
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -693,9 +579,7 @@ class _ShiftTypeEditSheetState
             onPressed: _saving ? null : _save,
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
-              padding: const EdgeInsets.symmetric(
-                vertical: AppSpacing.md,
-              ),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
             ),
             child: _saving
                 ? SizedBox(
@@ -703,9 +587,7 @@ class _ShiftTypeEditSheetState
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onPrimary,
+                      color: Theme.of(context).colorScheme.onPrimary,
                     ),
                   )
                 : const Text('저장'),
