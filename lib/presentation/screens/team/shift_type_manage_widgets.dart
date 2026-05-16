@@ -88,41 +88,17 @@ class ShiftTypeCard extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            shiftType.name,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: shiftType.isActive
-                                  ? null
-                                  : theme.colorScheme.onSurfaceVariant,
-                              decoration: shiftType.isActive
-                                  ? null
-                                  : TextDecoration.lineThrough,
-                            ),
-                          ),
-                          if (isProtectedDefault) ...[
-                            const SizedBox(width: AppSpacing.xs),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.xs,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primaryContainer,
-                                borderRadius: AppRadius.borderRadiusFull,
-                              ),
-                              child: Text(
-                                '기본',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: theme.colorScheme.onPrimaryContainer,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+                      Text(
+                        shiftType.name,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: shiftType.isActive
+                              ? null
+                              : theme.colorScheme.onSurfaceVariant,
+                          decoration: shiftType.isActive
+                              ? null
+                              : TextDecoration.lineThrough,
+                        ),
                       ),
                       if (timeText.isNotEmpty)
                         Text(
@@ -134,6 +110,25 @@ class ShiftTypeCard extends ConsumerWidget {
                     ],
                   ),
                 ),
+
+                if (isProtectedDefault)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xs,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: AppRadius.borderRadiusFull,
+                    ),
+                    child: Text(
+                      '기본',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
 
                 // 삭제 버튼
                 if (isAdmin && !isProtectedDefault)

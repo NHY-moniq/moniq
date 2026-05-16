@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/models/custom_rule_model.dart';
+import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/team_member_with_user.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
@@ -100,6 +101,8 @@ class _SetupView extends HookConsumerWidget {
     final notifier = ref.read(
       scheduleGenerationViewModelProvider(teamId).notifier,
     );
+    final defaultShiftTypes = _defaultShiftTypes(state.shiftTypes);
+    final hasDefaultShiftTypes = defaultShiftTypes.isNotEmpty;
 
     return SingleChildScrollView(
       padding: AppSpacing.screenAll,
@@ -193,7 +196,7 @@ class _SetupView extends HookConsumerWidget {
                     ScheduleTappableInfoRow(
                       icon: Icons.schedule,
                       label: '근무 유형',
-                      value: '${state.shiftTypes.length}개',
+                      value: '${defaultShiftTypes.length}개',
                       onTap: () => _showShiftTypesDialog(context, state),
                     ),
                     const SizedBox(height: AppSpacing.sm),
@@ -220,12 +223,12 @@ class _SetupView extends HookConsumerWidget {
                           ? null
                           : () => _showCustomRulesDialog(context, state),
                     ),
-                    if (state.shiftTypes.isNotEmpty) ...[
+                    if (hasDefaultShiftTypes) ...[
                       const Divider(height: AppSpacing.xxl),
                       Wrap(
                         spacing: AppSpacing.sm,
                         runSpacing: AppSpacing.sm,
-                        children: state.shiftTypes
+                        children: defaultShiftTypes
                             .map(
                               (t) => Chip(
                                 avatar: CircleAvatar(
@@ -325,7 +328,7 @@ class _SetupView extends HookConsumerWidget {
                 onPressed:
                     state.isGenerating ||
                         state.members.isEmpty ||
-                        state.shiftTypes.isEmpty ||
+                        !hasDefaultShiftTypes ||
                         state.periodStart == null ||
                         state.periodEnd == null ||
                         state.periodEnd!.isBefore(state.periodStart!)
@@ -348,10 +351,10 @@ class _SetupView extends HookConsumerWidget {
               ),
             ),
 
-            if (state.members.isEmpty || state.shiftTypes.isEmpty) ...[
+            if (state.members.isEmpty || !hasDefaultShiftTypes) ...[
               const SizedBox(height: AppSpacing.md),
               Text(
-                state.members.isEmpty ? '멤버를 먼저 추가해주세요' : '근무 유형을 먼저 설정해주세요',
+                state.members.isEmpty ? '멤버를 먼저 추가해주세요' : '기본 근무 유형을 먼저 설정해주세요',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.error,
                 ),
@@ -373,10 +376,11 @@ void _showShiftTypesDialog(
 ) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
+  final defaultShiftTypes = _defaultShiftTypes(state.shiftTypes);
 
   showMoniqBottomSheet<void>(
     context: context,
-    title: '근무 유형 (${state.shiftTypes.length}개)',
+    title: '근무 유형 (${defaultShiftTypes.length}개)',
     eyebrow: 'SHIFT TYPES',
     child: Column(
       mainAxisSize: MainAxisSize.min,
@@ -398,9 +402,9 @@ void _showShiftTypesDialog(
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  state.shiftTypes.isEmpty
-                      ? '등록된 근무 유형이 없습니다'
-                      : '총 ${state.shiftTypes.length}개 근무 유형이 반영됩니다',
+                  defaultShiftTypes.isEmpty
+                      ? '기본 근무 유형이 없습니다'
+                      : '총 ${defaultShiftTypes.length}개 기본 근무 유형이 반영됩니다',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -410,38 +414,35 @@ void _showShiftTypesDialog(
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        if (state.shiftTypes.isEmpty)
+        if (defaultShiftTypes.isEmpty)
           Container(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl),
             alignment: Alignment.center,
             child: Text(
-              '설정된 근무 유형이 없어요',
+              '설정된 기본 근무 유형이 없어요',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
           ),
-        if (state.shiftTypes.isNotEmpty)
+        if (defaultShiftTypes.isNotEmpty)
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 420),
             child: ListView.separated(
               shrinkWrap: true,
-              itemCount: state.shiftTypes.length,
+              itemCount: defaultShiftTypes.length,
               separatorBuilder: (_, __) =>
                   const SizedBox(height: AppSpacing.sm),
               itemBuilder: (_, i) {
-                final t = state.shiftTypes[i];
+                final t = defaultShiftTypes[i];
                 final color = parseHexColor(t.color);
-                final code = t.code.trim().toUpperCase();
-                final isDefaultCode =
-                    code == 'D' || code == 'E' || code == 'N' || code == 'ED';
 
                 return _ShiftTypeOverviewTile(
                   name: t.name,
                   code: t.code,
                   color: color,
                   timeText: _formatShiftTypeTimeText(t.startTime, t.endTime),
-                  badgeLabel: isDefaultCode ? '기본' : '커스텀',
+                  badgeLabel: '기본',
                 );
               },
             ),
@@ -449,6 +450,16 @@ void _showShiftTypesDialog(
       ],
     ),
   );
+}
+
+const _defaultShiftTypeCodes = {'D', 'E', 'N', 'ED'};
+
+List<ShiftTypeModel> _defaultShiftTypes(List<ShiftTypeModel> shiftTypes) {
+  return shiftTypes
+      .where(
+        (t) => _defaultShiftTypeCodes.contains(t.code.trim().toUpperCase()),
+      )
+      .toList();
 }
 
 class _ShiftTypeOverviewTile extends StatelessWidget {
