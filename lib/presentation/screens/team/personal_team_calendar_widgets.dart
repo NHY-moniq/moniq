@@ -1,6 +1,104 @@
 import 'package:flutter/material.dart';
 import 'package:moniq/data/models/personal_team_member_shift.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+
+const personalShiftDayColor = Color(0xFFF0C040);
+const personalShiftEveningColor = Color(0xFFE8923A);
+const personalShiftNightColor = Color(0xFF5A8BB5);
+
+bool isPersonalOffShift(PersonalMemberShift shift) {
+  final code = (shift.shiftCode ?? '').trim().toUpperCase();
+  final name = (shift.shiftName ?? '').trim().toLowerCase();
+  return code == 'O' ||
+      code == 'OFF' ||
+      name.contains('off') ||
+      name.contains('오프') ||
+      name.contains('휴무');
+}
+
+bool isPersonalDayShift(PersonalMemberShift shift) {
+  final code = (shift.shiftCode ?? '').trim().toUpperCase();
+  final name = (shift.shiftName ?? '').trim().toLowerCase();
+  return code == 'D' ||
+      code == 'DAY' ||
+      name.contains('day') ||
+      name.contains('데이');
+}
+
+String? personalShiftDenCode(PersonalMemberShift shift) {
+  final code = (shift.shiftCode ?? '').trim().toUpperCase();
+  final name = (shift.shiftName ?? '').trim().toLowerCase();
+
+  if (code == 'D' ||
+      code == 'DAY' ||
+      name.contains('day') ||
+      name.contains('데이')) {
+    return 'D';
+  }
+  if (code == 'E' ||
+      code == 'EVENING' ||
+      name.contains('eve') ||
+      name.contains('이브닝')) {
+    return 'E';
+  }
+  if (code == 'N' ||
+      code == 'NIGHT' ||
+      name.contains('night') ||
+      name.contains('나이트')) {
+    return 'N';
+  }
+  return null;
+}
+
+int personalShiftDenSortKey(String code) {
+  switch (code) {
+    case 'D':
+      return 0;
+    case 'E':
+      return 1;
+    case 'N':
+      return 2;
+    default:
+      return 99;
+  }
+}
+
+Color personalShiftColorByCode(String code) {
+  switch (code.toUpperCase()) {
+    case 'D':
+      return personalShiftDayColor;
+    case 'E':
+      return personalShiftEveningColor;
+    case 'N':
+      return personalShiftNightColor;
+    default:
+      return AppColors.shiftOff;
+  }
+}
+
+Color resolvePersonalShiftColor(
+  BuildContext context,
+  PersonalMemberShift shift,
+) {
+  final code = (shift.shiftCode ?? '').trim().toUpperCase();
+  if (code == 'D' || code == 'E' || code == 'N') {
+    return personalShiftColorByCode(code);
+  }
+  if (isPersonalOffShift(shift)) {
+    return AppColors.shiftOff;
+  }
+
+  final den = personalShiftDenCode(shift);
+  if (den != null) {
+    return personalShiftColorByCode(den);
+  }
+
+  return _parseColor(
+    shift.shiftColor,
+    fallback: Theme.of(context).colorScheme.primary,
+  );
+}
 
 /// 개인 팀 캘린더 날짜 셀 — markerBuilder 외부에서 독립적으로도 사용 가능하도록
 /// 보조 위젯으로 제공.
@@ -96,10 +194,7 @@ class _DateNumber extends StatelessWidget {
       return Container(
         width: 26,
         height: 26,
-        decoration: BoxDecoration(
-          color: cs.primary,
-          shape: BoxShape.circle,
-        ),
+        decoration: BoxDecoration(color: cs.primary, shape: BoxShape.circle),
         alignment: Alignment.center,
         child: Text(
           '$day',
@@ -141,9 +236,7 @@ class PersonalDayDetailPanel extends StatelessWidget {
     final theme = Theme.of(context);
 
     // 멤버별 shift map
-    final shiftByUser = {
-      for (final s in shifts) s.userId: s,
-    };
+    final shiftByUser = {for (final s in shifts) s.userId: s};
 
     return Container(
       width: double.infinity,
@@ -189,10 +282,7 @@ class PersonalDayDetailPanel extends StatelessWidget {
               itemBuilder: (context, index) {
                 final member = members[index];
                 final shift = shiftByUser[member.userId];
-                return _MemberShiftRow(
-                  member: member,
-                  shift: shift,
-                );
+                return _MemberShiftRow(member: member, shift: shift);
               },
             ),
           const SizedBox(height: AppSpacing.sm),
@@ -209,10 +299,7 @@ class PersonalDayDetailPanel extends StatelessWidget {
 }
 
 class _MemberShiftRow extends StatelessWidget {
-  const _MemberShiftRow({
-    required this.member,
-    this.shift,
-  });
+  const _MemberShiftRow({required this.member, this.shift});
 
   final PersonalTeamMember member;
   final PersonalMemberShift? shift;
@@ -325,10 +412,7 @@ class _ShiftChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chipColor = _parseColor(
-      shift.shiftColor,
-      fallback: Theme.of(context).colorScheme.primary,
-    );
+    final chipColor = resolvePersonalShiftColor(context, shift);
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -338,10 +422,7 @@ class _ShiftChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: chipColor.withValues(alpha: 0.15),
         borderRadius: AppRadius.borderRadiusFull,
-        border: Border.all(
-          color: chipColor.withValues(alpha: 0.4),
-          width: 1,
-        ),
+        border: Border.all(color: chipColor.withValues(alpha: 0.4), width: 1),
       ),
       child: Text(
         shift.shiftCode ?? '',

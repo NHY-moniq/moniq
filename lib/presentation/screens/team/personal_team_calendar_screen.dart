@@ -3,12 +3,15 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/data/models/personal_team_member_shift.dart';
+import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/personal_team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
+import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 import 'personal_team_calendar_widgets.dart';
 
@@ -60,29 +63,10 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
 
   static const int _maxInsightDays = 5;
 
-  bool _isOffShift(PersonalMemberShift shift) {
-    final code = (shift.shiftCode ?? '').trim().toUpperCase();
-    final name = (shift.shiftName ?? '').trim().toLowerCase();
-    return code == 'O' ||
-        code == 'OFF' ||
-        name.contains('off') ||
-        name.contains('오프') ||
-        name.contains('휴무');
-  }
-
-  bool _isDayShift(PersonalMemberShift shift) {
-    final code = (shift.shiftCode ?? '').trim().toUpperCase();
-    final name = (shift.shiftName ?? '').trim().toLowerCase();
-    return code == 'D' ||
-        code == 'DAY' ||
-        name.contains('day') ||
-        name.contains('데이');
-  }
-
   int _targetShiftCount(List<PersonalMemberShift> shifts) {
     return shifts.where((s) {
-      if (_isOffShift(s)) return true;
-      return _includeDay && _isDayShift(s);
+      if (isPersonalOffShift(s)) return true;
+      return _includeDay && isPersonalDayShift(s);
     }).length;
   }
 
@@ -120,6 +104,10 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
     final state = widget.state;
     final teamId = widget.teamId;
     final vm = ref.read(personalTeamCalendarViewModelProvider(teamId).notifier);
+    final calendarStartDay = ref.watch(calendarStartDayProvider);
+    final startingDay = calendarStartDay == 'sunday'
+        ? StartingDayOfWeek.sunday
+        : StartingDayOfWeek.monday;
     final selectedShifts = state.shiftsForDate(state.selectedDate);
     final overlapDays = _overlapDays(state.monthlyData);
     final dateFormat = DateFormat('MM.dd (E)', 'ko_KR');
@@ -239,7 +227,18 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
           MoniqCalendar(
             focusedDay: state.focusedMonth,
             selectedDay: state.selectedDate,
-            rowHeight: 64,
+            rowHeight: 80,
+            viewMode: state.viewMode,
+            onViewModeChanged: vm.setViewMode,
+            calendarFormat: state.viewMode == CalendarViewMode.month
+                ? CalendarFormat.month
+                : CalendarFormat.week,
+            startingDayOfWeek: startingDay,
+            legendItems: const [
+              (color: personalShiftDayColor, label: 'D'),
+              (color: personalShiftEveningColor, label: 'E'),
+              (color: personalShiftNightColor, label: 'N'),
+            ],
             // eventLoader가 있어야 markerBuilder가 호출됨
             eventLoader: (day) {
               final key = DateTime(day.year, day.month, day.day);
@@ -250,32 +249,49 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
             markerBuilder: (context, date, events) {
               final dayShifts = events.cast<PersonalMemberShift>();
               if (dayShifts.isEmpty) return null;
-              final dots = dayShifts.take(3).toList();
-              final cs = Theme.of(context).colorScheme;
+
+              final typeCount = <String, int>{};
+              for (final shift in dayShifts) {
+                final code = personalShiftDenCode(shift);
+                if (code == null) continue;
+                typeCount[code] = (typeCount[code] ?? 0) + 1;
+              }
+              if (typeCount.isEmpty) return null;
+
+              final sortedCodes = typeCount.keys.toList()
+                ..sort(
+                  (a, b) => personalShiftDenSortKey(
+                    a,
+                  ).compareTo(personalShiftDenSortKey(b)),
+                );
+
               return Row(
                 mainAxisSize: MainAxisSize.min,
-                children: dots.map((s) {
-                  Color color = cs.onSurfaceVariant.withValues(alpha: 0.4);
-                  if (s.shiftColor != null) {
-                    try {
-                      final hex = s.shiftColor!.replaceFirst('#', '');
-                      color = Color(int.parse('FF$hex', radix: 16));
-                    } catch (_) {}
-                  }
+                children: sortedCodes.take(3).map((code) {
+                  final color = personalShiftColorByCode(code);
+
                   return Container(
-                    width: 6,
-                    height: 6,
-                    margin: const EdgeInsets.symmetric(horizontal: 1),
+                    width: 12,
+                    height: 12,
+                    margin: const EdgeInsets.symmetric(horizontal: 0.5),
                     decoration: BoxDecoration(
                       color: color,
                       shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${typeCount[code]}',
+                        style: TextStyle(
+                          fontSize: 6,
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.surface,
+                        ),
+                      ),
                     ),
                   );
                 }).toList(),
               );
             },
-            // 빈 리스트: 기본 DAY/EVENING/NIGHT/OFF 범례 숨김
-            legendItems: const [],
           ),
           const SizedBox(height: AppSpacing.lg),
           Padding(

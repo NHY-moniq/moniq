@@ -225,7 +225,7 @@ class _EmptyShiftTypesViewState extends ConsumerState<EmptyShiftTypesView> {
   }
 }
 
-/// 템플릿 미리보기 카드 (통통 튀는 애니메이션 아이콘)
+/// 템플릿 미리보기 카드
 class ShiftTemplateCard extends StatelessWidget {
   const ShiftTemplateCard({
     super.key,
@@ -265,8 +265,8 @@ class ShiftTemplateCard extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 애니메이션 아이콘
-              BouncyShiftIcon(
+              // 정적 아이콘
+              StaticShiftIcon(
                 icon: template.icon,
                 color: color,
                 code: template.code,
@@ -410,7 +410,7 @@ class _ShiftTypeCreateFromTemplateSheetState
           // 타이틀 + 아이콘
           Row(
             children: [
-              BouncyShiftIcon(
+              StaticShiftIcon(
                 icon: widget.template.icon,
                 color: color,
                 code: widget.template.code,
@@ -474,9 +474,9 @@ class _ShiftTypeCreateFromTemplateSheetState
   }
 }
 
-/// 통통 튀는 아이콘 애니메이션
-class BouncyShiftIcon extends StatefulWidget {
-  const BouncyShiftIcon({
+/// 템플릿 근무 유형 아이콘
+class StaticShiftIcon extends StatelessWidget {
+  const StaticShiftIcon({
     super.key,
     required this.icon,
     required this.color,
@@ -488,178 +488,26 @@ class BouncyShiftIcon extends StatefulWidget {
   final String code;
 
   @override
-  State<BouncyShiftIcon> createState() => _BouncyShiftIconState();
-}
-
-class _BouncyShiftIconState extends State<BouncyShiftIcon>
-    with TickerProviderStateMixin {
-  late final AnimationController _bounceController;
-  late final AnimationController _glowController;
-  late final Animation<double> _bounceAnim;
-  late final Animation<double> _glowAnim;
-
-  @override
-  void initState() {
-    super.initState();
-
-    // 바운스: 위아래로 통통
-    _bounceController = AnimationController(
-      vsync: this,
-      duration: Duration(
-        milliseconds: widget.code == 'D'
-            ? 1200
-            : widget.code == 'E'
-            ? 1500
-            : 1800,
-      ),
-    )..repeat(reverse: true);
-
-    _bounceAnim = Tween<double>(begin: 0, end: -8).animate(
-      CurvedAnimation(parent: _bounceController, curve: Curves.easeInOut),
-    );
-
-    // 글로우: 빛나는 효과
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat(reverse: true);
-
-    _glowAnim = Tween<double>(begin: 0.3, end: 0.8).animate(
-      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _bounceController.dispose();
-    _glowController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: Listenable.merge([_bounceController, _glowController]),
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, _bounceAnim.value),
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: widget.color.withValues(alpha: 0.2),
-              boxShadow: [
-                BoxShadow(
-                  color: widget.color.withValues(alpha: _glowAnim.value),
-                  blurRadius: 16,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: _buildIcon(),
-          ),
-        );
-      },
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withValues(alpha: 0.2),
+      ),
+      child: _buildIcon(),
     );
   }
 
   Widget _buildIcon() {
-    // 각 근무 유형별 다른 아이콘 스타일
-    if (widget.code == 'D') {
-      return _buildSunIcon();
-    } else if (widget.code == 'E') {
-      return _buildSunsetIcon();
-    } else if (widget.code == 'N') {
-      return _buildMoonIcon();
-    } else if (widget.code == 'ED') {
-      return Icon(Icons.school_rounded, size: 30, color: widget.color);
-    } else {
-      return _buildMoonIcon();
-    }
-  }
-
-  Widget _buildSunIcon() {
-    return AnimatedBuilder(
-      animation: _bounceController,
-      builder: (context, _) {
-        final rotation = _bounceController.value * 0.3;
-        return Transform.rotate(
-          angle: rotation,
-          child: Icon(Icons.wb_sunny_rounded, size: 30, color: widget.color),
-        );
-      },
-    );
-  }
-
-  Widget _buildSunsetIcon() {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Icon(Icons.wb_twilight_rounded, size: 30, color: widget.color),
-        // 작은 반짝이
-        AnimatedBuilder(
-          animation: _glowController,
-          builder: (context, _) {
-            return Positioned(
-              top: 10,
-              right: 10,
-              child: Opacity(
-                opacity: _glowAnim.value,
-                child: Icon(
-                  Icons.auto_awesome,
-                  size: 12,
-                  color: widget.color.withValues(alpha: 0.6),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMoonIcon() {
-    return AnimatedBuilder(
-      animation: _bounceController,
-      builder: (context, _) {
-        // 살짝 기울기 변화
-        final tilt = (_bounceController.value - 0.5) * 0.2;
-        return Transform.rotate(
-          angle: tilt,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Icon(Icons.nightlight_round, size: 28, color: widget.color),
-              // 별 반짝임
-              Positioned(
-                top: 8,
-                left: 10,
-                child: Opacity(
-                  opacity: (1 - _bounceController.value).clamp(0.2, 1.0),
-                  child: const Icon(
-                    Icons.star_rounded,
-                    size: 10,
-                    color: Color(0xFFFFD700),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 10,
-                right: 8,
-                child: Opacity(
-                  opacity: _bounceController.value.clamp(0.2, 1.0),
-                  child: const Icon(
-                    Icons.star_rounded,
-                    size: 8,
-                    color: Color(0xFFFFD700),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+    final iconData = switch (code.toUpperCase()) {
+      'D' => Icons.wb_sunny_rounded,
+      'E' => Icons.wb_twilight_rounded,
+      'N' => Icons.nightlight_round,
+      'ED' => Icons.school_rounded,
+      _ => icon,
+    };
+    return Icon(iconData, size: 30, color: color);
   }
 }

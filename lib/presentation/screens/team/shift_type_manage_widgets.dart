@@ -10,6 +10,11 @@ import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
+const _protectedDefaultCodes = {'D', 'E', 'N', 'ED'};
+
+bool _isProtectedDefaultShiftType(ShiftTypeModel shiftType) =>
+    _protectedDefaultCodes.contains(shiftType.code.trim().toUpperCase());
+
 /// 기존 근무 유형 카드 (등록된 상태)
 class ShiftTypeCard extends ConsumerWidget {
   const ShiftTypeCard({
@@ -28,6 +33,7 @@ class ShiftTypeCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final color = parseHexColor(shiftType.color);
     final timeText = _buildTimeText(shiftType);
+    final isProtectedDefault = _isProtectedDefaultShiftType(shiftType);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -83,17 +89,41 @@ class ShiftTypeCard extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        shiftType.name,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: shiftType.isActive
-                              ? null
-                              : theme.colorScheme.onSurfaceVariant,
-                          decoration: shiftType.isActive
-                              ? null
-                              : TextDecoration.lineThrough,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            shiftType.name,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: shiftType.isActive
+                                  ? null
+                                  : theme.colorScheme.onSurfaceVariant,
+                              decoration: shiftType.isActive
+                                  ? null
+                                  : TextDecoration.lineThrough,
+                            ),
+                          ),
+                          if (isProtectedDefault) ...[
+                            const SizedBox(width: AppSpacing.xs),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.xs,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primaryContainer,
+                                borderRadius: AppRadius.borderRadiusFull,
+                              ),
+                              child: Text(
+                                '기본',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       if (timeText.isNotEmpty)
                         Text(
@@ -106,18 +136,8 @@ class ShiftTypeCard extends ConsumerWidget {
                   ),
                 ),
 
-                // 활성/비활성 토글
-                if (isAdmin)
-                  Switch.adaptive(
-                    value: shiftType.isActive,
-                    onChanged: (val) => ref
-                        .read(teamDetailViewModelProvider(teamId).notifier)
-                        .toggleShiftTypeActive(shiftType.id, val),
-                    activeThumbColor: color,
-                    activeTrackColor: color.withValues(alpha: 0.4),
-                  ),
                 // 삭제 버튼
-                if (isAdmin)
+                if (isAdmin && !isProtectedDefault)
                   IconButton(
                     icon: Icon(
                       Icons.delete_outline,
@@ -136,6 +156,15 @@ class ShiftTypeCard extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    if (_isProtectedDefaultShiftType(shiftType)) {
+      await showMoniqInfoSheet(
+        context: context,
+        title: '삭제 불가',
+        message: '데이/이브닝/나이트/교육 기본 근무 유형은 삭제할 수 없습니다.',
+      );
+      return;
+    }
+
     final confirmed = await showMoniqConfirmSheet(
       context: context,
       title: '근무 유형 삭제',
@@ -404,8 +433,8 @@ class TemplateTile extends StatelessWidget {
             ),
             child: Row(
               children: [
-                // 애니메이션 아이콘
-                BouncyShiftIcon(
+                // 정적 아이콘
+                StaticShiftIcon(
                   icon: template.icon,
                   color: color,
                   code: template.code,
