@@ -175,6 +175,10 @@ class OnShiftTeamData {
   final List<UserModel> nextCoworkers;
 }
 
+/// ON SHIFT NOW에서 '근무중'으로 인정하는 시프트 코드.
+/// 데이/이브닝/나이트만 병원 근무로 보고, 교육(ED) 등은 개인 일정으로 간주해 제외한다.
+const _workShiftCodes = {'D', 'E', 'N'};
+
 final onShiftTeamDataProvider =
     FutureProvider.autoDispose<OnShiftTeamData>((ref) async {
   final homeAsync = ref.watch(homeViewModelProvider);
@@ -200,7 +204,7 @@ final onShiftTeamDataProvider =
   final allTypes = await repo.getShiftTypes(teamId);
   final scheduled = allTypes
       .where((t) =>
-          t.code.toUpperCase() != 'OFF' &&
+          _workShiftCodes.contains(t.code.toUpperCase()) &&
           t.startTime != null &&
           t.startTime!.isNotEmpty &&
           t.endTime != null &&

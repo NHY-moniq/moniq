@@ -5,11 +5,11 @@ const FeaturePersonalCalendar = () => (
   <Section paddingY={140}>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
       <div>
-        <LandingEyebrow style={{ color: '#B8860B' }}>Feature · 01</LandingEyebrow>
-        <h2 style={{ font: '900 54px/1.05 var(--font-family)', letterSpacing: -1.6, color: '#312F23', marginTop: 18, textWrap: 'balance' }}>
+        <LandingEyebrow style={{ color: '#B8860B' }}>Feature · 07</LandingEyebrow>
+        <h2 style={{ font: '900 40px/1.15 var(--font-family)', letterSpacing: -1.2, color: '#312F23', marginTop: 18, textWrap: 'balance', wordBreak: 'keep-all' }}>
           개인 캘린더에서 근무와 개인 일정을<br />한번에 관리할 수 있어요.
         </h2>
-        <p style={{ font: '500 18px/1.55 var(--font-family)', color: '#5F5C4D', marginTop: 22, maxWidth: 520 }}>
+        <p style={{ font: '500 18px/1.55 var(--font-family)', color: '#5F5C4D', marginTop: 22, maxWidth: 520, wordBreak: 'keep-all' }}>
           팀에 등록된 근무가 내 캘린더에 그대로 흘러들어와요.<br />
           그 위에 개인 일정·메모도 같이 적어두면, 근무와 사생활을 한 화면에서 정리할 수 있어요.
         </p>
@@ -51,7 +51,7 @@ const FeatureTeamCalendar = () => (
         </PhoneFrame>
       </div>
       <div>
-        <LandingEyebrow style={{ color: '#E07800' }}>Feature · 02</LandingEyebrow>
+        <LandingEyebrow style={{ color: '#E07800' }}>Feature · 06</LandingEyebrow>
         <h2 style={{ font: '900 54px/1.05 var(--font-family)', letterSpacing: -1.6, color: '#312F23', marginTop: 18, textWrap: 'balance' }}>
           팀 캘린더 자동 연동으로<br />근무를 쉽고 빠르게 파악할 수 있어요.
         </h2>
@@ -87,7 +87,7 @@ const FeatureSwap = () => (
   <Section paddingY={140}>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
       <div>
-        <LandingEyebrow style={{ color: '#0061A4' }}>Feature · 04</LandingEyebrow>
+        <LandingEyebrow style={{ color: '#0061A4' }}>Feature · 05</LandingEyebrow>
         <h2 style={{ font: '900 60px/1.02 var(--font-family)', letterSpacing: -1.8, color: '#312F23', marginTop: 18, textWrap: 'balance' }}>
           교대 · 변경,<br />탭 한 번이면 끝.
         </h2>
@@ -141,7 +141,7 @@ const FeatureWantedCollection = () => {
           </PhoneFrame>
         </div>
         <div>
-          <LandingEyebrow style={{ color: '#B8860B' }}>Feature · 03 — Wanted Collection</LandingEyebrow>
+          <LandingEyebrow style={{ color: '#B8860B' }}>Feature · 04 — Wanted Collection</LandingEyebrow>
           <h2 style={{ font: '900 54px/1.05 var(--font-family)', letterSpacing: -1.6, color: '#312F23', marginTop: 18, textWrap: 'balance' }}>
             카톡방 대신 원티드,<br />앱 한 곳에서 정리돼요.
           </h2>
@@ -178,7 +178,7 @@ const FeatureScheduleAutoGen = () => {
   return (
     <Section paddingY={180}>
       <div style={{ textAlign: 'center', marginBottom: 56 }}>
-        <LandingChip icon="auto_awesome" bg="rgba(255,193,7,.18)" color="#6B5300">Feature · 03 — Schedule Generation</LandingChip>
+        <LandingChip icon="auto_awesome" bg="rgba(255,193,7,.18)" color="#6B5300">Feature · 01 — Schedule Generation</LandingChip>
         <h2 style={{
           font: '900 76px/1 var(--font-family)',
           letterSpacing: -2.4, color: '#312F23',
@@ -255,16 +255,15 @@ const FeatureScheduleAutoGen = () => {
 // Feature 3-C: AI fairness report — runs right after schedule generation
 const FeatureAIReport = () => {
   const cards = [
-    { icon: 'analytics', label: '팀원별 야간 분포', sub: '누가 더 힘든지 한눈에' },
-    { icon: 'rule', label: '룰 준수율', sub: '설정한 규칙이 % 단위로' },
-    { icon: 'compare_arrows', label: '이전 월 비교', sub: '지난달보다 공평해졌는지' },
+    { icon: 'workspace_premium', label: '숙련도 배치', sub: '신입-베테랑이 골고루 섞였는지 한눈에' },
+    { icon: 'thumb_down', label: '기피 패턴 처리율', sub: '연속 야간·N→D 같은 기피 패턴이 얼마나 빠졌는지 % 단위로' },
   ];
   return (
     <Section paddingY={180}>
       {/* Subtle orange-tinted blob to echo the AI accent */}
       <div aria-hidden style={{ position: 'absolute', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,140,0,.18), transparent 70%)', top: -80, right: -120, filter: 'blur(60px)', pointerEvents: 'none' }} />
       <div style={{ textAlign: 'center', marginBottom: 56, position: 'relative' }}>
-        <LandingChip icon="auto_awesome" bg="rgba(255,140,0,.16)" color="#B05A00">AI 분석 리포트</LandingChip>
+        <LandingChip icon="auto_awesome" bg="rgba(255,140,0,.16)" color="#B05A00">Feature · 02 — AI 분석 리포트</LandingChip>
         <h2 style={{
           font: '900 68px/1.05 var(--font-family)',
           letterSpacing: -2.0, color: '#312F23',
@@ -284,8 +283,8 @@ const FeatureAIReport = () => {
           maxWidth: 680, margin: '24px auto 0',
           textWrap: 'balance',
         }}>
-          생성 직후 야간 횟수·연속 근무·휴식 준수율을 팀원별로 분석해요.<br />
-          "제 야간이 왜 이렇게 많아요?" 물어볼 필요 없이, 숫자가 먼저 답해요.
+          생성 직후 숙련도 배치와 기피 패턴 처리율을 한눈에 보여줘요.<br />
+          "왜 이렇게 짰어요?" 물어볼 필요 없이, 숫자가 먼저 답해요.
         </p>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center', marginTop: 32, position: 'relative' }}>

@@ -8,6 +8,7 @@ import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/presentation/screens/announcement/announcement_screen.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
+import 'package:moniq/presentation/widgets/announcement/announcement_filter_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -41,11 +42,12 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
           if (teams.length > 1)
             _TeamFilterHeader(
               label: filterLabel,
-              teams: teams,
-              selectedTeamId: selectedTeamId,
-              onSelect: (id) => ref
-                  .read(selectedAnnouncementTeamFilterProvider.notifier)
-                  .state = id,
+              onTap: () => _showTeamFilterSheet(
+                context,
+                ref,
+                teams,
+                selectedTeamId,
+              ),
             ),
           Expanded(
             child: announcementsAsync.when(
@@ -76,11 +78,8 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
                       final item = items[index];
                       final a = item.announcement;
                       return AnnouncementListTile(
+                        announcement: a,
                         teamName: item.teamName,
-                        title: a.title,
-                        content: a.content,
-                        createdAt: a.createdAt,
-                        isPinned: a.isPinned,
                         onTap: () => _showDetail(context, ref, item),
                       );
                     },
@@ -92,6 +91,39 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _showTeamFilterSheet(
+    BuildContext context,
+    WidgetRef ref,
+    List<TeamModel> teams,
+    String? selectedTeamId,
+  ) async {
+    // teamId 가 null(전체)일 수 있어 sentinel 문자열로 감싼다.
+    const allValue = '__all__';
+    final options = <AnnouncementFilterOption<String>>[
+      const AnnouncementFilterOption(
+        value: allValue,
+        label: '전체 보기',
+        icon: Icons.apps_rounded,
+      ),
+      for (final t in teams)
+        AnnouncementFilterOption(
+          value: t.id,
+          label: t.name,
+          icon: Icons.groups_outlined,
+        ),
+    ];
+
+    final picked = await showAnnouncementFilterSheet<String>(
+      context: context,
+      title: '팀 선택',
+      selectedValue: selectedTeamId ?? allValue,
+      options: options,
+    );
+    if (picked == null) return;
+    ref.read(selectedAnnouncementTeamFilterProvider.notifier).state =
+        picked.value == allValue ? null : picked.value;
   }
 
   Future<void> _onCreateTap(BuildContext context, WidgetRef ref) async {
@@ -190,22 +222,21 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
   }
 }
 
+/// 홈탭 공지사항 팀 필터 헤더.
+///
+/// 기존 [PopupMenuButton] 드롭다운을 [MoniqBottomSheet] 기반
+/// [AnnouncementFilterChip]으로 통일했다.
 class _TeamFilterHeader extends StatelessWidget {
   const _TeamFilterHeader({
     required this.label,
-    required this.teams,
-    required this.selectedTeamId,
-    required this.onSelect,
+    required this.onTap,
   });
 
   final String label;
-  final List<TeamModel> teams;
-  final String? selectedTeamId;
-  final ValueChanged<String?> onSelect;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.xxl,
@@ -215,61 +246,10 @@ class _TeamFilterHeader extends StatelessWidget {
       ),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: PopupMenuButton<String?>(
-          tooltip: '팀 선택',
-          position: PopupMenuPosition.under,
-          onSelected: onSelect,
-          itemBuilder: (ctx) => [
-            CheckedPopupMenuItem<String?>(
-              value: null,
-              checked: selectedTeamId == null,
-              child: const Text('전체 보기'),
-            ),
-            for (final t in teams)
-              CheckedPopupMenuItem<String?>(
-                value: t.id,
-                checked: selectedTeamId == t.id,
-                child: Text(t.name),
-              ),
-          ],
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: cs.outlineVariant.withValues(alpha: 0.5),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.groups_outlined,
-                  size: 14,
-                  color: cs.onSurfaceVariant,
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(width: 2),
-                Icon(
-                  Icons.expand_more_rounded,
-                  size: 16,
-                  color: cs.onSurfaceVariant,
-                ),
-              ],
-            ),
-          ),
+        child: AnnouncementFilterChip(
+          label: label,
+          icon: Icons.groups_outlined,
+          onTap: onTap,
         ),
       ),
     );

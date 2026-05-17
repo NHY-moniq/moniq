@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/time_utils.dart';
@@ -18,12 +16,10 @@ import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 class HomeBody extends ConsumerWidget {
   const HomeBody({
     super.key,
-    required this.displayName,
     required this.monthlyShifts,
     required this.shiftTheme,
   });
 
-  final String? displayName;
   final Map<DateTime, List<ShiftWithType>> monthlyShifts;
   final ShiftThemeData shiftTheme;
 
@@ -66,9 +62,6 @@ class HomeBody extends ConsumerWidget {
     final shiftName = hasServerShift
         ? firstShift.shiftType.name
         : matchedShiftType?.name ?? 'Off';
-    final isOff = hasServerShift
-        ? firstShift.shiftType.code.toUpperCase() == 'OFF'
-        : !hasShift;
     final rawStart =
         hasServerShift ? firstShift.shiftType.startTime : matchedShiftType?.startTime;
     final rawEnd =
@@ -87,41 +80,12 @@ class HomeBody extends ConsumerWidget {
           .firstOrNull;
     }
 
-    // Subtitle — 랜덤 인사말
-    final subtitle = isOff
-        ? _offGreetings[Random().nextInt(_offGreetings.length)]
-        : teamName != null
-            ? '$teamName에서 근무 중이에요'
-            : _workGreetings[Random().nextInt(_workGreetings.length)];
-
     return Padding(
       padding: AppSpacing.screenHorizontal,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: AppSpacing.sm),
-
-          // Welcome
-          Text(
-            'Hello, ${displayName ?? 'there'}!',
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xxl),
+          const SizedBox(height: AppSpacing.md),
 
           // Active Shift Card
           ActiveShiftCard(
@@ -172,22 +136,4 @@ class HomeBody extends ConsumerWidget {
       ),
     );
   }
-
-  static const _workGreetings = [
-    '오늘도 파이팅!',
-    '좋은 하루 보내세요!',
-    '오늘도 힘내봐요!',
-    '화이팅, 할 수 있어요!',
-    '멋진 하루 되세요!',
-    '오늘도 수고 많아요!',
-    '좋은 일만 가득하길!',
-  ];
-
-  static const _offGreetings = [
-    '오늘은 쉬는 날이에요',
-    '푹 쉬세요!',
-    '오늘은 충전하는 날!',
-    '편안한 하루 되세요!',
-    '오늘은 나를 위한 시간!',
-  ];
 }

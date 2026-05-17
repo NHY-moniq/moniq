@@ -12,11 +12,24 @@ import 'package:moniq/data/providers/announcement_providers.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/app_typography.dart';
+import 'package:moniq/presentation/viewmodels/announcement_viewmodel.dart';
+import 'package:moniq/presentation/widgets/announcement/announcement_author.dart';
+import 'package:moniq/presentation/widgets/announcement/announcement_filter_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
+
+/// 팀 공지사항 화면 필터 — DropdownButton 대신 바텀시트로 선택.
+enum _AnnouncementFilter { all, pinned }
+
+/// 팀 공지사항 화면의 선택된 필터.
+final _teamAnnouncementFilterProvider =
+    StateProvider.autoDispose<_AnnouncementFilter>(
+  (_) => _AnnouncementFilter.all,
+);
 
 class AnnouncementScreen extends HookConsumerWidget {
   const AnnouncementScreen({super.key, required this.teamId});
@@ -27,6 +40,7 @@ class AnnouncementScreen extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final announcementsAsync =
         ref.watch(teamAnnouncementsProvider(teamId));
+    final filter = ref.watch(_teamAnnouncementFilterProvider);
 
     return Scaffold(
       appBar: const MoniqAppBar(title: '팀 공지사항'),
@@ -50,29 +64,74 @@ class AnnouncementScreen extends HookConsumerWidget {
             );
           }
 
-          return RefreshIndicator(
-            onRefresh: () async =>
-                ref.invalidate(teamAnnouncementsProvider(teamId)),
-            child: ListView.separated(
-              padding: AppSpacing.screenAll,
-              itemCount: announcements.length,
-              separatorBuilder: (_, __) =>
-                  const SizedBox(height: AppSpacing.sm),
-              itemBuilder: (context, index) {
-                final a = announcements[index];
-                return AnnouncementListTile(
-                  title: a.title,
-                  content: a.content,
-                  createdAt: a.createdAt,
-                  isPinned: a.isPinned,
-                  onTap: () => _showDetail(context, ref, a),
-                );
-              },
-            ),
+          final visible = filter == _AnnouncementFilter.pinned
+              ? announcements.where((a) => a.isPinned).toList()
+              : announcements;
+
+          return Column(
+            children: [
+              _AnnouncementFilterBar(
+                filter: filter,
+                onTap: () => _showFilterSheet(context, ref, filter),
+              ),
+              Expanded(
+                child: visible.isEmpty
+                    ? MoniqEmptyState.peaceful(
+                        title: '고정된 공지가 없어요',
+                        message: '중요한 공지를 상단에 고정해보세요',
+                      )
+                    : RefreshIndicator(
+                        onRefresh: () async => ref.invalidate(
+                            teamAnnouncementsProvider(teamId)),
+                        child: ListView.separated(
+                          padding: AppSpacing.screenAll,
+                          itemCount: visible.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: AppSpacing.sm),
+                          itemBuilder: (context, index) {
+                            final a = visible[index];
+                            return AnnouncementListTile(
+                              announcement: a,
+                              onTap: () =>
+                                  _showDetail(context, ref, a),
+                            );
+                          },
+                        ),
+                      ),
+              ),
+            ],
           );
         },
       ),
     );
+  }
+
+  Future<void> _showFilterSheet(
+    BuildContext context,
+    WidgetRef ref,
+    _AnnouncementFilter current,
+  ) async {
+    final picked = await showAnnouncementFilterSheet<_AnnouncementFilter>(
+      context: context,
+      title: '공지 필터',
+      selectedValue: current,
+      options: const [
+        AnnouncementFilterOption(
+          value: _AnnouncementFilter.all,
+          label: '전체 공지',
+          icon: Icons.campaign_outlined,
+        ),
+        AnnouncementFilterOption(
+          value: _AnnouncementFilter.pinned,
+          label: '고정된 공지만',
+          icon: Icons.push_pin_outlined,
+        ),
+      ],
+    );
+    if (picked != null) {
+      ref.read(_teamAnnouncementFilterProvider.notifier).state =
+          picked.value;
+    }
   }
 
   void _showCreateSheet(BuildContext context, WidgetRef ref) {
@@ -491,23 +550,53 @@ class _AnnouncementEditSheetState
 // 공용 위젯들 (팀 관리 + 홈탭 공유)
 // ══════════════════════════════════════════════
 
-/// 공지사항 리스트 타일 (공용)
-class AnnouncementListTile extends StatelessWidget {
-  const AnnouncementListTile({
-    super.key,
-    this.teamName,
-    required this.title,
-    this.content,
-    this.createdAt,
-    this.isPinned = false,
+/// 팀 공지사항 화면 상단의 바텀시트 필터 셀렉터 바.
+class _AnnouncementFilterBar extends StatelessWidget {
+  const _AnnouncementFilterBar({
+    required this.filter,
     required this.onTap,
   });
 
+  final _AnnouncementFilter filter;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final label =
+        filter == _AnnouncementFilter.pinned ? '고정된 공지만' : '전체 공지';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xxl,
+        AppSpacing.sm,
+        AppSpacing.xxl,
+        AppSpacing.xs,
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: AnnouncementFilterChip(
+          label: label,
+          onTap: onTap,
+        ),
+      ),
+    );
+  }
+}
+
+/// 공지사항 리스트 타일 (공용)
+///
+/// 본문 미리보기 대신 작성자(아바타+이름)와 댓글 수를 노출한다.
+/// 작성자/댓글 수는 [AnnouncementModel]에 조인·집계로 함께 담겨 오므로
+/// 추가 조회 없이 모델에서 바로 읽는다.
+class AnnouncementListTile extends StatelessWidget {
+  const AnnouncementListTile({
+    super.key,
+    required this.announcement,
+    this.teamName,
+    required this.onTap,
+  });
+
+  final AnnouncementModel announcement;
   final String? teamName;
-  final String title;
-  final String? content;
-  final DateTime? createdAt;
-  final bool isPinned;
   final VoidCallback onTap;
 
   @override
@@ -515,6 +604,13 @@ class AnnouncementListTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final dateFormat = DateFormat('MM.dd');
+
+    final title = announcement.title;
+    final isPinned = announcement.isPinned;
+    final createdAt = announcement.createdAt;
+    final author =
+        AnnouncementAuthorInfo.fromAnnouncement(announcement);
+    final commentCount = announcement.commentCount;
 
     return Card(
       child: InkWell(
@@ -563,26 +659,29 @@ class AnnouncementListTile extends StatelessWidget {
                         ),
                       ],
                     ),
-                    // 내용 미리보기
-                    if (content != null &&
-                        content!.isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.xxs),
-                      Text(
-                        content!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                    const SizedBox(height: AppSpacing.xs),
+                    // 작성자 + 댓글 수
+                    Row(
+                      children: [
+                        Flexible(
+                          child: AnnouncementAuthor(
+                            name: author.displayName,
+                            avatarUrl: author.avatarUrl,
+                            avatarRadius: 9,
+                            dense: true,
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                        const SizedBox(width: AppSpacing.sm),
+                        _CommentCountBadge(count: commentCount),
+                      ],
+                    ),
                   ],
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
               if (createdAt != null)
                 Text(
-                  dateFormat.format(createdAt!),
+                  dateFormat.format(createdAt),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -597,6 +696,37 @@ class AnnouncementListTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 카드에 표시하는 댓글 수 뱃지.
+class _CommentCountBadge extends StatelessWidget {
+  const _CommentCountBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final label = '$count';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.mode_comment_outlined,
+          size: 12,
+          color: cs.onSurfaceVariant,
+        ),
+        const SizedBox(width: 3),
+        Text(
+          label,
+          style: AppTypography.captionSmall.copyWith(
+            fontWeight: FontWeight.w700,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -772,16 +902,12 @@ class _AnnouncementDetailPageState
                           fontWeight: FontWeight.w700,
                         ),
                   ),
-                  if (a.createdAt != null) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      dateFormat.format(a.createdAt!),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+                  const SizedBox(height: AppSpacing.md),
+                  // 작성자 + 작성 일시
+                  _DetailAuthorLine(
+                    announcement: a,
+                    dateFormat: dateFormat,
+                  ),
                   const Divider(height: AppSpacing.xxxl),
                   if (a.content != null && a.content!.isNotEmpty)
                     Text(
@@ -1062,6 +1188,39 @@ class _AnnouncementDetailPageState
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 공지 상세 헤더의 작성자 + 작성 일시 한 줄.
+class _DetailAuthorLine extends StatelessWidget {
+  const _DetailAuthorLine({
+    required this.announcement,
+    required this.dateFormat,
+  });
+
+  final AnnouncementModel announcement;
+  final DateFormat dateFormat;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final author =
+        AnnouncementAuthorInfo.fromAnnouncement(announcement);
+    final createdAt = announcement.createdAt;
+
+    return AnnouncementAuthor(
+      name: author.displayName,
+      avatarUrl: author.avatarUrl,
+      avatarRadius: 14,
+      trailing: createdAt == null
+          ? null
+          : Text(
+              dateFormat.format(createdAt),
+              style: AppTypography.caption.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
     );
   }
 }

@@ -26,6 +26,9 @@ _$AnnouncementModelImpl _$$AnnouncementModelImplFromJson(
   updatedAt: json['updated_at'] == null
       ? null
       : DateTime.parse(json['updated_at'] as String),
+  authorName: json['author_name'] as String?,
+  authorAvatarUrl: json['author_avatar_url'] as String?,
+  commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
 );
 
 Map<String, dynamic> _$$AnnouncementModelImplToJson(
@@ -40,6 +43,9 @@ Map<String, dynamic> _$$AnnouncementModelImplToJson(
   'attachment_urls': instance.attachmentUrls,
   'created_at': instance.createdAt?.toIso8601String(),
   'updated_at': instance.updatedAt?.toIso8601String(),
+  'author_name': instance.authorName,
+  'author_avatar_url': instance.authorAvatarUrl,
+  'comment_count': instance.commentCount,
 };
 
 _$AnnouncementCommentModelImpl _$$AnnouncementCommentModelImplFromJson(

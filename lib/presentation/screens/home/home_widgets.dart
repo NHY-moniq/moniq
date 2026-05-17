@@ -7,7 +7,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/time_utils.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
-import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/user_model.dart';
 import 'package:moniq/data/providers/announcement_providers.dart';
 import 'package:moniq/data/providers/handover_providers.dart';
@@ -15,8 +14,10 @@ import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/screens/handover/handover_modal.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
+import 'package:moniq/presentation/widgets/announcement/announcement_filter_sheet.dart';
 
 // ════════════════════════════════════════════════
 // Home Avatar
@@ -397,35 +398,37 @@ class TodayEventsCard extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        '오늘 일정',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.3,
-                          color: cs.onSurface,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.xs),
-                      Text(
-                        '$count개',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: shiftTheme.accentText,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    'TODAY',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.3,
+                      color: cs.outline,
+                    ),
                   ),
                   const SizedBox(height: 1),
-                  Text(
-                    _formatPreview(preview),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: cs.onSurface,
+                  RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: count > 0 ? '$count개' : '일정 없음',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: shiftTheme.accentText,
+                          ),
+                        ),
+                        if (preview != null)
+                          TextSpan(
+                            text: '  ${_formatPreview(preview)}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                      ],
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -565,7 +568,7 @@ class OnShiftTeamCard extends ConsumerWidget {
     }
 
     return GestureDetector(
-      onTap: () => _showOnShiftModal(context, ref, shiftTheme),
+      onTap: () => _showOnShiftModal(context, shiftTheme),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.xxl),
         decoration: BoxDecoration(
@@ -752,140 +755,45 @@ class OnShiftTeamCard extends ConsumerWidget {
 // On-Shift Team Modal (current / next coworkers)
 // ════════════════════════════════════════════════
 
+// 공통 헬퍼(showMoniqBottomSheet)로 띄워 바텀시트 동안 하단 dock이 자동으로 숨겨진다.
 Future<void> _showOnShiftModal(
   BuildContext context,
-  WidgetRef ref,
   ShiftThemeData shiftTheme,
 ) {
-  return showModalBottomSheet<void>(
+  return showMoniqBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Theme.of(context).colorScheme.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    child: SingleChildScrollView(
+      child: _OnShiftContent(shiftTheme: shiftTheme),
     ),
-    builder: (_) => _OnShiftTeamModal(shiftTheme: shiftTheme),
   );
 }
 
-class _OnShiftTeamModal extends ConsumerWidget {
-  const _OnShiftTeamModal({required this.shiftTheme});
+/// ON SHIFT NOW 본문 — 헤더(+랜덤픽 버튼), 당첨 배너, 근무자 컬럼.
+/// 랜덤픽은 별도 섹션 대신 헤더 옆 컴팩트 버튼으로 배치한다.
+class _OnShiftContent extends ConsumerStatefulWidget {
+  const _OnShiftContent({required this.shiftTheme});
 
   final ShiftThemeData shiftTheme;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-    final dataAsync = ref.watch(onShiftTeamDataProvider);
-
-    final maxHeight = MediaQuery.of(context).size.height * 0.85;
-
-    return SafeArea(
-      top: false,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xxl,
-            AppSpacing.lg,
-            AppSpacing.xxl,
-            AppSpacing.xxl,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'ON SHIFT NOW',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2,
-                  color: cs.onSurface,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              dataAsync.when(
-                loading: () => const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(AppSpacing.xxl),
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-                error: (_, __) => Padding(
-                  padding: const EdgeInsets.all(AppSpacing.xxl),
-                  child: Text(
-                    '근무자 정보를 불러오지 못했어요',
-                    style: TextStyle(color: cs.onSurfaceVariant),
-                  ),
-                ),
-                data: (data) => _ModalBody(
-                  data: data,
-                  shiftTheme: shiftTheme,
-                ),
-              ),
-              // 랜덤 뽑기 섹션 — 현재+다음 시프트 사람들 중 1명
-              dataAsync.maybeWhen(
-                data: (d) {
-                  final pool = [
-                    ...d.currentCoworkers,
-                    ...d.nextCoworkers,
-                  ];
-                  if (pool.isEmpty) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(top: AppSpacing.lg),
-                    child: _LotterySection(
-                      users: pool,
-                      shiftTheme: shiftTheme,
-                    ),
-                  );
-                },
-                orElse: () => const SizedBox.shrink(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  ConsumerState<_OnShiftContent> createState() => _OnShiftContentState();
 }
 
-class _LotterySection extends StatefulWidget {
-  const _LotterySection({required this.users, required this.shiftTheme});
-
-  final List<UserModel> users;
-  final ShiftThemeData shiftTheme;
-
-  @override
-  State<_LotterySection> createState() => _LotterySectionState();
-}
-
-class _LotterySectionState extends State<_LotterySection> {
+class _OnShiftContentState extends ConsumerState<_OnShiftContent> {
   UserModel? _winner;
   final _random = Random();
 
-  void _pick() {
-    if (widget.users.isEmpty) return;
+  void _pick(List<UserModel> pool) {
+    if (pool.isEmpty) return;
     setState(() {
       // 같은 사람이 연속 안 뽑히도록 가능하면 다른 사람으로
-      if (widget.users.length == 1) {
-        _winner = widget.users.first;
+      if (pool.length == 1) {
+        _winner = pool.first;
         return;
       }
       UserModel next;
       do {
-        next = widget.users[_random.nextInt(widget.users.length)];
+        next = pool[_random.nextInt(pool.length)];
       } while (next.id == _winner?.id);
       _winner = next;
     });
@@ -895,131 +803,192 @@ class _LotterySectionState extends State<_LotterySection> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final accent = widget.shiftTheme.accentText;
+    final dataAsync = ref.watch(onShiftTeamDataProvider);
+    final data = dataAsync.valueOrNull;
+    final pool = data == null
+        ? const <UserModel>[]
+        : <UserModel>[...data.currentCoworkers, ...data.nextCoworkers];
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Divider(color: cs.outlineVariant.withValues(alpha: 0.4), height: 1),
-        const SizedBox(height: AppSpacing.lg),
         Row(
           children: [
-            Icon(Icons.casino_outlined, size: 16, color: accent),
-            const SizedBox(width: AppSpacing.xs),
-            Text(
-              'RANDOM PICK',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.5,
-                color: accent,
+            Expanded(
+              child: Text(
+                'ON SHIFT NOW',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                  color: cs.onSurface,
+                ),
               ),
             ),
+            if (pool.isNotEmpty)
+              _LotteryButton(
+                accent: accent,
+                foreground: cs.surface,
+                hasWinner: _winner != null,
+                onPressed: () => _pick(pool),
+              ),
           ],
         ),
-        const SizedBox(height: AppSpacing.sm),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
           child: _winner == null
-              ? Container(
-                  key: const ValueKey('placeholder'),
-                  padding:
-                      const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '뽑기 버튼을 누르면 1명을 무작위로 골라요',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                )
-              : Container(
+              ? const SizedBox.shrink()
+              : Padding(
                   key: ValueKey(_winner!.id),
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.10),
-                    borderRadius: AppRadius.borderRadiusMd,
-                    border:
-                        Border.all(color: accent.withValues(alpha: 0.30)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: cs.surfaceContainerHigh,
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        alignment: Alignment.center,
-                        child: (_winner!.avatarUrl != null &&
-                                _winner!.avatarUrl!.isNotEmpty)
-                            ? CachedNetworkImage(
-                                imageUrl: _winner!.avatarUrl!,
-                                fit: BoxFit.cover,
-                                width: 36,
-                                height: 36,
-                              )
-                            : Text(
-                                (_winner!.displayName?.isNotEmpty == true
-                                        ? _winner!.displayName!
-                                        : '?')
-                                    .characters
-                                    .first
-                                    .toUpperCase(),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  color: cs.onSurface,
-                                ),
-                              ),
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '🎉 당첨!',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: accent,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _winner!.displayName ?? '이름 없음',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                color: cs.onSurface,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  padding: const EdgeInsets.only(top: AppSpacing.md),
+                  child: _LotteryResultBanner(
+                    winner: _winner!,
+                    accent: accent,
+                    cs: cs,
                   ),
                 ),
         ),
-        const SizedBox(height: AppSpacing.sm),
-        SizedBox(
-          height: 44,
-          child: FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: accent,
-              foregroundColor: cs.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.borderRadiusFull,
-              ),
+        const SizedBox(height: AppSpacing.lg),
+        dataAsync.when(
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(AppSpacing.xxl),
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
-            onPressed: _pick,
-            icon: const Icon(Icons.shuffle_rounded, size: 18),
-            label: Text(_winner == null ? '뽑기' : '다시 뽑기'),
           ),
+          error: (_, __) => Padding(
+            padding: const EdgeInsets.all(AppSpacing.xxl),
+            child: Text(
+              '근무자 정보를 불러오지 못했어요',
+              style: TextStyle(color: cs.onSurfaceVariant),
+            ),
+          ),
+          data: (d) => _ModalBody(data: d, shiftTheme: widget.shiftTheme),
         ),
       ],
+    );
+  }
+}
+
+/// 헤더 옆에 놓이는 컴팩트 랜덤픽 버튼.
+class _LotteryButton extends StatelessWidget {
+  const _LotteryButton({
+    required this.accent,
+    required this.foreground,
+    required this.hasWinner,
+    required this.onPressed,
+  });
+
+  final Color accent;
+  final Color foreground;
+  final bool hasWinner;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      style: FilledButton.styleFrom(
+        backgroundColor: accent,
+        foregroundColor: foreground,
+        minimumSize: const Size(0, 32),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: 0,
+        ),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        textStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.borderRadiusFull,
+        ),
+      ),
+      onPressed: onPressed,
+      icon: const Icon(Icons.casino_outlined, size: 15),
+      label: Text(hasWinner ? '다시' : '랜덤픽'),
+    );
+  }
+}
+
+/// 랜덤픽 당첨자를 한 줄로 보여주는 배너.
+class _LotteryResultBanner extends StatelessWidget {
+  const _LotteryResultBanner({
+    required this.winner,
+    required this.accent,
+    required this.cs,
+  });
+
+  final UserModel winner;
+  final Color accent;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = winner.displayName?.isNotEmpty == true
+        ? winner.displayName!
+        : '이름 없음';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.10),
+        borderRadius: AppRadius.borderRadiusMd,
+        border: Border.all(color: accent.withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: cs.surfaceContainerHigh,
+            ),
+            clipBehavior: Clip.antiAlias,
+            alignment: Alignment.center,
+            child: (winner.avatarUrl != null && winner.avatarUrl!.isNotEmpty)
+                ? CachedNetworkImage(
+                    imageUrl: winner.avatarUrl!,
+                    fit: BoxFit.cover,
+                    width: 28,
+                    height: 28,
+                  )
+                : Text(
+                    name.characters.first.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: cs.onSurface,
+                    ),
+                  ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            '🎉 당첨',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: accent,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              name,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+                color: cs.onSurface,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1033,12 +1002,10 @@ class _ModalBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final currentLabel = data.currentType == null
-        ? '현재 근무'
-        : '${data.currentType!.name} ${_timeRange(data.currentType!)}';
-    final nextLabel = data.nextType == null
-        ? '다음 근무 없음'
-        : '${data.nextType!.name} ${_timeRange(data.nextType!)}';
+    final currentLabel =
+        data.currentType == null ? '현재 근무' : data.currentType!.name;
+    final nextLabel =
+        data.nextType == null ? '다음 근무 없음' : data.nextType!.name;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1072,12 +1039,6 @@ class _ModalBody extends StatelessWidget {
     );
   }
 
-  String _timeRange(ShiftTypeModel t) {
-    final s = (t.startTime ?? '').padRight(5).substring(0, 5);
-    final e = (t.endTime ?? '').padRight(5).substring(0, 5);
-    if (s.trim().isEmpty || e.trim().isEmpty) return '';
-    return '$s–$e';
-  }
 }
 
 class _CoworkerColumn extends StatelessWidget {
@@ -1476,55 +1437,72 @@ class _TeamFilterChip extends StatelessWidget {
   final String? selectedTeamId;
   final ValueChanged<String?> onSelect;
 
+  /// "전체"(teamId == null)와 취소(null 반환)를 구분하기 위한 sentinel.
+  static const _allValue = '__all__';
+
+  Future<void> _openTeamSheet(BuildContext context) async {
+    final options = <AnnouncementFilterOption<String>>[
+      const AnnouncementFilterOption(
+        value: _allValue,
+        label: '전체',
+        icon: Icons.groups_outlined,
+      ),
+      for (final t in teams)
+        AnnouncementFilterOption(
+          value: t.id as String,
+          label: t.name as String,
+          icon: Icons.campaign_outlined,
+        ),
+    ];
+
+    final picked = await showAnnouncementFilterSheet<String>(
+      context: context,
+      title: '팀 선택',
+      selectedValue: selectedTeamId ?? _allValue,
+      options: options,
+    );
+    if (picked == null) return;
+    onSelect(picked.value == _allValue ? null : picked.value);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<String?>(
-      tooltip: '팀 필터',
-      position: PopupMenuPosition.under,
-      onSelected: onSelect,
-      itemBuilder: (ctx) => [
-        CheckedPopupMenuItem<String?>(
-          value: null,
-          checked: selectedTeamId == null,
-          child: const Text('전체'),
-        ),
-        for (final t in teams)
-          CheckedPopupMenuItem<String?>(
-            value: t.id as String,
-            checked: selectedTeamId == t.id,
-            child: Text(t.name as String),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openTeamSheet(context),
+        borderRadius: AppRadius.borderRadiusFull,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: 4,
           ),
-      ],
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: 4,
-        ),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.10),
-          borderRadius: AppRadius.borderRadiusFull,
-          border: Border.all(
-            color: accent.withValues(alpha: 0.25),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.10),
+            borderRadius: AppRadius.borderRadiusFull,
+            border: Border.all(
+              color: accent.withValues(alpha: 0.25),
+            ),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: accent,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.expand_more_rounded,
+                size: 14,
                 color: accent,
               ),
-            ),
-            const SizedBox(width: 2),
-            Icon(
-              Icons.expand_more_rounded,
-              size: 14,
-              color: accent,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

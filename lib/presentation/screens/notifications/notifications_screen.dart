@@ -10,6 +10,7 @@ import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
@@ -25,8 +26,10 @@ class NotificationsScreen extends HookConsumerWidget {
         ref.watch(selectedNotificationTeamFilterProvider);
     final unreadOnly = ref.watch(notificationUnreadOnlyProvider);
     final teams = teamsAsync.valueOrNull ?? const [];
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
+      backgroundColor: cs.surfaceContainerLow,
       appBar: MoniqAppBar(
         title: '알림함',
         eyebrow: 'NOTIFICATIONS',
@@ -152,23 +155,9 @@ class _NotificationFilterHeader extends StatelessWidget {
       child: Row(
         children: [
           if (teams.length > 1)
-            PopupMenuButton<String?>(
-              tooltip: '팀 선택',
-              position: PopupMenuPosition.under,
-              onSelected: onTeamSelect,
-              itemBuilder: (ctx) => [
-                CheckedPopupMenuItem<String?>(
-                  value: null,
-                  checked: selectedTeamId == null,
-                  child: const Text('전체 보기'),
-                ),
-                for (final t in teams)
-                  CheckedPopupMenuItem<String?>(
-                    value: t.id,
-                    checked: selectedTeamId == t.id,
-                    child: Text(t.name),
-                  ),
-              ],
+            InkWell(
+              onTap: () => _openTeamFilterSheet(context),
+              borderRadius: BorderRadius.circular(999),
               child: _Chip(
                 icon: Icons.groups_outlined,
                 label: teamLabel,
@@ -192,6 +181,50 @@ class _NotificationFilterHeader extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _openTeamFilterSheet(BuildContext context) async {
+    await showMoniqBottomSheet<void>(
+      context: context,
+      title: '팀 선택',
+      eyebrow: 'FILTER',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          MoniqSheetOption(
+            icon: Icons.all_inbox_outlined,
+            label: '전체 보기',
+            description: '모든 팀의 알림을 표시해요',
+            onTap: () {
+              onTeamSelect(null);
+              Navigator.pop(context);
+            },
+            trailing: selectedTeamId == null
+                ? Icon(
+                    Icons.check_circle_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
+                : null,
+          ),
+          for (final t in teams)
+            MoniqSheetOption(
+              icon: Icons.groups_outlined,
+              label: t.name,
+              onTap: () {
+                onTeamSelect(t.id);
+                Navigator.pop(context);
+              },
+              trailing: selectedTeamId == t.id
+                  ? Icon(
+                      Icons.check_circle_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                    )
+                  : null,
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _Chip extends StatelessWidget {
@@ -211,9 +244,12 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = cs.brightness == Brightness.dark;
+    // scaffold가 surfaceContainerLow로 바뀌었으므로 칩은 한 단계 위 surface로
+    // 띄워 배경과 구분되게 한다.
     final bg = active
         ? cs.primary.withValues(alpha: 0.15)
-        : cs.surfaceContainerLow;
+        : (isDark ? cs.surfaceContainer : cs.surfaceContainerLowest);
     final fg = active ? cs.primary : cs.onSurface;
     final borderColor = active
         ? cs.primary.withValues(alpha: 0.5)
@@ -267,8 +303,13 @@ class _NotificationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
     final isUnread = !item.isRead;
     final dateLabel = _formatRelative(item.createdAt);
+
+    // 설정 페이지(MoniqCard)와 동일한 카드 surface 토큰을 사용해 톤을 통일.
+    final readSurface =
+        isDark ? cs.surfaceContainer : cs.surfaceContainerLowest;
 
     return Dismissible(
       key: ValueKey(item.id),
@@ -291,7 +332,7 @@ class _NotificationTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: isUnread
                 ? cs.primaryContainer.withValues(alpha: 0.2)
-                : cs.surfaceContainerLow,
+                : readSurface,
             borderRadius: AppRadius.borderRadiusMd,
             border: Border.all(
               color: isUnread

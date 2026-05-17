@@ -10,6 +10,7 @@ import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/notification_providers.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
+import 'package:moniq/presentation/router/bottom_sheet_visibility_provider.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_drawer.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_export.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
@@ -34,16 +35,33 @@ class AppShell extends ConsumerWidget {
       );
     }
 
+    // 모달 바텀시트가 열려 있으면 하단 dock을 슬라이드 아웃한다.
+    final sheetOpen = ref.watch(bottomSheetOpenProvider);
+
     return Scaffold(
       body: navigationShell,
       extendBody: true,
-      bottomNavigationBar: _FloatingNavBar(
-        currentIndex: navigationShell.currentIndex,
-        onTap: (index) => navigationShell.goBranch(
-          index,
-          initialLocation: index == navigationShell.currentIndex,
+      bottomNavigationBar: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) => SizeTransition(
+          sizeFactor: animation,
+          axisAlignment: -1,
+          child: FadeTransition(opacity: animation, child: child),
         ),
-        shiftTheme: shiftTheme,
+        child: sheetOpen
+            ? const SizedBox.shrink(key: ValueKey('dock-hidden'))
+            : _FloatingNavBar(
+                key: const ValueKey('dock-visible'),
+                currentIndex: navigationShell.currentIndex,
+                onTap: (index) => navigationShell.goBranch(
+                  index,
+                  initialLocation:
+                      index == navigationShell.currentIndex,
+                ),
+                shiftTheme: shiftTheme,
+              ),
       ),
     );
   }
@@ -1250,6 +1268,7 @@ class _FlyoutSectionLabel extends StatelessWidget {
 
 class _FloatingNavBar extends StatelessWidget {
   const _FloatingNavBar({
+    super.key,
     required this.currentIndex,
     required this.onTap,
     required this.shiftTheme,
