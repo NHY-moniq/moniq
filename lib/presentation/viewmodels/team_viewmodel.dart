@@ -30,16 +30,25 @@ class TeamViewModel extends AsyncNotifier<List<TeamModel>> {
   Future<List<TeamModel>> _applySavedOrder(List<TeamModel> teams) async {
     final prefs = await SharedPreferences.getInstance();
     final savedOrder = prefs.getStringList(_teamOrderKey);
-    if (savedOrder == null || savedOrder.isEmpty) return teams;
 
-    final teamMap = {for (final t in teams) t.id: t};
-    final ordered = <TeamModel>[];
-    for (final id in savedOrder) {
-      final team = teamMap.remove(id);
-      if (team != null) ordered.add(team);
+    List<TeamModel> ordered;
+    if (savedOrder == null || savedOrder.isEmpty) {
+      ordered = teams;
+    } else {
+      final teamMap = {for (final t in teams) t.id: t};
+      ordered = <TeamModel>[];
+      for (final id in savedOrder) {
+        final team = teamMap.remove(id);
+        if (team != null) ordered.add(team);
+      }
+      ordered.addAll(teamMap.values);
     }
-    ordered.addAll(teamMap.values);
-    return ordered;
+
+    // 항상 [조직(public) → 개인(private)] 순서로 그룹화. 각 그룹 안의
+    // 상대 순서는 사용자가 저장한 순서를 유지한다.
+    final orgs = ordered.where((t) => t.teamType != 'personal').toList();
+    final personals = ordered.where((t) => t.teamType == 'personal').toList();
+    return [...orgs, ...personals];
   }
 
   Future<void> reorder(int oldIndex, int newIndex) async {
