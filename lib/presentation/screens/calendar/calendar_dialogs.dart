@@ -172,8 +172,16 @@ Future<void> addShiftEvent(
   refreshAll(ref, date);
 }
 
-void showEventForm(BuildContext context, WidgetRef ref,
-    DateTime date, int? index, PersonalEvent? existing) {
+/// [descriptionMarker]가 주어지면 저장 시 description 앞에 마커가 prepend된다.
+/// (프라이빗 팀 일정처럼 일반 개인 일정과 구분하기 위함.)
+void showEventForm(
+  BuildContext context,
+  WidgetRef ref,
+  DateTime date,
+  int? index,
+  PersonalEvent? existing, {
+  String? descriptionMarker,
+}) {
   final titleController =
       TextEditingController(text: existing?.title ?? '');
   final descController =
@@ -440,6 +448,13 @@ void showEventForm(BuildContext context, WidgetRef ref,
                     onPressed: () async {
                       final title = titleController.text.trim();
                       if (title.isEmpty) return;
+                      final userDesc = descController.text.trim();
+                      // 마커가 있으면 description 앞에 prepend (구분용).
+                      final desc = descriptionMarker != null
+                          ? (userDesc.isEmpty
+                              ? descriptionMarker
+                              : '$descriptionMarker\n$userDesc')
+                          : (userDesc.isEmpty ? null : userDesc);
                       final event = PersonalEvent(
                         date: DateTime(date.year, date.month, date.day),
                         title: title,
@@ -449,10 +464,7 @@ void showEventForm(BuildContext context, WidgetRef ref,
                         endTime: endTime != null
                             ? formatTime(endTime!)
                             : null,
-                        description:
-                            descController.text.trim().isNotEmpty
-                                ? descController.text.trim()
-                                : null,
+                        description: desc,
                         color: selectedColor,
                         createdAt: DateTime.now(),
                         recurrence:
@@ -603,6 +615,7 @@ void showCupertinoTimePicker({
 
   showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     builder: (ctx) => SizedBox(
       height: 280,
       child: Column(
@@ -919,6 +932,40 @@ class _RecurrenceField extends StatelessWidget {
     }
   }
 
+  String _labelFor(String val) {
+    return options
+        .firstWhere(
+          (o) => o.$1 == val,
+          orElse: () => options.first,
+        )
+        .$2;
+  }
+
+  Future<void> _openPicker(BuildContext context) async {
+    final selected = await showMoniqBottomSheet<String>(
+      context: context,
+      title: '일정 반복',
+      eyebrow: 'RECURRENCE',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final opt in options) ...[
+            _RecurrenceOptionTile(
+              icon: _iconFor(opt.$1),
+              label: opt.$2,
+              selected: opt.$1 == value,
+              onTap: () => Navigator.of(context, rootNavigator: true)
+                  .pop(opt.$1),
+            ),
+            const SizedBox(height: 6),
+          ],
+        ],
+      ),
+    );
+    if (selected != null && selected != value) onChanged(selected);
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -927,8 +974,6 @@ class _RecurrenceField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 라벨을 박스 외부 위로 배치 — floating label이 fill 위에 떠 겹치는
-        // 시각 이슈를 회피.
         Padding(
           padding: const EdgeInsets.only(
             left: AppSpacing.xs,
@@ -942,119 +987,120 @@ class _RecurrenceField extends StatelessWidget {
             ),
           ),
         ),
-        DropdownButtonFormField<String>(
-          value: value,
-          isExpanded: true,
-          icon: Icon(Icons.expand_more_rounded, color: cs.onSurfaceVariant),
-          style: tt.bodyMedium?.copyWith(
-            color: cs.onSurface,
-            fontWeight: FontWeight.w700,
-          ),
-          dropdownColor: cs.surfaceContainerHigh,
+        Material(
+          color: cs.surfaceContainerHigh,
           borderRadius: AppRadius.borderRadiusLg,
-          // 항목이 6개라 길어지지 않지만, 안전하게 상한을 둠.
-          menuMaxHeight: 360,
-          // 닫힌 상태에서는 prefixIcon(반복 아이콘)이 이미 보이므로,
-          // 라벨만 깔끔하게 노출.
-          selectedItemBuilder: (context) {
-            return options.map((opt) {
-              final (_, label) = opt;
-              return Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  label,
-                  style: tt.bodyMedium?.copyWith(
-                    color: cs.onSurface,
-                    fontWeight: FontWeight.w700,
+          child: InkWell(
+            borderRadius: AppRadius.borderRadiusLg,
+            onTap: () => _openPicker(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.md,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _iconFor(value),
+                    size: 20,
+                    color: cs.onSurfaceVariant,
                   ),
-                ),
-              );
-            }).toList();
-          },
-          decoration: InputDecoration(
-            prefixIcon: Icon(
-              Icons.repeat_rounded,
-              size: 20,
-              color: cs.onSurfaceVariant,
-            ),
-            filled: true,
-            fillColor: cs.surfaceContainerHigh,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.md,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: AppRadius.borderRadiusLg,
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: AppRadius.borderRadiusLg,
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: AppRadius.borderRadiusLg,
-              borderSide: BorderSide(color: cs.primary, width: 1.5),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      _labelFor(value),
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.expand_more_rounded,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ],
+              ),
             ),
           ),
-          items: options.map((opt) {
-            final (val, label) = opt;
-            final isSelected = val == value;
-            return DropdownMenuItem(
-              value: val,
-              child: Container(
-                width: double.infinity,
-                margin: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                decoration: BoxDecoration(
-                  // 선택 시 primaryContainer 배경 + onPrimaryContainer 텍스트로
-                  // cream 배경에서도 대비/가독성 확보
-                  color: isSelected
-                      ? cs.primaryContainer
-                      : Colors.transparent,
-                  borderRadius: AppRadius.borderRadiusMd,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _iconFor(val),
-                      size: 18,
-                      color: isSelected
-                          ? cs.onPrimaryContainer
-                          : cs.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: Text(
-                        label,
-                        style: tt.bodyMedium?.copyWith(
-                          color: isSelected
-                              ? cs.onPrimaryContainer
-                              : cs.onSurface,
-                          fontWeight: isSelected
-                              ? FontWeight.w800
-                              : FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (isSelected)
-                      Icon(
-                        Icons.check_rounded,
-                        size: 18,
-                        color: cs.onPrimaryContainer,
-                      ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-          onChanged: (v) {
-            if (v != null) onChanged(v);
-          },
         ),
       ],
+    );
+  }
+}
+
+/// 반복 선택 바텀시트의 옵션 행 — 아이콘 + 라벨 + 선택 체크.
+class _RecurrenceOptionTile extends StatelessWidget {
+  const _RecurrenceOptionTile({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final bg = selected
+        ? cs.primary.withValues(alpha: 0.10)
+        : cs.surfaceContainerHigh;
+    final fg = selected ? cs.primary : cs.onSurface;
+    return Material(
+      color: bg,
+      borderRadius: AppRadius.borderRadiusLg,
+      child: InkWell(
+        borderRadius: AppRadius.borderRadiusLg,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? cs.primary.withValues(alpha: 0.18)
+                      : cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(
+                  icon,
+                  size: 18,
+                  color: selected ? cs.primary : cs.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: fg,
+                    fontWeight:
+                        selected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (selected)
+                Icon(
+                  Icons.check_rounded,
+                  size: 20,
+                  color: cs.primary,
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

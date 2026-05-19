@@ -15,6 +15,7 @@ import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/request_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
 import 'calendar_dialogs.dart';
 import 'calendar_providers.dart';
@@ -74,7 +75,7 @@ class DateItemsPanel extends ConsumerWidget {
     final totalItems =
         visibleShifts.length + offCount + events.length + notes.length;
     final dateKey = DateTime(date.year, date.month, date.day);
-    final isExpanded = ref.watch(dateExpandedProvider(dateKey));
+    final isExpanded = ref.watch(dateExpandedProvider);
 
     // 개인 일정 중 shift type과 이름 매칭되는 건 근무로 분류
     final shiftTypeNames = ref
@@ -89,130 +90,52 @@ class DateItemsPanel extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Date header
-          GestureDetector(
-            onTap: totalItems > 0
-                ? () => ref
-                    .read(dateExpandedProvider(dateKey).notifier)
-                    .state = !isExpanded
-                : null,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.md,
-              ),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.brandYellow.withValues(alpha: 0.15),
-                    AppColors.brandOrange.withValues(alpha: 0.10),
-                    AppColors.brandBlue.withValues(alpha: 0.08),
-                  ],
+          // \uD3BC\uCE58\uAE30/\uB2EB\uAE30 \uD1A0\uAE00 \u2014 items\uAC00 \uC788\uC744 \uB54C\uB9CC \uB178\uCD9C.
+          // \uC791\uC740 chevron pill\uC744 \uC911\uC559\uC5D0 \uBC30\uCE58\uD574 \uC2DC\uAC01\uC801 \uB178\uC774\uC988 \uCD5C\uC18C\uD654.
+          if (totalItems > 0)
+            Center(
+              child: Material(
+                color: theme.colorScheme.surfaceContainerHigh,
+                shape: const StadiumBorder(),
+                child: InkWell(
+                  customBorder: const StadiumBorder(),
+                  onTap: () => ref
+                      .read(dateExpandedProvider.notifier)
+                      .state = !isExpanded,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: 6,
+                    ),
+                    child: AnimatedRotation(
+                      turns: isExpanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      child: Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 20,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
                 ),
-                borderRadius: AppRadius.borderRadiusMd,
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.brandOrange,
-                          AppColors.brandYellow,
-                        ],
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              AppColors.brandOrange.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${date.day}',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: theme.colorScheme.onPrimary,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${date.month}\uC6D4 ${date.day}\uC77C $weekday\uC694\uC77C',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        hasItems
-                            ? [
-                                if (visibleShifts.isNotEmpty)
-                                  '\uADFC\uBB34 ${visibleShifts.length}\uAC74',
-                                if (events.isNotEmpty)
-                                  '\uC77C\uC815 ${events.length}\uAC74',
-                                if (notes.isNotEmpty)
-                                  '\uBA54\uBAA8 ${notes.length}\uAC74',
-                              ].join(' \u00B7 ')
-                            : '\uB4F1\uB85D\uB41C \uD56D\uBAA9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (totalItems > 0) ...[
-                    const Spacer(),
-                    Icon(
-                      isExpanded
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ],
-                ],
               ),
             ),
-          ),
 
           if (!hasItems) ...[
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.sm),
             Center(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: AppColors.brandBlue.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '\u00B7  \u00B7',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color:
-                              AppColors.brandBlue.withValues(alpha: 0.5),
-                        ),
-                      ),
+                  SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Image.asset(
+                      'assets/images/off.png',
+                      fit: BoxFit.contain,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
+                  const SizedBox(height: 6),
                   Text(
                     '+ \uBC84\uD2BC\uC73C\uB85C \uC77C\uC815\uC774\uB098 \uBA54\uBAA8\uB97C \uCD94\uAC00\uD574\uBCF4\uC138\uC694',
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -237,8 +160,8 @@ class DateItemsPanel extends ConsumerWidget {
               _buildShiftCard(
                 theme: theme,
                 shiftColor: AppColors.onSurfaceVariant,
-                code: 'OFF',
-                name: 'Off',
+                code: 'O',
+                name: '오프',
               ),
             // 서버 근무 (원격 오버라이드 적용)
             ...visibleShifts.map((s) {
@@ -261,22 +184,23 @@ class DateItemsPanel extends ConsumerWidget {
                 startTime: formatTimeString(startTime),
                 endTime: formatTimeString(endTime),
                 teamName: s.teamName,
-                trailing: PopupMenuButton<String>(
-                  icon: Icon(Icons.more_horiz,
-                      size: 18, color: theme.colorScheme.onSurfaceVariant),
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'edit', child: Text('수정')),
+                trailing: _CardActionButton(
+                  title: '근무 수정',
+                  actions: [
+                    _ItemAction(
+                      icon: Icons.edit_outlined,
+                      label: '수정',
+                      onTap: () =>
+                          _editTeamShiftAsPersonal(context, ref, date, s),
+                    ),
                     if (override != null)
-                      const PopupMenuItem(
-                          value: 'reset', child: Text('팀 근무로 복원')),
+                      _ItemAction(
+                        icon: Icons.restart_alt_rounded,
+                        label: '팀 근무로 복원',
+                        onTap: () =>
+                            _resetShiftOverride(ref, s.shift.id, date),
+                      ),
                   ],
-                  onSelected: (action) {
-                    if (action == 'edit') {
-                      _editTeamShiftAsPersonal(context, ref, date, s);
-                    } else if (action == 'reset') {
-                      _resetShiftOverride(ref, s.shift.id, date);
-                    }
-                  },
                 ),
               );
             }),
@@ -297,20 +221,23 @@ class DateItemsPanel extends ConsumerWidget {
                 name: event.title,
                 startTime: matchedType?.startTime ?? event.startTime,
                 endTime: matchedType?.endTime ?? event.endTime,
-                trailing: PopupMenuButton<String>(
-                  icon: Icon(Icons.more_horiz,
-                      size: 18, color: theme.colorScheme.onSurfaceVariant),
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'edit', child: Text('\uC218\uC815')),
-                    const PopupMenuItem(value: 'delete', child: Text('\uC0AD\uC81C')),
+                trailing: _CardActionButton(
+                  title: '\uADFC\uBB34 \uC218\uC815',
+                  actions: [
+                    _ItemAction(
+                      icon: Icons.edit_outlined,
+                      label: '\uC218\uC815',
+                      onTap: () => showEventForm(
+                          context, ref, date, originalIndex, event),
+                    ),
+                    _ItemAction(
+                      icon: Icons.delete_outline_rounded,
+                      label: '\uC0AD\uC81C',
+                      destructive: true,
+                      onTap: () =>
+                          _deleteEvent(context, ref, originalIndex),
+                    ),
                   ],
-                  onSelected: (action) {
-                    if (action == 'edit') {
-                      showEventEditWithShiftTypes(context, ref, date, originalIndex, event);
-                    } else if (action == 'delete') {
-                      _deleteEvent(context, ref, originalIndex);
-                    }
-                  },
                 ),
               );
             }),
@@ -385,25 +312,24 @@ class DateItemsPanel extends ConsumerWidget {
                           overflow: isNoteExpanded ? null : TextOverflow.ellipsis,
                         ),
                       ),
-                      PopupMenuButton<String>(
-                        icon: Icon(Icons.more_horiz,
-                            size: 16, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        itemBuilder: (_) => [
-                          const PopupMenuItem(
-                              value: 'edit', child: Text('\uC218\uC815')),
-                          const PopupMenuItem(
-                              value: 'delete', child: Text('\uC0AD\uC81C')),
+                      _CardActionButton(
+                        title: '\uBA54\uBAA8 \uC218\uC815',
+                        iconSize: 16,
+                        iconAlpha: 0.5,
+                        actions: [
+                          _ItemAction(
+                            icon: Icons.edit_outlined,
+                            label: '\uC218\uC815',
+                            onTap: () => showNoteForm(
+                                context, ref, date, index, note.content),
+                          ),
+                          _ItemAction(
+                            icon: Icons.delete_outline_rounded,
+                            label: '\uC0AD\uC81C',
+                            destructive: true,
+                            onTap: () => _deleteNote(ref, index),
+                          ),
                         ],
-                        onSelected: (action) {
-                          if (action == 'edit') {
-                            showNoteForm(
-                                context, ref, date, index, note.content);
-                          } else if (action == 'delete') {
-                            _deleteNote(ref, index);
-                          }
-                        },
                       ),
                     ],
                   ),
@@ -607,20 +533,21 @@ class DateItemsPanel extends ConsumerWidget {
               ],
             ),
           ),
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_horiz,
-                size: 18, color: theme.colorScheme.onSurfaceVariant),
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'edit', child: Text('\uC218\uC815')),
-              const PopupMenuItem(value: 'delete', child: Text('\uC0AD\uC81C')),
+          _CardActionButton(
+            title: '\uC77C\uC815 \uC218\uC815',
+            actions: [
+              _ItemAction(
+                icon: Icons.edit_outlined,
+                label: '\uC218\uC815',
+                onTap: () => showEventForm(context, ref, date, index, event),
+              ),
+              _ItemAction(
+                icon: Icons.delete_outline_rounded,
+                label: '\uC0AD\uC81C',
+                destructive: true,
+                onTap: () => _deleteEvent(context, ref, index),
+              ),
             ],
-            onSelected: (action) {
-              if (action == 'edit') {
-                showEventEditWithShiftTypes(context, ref, date, index, event);
-              } else if (action == 'delete') {
-                _deleteEvent(context, ref, index);
-              }
-            },
           ),
         ],
       ),
@@ -700,6 +627,7 @@ class DateItemsPanel extends ConsumerWidget {
 
     final selected = await showModalBottomSheet<ShiftTypeModel>(
       context: context,
+      useRootNavigator: true,
       shape: const RoundedRectangleBorder(
         borderRadius:
             BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
@@ -897,4 +825,133 @@ String _displayShiftCode(String code, String name) {
     return name.isEmpty ? '?' : name[0].toUpperCase();
   }
   return c.length > 1 ? c[0] : c;
+}
+
+// ────────────────────────────────────────
+// 액션 시트 (수정/삭제 등) — 세련된 바텀시트 형태
+// ────────────────────────────────────────
+
+class _ItemAction {
+  const _ItemAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.destructive = false,
+  });
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool destructive;
+}
+
+/// 카드(근무/일정/메모) 우측 ⋯ 버튼 — 탭하면 액션 바텀시트.
+class _CardActionButton extends StatelessWidget {
+  const _CardActionButton({
+    required this.actions,
+    this.title = '항목 옵션',
+    this.iconSize = 18,
+    this.iconAlpha = 1.0,
+  });
+
+  final List<_ItemAction> actions;
+  final String title;
+  final double iconSize;
+  final double iconAlpha;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return IconButton(
+      icon: Icon(
+        Icons.more_horiz,
+        size: iconSize,
+        color: cs.onSurfaceVariant.withValues(alpha: iconAlpha),
+      ),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      visualDensity: VisualDensity.compact,
+      onPressed: () => _showActionSheet(context, title, actions),
+    );
+  }
+}
+
+Future<void> _showActionSheet(
+  BuildContext context,
+  String title,
+  List<_ItemAction> actions,
+) async {
+  await showMoniqBottomSheet<void>(
+    context: context,
+    title: title,
+    eyebrow: 'ACTIONS',
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < actions.length; i++) ...[
+          _ActionSheetTile(action: actions[i]),
+          if (i != actions.length - 1) const SizedBox(height: 6),
+        ],
+      ],
+    ),
+  );
+}
+
+class _ActionSheetTile extends StatelessWidget {
+  const _ActionSheetTile({required this.action});
+  final _ItemAction action;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tone = action.destructive ? cs.error : cs.onSurface;
+    final bg = action.destructive
+        ? cs.error.withValues(alpha: 0.08)
+        : cs.surfaceContainerHigh;
+    final iconBg = action.destructive
+        ? cs.error.withValues(alpha: 0.16)
+        : cs.surfaceContainerHighest;
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        onTap: () {
+          Navigator.of(context, rootNavigator: true).pop();
+          action.onTap();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(action.icon, size: 18, color: tone),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  action.label,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: tone,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -1,7 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
+import 'package:moniq/data/datasources/personal_event_remote_data_source.dart'
+    show
+        kPersonalTeamImportMarker,
+        kPrivateTeamEventMarker,
+        kPrivateTeamNoteMarker;
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
@@ -11,6 +18,7 @@ import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
+import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
@@ -38,6 +46,10 @@ class CalendarScreen extends HookConsumerWidget {
     final startingDay = calendarStartDay == 'sunday'
         ? StartingDayOfWeek.sunday
         : StartingDayOfWeek.monday;
+
+    // 더블탭 감지용 — 마지막 탭한 날짜 + 시각.
+    final lastTap = useState<({DateTime day, int at})?>(null);
+    final scrollCtrl = useScrollController();
 
     final currentUser = ref.watch(currentUserProvider);
     final userMeta = currentUser?.userMetadata;
@@ -112,7 +124,7 @@ class CalendarScreen extends HookConsumerWidget {
       loading: () => Scaffold(
         appBar: MoniqAppBar(
           title: calendarTitle,
-          eyebrow: 'ONOROFF',
+          eyebrow: 'OnorOff',
           showBack: false,
           leading: buildAvatarLeading(),
         ),
@@ -121,7 +133,7 @@ class CalendarScreen extends HookConsumerWidget {
       error: (e, _) => Scaffold(
         appBar: MoniqAppBar(
           title: calendarTitle,
-          eyebrow: 'ONOROFF',
+          eyebrow: 'OnorOff',
           showBack: false,
           leading: buildAvatarLeading(),
         ),
@@ -131,19 +143,36 @@ class CalendarScreen extends HookConsumerWidget {
         ),
       ),
       data: (state) {
+        // 프라이빗 팀 마커가 붙은 이벤트는 "개인 캘린더로 내보내기" 전까지는
+        // 개인 캘린더에서 숨김. 내보내기 동작은 마커 없는 사본을 추가한다.
+        final rawMonthlyEvents =
+            ref.watch(monthlyEventsProvider(state.focusedMonth));
         final monthlyNotes =
             ref.watch(monthlyNotesProvider(state.focusedMonth));
-        final monthlyEvents =
-            ref.watch(monthlyEventsProvider(state.focusedMonth));
         final dateNotes = ref.watch(dateNotesProvider(state.selectedDate));
-        final dateEvents = ref.watch(dateEventsProvider(state.selectedDate));
+        final rawDateEvents =
+            ref.watch(dateEventsProvider(state.selectedDate));
+        bool isPrivateTeamMarker(PersonalEvent e) {
+          final d = e.description;
+          if (d == null) return false;
+          return d.startsWith(kPrivateTeamEventMarker) ||
+              d.startsWith(kPrivateTeamNoteMarker);
+        }
+        final monthlyEvents = <DateTime, List<PersonalEvent>>{
+          for (final entry in rawMonthlyEvents.entries)
+            entry.key: entry.value
+                .where((e) => !isPrivateTeamMarker(e))
+                .toList(),
+        };
+        final dateEvents =
+            rawDateEvents.where((e) => !isPrivateTeamMarker(e)).toList();
 
         return Scaffold(
           backgroundColor:
               Theme.of(context).colorScheme.surfaceContainerLow,
           appBar: MoniqAppBar(
                   title: calendarTitle,
-                  eyebrow: 'ONOROFF',
+                  eyebrow: 'OnorOff',
                   showBack: false,
                   leading: buildAvatarLeading(),
                   trailing: Row(
@@ -195,6 +224,7 @@ class CalendarScreen extends HookConsumerWidget {
               ref.read(eventRefreshProvider.notifier).state++;
             },
             child: SingleChildScrollView(
+              controller: scrollCtrl,
               physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,6 +234,13 @@ class CalendarScreen extends HookConsumerWidget {
                 // ── Calendar (근무 범례/프리뷰 제거됨) ──
                 MoniqCalendar(
                   legendItems: const [],
+                  viewMode: state.viewMode,
+                  onViewModeChanged: (_) => ref
+                      .read(homeViewModelProvider.notifier)
+                      .toggleViewMode(),
+                  calendarFormat: state.viewMode == CalendarViewMode.month
+                      ? CalendarFormat.month
+                      : CalendarFormat.week,
                   focusedDay: state.focusedMonth,
                   selectedDay: state.selectedDate,
                   startingDayOfWeek: startingDay,
@@ -220,9 +257,39 @@ class CalendarScreen extends HookConsumerWidget {
                         .selectDate(todayDate);
                   },
                   onDaySelected: (selected, focused) {
-                    ref
-                        .read(homeViewModelProvider.notifier)
-                        .selectDate(selected);
+                    final nowMs = DateTime.now().millisecondsSinceEpoch;
+                    final last = lastTap.value;
+                    final sameDay = last != null &&
+                        last.day.year == selected.year &&
+                        last.day.month == selected.month &&
+                        last.day.day == selected.day;
+                    final isDouble =
+                        sameDay && (nowMs - last!.at) < 350;
+                    if (isDouble) {
+                      // 두 번째 빠른 탭 → 펼치기/닫기 토글
+                      final cur = ref.read(dateExpandedProvider);
+                      final next = !cur;
+                      ref.read(dateExpandedProvider.notifier).state = next;
+                      lastTap.value = null;
+                      // 토글 직후 한 프레임 뒤 스크롤 — 펼치면 맨 아래(카드들),
+                      // 접으면 맨 위(캘린더)로 부드럽게 이동.
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!scrollCtrl.hasClients) return;
+                        final target = next
+                            ? scrollCtrl.position.maxScrollExtent
+                            : 0.0;
+                        scrollCtrl.animateTo(
+                          target,
+                          duration: const Duration(milliseconds: 320),
+                          curve: Curves.easeOutCubic,
+                        );
+                      });
+                    } else {
+                      lastTap.value = (day: selected, at: nowMs);
+                      ref
+                          .read(homeViewModelProvider.notifier)
+                          .selectDate(selected);
+                    }
                   },
                   onPageChanged: (focused) {
                     ref
@@ -291,12 +358,16 @@ class CalendarScreen extends HookConsumerWidget {
                         isWork: true,
                       ));
                     }
-                    // 2) 개인 일정: 근무 매칭이면 컬러 박스(중복 제거), 아니면 plain
+                    // 2) 개인 일정: 근무 매칭이면 컬러 박스(중복 제거), 아니면 plain.
+                    //    team-import 마커가 있는 이벤트는 근무 박스로 강제 표시.
                     final evts = monthlyEvents[key];
                     if (evts != null && evts.isNotEmpty) {
                       for (final e in evts) {
                         if (result.length >= 3) break;
                         final matchedType = shiftTypeByName[e.title];
+                        final isTeamImport = e.description
+                                ?.startsWith(kPersonalTeamImportMarker) ==
+                            true;
                         if (matchedType != null) {
                           final label = displayShiftLabel(
                               matchedType, personalShiftTypes);
@@ -305,6 +376,17 @@ class CalendarScreen extends HookConsumerWidget {
                           result.add(CalendarPreview(
                             text: label,
                             color: parseHexColor(colorHex),
+                            isWork: true,
+                          ));
+                        } else if (isTeamImport) {
+                          // 팀에서 가져온 근무는 정식 근무 라벨로 처리 (텍스트 박스)
+                          final label = labelOf(e.title, '');
+                          if (!seenWorkLabels.add(label)) continue;
+                          result.add(CalendarPreview(
+                            text: label,
+                            color: e.color != null
+                                ? parseHexColor(e.color!)
+                                : AppColors.shiftOff,
                             isWork: true,
                           ));
                         } else {
@@ -318,20 +400,82 @@ class CalendarScreen extends HookConsumerWidget {
                         }
                       }
                     }
+                    // 3) 월 단위 OFF: 해당 월에 (서버 근무 OR team-import 일정) 이
+                    //    한 건이라도 있을 때만 — 이 날에 work 라벨이 없으면 OFF 추가.
+                    //    (서버/일정 처리 후 평가해야 team-import 근무가 있는 날에
+                    //     OFF가 잘못 추가되지 않는다.)
+                    final monthHasAnyTeamSource = !hideTeamShiftsPv &&
+                        (state.monthlyShifts.isNotEmpty ||
+                            monthlyEvents.values.any((evts) => evts.any((e) =>
+                                e.description
+                                        ?.startsWith(kPersonalTeamImportMarker) ==
+                                    true)));
+                    final isInFocusedMonth =
+                        key.year == state.focusedMonth.year &&
+                            key.month == state.focusedMonth.month;
+                    final hasAnyWork = result.any((p) => p.isWork);
+                    if (monthHasAnyTeamSource &&
+                        isInFocusedMonth &&
+                        !hasAnyWork) {
+                      seenWorkLabels.add('O');
+                      result.insert(
+                        0,
+                        const CalendarPreview(
+                          text: 'O',
+                          color: AppColors.shiftOff,
+                          isWork: true,
+                        ),
+                      );
+                    }
                     return result;
                   },
                 ),
 
                 const SizedBox(height: AppSpacing.lg),
-                DateItemsPanel(
-                  date: state.selectedDate,
-                  shifts: state.selectedDateShifts ?? [],
-                  events: dateEvents,
-                  notes: dateNotes,
-                  hasTeamSchedule: state.monthlyShifts.isNotEmpty,
+                // 펼친 상태에서 패널 빈 영역을 더블탭하면 접기.
+                // (스크롤이 내려가 캘린더 셀까지 닿기 어려운 상황 보완)
+                GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onDoubleTap: () {
+                    final cur = ref.read(dateExpandedProvider);
+                    if (!cur) return; // 이미 접혀있으면 무시
+                    ref.read(dateExpandedProvider.notifier).state = false;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!scrollCtrl.hasClients) return;
+                      scrollCtrl.animateTo(
+                        0,
+                        duration: const Duration(milliseconds: 320),
+                        curve: Curves.easeOutCubic,
+                      );
+                    });
+                  },
+                  child: DateItemsPanel(
+                    date: state.selectedDate,
+                    shifts: state.selectedDateShifts ?? [],
+                    events: dateEvents,
+                    notes: dateNotes,
+                    // 캘린더 셀의 OFF 표시와 같은 로직: focused month에 팀 근무 또는
+                    // team-import 일정이 1건이라도 있고, 선택된 날도 focused month이며
+                    // 그 날 본인 근무가 없으면 OFF로 간주.
+                    hasTeamSchedule: () {
+                      final isInFocusedMonth = state.selectedDate.year ==
+                              state.focusedMonth.year &&
+                          state.selectedDate.month ==
+                              state.focusedMonth.month;
+                      if (!isInFocusedMonth) return false;
+                      final monthHasTeamSource =
+                          state.monthlyShifts.isNotEmpty ||
+                              monthlyEvents.values.any((evts) => evts.any(
+                                  (e) =>
+                                      e.description?.startsWith(
+                                          kPersonalTeamImportMarker) ==
+                                      true));
+                      return monthHasTeamSource;
+                    }(),
+                  ),
                 ),
 
-                const SizedBox(height: 120),
+                const SizedBox(height: 140),
               ],
             ),
             ),

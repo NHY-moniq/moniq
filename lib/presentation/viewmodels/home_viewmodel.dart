@@ -8,6 +8,7 @@ import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/repositories/shift_repository.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
+import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 
 part 'home_viewmodel.freezed.dart';
 
@@ -18,6 +19,10 @@ class HomeCalendarState with _$HomeCalendarState {
     required DateTime selectedDate,
     @Default({}) Map<DateTime, List<ShiftWithType>> monthlyShifts,
     @Default(null) List<ShiftWithType>? selectedDateShifts,
+    @Default(CalendarViewMode.month) CalendarViewMode viewMode,
+    /// 즐겨찾기 팀의 published 스케줄이 커버하는 날짜들.
+    /// 본인 근무가 없어도 이 set에 포함되면 OFF로 표시한다.
+    @Default({}) Set<DateTime> teamScheduledDates,
   }) = _HomeCalendarState;
 }
 
@@ -27,31 +32,45 @@ final homeViewModelProvider =
 class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
   late ShiftRepository _shiftRepository;
 
-  /// 개인 캘린더에 표시할 monthlyShifts를 즐겨찾기 팀만으로 필터.
-  /// 즐겨찾기 팀이 없거나 그 팀에 근무가 없으면 빈 맵을 반환.
-  Future<Map<DateTime, List<ShiftWithType>>> _loadFavoriteTeamShifts(
-    DateTime month,
-  ) async {
-    final favorite =
-        await ref.read(favoriteTeamProvider.future);
-    if (favorite == null) return const {};
+  /// 개인 캘린더에 표시할 즐겨찾기 팀의 (1) 본인 근무 + (2) 팀이 스케줄을
+  /// 가진 날짜 set 을 함께 반환. (2)는 본인 근무가 없는 날을 OFF로 표시하기 위함.
+  ///
+  /// coverage 는 published 스케줄의 period_start..period_end 합집합으로 계산해
+  /// 실제 shift 배정이 없는 날(예: 전원 OFF)도 누락 없이 포함한다.
+  Future<({Map<DateTime, List<ShiftWithType>> mine, Set<DateTime> coverage})>
+      _loadFavoriteTeamData(DateTime month) async {
+    final favorite = await ref.read(favoriteTeamProvider.future);
+    if (favorite == null) {
+      return (mine: const <DateTime, List<ShiftWithType>>{}, coverage: const <DateTime>{});
+    }
     final start = DateTime(month.year, month.month, 1);
     final end = DateTime(month.year, month.month + 1, 0);
-    final list = await _shiftRepository.getMyShiftsForTeam(
-      teamId: favorite.id,
-      start: start,
-      end: end,
-    );
-    final map = <DateTime, List<ShiftWithType>>{};
-    for (final sw in list) {
+
+    final results = await Future.wait<dynamic>([
+      _shiftRepository.getMyShiftsForTeam(
+        teamId: favorite.id,
+        start: start,
+        end: end,
+      ),
+      _shiftRepository.getCoveredDates(
+        teamId: favorite.id,
+        start: start,
+        end: end,
+      ),
+    ]);
+    final myList = results[0] as List<ShiftWithType>;
+    final coverage = results[1] as Set<DateTime>;
+
+    final mine = <DateTime, List<ShiftWithType>>{};
+    for (final sw in myList) {
       final d = DateTime(
         sw.shift.shiftDate.year,
         sw.shift.shiftDate.month,
         sw.shift.shiftDate.day,
       );
-      map.putIfAbsent(d, () => []).add(sw);
+      mine.putIfAbsent(d, () => []).add(sw);
     }
-    return map;
+    return (mine: mine, coverage: coverage);
   }
 
   @override
@@ -70,13 +89,14 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
     }
 
     _shiftRepository = ref.watch(shiftRepositoryProvider);
-    final monthlyShifts = await _loadFavoriteTeamShifts(now);
+    final data = await _loadFavoriteTeamData(now);
 
     return HomeCalendarState(
       focusedMonth: monthStart,
       selectedDate: today,
-      monthlyShifts: monthlyShifts,
-      selectedDateShifts: monthlyShifts[today],
+      monthlyShifts: data.mine,
+      selectedDateShifts: data.mine[today],
+      teamScheduledDates: data.coverage,
     );
   }
 
@@ -115,14 +135,15 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
     );
 
     try {
-      final monthlyShifts = await _loadFavoriteTeamShifts(month);
+      final data = await _loadFavoriteTeamData(month);
 
       state = AsyncData(
         current.copyWith(
           focusedMonth: monthStart,
           selectedDate: selectedDate,
-          monthlyShifts: monthlyShifts,
-          selectedDateShifts: monthlyShifts[selectedDate],
+          monthlyShifts: data.mine,
+          selectedDateShifts: data.mine[selectedDate],
+          teamScheduledDates: data.coverage,
         ),
       );
     } catch (e, st) {
@@ -132,6 +153,15 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
 
   Future<void> refresh() async {
     ref.invalidateSelf();
+  }
+
+  void toggleViewMode() {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final next = current.viewMode == CalendarViewMode.month
+        ? CalendarViewMode.week
+        : CalendarViewMode.month;
+    state = AsyncData(current.copyWith(viewMode: next));
   }
 }
 
