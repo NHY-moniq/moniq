@@ -782,7 +782,9 @@ class _SwapEntryRow extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             Padding(
               padding: const EdgeInsets.only(right: AppSpacing.sm),
-              child: _CurrentShiftLine(shift: entry.myCurrentShiftType),
+              // swap에서는 "대상자"의 현재 근무를 표시해야 의미가 맞다.
+              // (이걸 어떤 근무로 바꿀지 요청하는 것이므로)
+              child: _CurrentShiftLine(shift: entry.targetCurrentShiftType),
             ),
           ],
         ],

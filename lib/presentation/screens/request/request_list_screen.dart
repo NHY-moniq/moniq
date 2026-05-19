@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/models/request_model.dart';
+import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
@@ -26,7 +28,7 @@ class RequestListScreen extends ConsumerStatefulWidget {
 class _RequestListScreenState extends ConsumerState<RequestListScreen> {
   bool _selectionMode = false;
   final Set<String> _selectedIds = {};
-  RequestModel? _selectedRequest; // 웹 전용 선택 상태
+  RequestGroup? _selectedGroup; // 웹 전용 선택 상태
 
   void _toggleSelection(String id) {
     setState(() {
@@ -34,6 +36,18 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
         _selectedIds.remove(id);
       } else {
         _selectedIds.add(id);
+      }
+    });
+  }
+
+  /// 그룹 단위 토글: 전체 entry 묶음 선택/해제.
+  void _toggleSelectionGroup(RequestGroup g) {
+    setState(() {
+      final allSelected = g.ids.every(_selectedIds.contains);
+      if (allSelected) {
+        _selectedIds.removeAll(g.ids);
+      } else {
+        _selectedIds.addAll(g.ids);
       }
     });
   }
@@ -234,6 +248,11 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   MoniqAppBarAction(
+                    icon: Icons.history,
+                    onTap: () =>
+                        context.push('/teams/$teamId/requests/history'),
+                  ),
+                  MoniqAppBarAction(
                     icon: Icons.checklist_rounded,
                     onTap: () => setState(() => _selectionMode = true),
                   ),
@@ -285,11 +304,12 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
               ref.invalidate(requestListViewModelProvider(teamId)),
         ),
         data: (state) {
-          // 선택된 요청이 목록에서 사라진 경우 초기화
-          if (_selectedRequest != null &&
-              !state.requests.any((r) => r.id == _selectedRequest!.id)) {
+          // 선택된 그룹의 primary가 목록에서 사라진 경우 초기화
+          if (_selectedGroup != null &&
+              !state.requests
+                  .any((r) => r.id == _selectedGroup!.primary.id)) {
             WidgetsBinding.instance.addPostFrameCallback(
-              (_) => setState(() => _selectedRequest = null),
+              (_) => setState(() => _selectedGroup = null),
             );
           }
 
@@ -299,11 +319,11 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
                   state: state,
                   selectionMode: _selectionMode,
                   selectedIds: _selectedIds,
-                  selectedRequest: _selectedRequest,
+                  selectedGroup: _selectedGroup,
                   myUserId: ref.read(currentUserProvider)?.id,
-                  onSelectRequest: (r) =>
-                      setState(() => _selectedRequest = r),
-                  onToggleSelection: _toggleSelection,
+                  onSelectGroup: (g) =>
+                      setState(() => _selectedGroup = g),
+                  onToggleSelectionGroup: _toggleSelectionGroup,
                   onFilterChanged: (f) => ref
                       .read(requestListViewModelProvider(teamId).notifier)
                       .setFilter(f),
@@ -325,14 +345,14 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
                   state: state,
                   selectionMode: _selectionMode,
                   selectedIds: _selectedIds,
-                  onToggleSelection: _toggleSelection,
+                  onToggleSelectionGroup: _toggleSelectionGroup,
                   onToggleSelectAll: () =>
                       _toggleSelectAll(_filtered(state)),
                   onFilterChanged: (f) => ref
                       .read(requestListViewModelProvider(teamId).notifier)
                       .setFilter(f),
-                  onShowDetail: (r) =>
-                      _showRequestDetail(context, ref, r, state.isAdmin),
+                  onShowDetail: (g) =>
+                      _showRequestDetail(context, ref, g, state.isAdmin),
                   onApprove: (id) => ref
                       .read(requestListViewModelProvider(teamId).notifier)
                       .approveRequest(id),
@@ -342,9 +362,9 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
                   onCancel: (id) => ref
                       .read(requestListViewModelProvider(teamId).notifier)
                       .cancelRequest(id),
-                  onDelete: (id) => ref
+                  onDeleteIds: (ids) => ref
                       .read(requestListViewModelProvider(teamId).notifier)
-                      .deleteRequest(id),
+                      .deleteRequests(ids),
                 );
         },
       ),
@@ -352,8 +372,13 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
   }
 
   void _showRequestDetail(BuildContext context, WidgetRef ref,
-      RequestModel request, bool isAdmin) {
+      RequestGroup group, bool isAdmin) {
     final teamId = widget.teamId;
+    final userNames = ref
+            .read(requestListViewModelProvider(teamId))
+            .valueOrNull
+            ?.userNames ??
+        const {};
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -361,25 +386,33 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
       ),
       builder: (ctx) => _RequestDetailSheet(
-        request: request,
+        teamId: teamId,
+        group: group,
         isAdmin: isAdmin,
         myUserId: ref.read(currentUserProvider)?.id,
+        userNames: userNames,
         onApprove: () async {
-          await ref
-              .read(requestListViewModelProvider(teamId).notifier)
-              .approveRequest(request.id);
+          for (final id in group.ids) {
+            await ref
+                .read(requestListViewModelProvider(teamId).notifier)
+                .approveRequest(id);
+          }
           if (ctx.mounted) Navigator.pop(ctx);
         },
         onReject: () async {
-          await ref
-              .read(requestListViewModelProvider(teamId).notifier)
-              .rejectRequest(request.id);
+          for (final id in group.ids) {
+            await ref
+                .read(requestListViewModelProvider(teamId).notifier)
+                .rejectRequest(id);
+          }
           if (ctx.mounted) Navigator.pop(ctx);
         },
         onCancel: () async {
-          await ref
-              .read(requestListViewModelProvider(teamId).notifier)
-              .cancelRequest(request.id);
+          for (final id in group.ids) {
+            await ref
+                .read(requestListViewModelProvider(teamId).notifier)
+                .cancelRequest(id);
+          }
           if (ctx.mounted) Navigator.pop(ctx);
         },
       ),
@@ -397,34 +430,35 @@ class _MobileLayout extends StatelessWidget {
     required this.state,
     required this.selectionMode,
     required this.selectedIds,
-    required this.onToggleSelection,
+    required this.onToggleSelectionGroup,
     required this.onToggleSelectAll,
     required this.onFilterChanged,
     required this.onShowDetail,
     required this.onApprove,
     required this.onReject,
     required this.onCancel,
-    required this.onDelete,
+    required this.onDeleteIds,
   });
 
   final String teamId;
   final RequestListState state;
   final bool selectionMode;
   final Set<String> selectedIds;
-  final ValueChanged<String> onToggleSelection;
+  final ValueChanged<RequestGroup> onToggleSelectionGroup;
   final VoidCallback onToggleSelectAll;
   final ValueChanged<String> onFilterChanged;
-  final ValueChanged<RequestModel> onShowDetail;
+  final ValueChanged<RequestGroup> onShowDetail;
   final ValueChanged<String> onApprove;
   final ValueChanged<String> onReject;
   final ValueChanged<String> onCancel;
-  final ValueChanged<String> onDelete;
+  final ValueChanged<List<String>> onDeleteIds;
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filtered(state);
+    final groups = _filteredGroups(state);
 
-    final allVisibleIds = filtered.map((r) => r.id).toSet();
+    final allVisibleIds =
+        groups.expand((g) => g.ids).toSet();
     final isAllSelected = allVisibleIds.isNotEmpty &&
         allVisibleIds.every(selectedIds.contains);
 
@@ -432,40 +466,46 @@ class _MobileLayout extends StatelessWidget {
       children: [
         _FilterBar(
             currentFilter: state.filter, onFilterChanged: onFilterChanged),
-        const Divider(height: 1),
         if (selectionMode)
           _SelectAllBar(
             isAllSelected: isAllSelected,
-            visibleCount: filtered.length,
-            selectedCount:
-                selectedIds.where(allVisibleIds.contains).length,
-            onTap: filtered.isEmpty ? null : onToggleSelectAll,
+            visibleCount: groups.length,
+            selectedCount: groups
+                .where((g) => g.ids.every(selectedIds.contains))
+                .length,
+            onTap: groups.isEmpty ? null : onToggleSelectAll,
           ),
         Expanded(
-          child: filtered.isEmpty
+          child: groups.isEmpty
               ? MoniqEmptyState.peaceful(
-                  title: '변경 요청이 없어요',
-                  message: '근무 변경이 필요하면 요청을 생성해보세요',
+                  title: '이번달·다음달 요청이 없어요',
+                  message: '지난 요청은 히스토리에서 확인할 수 있어요',
                 )
               : ListView.separated(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  itemCount: filtered.length,
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.lg,
+                    AppSpacing.lg,
+                    100, // FAB와 마지막 카드가 겹치지 않도록 여유
+                  ),
+                  itemCount: groups.length,
                   separatorBuilder: (_, __) =>
                       const SizedBox(height: AppSpacing.sm),
                   itemBuilder: (_, i) {
-                    final r = filtered[i];
-                    final canDelete = r.status == 'cancelled';
-                    final isSelected = selectedIds.contains(r.id);
+                    final g = groups[i];
+                    final canDelete = g.status == 'cancelled';
+                    final isSelected = g.ids.every(selectedIds.contains);
 
                     final card = RequestCard(
-                      request: r,
+                      group: g,
+                      userNames: state.userNames,
                       selectionMode: selectionMode,
                       selected: isSelected,
                       onTap: () {
                         if (selectionMode) {
-                          onToggleSelection(r.id);
+                          onToggleSelectionGroup(g);
                         } else {
-                          onShowDetail(r);
+                          onShowDetail(g);
                         }
                       },
                     );
@@ -474,7 +514,7 @@ class _MobileLayout extends StatelessWidget {
                     if (!canDelete || selectionMode) return card;
 
                     return Dismissible(
-                      key: ValueKey(r.id),
+                      key: ValueKey(g.primary.id),
                       direction: DismissDirection.endToStart,
                       background: Container(
                         alignment: Alignment.centerRight,
@@ -490,11 +530,12 @@ class _MobileLayout extends StatelessWidget {
                       confirmDismiss: (_) => showMoniqConfirmSheet(
                         context: context,
                         title: '요청을 삭제할까요?',
-                        message: '취소된 요청 1건이 영구적으로 삭제돼요.',
+                        message:
+                            '취소된 요청 ${g.ids.length}건이 영구적으로 삭제돼요.',
                         confirmLabel: '삭제',
                         destructive: true,
                       ),
-                      onDismissed: (_) => onDelete(r.id),
+                      onDismissed: (_) => onDeleteIds(g.ids),
                       child: card,
                     );
                   },
@@ -515,10 +556,10 @@ class _WebLayout extends StatelessWidget {
     required this.state,
     required this.selectionMode,
     required this.selectedIds,
-    required this.selectedRequest,
+    required this.selectedGroup,
     required this.myUserId,
-    required this.onSelectRequest,
-    required this.onToggleSelection,
+    required this.onSelectGroup,
+    required this.onToggleSelectionGroup,
     required this.onFilterChanged,
     required this.onApprove,
     required this.onReject,
@@ -530,10 +571,10 @@ class _WebLayout extends StatelessWidget {
   final RequestListState state;
   final bool selectionMode;
   final Set<String> selectedIds;
-  final RequestModel? selectedRequest;
+  final RequestGroup? selectedGroup;
   final String? myUserId;
-  final ValueChanged<RequestModel?> onSelectRequest;
-  final ValueChanged<String> onToggleSelection;
+  final ValueChanged<RequestGroup?> onSelectGroup;
+  final ValueChanged<RequestGroup> onToggleSelectionGroup;
   final ValueChanged<String> onFilterChanged;
   final ValueChanged<String> onApprove;
   final ValueChanged<String> onReject;
@@ -544,7 +585,7 @@ class _WebLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final filtered = _filtered(state);
+    final groups = _filteredGroups(state);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -562,35 +603,35 @@ class _WebLayout extends StatelessWidget {
               _FilterBar(
                   currentFilter: state.filter,
                   onFilterChanged: onFilterChanged),
-              const Divider(height: 1),
               Expanded(
-                child: filtered.isEmpty
+                child: groups.isEmpty
                     ? MoniqEmptyState.peaceful(
-                        title: '변경 요청이 없어요',
-                        message: '근무 변경이 필요하면 요청을 생성해보세요',
+                        title: '이번달·다음달 요청이 없어요',
+                        message: '지난 요청은 히스토리에서 확인할 수 있어요',
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.all(AppSpacing.md),
-                        itemCount: filtered.length,
+                        itemCount: groups.length,
                         separatorBuilder: (_, __) =>
                             const SizedBox(height: AppSpacing.sm),
                         itemBuilder: (_, i) {
-                          final r = filtered[i];
+                          final g = groups[i];
                           final isCheckboxSelected =
-                              selectedIds.contains(r.id);
-                          final isFocused =
-                              !selectionMode && selectedRequest?.id == r.id;
+                              g.ids.every(selectedIds.contains);
+                          final isFocused = !selectionMode &&
+                              selectedGroup?.primary.id == g.primary.id;
                           return RequestCard(
-                            request: r,
+                            group: g,
+                            userNames: state.userNames,
                             selectionMode: selectionMode,
                             selected: selectionMode
                                 ? isCheckboxSelected
                                 : isFocused,
                             onTap: () {
                               if (selectionMode) {
-                                onToggleSelection(r.id);
+                                onToggleSelectionGroup(g);
                               } else {
-                                onSelectRequest(isFocused ? null : r);
+                                onSelectGroup(isFocused ? null : g);
                               }
                             },
                           );
@@ -603,7 +644,7 @@ class _WebLayout extends StatelessWidget {
 
         // ── 오른쪽: 상세 패널 ──
         Expanded(
-          child: selectedRequest == null
+          child: selectedGroup == null
               ? Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -625,13 +666,21 @@ class _WebLayout extends StatelessWidget {
                   ),
                 )
               : _WebDetailPanel(
-                  key: ValueKey(selectedRequest!.id),
-                  request: selectedRequest!,
+                  key: ValueKey(selectedGroup!.primary.id),
+                  teamId: teamId,
+                  group: selectedGroup!,
                   isAdmin: state.isAdmin,
                   myUserId: myUserId,
-                  onApprove: () => onApprove(selectedRequest!.id),
-                  onReject: () => onReject(selectedRequest!.id),
-                  onCancel: () => onCancel(selectedRequest!.id),
+                  userNames: state.userNames,
+                  onApprove: () {
+                    for (final id in selectedGroup!.ids) onApprove(id);
+                  },
+                  onReject: () {
+                    for (final id in selectedGroup!.ids) onReject(id);
+                  },
+                  onCancel: () {
+                    for (final id in selectedGroup!.ids) onCancel(id);
+                  },
                 ),
         ),
       ],
@@ -643,32 +692,37 @@ class _WebLayout extends StatelessWidget {
 // 웹 상세 패널
 // ────────────────────────────────────────
 
-class _WebDetailPanel extends StatelessWidget {
+class _WebDetailPanel extends ConsumerWidget {
   const _WebDetailPanel({
     super.key,
-    required this.request,
+    required this.teamId,
+    required this.group,
     required this.isAdmin,
     required this.myUserId,
+    required this.userNames,
     required this.onApprove,
     required this.onReject,
     required this.onCancel,
   });
 
-  final RequestModel request;
+  final String teamId;
+  final RequestGroup group;
   final bool isAdmin;
   final String? myUserId;
+  final Map<String, String> userNames;
   final VoidCallback onApprove;
   final VoidCallback onReject;
   final VoidCallback onCancel;
 
   bool get _canCancel =>
-      myUserId != null && request.requesterUserId == myUserId;
+      myUserId != null && group.requesterUserId == myUserId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final (statusColor, _, _) = _statusStyle(request.status, colorScheme);
+    final (statusColor, _, _) = _statusStyle(group.status, colorScheme);
+    final isSwap = group.changeType == 'swap';
 
     return Center(
       child: ConstrainedBox(
@@ -678,7 +732,7 @@ class _WebDetailPanel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── 상단 상태 + 날짜 ──
+              // ── 상단 상태 + 메타 ──
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(AppSpacing.lg),
@@ -693,12 +747,11 @@ class _WebDetailPanel extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        StatusBadge(status: request.status),
+                        StatusBadge(status: group.status),
                         const Spacer(),
-                        if (request.createdAt != null)
+                        if (group.createdAt != null)
                           Text(
-                            DateFormat('yyyy.MM.dd HH:mm')
-                                .format(request.createdAt!),
+                            '신청일 ${DateFormat('yyyy.MM.dd HH:mm').format(_toKst(group.createdAt!))}',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -707,56 +760,32 @@ class _WebDetailPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      changeTypeLabel(request.changeType),
+                      group.entries.length > 1
+                          ? '${changeTypeLabel(group.changeType)} · ${group.entries.length}건'
+                          : changeTypeLabel(group.changeType),
                       style: theme.textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
-                    if (request.requestedDate != null) ...[
-                      const SizedBox(height: AppSpacing.xs),
-                      Row(
-                        children: [
-                          Icon(Icons.calendar_today_outlined,
-                              size: 14,
-                              color: colorScheme.onSurfaceVariant),
-                          const SizedBox(width: 4),
-                          Text(
-                            DateFormat('yyyy.MM.dd')
-                                .format(request.requestedDate!),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                   ],
                 ),
               ),
 
-              // ── 사유 ──
-              if (request.reason != null &&
-                  request.reason!.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.lg),
-                _DetailSection(
-                  label: '사유',
-                  content: request.reason!,
-                ),
-              ],
-
-              // ── 메모 ──
-              if (request.note != null && request.note!.isNotEmpty) ...[
+              // ── 각 entry별 변경 전/후 ──
+              for (final r in group.entries) ...[
                 const SizedBox(height: AppSpacing.md),
-                _DetailSection(
-                  label: '메모',
-                  content: request.note!,
-                  isSecondary: true,
+                _EntryHeader(
+                  request: r,
+                  userNames: userNames,
+                  isSwap: isSwap,
                 ),
+                const SizedBox(height: AppSpacing.sm),
+                _ChangePreview(teamId: teamId, request: r),
               ],
 
               const SizedBox(height: AppSpacing.xl),
 
               // ── 액션 버튼 ──
-              if (request.status == 'pending') ...[
+              if (group.status == 'pending') ...[
                 if (isAdmin)
                   Row(
                     children: [
@@ -809,37 +838,93 @@ class _WebDetailPanel extends StatelessWidget {
   }
 }
 
+/// 상세 시트 — 각 entry의 헤더 (대상자/요청자 + 변경일)
+class _EntryHeader extends StatelessWidget {
+  const _EntryHeader({
+    required this.request,
+    required this.userNames,
+    required this.isSwap,
+  });
+
+  final RequestModel request;
+  final Map<String, String> userNames;
+  final bool isSwap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final personName = isSwap
+        ? (request.targetUserId != null
+            ? userNames[request.targetUserId!]
+            : null)
+        : userNames[request.requesterUserId];
+    final dateText = request.requestedDate != null
+        ? DateFormat('yyyy.MM.dd (E)', 'ko')
+            .format(request.requestedDate!)
+        : null;
+
+    return Row(
+      children: [
+        Icon(
+          isSwap ? Icons.swap_horiz_rounded : Icons.person_outline,
+          size: 16,
+          color: cs.primary,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            [
+              if (personName != null && personName.isNotEmpty) personName,
+              if (dateText != null) dateText,
+            ].join('  ·  '),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: cs.onSurface,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ────────────────────────────────────────
 // 모바일 바텀시트
 // ────────────────────────────────────────
 
-class _RequestDetailSheet extends StatelessWidget {
+class _RequestDetailSheet extends ConsumerWidget {
   const _RequestDetailSheet({
-    required this.request,
+    required this.teamId,
+    required this.group,
     required this.isAdmin,
     required this.myUserId,
+    required this.userNames,
     required this.onApprove,
     required this.onReject,
     required this.onCancel,
   });
 
-  final RequestModel request;
+  final String teamId;
+  final RequestGroup group;
   final bool isAdmin;
   final String? myUserId;
+  final Map<String, String> userNames;
   final VoidCallback onApprove;
   final VoidCallback onReject;
   final VoidCallback onCancel;
 
   bool get _canCancel =>
-      myUserId != null && request.requesterUserId == myUserId;
+      myUserId != null && group.requesterUserId == myUserId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isSwap = group.changeType == 'swap';
 
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -859,12 +944,11 @@ class _RequestDetailSheet extends StatelessWidget {
             ),
             Row(
               children: [
-                StatusBadge(status: request.status),
+                StatusBadge(status: group.status),
                 const Spacer(),
-                if (request.createdAt != null)
+                if (group.createdAt != null)
                   Text(
-                    DateFormat('yyyy.MM.dd HH:mm')
-                        .format(request.createdAt!),
+                    '신청일 ${DateFormat('yyyy.MM.dd HH:mm').format(_toKst(group.createdAt!))}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -873,41 +957,27 @@ class _RequestDetailSheet extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              changeTypeLabel(request.changeType),
+              group.entries.length > 1
+                  ? '${changeTypeLabel(group.changeType)} · ${group.entries.length}건'
+                  : changeTypeLabel(group.changeType),
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
-            if (request.requestedDate != null) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Row(
-                children: [
-                  Icon(Icons.calendar_today_outlined,
-                      size: 14, color: colorScheme.onSurfaceVariant),
-                  const SizedBox(width: 4),
-                  Text(
-                    DateFormat('yyyy.MM.dd')
-                        .format(request.requestedDate!),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            if (request.reason != null &&
-                request.reason!.isNotEmpty) ...[
+
+            // ── 각 entry별 변경 전/후 ──
+            for (final r in group.entries) ...[
               const SizedBox(height: AppSpacing.md),
-              _DetailSection(label: '사유', content: request.reason!),
-            ],
-            if (request.note != null && request.note!.isNotEmpty) ...[
+              _EntryHeader(
+                request: r,
+                userNames: userNames,
+                isSwap: isSwap,
+              ),
               const SizedBox(height: AppSpacing.sm),
-              _DetailSection(
-                  label: '메모',
-                  content: request.note!,
-                  isSecondary: true),
+              _ChangePreview(teamId: teamId, request: r),
             ],
+
             const SizedBox(height: AppSpacing.xl),
-            if (request.status == 'pending') ...[
+            if (group.status == 'pending') ...[
               if (isAdmin)
                 Row(
                   children: [
@@ -960,11 +1030,10 @@ class _FilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const filters = [
-      ('all', '전체'),
       ('pending', '대기중'),
       ('approved', '승인'),
       ('rejected', '거절'),
-      ('cancelled', '취소'),
+      ('all', '전체'),
     ];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -1039,14 +1108,16 @@ class _DetailSection extends StatelessWidget {
 class RequestCard extends StatelessWidget {
   const RequestCard({
     super.key,
-    required this.request,
+    required this.group,
     required this.onTap,
+    required this.userNames,
     this.selectionMode = false,
     this.selected = false,
   });
 
-  final RequestModel request;
+  final RequestGroup group;
   final VoidCallback onTap;
+  final Map<String, String> userNames;
   final bool selectionMode;
   final bool selected;
 
@@ -1054,106 +1125,193 @@ class RequestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final dateFormat = DateFormat('MM.dd');
-    final (statusColor, _, _) = _statusStyle(request.status, colorScheme);
+    final stampFormat = DateFormat('yyyy.MM.dd (E) HH:mm', 'ko');
+    final entryDateFormat = DateFormat('M/d (E)', 'ko');
+    final (statusColor, _, _) = _statusStyle(group.status, colorScheme);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          color: selected
-              ? colorScheme.primary.withValues(alpha: 0.06)
-              : colorScheme.surface,
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(
-            color: selected
-                ? colorScheme.primary.withValues(alpha: 0.3)
-                : colorScheme.outlineVariant,
-          ),
-        ),
+    final createdAt = group.createdAt;
+    final changeLabel = changeTypeLabel(group.changeType);
+    final requesterName = userNames[group.requesterUserId];
+
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      elevation: 1,
+      shadowColor: statusColor.withValues(alpha: 0.15),
+      color: selected ? colorScheme.primary.withValues(alpha: 0.06) : null,
+      shape: selected
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              side: BorderSide(
+                color: colorScheme.primary.withValues(alpha: 0.3),
+              ),
+            )
+          : null,
+      child: InkWell(
+        onTap: onTap,
         child: IntrinsicHeight(
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 왼쪽 컬러 accent bar — 카드 전체 높이에 맞춤
-              Container(
-                width: 4,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  borderRadius: const BorderRadius.horizontal(
-                      left: Radius.circular(AppRadius.sm)),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-
+              Container(width: 4, color: statusColor),
               if (selectionMode) ...[
-                Align(
-                  alignment: Alignment.center,
-                  child: Icon(
-                    selected
-                        ? Icons.check_box_rounded
-                        : Icons.check_box_outline_blank_rounded,
-                    color:
-                        selected ? AppColors.primary : colorScheme.outline,
-                  ),
+                const SizedBox(width: AppSpacing.md),
+                Icon(
+                  selected
+                      ? Icons.check_box_rounded
+                      : Icons.check_box_outline_blank_rounded,
+                  color: selected ? AppColors.primary : colorScheme.outline,
                 ),
-                const SizedBox(width: AppSpacing.sm),
               ],
-
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.md, horizontal: AppSpacing.xs),
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.md,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // 상단 라인: 요청 유형 — 날짜 — 상태 뱃지 (동일 선상)
+                      // 1행: 변경 유형 + (N건) + 상태 뱃지
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
                             child: Text(
-                              changeTypeLabel(request.changeType),
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600),
+                              group.entries.length > 1
+                                  ? '$changeLabel · ${group.entries.length}건'
+                                  : changeLabel,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (request.createdAt != null) ...[
-                            Text(
-                              dateFormat.format(request.createdAt!),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                          ],
-                          StatusBadge(status: request.status),
+                          StatusBadge(status: group.status),
                         ],
                       ),
-                      if (request.reason != null &&
-                          request.reason!.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          request.reason!,
-                          style: theme.textTheme.bodySmall?.copyWith(
+                      const SizedBox(height: AppSpacing.xs),
+                      // 신청자 (그룹 1회)
+                      if (requesterName != null &&
+                          requesterName.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.person_outline,
+                                size: 14,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  '신청자 $requesterName',
+                                  style: theme.textTheme.bodySmall
+                                      ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      // entries: 모든 날짜를 한 줄에 가로 나열 — 카드 폭을 넘으면 …
+                      // 전체 목록은 상세 시트에서 확인.
+                      Builder(builder: (_) {
+                        final dates = group.entries
+                            .where((r) => r.requestedDate != null)
+                            .map((r) =>
+                                entryDateFormat.format(r.requestedDate!))
+                            .toList();
+                        if (dates.isEmpty) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.calendar_today_outlined,
+                                size: 14,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  dates.join(', '),
+                                  style:
+                                      theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      // 신청일 (등록 시점, KST)
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.event_note_outlined,
+                            size: 14,
                             color: colorScheme.onSurfaceVariant,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          Text(
+                            '신청일 ${createdAt != null ? stampFormat.format(_toKst(createdAt)) : '-'}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+String _changeTypeCode(String type) => switch (type) {
+      'swap' => 'S',
+      'day_off' => 'O',
+      'shift_change' => 'C',
+      'schedule_change' => 'E',
+      _ => '?',
+    };
+
+class _RequestCodeBadge extends StatelessWidget {
+  const _RequestCodeBadge({required this.code, required this.color});
+
+  final String code;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 20,
+      height: 20,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        code,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: color,
+          height: 1,
         ),
       ),
     );
@@ -1204,13 +1362,39 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return FilterChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onTap(),
-      selectedColor: colorScheme.primary.withValues(alpha: 0.15),
-      checkmarkColor: colorScheme.primary,
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final bg = selected
+        ? cs.primary.withValues(alpha: 0.10)
+        : cs.surfaceContainerHigh;
+    final fg = selected ? cs.primary : cs.onSurfaceVariant;
+    return Material(
+      color: bg,
+      shape: StadiumBorder(
+        side: selected
+            ? BorderSide(color: cs.primary.withValues(alpha: 0.45))
+            : BorderSide(color: Colors.transparent),
+      ),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 7,
+          ),
+          child: Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: fg,
+              fontWeight:
+                  selected ? FontWeight.w800 : FontWeight.w600,
+              letterSpacing: 0.1,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1219,9 +1403,73 @@ class _FilterChip extends StatelessWidget {
 // 헬퍼
 // ────────────────────────────────────────
 
-List<RequestModel> _filtered(RequestListState state) => state.filter == 'all'
-    ? state.requests
-    : state.requests.where((r) => r.status == state.filter).toList();
+/// 같은 시점에 같은 사용자가 같은 유형으로 제출한 요청을 한 묶음으로 본다.
+/// 한 번 제출에서 여러 entry가 만들어진 경우 (createdAt이 초/100ms 단위로 거의 동일),
+/// 동일 그룹으로 보고 카드 1장에 묶어 표시한다.
+class RequestGroup {
+  RequestGroup(this.entries) : assert(entries.length > 0);
+  final List<RequestModel> entries;
+
+  RequestModel get primary => entries.first;
+  List<String> get ids => entries.map((e) => e.id).toList();
+  String get status => primary.status;
+  String get changeType => primary.changeType;
+  String get requesterUserId => primary.requesterUserId;
+  DateTime? get createdAt => primary.createdAt;
+}
+
+/// 그룹핑 키: 동일 신청자 + 변경 유형 + 상태 + (createdAt 분 단위)
+String _groupKey(RequestModel r) {
+  final t = r.createdAt;
+  final minute = t == null ? 'x' : '${t.toUtc().millisecondsSinceEpoch ~/ 60000}';
+  return '${r.requesterUserId}|${r.changeType}|${r.status}|$minute';
+}
+
+/// 메인 리스트: 이번달 + 다음달의 요청만 노출하고, 취소 건은 제외 (히스토리에서 확인).
+List<RequestModel> _filtered(RequestListState state) {
+  final now = DateTime.now();
+  final thisMonthStart = DateTime(now.year, now.month, 1);
+  final afterNextMonth = DateTime(now.year, now.month + 2, 1);
+
+  final base = state.requests.where((r) {
+    if (r.status == 'cancelled') return false;
+    final d = r.requestedDate ?? r.createdAt;
+    if (d == null) return false;
+    return !d.isBefore(thisMonthStart) && d.isBefore(afterNextMonth);
+  });
+
+  if (state.filter == 'all') return base.toList();
+  return base.where((r) => r.status == state.filter).toList();
+}
+
+/// `_filtered` 결과를 RequestGroup 단위로 변환. createdAt 내림차순.
+List<RequestGroup> _filteredGroups(RequestListState state) =>
+    groupHistoryRequests(_filtered(state));
+
+/// 임의의 요청 리스트를 [RequestGroup]으로 묶는다. (히스토리에서도 재사용)
+List<RequestGroup> groupHistoryRequests(List<RequestModel> requests) {
+  final map = <String, List<RequestModel>>{};
+  for (final r in requests) {
+    map.putIfAbsent(_groupKey(r), () => []).add(r);
+  }
+  final groups = map.values.map((list) {
+    final sorted = [...list]
+      ..sort((a, b) {
+        final da = a.requestedDate ?? a.createdAt;
+        final db = b.requestedDate ?? b.createdAt;
+        if (da == null || db == null) return 0;
+        return da.compareTo(db);
+      });
+    return RequestGroup(sorted);
+  }).toList();
+  groups.sort((a, b) {
+    final da = a.createdAt;
+    final db = b.createdAt;
+    if (da == null || db == null) return 0;
+    return db.compareTo(da);
+  });
+  return groups;
+}
 
 (Color color, Color bgColor, String label) _statusStyle(
     String status, ColorScheme colorScheme) {
@@ -1261,6 +1509,11 @@ String changeTypeLabel(String type) => switch (type) {
       'schedule_change' => '일정 변경',
       _ => type,
     };
+
+/// Supabase가 UTC로 저장한 timestamp를 한국 시간(KST = UTC+9)으로 변환.
+/// 디바이스 타임존과 무관하게 항상 KST를 반환한다.
+DateTime _toKst(DateTime dt) =>
+    dt.toUtc().add(const Duration(hours: 9));
 
 // ────────────────────────────────────────
 // 선택 모드 — 필터 바 아래 전체 선택/해제 행
@@ -1515,6 +1768,254 @@ class _BottomActionButton extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────
+// 상세 뷰: 메타 행 (아이콘 + 텍스트)
+// ────────────────────────────────────────
+
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: cs.onSurfaceVariant),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            text,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ────────────────────────────────────────
+// 상세 뷰: 근무 변경 전/후 미리보기
+// ────────────────────────────────────────
+
+class _ChangePreview extends ConsumerWidget {
+  const _ChangePreview({required this.teamId, required this.request});
+
+  final String teamId;
+  final RequestModel request;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final previewAsync = ref.watch(
+      requestChangePreviewProvider('$teamId|${request.id}'),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '근무 변경',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          previewAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+            error: (_, __) => Text(
+              '근무 정보를 불러올 수 없어요',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.error,
+              ),
+            ),
+            data: (preview) => _previewBody(context, preview),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _previewBody(BuildContext context, RequestChangePreview preview) {
+    final isSwap = request.changeType == 'swap';
+    // swap은 단방향(대상자 근무만 변경). 신청자 본인 근무는 변경되지 않으므로
+    // 카드 상세에서도 대상자의 변경 전/후만 노출한다.
+    if (isSwap) {
+      return _BeforeAfterRow(
+        before: preview.targetBeforeShiftType,
+        after: preview.targetAfterShiftType,
+      );
+    }
+
+    return _BeforeAfterRow(
+      before: preview.requesterBeforeShiftType,
+      after: preview.requesterAfterShiftType,
+    );
+  }
+}
+
+/// swap용 라인: 사람 + 변경 전 → 변경 후
+class _SwapLine extends StatelessWidget {
+  const _SwapLine({
+    required this.personLabel,
+    required this.before,
+    required this.after,
+  });
+
+  final String personLabel;
+  final ShiftTypeModel? before;
+  final ShiftTypeModel? after;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      children: [
+        SizedBox(
+          width: 72,
+          child: Text(
+            personLabel,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: cs.onSurfaceVariant,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        Expanded(
+          child: _BeforeAfterRow(before: before, after: after),
+        ),
+      ],
+    );
+  }
+}
+
+/// 변경 전 [chip] → 변경 후 [chip]
+class _BeforeAfterRow extends StatelessWidget {
+  const _BeforeAfterRow({required this.before, required this.after});
+  final ShiftTypeModel? before;
+  final ShiftTypeModel? after;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      children: [
+        Expanded(child: _ShiftTypeChip(label: '변경 전', shiftType: before)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          child: Icon(
+            Icons.arrow_forward_rounded,
+            size: 18,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        Expanded(child: _ShiftTypeChip(label: '변경 후', shiftType: after)),
+      ],
+    );
+  }
+}
+
+/// shiftType이 null이면 OFF로 표시.
+class _ShiftTypeChip extends StatelessWidget {
+  const _ShiftTypeChip({required this.label, required this.shiftType});
+
+  final String label;
+  final ShiftTypeModel? shiftType;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final color = shiftType != null
+        ? parseHexColor(shiftType!.color)
+        : AppColors.shiftOff;
+    final code = shiftType?.code ?? 'OFF';
+    final name = shiftType?.name ?? '휴무';
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  code,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                    height: 1,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  name,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
