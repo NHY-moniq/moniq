@@ -171,16 +171,19 @@ class ShiftRepository {
     return entries;
   }
 
-  /// 오늘(또는 특정 날짜) 같은 shift_type에 배정된 팀원(본인 제외)
+  /// 오늘(또는 특정 날짜) 같은 shift_type에 배정된 팀원.
+  /// [excludeSelf]가 true(기본)면 본인 제외.
   Future<List<UserModel>> getCoworkers({
     required String teamId,
     required DateTime date,
     required String shiftTypeId,
+    bool excludeSelf = true,
   }) {
     return _dataSource.getCoworkers(
       teamId: teamId,
       date: date,
       shiftTypeId: shiftTypeId,
+      excludeSelf: excludeSelf,
     );
   }
 

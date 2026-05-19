@@ -37,6 +37,11 @@
     .hero-phone-col { height: auto !important; }
     .hero-headline { font-size: 64px !important; }
   }
+  /* PhoneStack — 좁은 화면에선 계단식 겹침 해제, 세로 스택 */
+  @media (max-width: 720px) {
+    .phone-stack { flex-direction: column; gap: 28px; }
+    .phone-stack-item { margin-left: 0 !important; transform: none !important; }
+  }
 </style>
 </head>
 <body>

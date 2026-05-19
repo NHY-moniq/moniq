@@ -33,7 +33,7 @@ const FeaturePersonalCalendar = () => (
         </div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <PhoneFrame width={340} height={660} tilt={3}>
+        <PhoneFrame width={340} height={660}>
           <MiniCalendarScreen />
         </PhoneFrame>
       </div>
@@ -45,10 +45,112 @@ const FeaturePersonalCalendar = () => (
 const FeatureTeamCalendar = () => (
   <Section bg="#F7F1DC" paddingY={140}>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <PhoneFrame width={340} height={660} tilt={-3}>
-          <MiniTeamCalendarScreen />
-        </PhoneFrame>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {/* 팀 캘린더 — 메인, 원래 사이즈 */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, zIndex: 2 }}>
+          <PhoneFrame width={300} height={600}>
+            <MiniTeamCalendarScreen />
+          </PhoneFrame>
+          <div style={{
+            font: '800 11px/1 var(--font-family)', color: '#5F5C4D',
+            background: '#FFFDF7', border: '1px solid rgba(178,173,156,.3)',
+            padding: '6px 12px', borderRadius: 9999, whiteSpace: 'nowrap',
+            boxShadow: '0 6px 16px rgba(49,47,35,.06)',
+          }}>팀 캘린더</div>
+        </div>
+        {/* 연동 인디케이터 — 근무 칩이 팀→개인 캘린더로 흘러감 */}
+        <div style={{
+          position: 'relative', width: 138, height: 210,
+          margin: '0 -12px 36px', alignSelf: 'center', zIndex: 5,
+          flexShrink: 0,
+        }}>
+          {/* 곡선 path */}
+          <svg width="138" height="210" style={{ position: 'absolute', inset: 0, overflow: 'visible' }}>
+            <path d="M4,128 C46,128 90,82 134,82" fill="none"
+              stroke="rgba(224,120,0,.4)" strokeWidth="2.5"
+              strokeDasharray="3 6" strokeLinecap="round" />
+          </svg>
+          {/* 흐르는 근무 칩 — 팀에서 개인으로 */}
+          {[
+            { c: 'D', bg: '#FFD54F', fg: '#312F23', d: 0 },
+            { c: 'E', bg: '#FF8C00', fg: '#fff', d: 1.4 },
+            { c: 'N', bg: '#5C6BC0', fg: '#fff', d: 2.8 },
+          ].map(s => (
+            <span key={s.c} className="sync-flow-chip"
+              style={{ background: s.bg, color: s.fg, animationDelay: `${s.d}s` }}>
+              {s.c}
+            </span>
+          ))}
+          {/* 중앙 sync 배지 + 펄스 ring */}
+          <div style={{ position: 'absolute', left: '50%', top: 105, transform: 'translate(-50%,-50%)' }}>
+            <div className="sync-pulse" />
+            <div style={{
+              position: 'relative',
+              width: 44, height: 44, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #FFD700, #FF8C00)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 10px 22px rgba(255,140,0,.4)',
+              border: '3px solid #F7F1DC',
+            }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 22, color: '#fff', fontVariationSettings: "'FILL' 1" }}>sync_alt</span>
+            </div>
+          </div>
+          {/* 라벨 */}
+          <div style={{
+            position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+            background: '#312F23', color: '#FCF6E3',
+            padding: '6px 12px', borderRadius: 9999,
+            font: '800 10px/1 var(--font-family)', whiteSpace: 'nowrap',
+            boxShadow: '0 8px 18px rgba(49,47,35,.25)',
+          }}>근무 자동 연동</div>
+        </div>
+        <style>{`
+          @keyframes syncFlow {
+            0%   { offset-distance: 0%;   opacity: 0; }
+            14%  { opacity: 1; }
+            86%  { opacity: 1; }
+            100% { offset-distance: 100%; opacity: 0; }
+          }
+          .sync-flow-chip {
+            position: absolute; width: 26px; height: 26px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font: 900 12px/1 var(--font-family);
+            box-shadow: 0 5px 12px rgba(49,47,35,.28);
+            offset-path: path('M4,128 C46,128 90,82 134,82');
+            offset-rotate: 0deg;
+            animation: syncFlow 4.2s linear infinite;
+          }
+          @keyframes syncPulse {
+            0%,100% { transform: scale(1); opacity: .5; }
+            50%     { transform: scale(1.7); opacity: 0; }
+          }
+          .sync-pulse {
+            position: absolute; left: 50%; top: 50%;
+            width: 44px; height: 44px; margin: -22px 0 0 -22px;
+            border-radius: 50%; background: rgba(255,140,0,.4);
+            animation: syncPulse 2.4s ease-out infinite;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .sync-flow-chip, .sync-pulse { animation: none; }
+            .sync-flow-chip { opacity: 1; }
+          }
+        `}</style>
+        {/* 개인 캘린더 — 보조. 표준 폰을 scale로 축소해 보더·콘텐츠 비율 유지 */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, zIndex: 2 }}>
+          <div style={{ width: 218, height: 423, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ transform: 'scale(0.64)', transformOrigin: 'center' }}>
+              <PhoneFrame width={340} height={660}>
+                <MiniCalendarScreen />
+              </PhoneFrame>
+            </div>
+          </div>
+          <div style={{
+            font: '800 10px/1 var(--font-family)', color: '#5F5C4D',
+            background: '#FFFDF7', border: '1px solid rgba(178,173,156,.3)',
+            padding: '5px 11px', borderRadius: 9999, whiteSpace: 'nowrap',
+            boxShadow: '0 6px 16px rgba(49,47,35,.06)',
+          }}>내 캘린더</div>
+        </div>
       </div>
       <div>
         <LandingEyebrow style={{ color: '#E07800' }}>Feature · 06</LandingEyebrow>
@@ -116,7 +218,7 @@ const FeatureSwap = () => (
         </div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <PhoneFrame width={340} height={660} tilt={-3}>
+        <PhoneFrame width={340} height={660}>
           <MiniRequestScreen />
         </PhoneFrame>
       </div>
@@ -127,7 +229,7 @@ const FeatureSwap = () => (
 // Feature 2.5: Wanted collection — 자동생성 직전 단계, 팀원 의견 수집
 const FeatureWantedCollection = () => {
   const cards = [
-    { icon: 'how_to_vote', title: '팀원이 직접 입력', sub: '카톡방 대신 앱 한 곳에서 받아요' },
+    { icon: 'how_to_vote', title: '팀원이 직접 입력', sub: '앱 한 곳에서 원티드를 받아요' },
     { icon: 'star', title: '1·2순위 우선순위', sub: '날짜·시프트별로 우선순위까지' },
     { icon: 'group', title: '응답률 추적', sub: '누가 몇 건 냈는지 한눈에' },
     { icon: 'event_available', title: '마감·재개·재시작', sub: '수집 운영도 한 화면에서' },
@@ -136,18 +238,25 @@ const FeatureWantedCollection = () => {
     <Section bg="#FCF6E3" paddingY={140}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
         <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <PhoneFrame width={340} height={660} tilt={3}>
-            <MiniWantedCollectionScreen />
-          </PhoneFrame>
+          <div style={{ position: 'relative' }}>
+            <PhoneFrame width={340} height={660}>
+              <MiniWantedCollectionScreen />
+            </PhoneFrame>
+            {/* 원티드 신청 화면 — 신청자 시점, floating */}
+            <FloatingPanel width={212} bottom={84} right={-58} z={4}>
+              <MiniWantedEntryPanel />
+            </FloatingPanel>
+          </div>
         </div>
         <div>
           <LandingEyebrow style={{ color: '#B8860B' }}>Feature · 04 — Wanted Collection</LandingEyebrow>
           <h2 style={{ font: '900 54px/1.05 var(--font-family)', letterSpacing: -1.6, color: '#312F23', marginTop: 18, textWrap: 'balance' }}>
-            카톡방 대신 원티드,<br />앱 한 곳에서 정리돼요.
+            원티드,<br />앱 한 곳에서 정리돼요.
           </h2>
           <p style={{ font: '500 18px/1.55 var(--font-family)', color: '#5F5C4D', marginTop: 22, maxWidth: 520 }}>
             "이번 달 원티드 받습니다~" 카톡과 엑셀 정리는 이제 그만.<br />
-            팀원이 직접 원하는 날짜·시프트를 1·2순위로 입력하고, 수집이 끝나면 자동생성에 그대로 흘러들어가요.
+            팀원이 직접 원하는 날짜·시프트를 1·2순위로 입력해요.<br />
+            <span style={{ whiteSpace: 'nowrap' }}>수집이 끝나면 자동생성에 그대로 흘러들어가요.</span>
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 32 }}>
             {cards.map(f => (
@@ -171,8 +280,8 @@ const FeatureWantedCollection = () => {
 // Feature 3-A: Schedule auto-generation with strict rules — flagship section
 const FeatureScheduleAutoGen = () => {
   const rules = [
-    { icon: 'block', label: '기피 근무 등록 및 고려', sub: '못 하는 시간대를 미리 알려두면 알아서 빼요' },
-    { icon: 'flag', label: '원티드 반영 우선순위 설정', sub: '누구의 요청을 먼저 반영할지 정해요' },
+    { icon: 'block', label: '기피 근무 등록 및 고려', sub: 'N→E·E→D·N→O→D 같은 기피 패턴을 등록하면 알아서 피해 배치해요' },
+    { icon: 'flag', label: '원티드 반영 우선순위 설정', sub: '필수 원티드는 바로 반영하고, 신청자가 매긴 우선순위까지 자동으로 고려해요' },
     { icon: 'workspace_premium', label: '숙련도 배치', sub: '신입-베테랑 균형을 자동으로 조정해요' },
   ];
   return (
@@ -199,14 +308,42 @@ const FeatureScheduleAutoGen = () => {
           textWrap: 'balance',
         }}>
           수간호사 혼자 엑셀 붙잡을 일은 없어요.<br />
-          <strong style={{ color: '#312F23', fontWeight: 800 }}>연차·연속야간·최소휴식·시프트별 인원</strong> 같은 규칙을 세세하게 설정하면, 공평한 근무표를 몇 초 안에 만들어요.
+          <strong style={{ color: '#312F23', fontWeight: 800 }}>연차·연속야간·최소휴식·시프트별 인원</strong> 같은 규칙을 세세하게 설정하면,<br />
+          <span style={{ whiteSpace: 'nowrap' }}>공평한 근무표를 몇 초 안에 만들어요.</span>
         </p>
       </div>
-      {/* Hero visual: 노트북에 자동 생성된 근무표가 떠 있는 모습 */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 40, marginBottom: 64 }}>
-        <LaptopFrame width={1040} tilt={-2}>
-          <MiniScheduleGenScreen />
-        </LaptopFrame>
+      {/* 상단 범례 — 그리드 셀 상태 설명 */}
+      <LegendChips
+        items={[
+          { color: '#D64545', label: '잘못된 근무' },
+          { color: '#FFE9A8', dotColor: '#2F9E5E', label: '원티드 반영' },
+          { color: '#C5DCEF', dotColor: '#0061A4', label: '원티드 미반영' },
+        ]}
+        style={{ marginBottom: 28 }}
+      />
+      {/* Hero visual: 노트북 그리드 + 제약조건 패널 + 자동 생성 버튼이 레이어로 */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8, marginBottom: 64 }}>
+        <div style={{ position: 'relative' }}>
+          <LaptopFrame width={1000}>
+            <MiniScheduleGenScreen />
+          </LaptopFrame>
+          {/* 제약조건 설정 패널 — 노트북 우측에 floating */}
+          <FloatingPanel width={290} top={128} right={-58} z={4}>
+            <MiniRuleSettingPanel />
+          </FloatingPanel>
+          {/* 자동 생성 버튼 — 좌상단 강조 */}
+          <div style={{
+            position: 'absolute', top: 44, left: -34, zIndex: 5,
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            background: 'linear-gradient(135deg, #FFD700, #FF8C00)',
+            color: '#312F23', padding: '14px 22px', borderRadius: 9999,
+            font: '900 15px/1 var(--font-family)',
+            boxShadow: '0 16px 32px rgba(255,140,0,.4)',
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 20, fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+            자동 생성
+          </div>
+        </div>
       </div>
       {/* Rule cards — 3 카드 가로 배열 + 강조 CTA 카드 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 8 }}>
@@ -255,8 +392,9 @@ const FeatureScheduleAutoGen = () => {
 // Feature 3-C: AI fairness report — runs right after schedule generation
 const FeatureAIReport = () => {
   const cards = [
-    { icon: 'workspace_premium', label: '숙련도 배치', sub: '신입-베테랑이 골고루 섞였는지 한눈에' },
+    { icon: 'workspace_premium', label: '숙련도 배치 평가', sub: '신입-베테랑이 골고루 섞였는지 한눈에' },
     { icon: 'thumb_down', label: '기피 패턴 처리율', sub: '연속 야간·N→D 같은 기피 패턴이 얼마나 빠졌는지 % 단위로' },
+    { icon: 'rule', label: '미반영 항목 정리', sub: '원티드·커스텀 규칙 중 반영되지 못한 항목까지 한눈에' },
   ];
   return (
     <Section paddingY={180}>
@@ -283,16 +421,29 @@ const FeatureAIReport = () => {
           maxWidth: 680, margin: '24px auto 0',
           textWrap: 'balance',
         }}>
-          생성 직후 숙련도 배치와 기피 패턴 처리율을 한눈에 보여줘요.<br />
-          "왜 이렇게 짰어요?" 물어볼 필요 없이, 숫자가 먼저 답해요.
+          생성된 스케줄에 대해 AI가 근무표 적절성을 평가해줘요.<br />
+          숙련도·기피 패턴은 물론, 반영되지 못한 요청까지 한눈에 보여줘요.
         </p>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center', marginTop: 32, position: 'relative' }}>
-        {/* Left: phone */}
+        {/* Left: phone + 수치 클로즈업 디테일 */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <PhoneFrame width={340} height={660} tilt={-3}>
-            <MiniAIReportCard />
-          </PhoneFrame>
+          <div style={{ position: 'relative' }}>
+            <PhoneFrame width={340} height={660}>
+              <MiniAIReportCard />
+            </PhoneFrame>
+            <FloatingPanel width={210} bottom={52} right={-46} z={4}>
+              <div style={{ padding: '16px 18px' }}>
+                <div style={{ font: '800 9px/1 var(--font-family)', letterSpacing: 1.4, textTransform: 'uppercase', color: '#B05A00' }}>기피 패턴 처리율</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, marginTop: 8 }}>
+                  <span style={{ font: '900 46px/1 var(--font-family)', color: '#312F23' }}>92</span>
+                  <span style={{ font: '900 20px/1 var(--font-family)', color: '#FF8C00' }}>%</span>
+                </div>
+                <div style={{ font: '600 11px/1.45 var(--font-family)', color: '#5F5C4D', marginTop: 6 }}>나이트 연속 3일 금지 · N→D 제거 반영</div>
+                <div style={{ font: '600 9px/1 var(--font-family)', color: '#A89F86', marginTop: 10 }}>* 예시 근무표 기준</div>
+              </div>
+            </FloatingPanel>
+          </div>
         </div>
         {/* Right: 3 fairness cards stacked */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -451,11 +602,23 @@ const FeatureCustomRules = () => {
             </div>
           </div>
         </div>
-        {/* Right: phone */}
+        {/* Right: phone + AI 분류 디테일 */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <PhoneFrame width={340} height={660} tilt={-3} shadow="0 40px 80px rgba(0,0,0,.4)">
-            <MiniCustomRulesScreen />
-          </PhoneFrame>
+          <div style={{ position: 'relative' }}>
+            <PhoneFrame width={340} height={660} shadow="0 40px 80px rgba(0,0,0,.4)">
+              <MiniCustomRulesScreen />
+            </PhoneFrame>
+            <FloatingPanel width={196} top={64} left={-48} z={4}>
+              <div style={{ padding: '15px 16px' }}>
+                <div style={{ font: '800 9px/1 var(--font-family)', letterSpacing: 1.4, textTransform: 'uppercase', color: '#7A7768' }}>AI 자동 분류</div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                  <span style={{ background: 'rgba(176,37,0,.12)', color: '#B02500', padding: '5px 10px', borderRadius: 9999, font: '800 11px/1 var(--font-family)' }}>하드 2</span>
+                  <span style={{ background: 'rgba(255,193,7,.2)', color: '#6B5300', padding: '5px 10px', borderRadius: 9999, font: '800 11px/1 var(--font-family)' }}>소프트 3</span>
+                </div>
+                <div style={{ font: '600 11px/1.45 var(--font-family)', color: '#5F5C4D', marginTop: 10 }}>입력한 규칙을 하드·소프트로 자동 분류해요</div>
+              </div>
+            </FloatingPanel>
+          </div>
         </div>
       </div>
     </Section>

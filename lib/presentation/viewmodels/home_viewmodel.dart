@@ -244,17 +244,20 @@ final onShiftTeamDataProvider =
     nextType = upcoming ?? scheduled.first;
   }
 
+  // ON SHIFT NOW는 본인 포함 — 팀 캘린더와 동일한 멤버 목록을 보여준다.
   final currentCoworkers = currentType == null
       ? const <UserModel>[]
       : await repo.getCoworkers(
           teamId: teamId,
           date: todayKey,
           shiftTypeId: currentType.id,
+          excludeSelf: false,
         );
   final nextCoworkers = await repo.getCoworkers(
     teamId: teamId,
     date: todayKey,
     shiftTypeId: nextType.id,
+    excludeSelf: false,
   );
 
   return OnShiftTeamData(

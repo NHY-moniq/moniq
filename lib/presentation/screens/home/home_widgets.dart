@@ -805,9 +805,8 @@ class _OnShiftContentState extends ConsumerState<_OnShiftContent> {
     final accent = widget.shiftTheme.accentText;
     final dataAsync = ref.watch(onShiftTeamDataProvider);
     final data = dataAsync.valueOrNull;
-    final pool = data == null
-        ? const <UserModel>[]
-        : <UserModel>[...data.currentCoworkers, ...data.nextCoworkers];
+    // 랜덤픽은 지금 시간 근무자(현재 시프트)만 대상
+    final pool = data?.currentCoworkers ?? const <UserModel>[];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

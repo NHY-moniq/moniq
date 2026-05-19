@@ -125,8 +125,8 @@ class ActiveShiftCard extends StatelessWidget {
                   ),
                 const SizedBox(height: 16),
 
-                // Location / Team chips
-                if (hasShift)
+                // Location / Team chips — OFF여도 소속 팀명은 표시
+                if (hasShift || teamName != null)
                   Wrap(
                     spacing: AppSpacing.sm,
                     runSpacing: AppSpacing.sm,
