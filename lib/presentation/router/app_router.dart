@@ -12,11 +12,14 @@ import 'package:moniq/presentation/screens/calendar/calendar_screen.dart';
 import 'package:moniq/presentation/screens/notifications/notifications_screen.dart';
 import 'package:moniq/presentation/screens/home/home_screen.dart';
 import 'package:moniq/presentation/screens/request/request_create_screen.dart';
+import 'package:moniq/presentation/screens/request/request_history_screen.dart';
 import 'package:moniq/presentation/screens/request/request_list_screen.dart';
 import 'package:moniq/presentation/screens/schedule/schedule_generation_screen.dart';
 import 'package:moniq/presentation/screens/schedule/schedule_history_screen.dart';
 import 'package:moniq/presentation/screens/settings/profile_edit_screen.dart';
 import 'package:moniq/presentation/screens/settings/settings_screen.dart';
+import 'package:moniq/presentation/screens/team/common_off_screen.dart';
+import 'package:moniq/presentation/screens/team/member_schedules_screen.dart';
 import 'package:moniq/presentation/screens/team/members_screen.dart';
 import 'package:moniq/presentation/screens/team/shift_types_screen.dart';
 import 'package:moniq/presentation/screens/team/team_create_screen.dart';
@@ -309,12 +312,35 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           teamId: state.pathParameters['teamId']!,
         ),
       ),
+      GoRoute(
+        path: '/teams/:teamId/requests/history',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => RequestHistoryScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
 
       // Personal team calendar
       GoRoute(
         path: '/teams/:teamId/personal-calendar',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => PersonalTeamCalendarScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+      // 개인팀: 모든 팀원의 공통 OFF 날짜 찾기
+      GoRoute(
+        path: '/teams/:teamId/common-off',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => CommonOffScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+      // 개인팀: 멤버별 근무 현황 (개별 멤버의 즐겨찾기 팀 근무 자세히)
+      GoRoute(
+        path: '/teams/:teamId/member-schedules',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => MemberSchedulesScreen(
           teamId: state.pathParameters['teamId']!,
         ),
       ),
