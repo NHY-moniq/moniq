@@ -7,6 +7,22 @@ import 'personal_event_local_data_source.dart';
 /// 있도록 마커 역할만 한다 (사용자에 의해 직접 입력되는 prefix가 아님).
 const kPersonalTeamImportMarker = '__moniq_team_import__';
 
+/// 프라이빗(개인) 팀의 일정/메모 마커.
+/// description이 `${kPrivateTeamEventMarker}<teamId>` 로 시작하면 해당 팀에만
+/// 노출되고 개인 캘린더에서는 숨겨진다. "개인 캘린더로 내보내기" 동작은
+/// 마커를 제거한 사본을 새로 추가한다.
+const kPrivateTeamEventMarker = '__moniq_private_team_event:';
+const kPrivateTeamNoteMarker = '__moniq_private_team_note:';
+
+/// description에서 해당 [marker] 뒤에 붙은 teamId를 추출. null 이면 마커 없음.
+String? teamIdFromMarker(String? description, String marker) {
+  if (description == null || !description.startsWith(marker)) return null;
+  final rest = description.substring(marker.length);
+  // teamId는 마커 직후부터 다음 줄/구분자 전까지.
+  final newlineIdx = rest.indexOf('\n');
+  return newlineIdx >= 0 ? rest.substring(0, newlineIdx) : rest;
+}
+
 /// Supabase personal_events 테이블 CRUD.
 /// 로컬 캐시(PersonalEventLocalDataSource)와 함께 사용된다.
 class PersonalEventRemoteDataSource {
