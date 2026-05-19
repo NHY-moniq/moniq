@@ -10,6 +10,7 @@ import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/data/providers/wanted_providers.dart';
+import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 
 part 'wanted_viewmodel.freezed.dart';
 
@@ -425,13 +426,36 @@ class WantedAdminViewModel
 
     try {
       final teamRepo = ref.read(teamRepositoryProvider);
+      final approvedSet = approvedUserIds.toSet();
+      final teamMembers = await teamRepo.getTeamMembers(current.teamId);
+      final memberByUserId = {for (final m in teamMembers) m.userId: m};
+
       for (final uid in allApplicantUserIds) {
+        final isApproved = approvedSet.contains(uid);
+        List<String>? nextPreferredShifts;
+
+        if (isApproved) {
+          final existing =
+              memberByUserId[uid]?.preferredShifts ?? const <String>[];
+          final filtered = existing.where((code) {
+            final normalized = code.trim().toUpperCase();
+            return normalized != 'D' && normalized != 'E';
+          }).toList();
+          if (filtered.length != existing.length) {
+            nextPreferredShifts = filtered;
+          }
+        }
+
         await teamRepo.updateMemberAttrs(
           current.teamId,
           uid,
-          nightDedicated: approvedUserIds.contains(uid),
+          nightDedicated: isApproved,
+          preferredShifts: nextPreferredShifts,
         );
       }
+
+      // 확정 직후 멤버 화면에서도 최신 속성이 즉시 보이도록 관련 캐시 동기화
+      ref.invalidate(teamDetailViewModelProvider(current.teamId));
       ref.invalidateSelf();
       return true;
     } catch (e) {

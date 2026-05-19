@@ -805,6 +805,7 @@ class _TeamDrawer extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final currentTeam = teams.firstWhere((t) => t.id == currentTeamId);
+    final isPersonalTeam = currentTeam.teamType == 'personal';
 
     final cs = theme.colorScheme;
 
@@ -896,22 +897,33 @@ class _TeamDrawer extends HookConsumerWidget {
                       context.push('/teams/$currentTeamId/announcements');
                     },
                   ),
-                  _TeamDrawerNavItem(
-                    icon: Icons.edit_calendar_outlined,
-                    label: '원티드 입력',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/teams/$currentTeamId/wanted/entry');
-                    },
-                  ),
-                  _TeamDrawerNavItem(
-                    icon: Icons.swap_horiz,
-                    label: '근무 변경 요청',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/teams/$currentTeamId/requests');
-                    },
-                  ),
+                  if (isPersonalTeam)
+                    _TeamDrawerNavItem(
+                      icon: Icons.calendar_today_outlined,
+                      label: '멤버 근무 현황',
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/teams/$currentTeamId/personal-calendar');
+                      },
+                    ),
+                  if (!isPersonalTeam) ...[
+                    _TeamDrawerNavItem(
+                      icon: Icons.edit_calendar_outlined,
+                      label: '원티드 입력',
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/teams/$currentTeamId/wanted/entry');
+                      },
+                    ),
+                    _TeamDrawerNavItem(
+                      icon: Icons.swap_horiz,
+                      label: '근무 변경 요청',
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/teams/$currentTeamId/requests');
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
