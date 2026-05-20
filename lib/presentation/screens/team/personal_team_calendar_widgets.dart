@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/personal_team_member_shift.dart';
-import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 
 /// 개인 팀 캘린더 날짜 셀 — markerBuilder 외부에서 독립적으로도 사용 가능하도록
@@ -125,7 +123,7 @@ class _DateNumber extends StatelessWidget {
 }
 
 /// 선택된 날짜의 멤버별 근무 상세 패널
-class PersonalDayDetailPanel extends ConsumerWidget {
+class PersonalDayDetailPanel extends StatelessWidget {
   const PersonalDayDetailPanel({
     super.key,
     required this.date,
@@ -138,221 +136,75 @@ class PersonalDayDetailPanel extends ConsumerWidget {
   final List<PersonalTeamMember> members;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (members.isEmpty) {
-      return const _EmptyMemberState();
-    }
-    final isExpanded = ref.watch(dateExpandedProvider);
-    final shiftByUser = {for (final s in shifts) s.userId: s};
-
-    // 근무 유형별 그룹핑 (이름 기준). 근무 없는 멤버는 'OFF' 그룹.
-    final groups = <String, _ShiftGroup>{};
-    for (final m in members) {
-      final s = shiftByUser[m.userId];
-      final isOff = s == null || s.shiftCode == null;
-      final key = isOff
-          ? '_off'
-          : '${s.shiftName ?? s.shiftCode}|${s.shiftColor ?? ''}';
-      final group = groups.putIfAbsent(
-        key,
-        () => _ShiftGroup(
-          code: isOff ? 'O' : (s.shiftCode ?? ''),
-          name: isOff ? '오프' : (s.shiftName ?? s.shiftCode ?? ''),
-          color: isOff
-              ? '#A0AEC0'
-              : (s.shiftColor ?? '#A0AEC0'),
-          members: [],
-        ),
-      );
-      group.members.add(m);
-    }
-
-    final sorted = groups.values.toList()
-      ..sort((a, b) => _sortKey(a).compareTo(_sortKey(b)));
-
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 펼치기/닫기 chevron pill (개인 / 팀 캘린더와 동일한 UX)
-        Center(
-          child: Material(
-            color: cs.surfaceContainerHigh,
-            shape: const StadiumBorder(),
-            child: InkWell(
-              customBorder: const StadiumBorder(),
-              onTap: () => ref.read(dateExpandedProvider.notifier).state =
-                  !isExpanded,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: 6,
-                ),
-                child: AnimatedRotation(
-                  turns: isExpanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 180),
-                  child: Icon(
-                    Icons.keyboard_arrow_down,
-                    size: 20,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (isExpanded) ...[
-          const SizedBox(height: AppSpacing.sm),
-          ...sorted.map((g) => _ShiftGroupCard(group: g)),
-        ],
-      ],
-    );
-  }
-
-  static int _sortKey(_ShiftGroup g) {
-    final c = g.code.toUpperCase();
-    final n = g.name;
-    if (c == 'D' || n.contains('데이') || n.toLowerCase().contains('day')) {
-      return 0;
-    }
-    if (c == 'E' || n.contains('이브닝') || n.toLowerCase().contains('eve')) {
-      return 1;
-    }
-    if (c == 'N' || n.contains('나이트') || n.toLowerCase().contains('night')) {
-      return 2;
-    }
-    if (c == 'O' || c == 'OFF' || n.contains('오프')) return 9;
-    return 3;
-  }
-}
-
-class _ShiftGroup {
-  _ShiftGroup({
-    required this.code,
-    required this.name,
-    required this.color,
-    required this.members,
-  });
-  final String code;
-  final String name;
-  final String color;
-  final List<PersonalTeamMember> members;
-}
-
-/// 조직 팀 RosterPanel 스타일과 동일한 그라디언트 카드.
-class _ShiftGroupCard extends StatelessWidget {
-  const _ShiftGroupCard({required this.group});
-  final _ShiftGroup group;
-
-  Color _parseHex(String hex) {
-    try {
-      final h = hex.replaceFirst('#', '');
-      return Color(int.parse('FF$h', radix: 16));
-    } catch (_) {
-      return const Color(0xFFA0AEC0);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
-    final color = _parseHex(group.color);
+
+    // 멤버별 shift map
+    final shiftByUser = {
+      for (final s in shifts) s.userId: s,
+    };
+
     return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
+      width: double.infinity,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withValues(alpha: 0.14),
-            color.withValues(alpha: 0.04),
-          ],
-        ),
-        borderRadius: AppRadius.borderRadiusMd,
-        border: Border.all(color: color.withValues(alpha: 0.18)),
+        color: cs.surface,
+        borderRadius: AppRadius.borderRadiusLg,
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: AppRadius.borderRadiusSm,
-                ),
-                child: Center(
-                  child: Text(
-                    group.code.toUpperCase() == 'OFF'
-                        ? 'O'
-                        : group.code,
-                    style: TextStyle(
-                      color:
-                          ThemeData.estimateBrightnessForColor(color) ==
-                                  Brightness.dark
-                              ? Colors.white
-                              : Colors.black87,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
-                      height: 1,
-                    ),
-                  ),
-                ),
+          // 날짜 헤더
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl,
+              AppSpacing.xl,
+              AppSpacing.xl,
+              AppSpacing.md,
+            ),
+            child: Text(
+              _formatDate(date),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
               ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  group.name,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Text(
-                '${group.members.length}명',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+            ),
           ),
+          const Divider(height: 1),
+          if (members.isEmpty)
+            const _EmptyMemberState()
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: members.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final member = members[index];
+                final shift = shiftByUser[member.userId];
+                return _MemberShiftRow(
+                  member: member,
+                  shift: shift,
+                );
+              },
+            ),
           const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: [
-              for (final m in group.members)
-                Chip(
-                  avatar: _MemberAvatar(member: m, radius: 11),
-                  label: Text(
-                    m.displayName,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  visualDensity: VisualDensity.compact,
-                  backgroundColor:
-                      theme.colorScheme.surfaceContainerHighest,
-                  side: BorderSide.none,
-                ),
-            ],
-          ),
         ],
       ),
     );
+  }
+
+  String _formatDate(DateTime d) {
+    const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+    final wd = weekdays[d.weekday - 1];
+    return '${d.month}월 ${d.day}일 ($wd)';
   }
 }
 
@@ -421,10 +273,9 @@ class _MemberShiftRow extends StatelessWidget {
 }
 
 class _MemberAvatar extends StatelessWidget {
-  const _MemberAvatar({required this.member, this.radius = 16});
+  const _MemberAvatar({required this.member});
 
   final PersonalTeamMember member;
-  final double radius;
 
   @override
   Widget build(BuildContext context) {
@@ -434,7 +285,7 @@ class _MemberAvatar extends StatelessWidget {
 
     if (avatarUrl != null && avatarUrl.isNotEmpty) {
       return CircleAvatar(
-        radius: radius,
+        radius: 16,
         backgroundColor: cs.primaryContainer,
         backgroundImage: NetworkImage(avatarUrl),
         onBackgroundImageError: (_, __) {},
@@ -443,12 +294,12 @@ class _MemberAvatar extends StatelessWidget {
     }
 
     return CircleAvatar(
-      radius: radius,
+      radius: 16,
       backgroundColor: cs.primaryContainer,
       child: Text(
         initials,
         style: TextStyle(
-          fontSize: radius * 0.62,
+          fontSize: 10,
           fontWeight: FontWeight.w700,
           color: cs.onPrimaryContainer,
         ),

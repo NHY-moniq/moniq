@@ -220,10 +220,10 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                     key: _memberCalendarKey,
                     icon: Icons.calendar_month_outlined,
                     iconColor: Theme.of(context).colorScheme.primary,
-                    title: '멤버별 근무 현황',
-                    subtitle: '특정 멤버의 즐겨찾기 팀 근무 자세히 보기',
+                    title: '멤버 근무 현황',
+                    subtitle: '즐겨찾기 팀 근무 · 오프 겹침 보기',
                     onTap: () => context.push(
-                      '/teams/${widget.teamId}/member-schedules',
+                      '/teams/${widget.teamId}/personal-calendar',
                     ),
                   ),
                 ] else ...[

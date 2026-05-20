@@ -14,7 +14,6 @@ import 'calendar_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
-import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
@@ -198,17 +197,12 @@ Future<void> exportTeamCalendar(
   if (kIsWeb) return _exportTeamCalendarWeb(context, ref, state);
 
   // 팀 캘린더에서는 "개인 캘린더로 내보내기" 옵션을 활성 상태로 노출.
-  // 프라이빗(개인) 팀은 이 옵션을 숨긴다 — 개별 일정에서만 export 가능.
   final favoriteTeam = ref.read(favoriteTeamProvider).valueOrNull;
   final isFavorite = favoriteTeam?.id == state.teamId;
-  final allTeams = ref.read(teamViewModelProvider).valueOrNull ?? [];
-  final isPersonalTeam = allTeams
-      .where((t) => t.id == state.teamId)
-      .any((t) => t.teamType == 'personal');
 
   final format = await _showExportFormatDialog(
     context,
-    showImportToPersonal: !isPersonalTeam,
+    showImportToPersonal: true,
     importToPersonalEnabled: true,
   );
   if (format == null || !context.mounted) return;

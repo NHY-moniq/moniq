@@ -59,21 +59,16 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             );
           }
 
-          // 프라이빗 팀은 모든 멤버가 관리 가능. 조직 팀은 관리자만.
-          final canManage = state.isAdmin ||
-              state.team.teamType == 'personal';
           return isWide
               ? _WebLayout(
                   teamId: widget.teamId,
                   state: state,
-                  canManage: canManage,
                   selectedMember: _selectedMember,
                   onSelectMember: (m) => setState(() => _selectedMember = m),
                 )
               : _MobileLayout(
                   teamId: widget.teamId,
                   state: state,
-                  canManage: canManage,
                   onTapMember: (m) =>
                       _showMemberSheet(context, ref, state, m),
                 );
@@ -121,13 +116,11 @@ class _MobileLayout extends StatelessWidget {
   const _MobileLayout({
     required this.teamId,
     required this.state,
-    required this.canManage,
     required this.onTapMember,
   });
 
   final String teamId;
   final TeamDetailState state;
-  final bool canManage;
   final ValueChanged<TeamMemberWithUser> onTapMember;
 
   @override
@@ -147,7 +140,7 @@ class _MobileLayout extends StatelessWidget {
                 member: m,
                 isSelf: m.userId == state.currentUserId,
                 isAdmin: state.isAdmin,
-                onTap: (canManage || m.userId == state.currentUserId)
+                onTap: (state.isAdmin || m.userId == state.currentUserId)
                     ? () => onTapMember(m)
                     : null,
               );
@@ -169,14 +162,12 @@ class _WebLayout extends StatelessWidget {
   const _WebLayout({
     required this.teamId,
     required this.state,
-    required this.canManage,
     required this.selectedMember,
     required this.onSelectMember,
   });
 
   final String teamId;
   final TeamDetailState state;
-  final bool canManage;
   final TeamMemberWithUser? selectedMember;
   final ValueChanged<TeamMemberWithUser?> onSelectMember;
 
@@ -214,8 +205,7 @@ class _WebLayout extends StatelessWidget {
                       isSelf: m.userId == state.currentUserId,
                       isAdmin: state.isAdmin,
                       isSelected: isSelected,
-                      onTap: (canManage ||
-                              m.userId == state.currentUserId)
+                      onTap: (state.isAdmin || m.userId == state.currentUserId)
                           ? () => onSelectMember(
                                 isSelected ? null : m,
                               )

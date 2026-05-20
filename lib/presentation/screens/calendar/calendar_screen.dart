@@ -3,12 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
-import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_event_remote_data_source.dart'
-    show
-        kPersonalTeamImportMarker,
-        kPrivateTeamEventMarker,
-        kPrivateTeamNoteMarker;
+    show kPersonalTeamImportMarker;
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
@@ -143,29 +139,13 @@ class CalendarScreen extends HookConsumerWidget {
         ),
       ),
       data: (state) {
-        // 프라이빗 팀 마커가 붙은 이벤트는 "개인 캘린더로 내보내기" 전까지는
-        // 개인 캘린더에서 숨김. 내보내기 동작은 마커 없는 사본을 추가한다.
-        final rawMonthlyEvents =
+        final monthlyEvents =
             ref.watch(monthlyEventsProvider(state.focusedMonth));
         final monthlyNotes =
             ref.watch(monthlyNotesProvider(state.focusedMonth));
         final dateNotes = ref.watch(dateNotesProvider(state.selectedDate));
-        final rawDateEvents =
-            ref.watch(dateEventsProvider(state.selectedDate));
-        bool isPrivateTeamMarker(PersonalEvent e) {
-          final d = e.description;
-          if (d == null) return false;
-          return d.startsWith(kPrivateTeamEventMarker) ||
-              d.startsWith(kPrivateTeamNoteMarker);
-        }
-        final monthlyEvents = <DateTime, List<PersonalEvent>>{
-          for (final entry in rawMonthlyEvents.entries)
-            entry.key: entry.value
-                .where((e) => !isPrivateTeamMarker(e))
-                .toList(),
-        };
         final dateEvents =
-            rawDateEvents.where((e) => !isPrivateTeamMarker(e)).toList();
+            ref.watch(dateEventsProvider(state.selectedDate));
 
         return Scaffold(
           backgroundColor:

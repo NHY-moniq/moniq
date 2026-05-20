@@ -17,9 +17,7 @@ import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
-import 'package:moniq/presentation/screens/team/personal_team_calendar_screen.dart';
 import 'package:moniq/presentation/screens/team/team_detail_dialogs.dart';
-import 'package:moniq/presentation/viewmodels/personal_team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
 import 'package:moniq/presentation/widgets/calendar/roster_panel.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
@@ -576,34 +574,7 @@ class _TeamCalendarView extends HookConsumerWidget {
       endDrawer: AdaptiveLayout.isWide(context)
           ? null
           : _TeamDrawer(teams: teams, currentTeamId: team.id, scaffoldContext: context),
-      floatingActionButton: team.teamType == 'personal'
-          ? Padding(
-              padding: const EdgeInsets.only(bottom: 72),
-              child: FloatingActionButton.small(
-                onPressed: () {
-                  // 개인팀 캘린더의 선택일에 일정/메모 추가 (private team 마커 부여)
-                  final selected = ref
-                          .read(personalTeamCalendarViewModelProvider(team.id))
-                          .valueOrNull
-                          ?.selectedDate ??
-                      DateTime.now();
-                  showPrivateTeamAddMenu(
-                    context: context,
-                    ref: ref,
-                    teamId: team.id,
-                    date: selected,
-                  );
-                },
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                elevation: 3,
-                child: const Icon(Icons.add),
-              ),
-            )
-          : null,
-      body: team.teamType == 'personal'
-          ? _PersonalTeamBody(teamId: team.id)
-          : calendarAsync.when(
+      body: calendarAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
           message: '캘린더를 불러올 수 없습니다',
@@ -801,29 +772,6 @@ class _TeamCalendarView extends HookConsumerWidget {
 }
 
 /// 우측 Drawer — 팀 메뉴
-/// 개인팀 전용 — 팀 내 모든 멤버의 즐겨찾기 팀 근무를 한눈에 보여준다.
-class _PersonalTeamBody extends ConsumerWidget {
-  const _PersonalTeamBody({required this.teamId});
-
-  final String teamId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final stateAsync =
-        ref.watch(personalTeamCalendarViewModelProvider(teamId));
-    return stateAsync.when(
-      loading: () => const MoniqLoadingView(),
-      error: (e, _) => MoniqErrorView(
-        message: '멤버 근무 정보를 불러올 수 없어요',
-        onRetry: () =>
-            ref.invalidate(personalTeamCalendarViewModelProvider(teamId)),
-      ),
-      data: (state) =>
-          PersonalTeamCalendarBody(state: state, teamId: teamId),
-    );
-  }
-}
-
 class _TeamDrawer extends HookConsumerWidget {
   const _TeamDrawer({
     required this.teams,
@@ -932,37 +880,22 @@ class _TeamDrawer extends HookConsumerWidget {
                       context.push('/teams/$currentTeamId/announcements');
                     },
                   ),
-                  if (currentTeam.teamType != 'personal') ...[
-                    _TeamDrawerNavItem(
-                      icon: Icons.edit_calendar_outlined,
-                      label: '원티드 입력',
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push(
-                            '/teams/$currentTeamId/wanted/entry');
-                      },
-                    ),
-                    _TeamDrawerNavItem(
-                      icon: Icons.swap_horiz,
-                      label: '근무 변경 요청',
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/teams/$currentTeamId/requests');
-                      },
-                    ),
-                  ],
-                  // 개인팀 전용 — 모든 팀원이 공통으로 OFF인 날 찾기.
-                  if (currentTeam.teamType == 'personal')
-                    _TeamDrawerNavItem(
-                      icon: Icons.event_available_outlined,
-                      iconColor: AppColors.brandOrange,
-                      label: '공통 휴무 찾기',
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push(
-                            '/teams/$currentTeamId/common-off');
-                      },
-                    ),
+                  _TeamDrawerNavItem(
+                    icon: Icons.edit_calendar_outlined,
+                    label: '원티드 입력',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/teams/$currentTeamId/wanted/entry');
+                    },
+                  ),
+                  _TeamDrawerNavItem(
+                    icon: Icons.swap_horiz,
+                    label: '근무 변경 요청',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/teams/$currentTeamId/requests');
+                    },
+                  ),
                 ],
               ),
             ),
