@@ -42,8 +42,22 @@ class WantedRepository {
     return _dataSource.closeWantedRequest(requestId);
   }
 
-  Future<void> reopenWantedRequest(String requestId) {
-    return _dataSource.reopenWantedRequest(requestId);
+  Future<void> closeWantedRequests(List<String> requestIds) {
+    return _dataSource.closeWantedRequests(requestIds);
+  }
+
+  Future<void> reopenWantedRequest(
+    String requestId, {
+    required DateTime deadline,
+  }) {
+    return _dataSource.reopenWantedRequest(requestId, deadline: deadline);
+  }
+
+  Future<void> reopenWantedRequests(
+    List<String> requestIds, {
+    required DateTime deadline,
+  }) {
+    return _dataSource.reopenWantedRequests(requestIds, deadline: deadline);
   }
 
   Future<WantedEntryModel> addWantedEntry({

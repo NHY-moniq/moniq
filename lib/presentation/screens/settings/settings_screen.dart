@@ -53,22 +53,22 @@ class SettingsScreen extends HookConsumerWidget {
             SizedBox(height: AppSpacing.xxl),
             // 그 외 섹션은 좌우 패딩 유지
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: _AppSettingsSection(),
             ),
             SizedBox(height: AppSpacing.lg),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: _NotificationsSection(),
             ),
             SizedBox(height: AppSpacing.lg),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: _AccountSection(),
             ),
             SizedBox(height: AppSpacing.lg),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: _InfoSection(),
             ),
           ],
@@ -328,6 +328,13 @@ class _MoniqIdPill extends StatelessWidget {
 // Grouped setting sections (F10 · radius consistency)
 // ═══════════════════════════════════════════════════════
 
+/// 설정 카드 배경 — 홈탭 카드와 동일한 시프트 색 틴트.
+Color _settingsCardTint(BuildContext context, WidgetRef ref) {
+  final shift = ref.watch(todayShiftThemeProvider);
+  final isDark = Theme.of(context).colorScheme.brightness == Brightness.dark;
+  return shift.primary.withValues(alpha: isDark ? 0.18 : 0.08);
+}
+
 class _AppSettingsSection extends ConsumerWidget {
   const _AppSettingsSection();
 
@@ -338,6 +345,7 @@ class _AppSettingsSection extends ConsumerWidget {
     final fontScale = ref.watch(fontScaleProvider);
 
     return MoniqGroupedCard(
+      backgroundColor: _settingsCardTint(context, ref),
       heading: '앱 설정',
       children: [
         MoniqCardRow(
@@ -398,7 +406,7 @@ class _AppSettingsSection extends ConsumerWidget {
               },
               onTap: () {
                 ref.read(themeModeProvider.notifier).setThemeMode(mode);
-                Navigator.pop(ctx);
+                Navigator.of(ctx, rootNavigator: true).pop();
               },
               trailing: current == mode
                   ? Icon(
@@ -480,6 +488,7 @@ class _NotificationsSection extends ConsumerWidget {
     final enabled = ref.watch(notificationEnabledProvider);
     final cs = Theme.of(context).colorScheme;
     return MoniqGroupedCard(
+      backgroundColor: _settingsCardTint(context, ref),
       heading: '알림',
       children: [
         MoniqCardRow(
@@ -506,6 +515,7 @@ class _AccountSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MoniqGroupedCard(
+      backgroundColor: _settingsCardTint(context, ref),
       heading: '계정',
       children: [
         MoniqCardRow(
@@ -577,12 +587,13 @@ class _AccountSection extends ConsumerWidget {
   }
 }
 
-class _InfoSection extends StatelessWidget {
+class _InfoSection extends ConsumerWidget {
   const _InfoSection();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MoniqGroupedCard(
+      backgroundColor: _settingsCardTint(context, ref),
       heading: '정보',
       children: [
         MoniqCardRow(

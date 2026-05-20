@@ -75,21 +75,30 @@ Future<void> exportCalendar(
 /// 디바이스 캘린더에서 일정 가져오기
 Future<void> importDeviceCalendar(
     BuildContext context, WidgetRef ref) async {
-  // 캘린더 소스 선택 다이얼로그
-  final source = await showDialog<String>(
+  // 캘린더 소스 선택 — 모닉 디자인 시스템의 바텀 시트로 노출.
+  final source = await showMoniqBottomSheet<String>(
     context: context,
-    builder: (ctx) => SimpleDialog(
-      title: const Text('가져올 캘린더 선택'),
+    title: '캘린더 가져오기',
+    eyebrow: 'IMPORT',
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SimpleDialogOption(
-          onPressed: () => Navigator.pop(ctx, 'device'),
-          child: const ListTile(
-            leading:
-                Icon(Icons.calendar_month, color: AppColors.primary),
-            title: Text('기본 캘린더'),
-            subtitle: Text('iPhone 기본 캘린더에서 가져오기'),
-            contentPadding: EdgeInsets.zero,
+        const Padding(
+          padding: EdgeInsets.only(bottom: AppSpacing.md),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '연결할 외부 캘린더를 선택하세요',
+              style: TextStyle(fontSize: 13),
+            ),
           ),
+        ),
+        _CalendarSourceTile(
+          icon: Icons.calendar_month_rounded,
+          label: 'iPhone 기본 캘린더',
+          description: '기기에 등록된 일정들을 가져옵니다',
+          onTap: () => Navigator.of(context, rootNavigator: true)
+              .pop('device'),
         ),
       ],
     ),
@@ -187,8 +196,7 @@ Future<void> exportTeamCalendar(
     BuildContext context, WidgetRef ref, TeamCalendarState state) async {
   if (kIsWeb) return _exportTeamCalendarWeb(context, ref, state);
 
-  // 팀 캘린더에서는 "개인 캘린더로 가져오기" 옵션을 항상 활성 상태로 노출.
-  // 비즐겨찾기 팀일 경우엔 import 진행 전 별도 확인 모달을 띄움.
+  // 팀 캘린더에서는 "개인 캘린더로 내보내기" 옵션을 활성 상태로 노출.
   final favoriteTeam = ref.read(favoriteTeamProvider).valueOrNull;
   final isFavorite = favoriteTeam?.id == state.teamId;
 
@@ -272,11 +280,11 @@ Future<void> _importTeamShiftsToPersonal(
   final messenger = ScaffoldMessenger.of(context);
   final confirm = await showMoniqInfoConfirm(
     context: context,
-    title: '개인 캘린더로 가져오기',
+    title: '개인 캘린더로 내보내기',
     message: '${state.teamName} 팀의 내 근무를 개인 캘린더에 추가합니다.\n\n'
         '이전에 팀에서 가져온 근무는 모두 삭제되고\n'
         '새 근무로 대체됩니다. 직접 추가한 일정은 보존됩니다.',
-    confirmLabel: '가져오기',
+    confirmLabel: '내보내기',
     cancelLabel: '취소',
     icon: Icons.event_repeat_outlined,
   );
@@ -533,88 +541,61 @@ Future<String?> _showWebExportDialog(BuildContext context) {
 
 // ── 공통 다이얼로그 ──────────────────────────────
 
-/// 내보내기 형식 선택 다이얼로그 (앨범/공유/엑셀).
-/// [showImportToPersonal]가 true이면 "개인 캘린더로 가져오기" 항목이 노출되며,
+/// 내보내기 형식 선택 — 모닉 디자인 시스템의 바텀 시트.
+/// [showImportToPersonal]가 true이면 "개인 캘린더로 내보내기" 항목이 노출되며,
 /// [importToPersonalEnabled]가 false면 비활성(회색) 상태로 안내된다.
 Future<String?> _showExportFormatDialog(
   BuildContext context, {
   bool showImportToPersonal = false,
   bool importToPersonalEnabled = false,
 }) {
-  return showDialog<String>(
+  return showMoniqBottomSheet<String>(
     context: context,
-    builder: (ctx) {
-      final theme = Theme.of(ctx);
-      final cs = theme.colorScheme;
-      return Dialog(
-        backgroundColor: cs.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusLg,
+    title: '내보내기',
+    eyebrow: 'EXPORT',
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ExportOptionTile(
+          icon: Icons.photo_album_outlined,
+          title: '앨범에 저장',
+          subtitle: '캘린더 이미지를 사진 앨범에 저장',
+          onTap: () =>
+              Navigator.of(context, rootNavigator: true).pop('album'),
         ),
-        insetPadding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xxl,
-          vertical: AppSpacing.xxxl,
+        const SizedBox(height: AppSpacing.xs),
+        _ExportOptionTile(
+          icon: Icons.share_outlined,
+          title: '이미지 공유하기',
+          subtitle: '카카오톡, 메시지 등으로 캘린더 이미지 공유',
+          onTap: () =>
+              Navigator.of(context, rootNavigator: true).pop('share'),
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.sm,
-            AppSpacing.xl,
-            AppSpacing.sm,
-            AppSpacing.sm,
+        const SizedBox(height: AppSpacing.xs),
+        _ExportOptionTile(
+          icon: Icons.table_chart_outlined,
+          title: 'Excel로 내보내기',
+          subtitle: '엑셀/구글 스프레드시트용 .xlsx 파일',
+          onTap: () =>
+              Navigator.of(context, rootNavigator: true).pop('excel'),
+        ),
+        if (showImportToPersonal) ...[
+          const SizedBox(height: AppSpacing.xs),
+          _ExportOptionTile(
+            icon: Icons.event_repeat_outlined,
+            title: '개인 캘린더로 내보내기',
+            subtitle: importToPersonalEnabled
+                ? '이 팀의 내 근무를 개인 캘린더에 동기화'
+                : '즐겨찾기한 팀에서만 사용할 수 있어요',
+            onTap: importToPersonalEnabled
+                ? () => Navigator.of(context, rootNavigator: true)
+                    .pop('import_personal')
+                : null,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  0,
-                  AppSpacing.lg,
-                  AppSpacing.md,
-                ),
-                child: Text(
-                  '내보내기',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ),
-              _ExportOptionTile(
-                icon: Icons.photo_album_outlined,
-                title: '앨범에 저장',
-                subtitle: '캘린더 이미지를 사진 앨범에 저장',
-                onTap: () => Navigator.pop(ctx, 'album'),
-              ),
-              _ExportOptionTile(
-                icon: Icons.share_outlined,
-                title: '이미지 공유하기',
-                subtitle: '카카오톡, 메시지 등으로 캘린더 이미지 공유',
-                onTap: () => Navigator.pop(ctx, 'share'),
-              ),
-              _ExportOptionTile(
-                icon: Icons.table_chart_outlined,
-                title: 'Excel로 내보내기',
-                subtitle: '엑셀/구글 스프레드시트용 .xlsx 파일',
-                onTap: () => Navigator.pop(ctx, 'excel'),
-              ),
-              if (showImportToPersonal)
-                _ExportOptionTile(
-                  icon: Icons.event_repeat_outlined,
-                  title: '개인 캘린더로 가져오기',
-                  subtitle: importToPersonalEnabled
-                      ? '이 팀의 내 근무를 개인 캘린더에 동기화'
-                      : '즐겨찾기한 팀에서만 사용할 수 있어요',
-                  onTap: importToPersonalEnabled
-                      ? () => Navigator.pop(ctx, 'import_personal')
-                      : null,
-                ),
-            ],
-          ),
-        ),
-      );
-    },
+        ],
+      ],
+    ),
   );
 }
 
@@ -692,6 +673,79 @@ class _ExportOptionTile extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 캘린더 가져오기 시트의 단일 옵션 타일 — 아이콘 + 라벨 + 설명.
+class _CalendarSourceTile extends StatelessWidget {
+  const _CalendarSourceTile({
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String description;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Material(
+      color: cs.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(icon, size: 22, color: cs.primary),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      description,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: cs.onSurfaceVariant,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -64,60 +64,127 @@ class TeamListScreen extends HookConsumerWidget {
           }
 
           final favoriteTeamId = favoriteAsync.valueOrNull?.id;
+          // 조직 팀: 즐겨찾기를 최상단으로 (그 외 순서는 그대로).
+          final orgTeams = teams
+              .where((t) => t.teamType != 'personal')
+              .toList();
+          orgTeams.sort((a, b) {
+            if (a.id == favoriteTeamId) return -1;
+            if (b.id == favoriteTeamId) return 1;
+            return 0;
+          });
+          final personalTeams = teams
+              .where((t) => t.teamType == 'personal')
+              .toList();
+
+          Widget tile({
+            required int sectionIndex,
+            required int globalIndex,
+            required TeamModel team,
+          }) {
+            final isFavorite = team.id == favoriteTeamId;
+            return _TeamSlidableTile(
+              key: ValueKey(team.id),
+              index: sectionIndex,
+              team: team,
+              isFavorite: isFavorite,
+              onFavorite: () => _toggleFavorite(ref, team, isFavorite),
+              onDetail: () => context.push('/teams/${team.id}/detail'),
+              onLeave: () => _confirmLeave(context, ref, team),
+            );
+          }
+
+          Widget proxyDecorator(
+            Widget child,
+            int index,
+            Animation<double> animation,
+          ) {
+            return AnimatedBuilder(
+              animation: animation,
+              builder: (context, child) => Material(
+                elevation: 4,
+                shadowColor: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.3),
+                borderRadius: AppRadius.borderRadiusLg,
+                child: child,
+              ),
+              child: child,
+            );
+          }
 
           return Column(
             children: [
               const _FavoriteInfoBanner(),
               Expanded(
                 child: SlidableAutoCloseBehavior(
-                  child: ReorderableListView.builder(
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
                       vertical: AppSpacing.sm,
                     ),
-              itemCount: teams.length,
-              buildDefaultDragHandles: false,
-              onReorder: (oldIndex, newIndex) {
-                ref
-                    .read(teamViewModelProvider.notifier)
-                    .reorder(oldIndex, newIndex);
-              },
-              proxyDecorator: (child, index, animation) {
-                return AnimatedBuilder(
-                  animation: animation,
-                  builder: (context, child) => Material(
-                    elevation: 4,
-                    shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                    borderRadius: AppRadius.borderRadiusLg,
-                    child: child,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (orgTeams.isNotEmpty) ...[
+                          const _TeamListSectionHeader(
+                            label: '조직',
+                            subLabel: 'Public',
+                            icon: Icons.groups_rounded,
+                          ),
+                          ReorderableListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: orgTeams.length,
+                            buildDefaultDragHandles: false,
+                            proxyDecorator: proxyDecorator,
+                            onReorder: (oldIndex, newIndex) {
+                              ref
+                                  .read(teamViewModelProvider.notifier)
+                                  .reorder(oldIndex, newIndex);
+                            },
+                            itemBuilder: (context, index) => tile(
+                              sectionIndex: index,
+                              globalIndex: index,
+                              team: orgTeams[index],
+                            ),
+                          ),
+                        ],
+                        if (orgTeams.isNotEmpty &&
+                            personalTeams.isNotEmpty)
+                          const SizedBox(height: AppSpacing.md),
+                        if (personalTeams.isNotEmpty) ...[
+                          const _TeamListSectionHeader(
+                            label: '개인',
+                            subLabel: 'Private',
+                            icon: Icons.lock_outline_rounded,
+                          ),
+                          ReorderableListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: personalTeams.length,
+                            buildDefaultDragHandles: false,
+                            proxyDecorator: proxyDecorator,
+                            onReorder: (oldIndex, newIndex) {
+                              // 전역 인덱스 = 조직 팀 개수 + 로컬 인덱스
+                              final offset = orgTeams.length;
+                              ref
+                                  .read(teamViewModelProvider.notifier)
+                                  .reorder(
+                                    offset + oldIndex,
+                                    offset + newIndex,
+                                  );
+                            },
+                            itemBuilder: (context, index) => tile(
+                              sectionIndex: index,
+                              globalIndex: orgTeams.length + index,
+                              team: personalTeams[index],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  child: child,
-                );
-              },
-              itemBuilder: (context, index) {
-                final team = teams[index];
-                final isFavorite = team.id == favoriteTeamId;
-
-                return _TeamSlidableTile(
-                  key: ValueKey(team.id),
-                  index: index,
-                  team: team,
-                  isFavorite: isFavorite,
-                  onFavorite: () => _toggleFavorite(
-                    ref,
-                    team,
-                    isFavorite,
-                  ),
-                  onDetail: () => context.push(
-                    '/teams/${team.id}/detail',
-                  ),
-                  onLeave: () => _confirmLeave(
-                    context,
-                    ref,
-                    team,
-                  ),
-                );
-              },
-            ),
                 ),
               ),
             ],
@@ -241,6 +308,53 @@ class TeamListScreen extends HookConsumerWidget {
         );
       }
     }
+  }
+}
+
+/// 팀 목록 화면의 섹션 헤더 — 조직(Public) / 개인(Private) 구분.
+class _TeamListSectionHeader extends StatelessWidget {
+  const _TeamListSectionHeader({
+    required this.label,
+    required this.subLabel,
+    required this.icon,
+  });
+
+  final String label;
+  final String subLabel;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: cs.onSurfaceVariant),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            label,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            subLabel,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

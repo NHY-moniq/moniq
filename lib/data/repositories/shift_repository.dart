@@ -117,8 +117,8 @@ class ShiftRepository {
           shiftType: const ShiftTypeModel(
             id: '_off',
             teamId: '',
-            name: 'Off',
-            code: 'OFF',
+            name: '오프',
+            code: 'O',
             color: '#A0AEC0',
             displayOrder: 9999,
           ),
@@ -159,8 +159,8 @@ class ShiftRepository {
         shiftType: const ShiftTypeModel(
           id: '_off',
           teamId: '',
-          name: 'Off',
-          code: 'OFF',
+          name: '오프',
+          code: 'O',
           color: '#A0AEC0',
           displayOrder: 9999,
         ),
@@ -171,21 +171,56 @@ class ShiftRepository {
     return entries;
   }
 
-  /// 오늘(또는 특정 날짜) 같은 shift_type에 배정된 팀원(본인 제외)
+  /// 오늘(또는 특정 날짜) 같은 shift_type에 배정된 팀원.
+  /// [excludeSelf]가 true(기본)면 본인 제외.
   Future<List<UserModel>> getCoworkers({
     required String teamId,
     required DateTime date,
     required String shiftTypeId,
+    bool excludeSelf = true,
   }) {
     return _dataSource.getCoworkers(
       teamId: teamId,
       date: date,
       shiftTypeId: shiftTypeId,
+      excludeSelf: excludeSelf,
     );
   }
 
   Future<List<ShiftTypeModel>> getShiftTypes(String teamId) {
     return _dataSource.getShiftTypes(teamId);
+  }
+
+  Future<List<ShiftModel>> getShiftsOnDate({
+    required String teamId,
+    required DateTime date,
+  }) {
+    return _dataSource.getShiftsOnDate(teamId: teamId, date: date);
+  }
+
+  /// 해당 기간을 커버하는 published 스케줄들의 기간 합집합을 반환.
+  /// 실제 shift 배정이 없는 날(예: 전원 OFF)도 "스케줄 안" 으로 본다.
+  Future<Set<DateTime>> getCoveredDates({
+    required String teamId,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final schedules = await _dataSource.getPublishedSchedules(
+      teamId: teamId,
+      start: start,
+      end: end,
+    );
+    final covered = <DateTime>{};
+    for (final s in schedules) {
+      final pStart = s.periodStart.isBefore(start) ? start : s.periodStart;
+      final pEnd = s.periodEnd.isAfter(end) ? end : s.periodEnd;
+      for (var d = DateTime(pStart.year, pStart.month, pStart.day);
+          !d.isAfter(pEnd);
+          d = d.add(const Duration(days: 1))) {
+        covered.add(d);
+      }
+    }
+    return covered;
   }
 
   Future<List<ShiftTypeModel>> getAllShiftTypes(String teamId) {

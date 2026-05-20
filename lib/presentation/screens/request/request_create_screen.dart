@@ -102,48 +102,21 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: _categories.map((t) {
-              final (type, label, icon) = t;
-              final selected = _category == type;
-              final cs = theme.colorScheme;
-              return ChoiceChip(
-                avatar: Icon(
-                  icon,
-                  size: 18,
-                  color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+          Row(
+            children: [
+              for (var i = 0; i < _categories.length; i++) ...[
+                if (i > 0) const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _CategoryChip(
+                    label: _categories[i].$2,
+                    icon: _categories[i].$3,
+                    selected: _category == _categories[i].$1,
+                    onTap: () =>
+                        setState(() => _category = _categories[i].$1),
+                  ),
                 ),
-                label: Text(label),
-                labelStyle: theme.textTheme.bodyMedium?.copyWith(
-                  color: selected ? cs.onPrimaryContainer : cs.onSurface,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                ),
-                selected: selected,
-                showCheckmark: false,
-                onSelected: (_) {
-                  setState(() {
-                    _category = type;
-                  });
-                },
-                backgroundColor: cs.surface,
-                selectedColor: cs.primaryContainer,
-                side: BorderSide(
-                  color: selected
-                      ? cs.primary.withValues(alpha: 0.4)
-                      : cs.outlineVariant,
-                  width: 1,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.xs,
-                ),
-              );
-            }).toList(),
+              ],
+            ],
           ),
 
           const SizedBox(height: AppSpacing.xxl),
@@ -290,5 +263,68 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+}
+
+/// 요청 유형 선택 칩 — 동일 너비, 중앙 정렬.
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final bg = selected ? cs.primaryContainer : cs.surface;
+    final fg = selected ? cs.onPrimaryContainer : cs.onSurface;
+    final borderColor = selected
+        ? cs.primary.withValues(alpha: 0.4)
+        : cs.outlineVariant;
+
+    return Material(
+      color: bg,
+      shape: StadiumBorder(side: BorderSide(color: borderColor)),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm + 2,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: fg),
+              const SizedBox(width: AppSpacing.xs),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: fg,
+                    fontWeight: selected
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

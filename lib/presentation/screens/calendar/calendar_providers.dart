@@ -12,9 +12,9 @@ import 'package:moniq/data/providers/settings_providers.dart';
 /// 이벤트/노트 변경 시 증가시켜 모든 관련 provider를 갱신하는 트리거
 final eventRefreshProvider = StateProvider<int>((ref) => 0);
 
-/// 날짜별 접기/펼치기 상태 (기본 펼침)
-final dateExpandedProvider =
-    StateProvider.family<bool, DateTime>((ref, date) => true);
+/// 캘린더 탭 전체의 접기/펼치기 상태 (기본 펼침).
+/// 날짜별이 아니라 탭 단위로 적용 — 한 번 토글하면 모든 날짜에 동일하게 반영.
+final dateExpandedProvider = StateProvider<bool>((ref) => true);
 
 /// 메모 접기/펼치기 상태 (키: "date-index", 기본 접힘)
 final noteExpandedProvider =

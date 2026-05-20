@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -12,6 +13,8 @@ import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/wanted_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
+import 'package:moniq/presentation/widgets/common/moniq_date_picker_sheet.dart';
 
 final _requestWidgetsShiftTypesProvider = FutureProvider.autoDispose
     .family<List<ShiftTypeModel>, String>(
@@ -123,9 +126,10 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
                       date: _periodStart,
                       dateFormat: dateFormat,
                       onTap: () async {
-                        final picked = await showDatePicker(
+                        final picked = await showMoniqDatePickerSheet(
                           context: context,
                           initialDate: _periodStart ?? DateTime.now(),
+                          title: '시작일 선택',
                           firstDate: DateTime.now(),
                           lastDate: DateTime.now().add(
                             const Duration(days: 365),
@@ -142,13 +146,14 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
                       date: _periodEnd,
                       dateFormat: dateFormat,
                       onTap: () async {
-                        final picked = await showDatePicker(
+                        final picked = await showMoniqDatePickerSheet(
                           context: context,
                           initialDate:
                               _periodEnd ??
                               (_periodStart ?? DateTime.now()).add(
                                 const Duration(days: 30),
                               ),
+                          title: '종료일 선택',
                           firstDate: DateTime.now(),
                           lastDate: DateTime.now().add(
                             const Duration(days: 365),
@@ -201,9 +206,10 @@ class _WantedRequestCreateViewState extends State<WantedRequestCreateView> {
                   date: _deadline,
                   dateFormat: dateFormat,
                   onTap: () async {
-                    final picked = await showDatePicker(
+                    final picked = await showMoniqDatePickerSheet(
                       context: context,
                       initialDate: _deadline ?? DateTime.now(),
+                      title: '마감일 선택',
                       firstDate: DateTime.now(),
                       lastDate: DateTime.now().add(const Duration(days: 365)),
                     );
@@ -300,7 +306,9 @@ class WantedRequestActiveView extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final dateFormat = DateFormat('MM.dd');
     final request = state.activeRequest;
-    if (request == null) return const Center(child: CircularProgressIndicator());
+    if (request == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
     final isNight = request.wantedType == 'night_dedicated';
 
     // 근무 유형 맵
@@ -317,8 +325,11 @@ class WantedRequestActiveView extends HookConsumerWidget {
       final uid = ew.entry.userId;
       groupedByUser.putIfAbsent(
         uid,
-        () =>
-            WantedRequestUserEntryGroup(displayName: ew.displayName, items: []),
+        () => WantedRequestUserEntryGroup(
+          userId: uid,
+          displayName: ew.displayName,
+          items: [],
+        ),
       );
       groupedByUser[uid]!.items.add(
         WantedEntryDisplayItem(
@@ -333,6 +344,14 @@ class WantedRequestActiveView extends HookConsumerWidget {
       group.items.sort((a, b) => a.date.compareTo(b.date));
     }
     final userGroups = groupedByUser.values.toList();
+    final activeGroupSeed = userGroups.map((g) => g.userId).join(',');
+    final expandedActiveUserIds = useState<Set<String>>(
+      userGroups.map((g) => g.userId).toSet(),
+    );
+    useEffect(() {
+      expandedActiveUserIds.value = userGroups.map((g) => g.userId).toSet();
+      return null;
+    }, [activeGroupSeed, isNight]);
 
     // 엔트리 칩 빌더 (shiftTypeId 기반: null=오프/회색, non-null=근무 유형 색)
     Widget entryChip(WantedEntryDisplayItem item) {
@@ -521,22 +540,12 @@ class WantedRequestActiveView extends HookConsumerWidget {
               foregroundColor: colorScheme.onErrorContainer,
             ),
             onPressed: () async {
-              final confirm = await showDialog<bool>(
+              final confirm = await showMoniqConfirmSheet(
                 context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('수집 마감'),
-                  content: const Text('원티드 수집을 마감하시겠습니까?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('취소'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('마감'),
-                    ),
-                  ],
-                ),
+                title: '수집 마감',
+                message: '원티드 수집을 마감하시겠습니까?',
+                confirmLabel: '마감',
+                destructive: true,
               );
               if (confirm == true) {
                 await ref
@@ -721,6 +730,9 @@ class WantedRequestActiveView extends HookConsumerWidget {
                       itemCount: userGroups.length,
                       itemBuilder: (context, index) {
                         final group = userGroups[index];
+                        final isExpanded = expandedActiveUserIds.value.contains(
+                          group.userId,
+                        );
 
                         final initial = group.displayName.isNotEmpty
                             ? group.displayName[0].toUpperCase()
@@ -732,46 +744,87 @@ class WantedRequestActiveView extends HookConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 18,
-                                      backgroundColor: colorScheme.primary
-                                          .withValues(alpha: 0.12),
-                                      child: Text(
-                                        initial,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w700,
-                                          color: colorScheme.primary,
-                                        ),
-                                      ),
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.md,
+                                  ),
+                                  onTap: () {
+                                    final next = Set<String>.from(
+                                      expandedActiveUserIds.value,
+                                    );
+                                    if (isExpanded) {
+                                      next.remove(group.userId);
+                                    } else {
+                                      next.add(group.userId);
+                                    }
+                                    expandedActiveUserIds.value = next;
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: AppSpacing.xs,
                                     ),
-                                    const SizedBox(width: AppSpacing.md),
-                                    Expanded(
-                                      child: Text(
-                                        group.displayName,
-                                        style: theme.textTheme.titleSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w600,
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 18,
+                                          backgroundColor: colorScheme.primary
+                                              .withValues(alpha: 0.12),
+                                          child: Text(
+                                            initial,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: colorScheme.primary,
                                             ),
-                                      ),
-                                    ),
-                                    Text(
-                                      '${group.items.length}건',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: colorScheme.primary,
-                                            fontWeight: FontWeight.w600,
                                           ),
+                                        ),
+                                        const SizedBox(width: AppSpacing.md),
+                                        Expanded(
+                                          child: Text(
+                                            group.displayName,
+                                            style: theme.textTheme.titleSmall
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                        ),
+                                        Text(
+                                          '${group.items.length}건',
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: colorScheme.primary,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                        const SizedBox(width: AppSpacing.xs),
+                                        Icon(
+                                          isExpanded
+                                              ? Icons.keyboard_arrow_up
+                                              : Icons.keyboard_arrow_down,
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
-                                const SizedBox(height: AppSpacing.md),
-                                Wrap(
-                                  spacing: AppSpacing.sm,
-                                  runSpacing: AppSpacing.sm,
-                                  children: group.items.map(entryChip).toList(),
+                                AnimatedCrossFade(
+                                  firstChild: const SizedBox.shrink(),
+                                  secondChild: Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: AppSpacing.md,
+                                    ),
+                                    child: Wrap(
+                                      spacing: AppSpacing.sm,
+                                      runSpacing: AppSpacing.sm,
+                                      children: group.items
+                                          .map(entryChip)
+                                          .toList(),
+                                    ),
+                                  ),
+                                  crossFadeState: isExpanded
+                                      ? CrossFadeState.showSecond
+                                      : CrossFadeState.showFirst,
+                                  duration: const Duration(milliseconds: 180),
                                 ),
                               ],
                             ),
@@ -829,8 +882,11 @@ class WantedRequestClosedView extends HookConsumerWidget {
       final uid = ew.entry.userId;
       groupedByUser.putIfAbsent(
         uid,
-        () =>
-            WantedRequestUserEntryGroup(displayName: ew.displayName, items: []),
+        () => WantedRequestUserEntryGroup(
+          userId: uid,
+          displayName: ew.displayName,
+          items: [],
+        ),
       );
       groupedByUser[uid]!.items.add(
         WantedEntryDisplayItem(
@@ -845,6 +901,14 @@ class WantedRequestClosedView extends HookConsumerWidget {
       g.items.sort((a, b) => a.date.compareTo(b.date));
     }
     final userGroups = groupedByUser.values.toList();
+    final closedGroupSeed = userGroups.map((g) => g.userId).join(',');
+    final expandedClosedUserIds = useState<Set<String>>(
+      userGroups.map((g) => g.userId).toSet(),
+    );
+    useEffect(() {
+      expandedClosedUserIds.value = userGroups.map((g) => g.userId).toSet();
+      return null;
+    }, [closedGroupSeed, isNight]);
 
     // 엔트리 칩 빌더
     Widget entryChip(WantedEntryDisplayItem item) {
@@ -1018,29 +1082,11 @@ class WantedRequestClosedView extends HookConsumerWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('수집 재개'),
-                      content: const Text(
-                        '마감된 수집을 다시 열어 팀원이 입력할 수 있도록 합니다.\n계속하시겠습니까?',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('취소'),
-                        ),
-                        FilledButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('재개'),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (confirm != true) return;
+                  final picked = await _showWantedReopenSheet(context);
+                  if (picked == null || !context.mounted) return;
                   final ok = await ref
                       .read(wantedAdminViewModelProvider(teamId).notifier)
-                      .reopenRequests();
+                      .reopenRequests(deadline: picked);
                   if (!ok && context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('수집 재개 중 오류가 발생했습니다')),
@@ -1094,6 +1140,9 @@ class WantedRequestClosedView extends HookConsumerWidget {
             itemCount: userGroups.length,
             itemBuilder: (context, index) {
               final group = userGroups[index];
+              final isExpanded = expandedClosedUserIds.value.contains(
+                group.userId,
+              );
               final closedInitial = group.displayName.isNotEmpty
                   ? group.displayName[0].toUpperCase()
                   : '?';
@@ -1104,60 +1153,97 @@ class WantedRequestClosedView extends HookConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: colorScheme.surfaceContainerHigh,
-                            child: Text(
-                              closedInitial,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        onTap: () {
+                          final next = Set<String>.from(
+                            expandedClosedUserIds.value,
+                          );
+                          if (isExpanded) {
+                            next.remove(group.userId);
+                          } else {
+                            next.add(group.userId);
+                          }
+                          expandedClosedUserIds.value = next;
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppSpacing.xs,
                           ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: Text(
-                              group.displayName,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          if (!isNight)
-                            Text(
-                              '${group.items.length}건',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      isNight
-                          ? Chip(
-                              label: Text(
-                                '${dateFormat.format(request.periodStart)} ~ ${dateFormat.format(request.periodEnd)}',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 18,
+                                backgroundColor:
+                                    colorScheme.surfaceContainerHigh,
+                                child: Text(
+                                  closedInitial,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ),
-                              visualDensity: VisualDensity.compact,
-                              backgroundColor: colorScheme.surfaceContainerHigh,
-                              side: BorderSide(
-                                color: colorScheme.outlineVariant,
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: Text(
+                                  group.displayName,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
-                              padding: EdgeInsets.zero,
-                            )
-                          : Wrap(
-                              spacing: AppSpacing.sm,
-                              runSpacing: AppSpacing.sm,
-                              children: group.items.map(entryChip).toList(),
-                            ),
+                              if (!isNight)
+                                Text(
+                                  '${group.items.length}건',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              const SizedBox(width: AppSpacing.xs),
+                              Icon(
+                                isExpanded
+                                    ? Icons.keyboard_arrow_up
+                                    : Icons.keyboard_arrow_down,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      AnimatedCrossFade(
+                        firstChild: const SizedBox.shrink(),
+                        secondChild: Padding(
+                          padding: const EdgeInsets.only(top: AppSpacing.md),
+                          child: isNight
+                              ? Chip(
+                                  label: Text(
+                                    '${dateFormat.format(request.periodStart)} ~ ${dateFormat.format(request.periodEnd)}',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                  backgroundColor:
+                                      colorScheme.surfaceContainerHigh,
+                                  side: BorderSide(
+                                    color: colorScheme.outlineVariant,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                )
+                              : Wrap(
+                                  spacing: AppSpacing.sm,
+                                  runSpacing: AppSpacing.sm,
+                                  children: group.items.map(entryChip).toList(),
+                                ),
+                        ),
+                        crossFadeState: isExpanded
+                            ? CrossFadeState.showSecond
+                            : CrossFadeState.showFirst,
+                        duration: const Duration(milliseconds: 180),
+                      ),
                     ],
                   ),
                 ),
@@ -1411,29 +1497,16 @@ class _NightDedicatedSelector extends HookConsumerWidget {
                 onPressed: isConfirming.value
                     ? null
                     : () async {
-                        final confirm = await showDialog<bool>(
+                        final confirm = await showMoniqConfirmSheet(
                           context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: Text(
-                              hasExistingApproval ? '나이트 전담 수정' : '나이트 전담 확정',
-                            ),
-                            content: Text(
-                              selected.value.isEmpty
-                                  ? '선택된 인원이 없습니다. 모든 신청자의 나이트 전담을 해제하시겠습니까?'
-                                  : '${selected.value.length}명을 나이트 전담으로 ${hasExistingApproval ? '수정' : '확정'}하시겠습니까?\n'
-                                        '(나머지 ${totalCount - selected.value.length}명은 해제됩니다)',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('취소'),
-                              ),
-                              FilledButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                child: Text(hasExistingApproval ? '수정' : '확정'),
-                              ),
-                            ],
-                          ),
+                          title: hasExistingApproval
+                              ? '나이트 전담 수정'
+                              : '나이트 전담 확정',
+                          message: selected.value.isEmpty
+                              ? '선택된 인원이 없습니다. 모든 신청자의 나이트 전담을 해제하시겠습니까?'
+                              : '${selected.value.length}명을 나이트 전담으로 ${hasExistingApproval ? '수정' : '확정'}하시겠습니까?\n'
+                                    '선택하지 않은 인원은 나이트 전담이 자동으로 해제됩니다.',
+                          confirmLabel: hasExistingApproval ? '수정' : '확정',
                         );
                         if (confirm != true) return;
                         isConfirming.value = true;
@@ -1497,9 +1570,169 @@ class WantedEntryDisplayItem {
 }
 
 class WantedRequestUserEntryGroup {
-  WantedRequestUserEntryGroup({required this.displayName, required this.items});
+  WantedRequestUserEntryGroup({
+    required this.userId,
+    required this.displayName,
+    required this.items,
+  });
+  final String userId;
   final String displayName;
   final List<WantedEntryDisplayItem> items;
+}
+
+Future<DateTime?> _showWantedReopenSheet(BuildContext context) {
+  final now = DateTime.now();
+  final minDate = DateTime(now.year, now.month, now.day);
+  final maxDate = DateTime(now.year + 1, now.month, now.day);
+  final initialDate = minDate.add(const Duration(days: 7));
+
+  return showMoniqBottomSheet<DateTime>(
+    context: context,
+    title: '수집 재개',
+    eyebrow: 'REOPEN',
+    child: _WantedReopenSheetBody(
+      initialDate: initialDate,
+      minDate: minDate,
+      maxDate: maxDate,
+    ),
+  );
+}
+
+class _WantedReopenSheetBody extends StatefulWidget {
+  const _WantedReopenSheetBody({
+    required this.initialDate,
+    required this.minDate,
+    required this.maxDate,
+  });
+
+  final DateTime initialDate;
+  final DateTime minDate;
+  final DateTime maxDate;
+
+  @override
+  State<_WantedReopenSheetBody> createState() => _WantedReopenSheetBodyState();
+}
+
+class _WantedReopenSheetBodyState extends State<_WantedReopenSheetBody> {
+  late DateTime _selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = widget.initialDate;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final dateLabel = DateFormat('yyyy.MM.dd (E)').format(_selectedDate);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '마감된 수집을 다시 열어 팀원이 입력할 수 있도록 합니다.',
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLowest,
+            borderRadius: AppRadius.borderRadiusMd,
+            border: Border.all(color: colorScheme.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              Text(
+                '새 마감일',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                dateLabel,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        ClipRRect(
+          borderRadius: AppRadius.borderRadiusMd,
+          child: Container(
+            height: 220,
+            color: colorScheme.surfaceContainerLowest,
+            child: CupertinoTheme(
+              data: CupertinoThemeData(
+                brightness: theme.brightness,
+                primaryColor: colorScheme.primary,
+              ),
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.date,
+                initialDateTime: _selectedDate,
+                minimumDate: widget.minDate,
+                maximumDate: widget.maxDate,
+                onDateTimeChanged: (value) {
+                  setState(() {
+                    _selectedDate = DateTime(
+                      value.year,
+                      value.month,
+                      value.day,
+                    );
+                  });
+                },
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.borderRadiusFull,
+                    ),
+                    side: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                  child: const Text('취소'),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                flex: 2,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context, _selectedDate),
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.borderRadiusFull,
+                    ),
+                  ),
+                  child: const Text('재개'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 // ─── reason helpers ───────────────────────────────────────────────────────────
@@ -1523,11 +1756,7 @@ String _reasonDisplayLabel(String reason) {
 /// AlertDialog 대신 OverlayEntry + CompositedTransformFollower를 사용해
 /// 칩 바로 아래에 인라인 카드를 표시한다. 외부 탭 시 자동으로 닫힌다.
 class WantedReasonChip extends StatefulWidget {
-  const WantedReasonChip({
-    super.key,
-    required this.chip,
-    required this.reason,
-  });
+  const WantedReasonChip({super.key, required this.chip, required this.reason});
 
   /// 실제로 렌더링할 Chip 위젯
   final Widget chip;
@@ -1551,11 +1780,8 @@ class _WantedReasonChipState extends State<WantedReasonChip> {
     final label = _reasonDisplayLabel(widget.reason);
     final overlay = Overlay.of(context);
     _entry = OverlayEntry(
-      builder: (_) => _ReasonOverlay(
-        link: _link,
-        label: label,
-        onDismiss: _hide,
-      ),
+      builder: (_) =>
+          _ReasonOverlay(link: _link, label: label, onDismiss: _hide),
     );
     overlay.insert(_entry!);
   }
@@ -1575,10 +1801,7 @@ class _WantedReasonChipState extends State<WantedReasonChip> {
   Widget build(BuildContext context) {
     return CompositedTransformTarget(
       link: _link,
-      child: GestureDetector(
-        onTap: _show,
-        child: widget.chip,
-      ),
+      child: GestureDetector(onTap: _show, child: widget.chip),
     );
   }
 }

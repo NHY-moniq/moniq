@@ -27,7 +27,7 @@ const MiniStatusBar = ({ dark }) => (
   </div>
 );
 
-const MiniTopBar = ({ title = 'Joy 님의 일정', ring = '#FFC107', eyebrow = 'ONOROFF' }) => (
+const MiniTopBar = ({ title = '이간호 님의 일정', ring = '#FFC107', eyebrow = 'ONOROFF' }) => (
   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 18px 14px' }}>
     <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
       <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#EEE8D3', border: `2px solid ${ring}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -68,51 +68,89 @@ const MiniBottomNav = ({ active = 'home', dark }) => {
   return (
     <div style={{ position: 'absolute', bottom: 14, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
       <div style={{ display: 'flex', gap: 3, background: bg, backdropFilter: 'blur(20px)', padding: 5, borderRadius: 9999, boxShadow: '0 10px 24px rgba(49,47,35,.18)' }}>
-        <Item id="home" icon="home" /><Item id="teams" icon="group" /><Item id="settings" icon="settings" />
+        <Item id="home" icon="home" /><Item id="calendar" icon="calendar_month" /><Item id="teams" icon="group" /><Item id="settings" icon="settings" />
       </div>
     </div>
   );
 };
 
-// Home screen in a phone — exact recreation, scaled for landing preview
+// Home screen in a phone — mirrors lib/presentation/screens/home/home_body.dart
+// ActiveShift 카드 → 좌(Next Off + 인수인계) / 우(On-Shift Now) → 팀 소식
 const MiniHomeScreen = ({ shift = 'day' }) => {
   const s = SHIFTS_LANDING[shift];
-  const dark = shift === 'night';
+  const ink = '#312F23';
+  const muted = '#7A7768';
+  const tintBg = s.card + '14';      // shift 색 8% 틴트 — 실제 앱 카드 톤
+  const tintBorder = s.card + '24';
+  const iconTile = s.card + '2E';
   return (
     <div style={{ height: '100%', position: 'relative', overflow: 'hidden', background: s.bg }}>
-      <MiniStatusBar dark={dark} />
+      <MiniStatusBar />
       <MiniTopBar ring={s.card} />
-      <div style={{ padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ font: '500 10px/1 var(--font-family)', color: dark ? '#B0B0B0' : '#5F5C4D' }}>
-          {shift === 'night' ? '오늘은 Night Shift · 천천히 준비하세요' : shift === 'off' ? '오늘은 쉬는 날이에요' : '오늘도 파이팅!'}
-        </div>
-        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 24, padding: 16, minHeight: 150, background: `linear-gradient(135deg, ${s.card}, ${s.card}e0)`, color: s.on, boxShadow: s.glow }}>
-          <img src={s.mascot} style={{ position: 'absolute', right: -14, bottom: -14, width: 130, height: 130, opacity: .28, transform: 'rotate(12deg)' }} />
+      <div style={{ padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+        {/* Active Shift card */}
+        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, padding: 15, minHeight: 130, background: `linear-gradient(135deg, ${s.card}, ${s.card}e0)`, color: s.on, boxShadow: s.glow }}>
+          <img src={s.mascot} style={{ position: 'absolute', right: -14, bottom: -14, width: 116, height: 116, opacity: .26, transform: 'rotate(12deg)' }} />
           <div style={{ position: 'relative' }}>
-            <MiniGlassBadge label="Active Shift" on={s.on} />
-            <div style={{ font: '900 22px/1.1 var(--font-family)', letterSpacing: -.4, marginTop: 10 }}>{s.name}</div>
-            <div style={{ font: '600 12px/1.2 var(--font-family)', opacity: .85, marginTop: 2 }}>{s.time}</div>
-            <div style={{ display: 'flex', gap: 4, marginTop: 10, flexWrap: 'wrap' }}>
-              <MiniGlassChip icon="medical_services" label="Unit 4" on={s.on} />
-              <MiniGlassChip icon="assignment_ind" label="Head" on={s.on} />
+            <MiniGlassBadge label={shift === 'off' ? 'No Shift' : 'Active Shift'} on={s.on} />
+            <div style={{ font: '900 24px/1.1 var(--font-family)', letterSpacing: -.5, marginTop: 9 }}>{s.name}</div>
+            {shift !== 'off' && <div style={{ font: '600 13px/1.2 var(--font-family)', opacity: .85, marginTop: 3 }}>{s.time}</div>}
+            <div style={{ display: 'flex', gap: 4, marginTop: 10 }}>
+              <MiniGlassChip icon="group" label="3 East 병동" on={s.on} />
             </div>
           </div>
         </div>
+        {/* Row: 좌(Next Off + 인수인계) / 우(On-Shift Now) */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <div style={{ flex: 1, background: dark ? '#1E1E1E' : '#FFFDF7', borderRadius: 18, padding: 12 }}>
-            <div style={{ font: '800 8px/1 var(--font-family)', letterSpacing: 1.4, textTransform: 'uppercase', color: dark ? '#B0B0B0' : '#7A7768' }}>Weekly</div>
-            <div style={{ font: '900 20px/1 var(--font-family)', color: '#FF8F00', marginTop: 6 }}>32.5<span style={{ font: '500 9px/1 var(--font-family)', marginLeft: 3, color: dark ? '#B0B0B0' : '#5F5C4D' }}>hrs</span></div>
-          </div>
-          <div style={{ flex: 1, background: dark ? '#1E1E1E' : '#FFFDF7', borderRadius: 18, padding: 12 }}>
-            <div style={{ font: '800 8px/1 var(--font-family)', letterSpacing: 1.4, textTransform: 'uppercase', color: dark ? '#B0B0B0' : '#7A7768' }}>Team</div>
-            <div style={{ display: 'flex', marginTop: 6 }}>
-              {['#FFC107','#FF8F00','#2196F3'].map((c,i)=>(<div key={i} style={{ width: 22, height: 22, borderRadius: '50%', background: c, border: `2px solid ${dark ? '#1E1E1E' : '#FFFDF7'}`, marginLeft: i === 0 ? 0 : -6 }} />))}
-              <div style={{ width: 22, height: 22, borderRadius: '50%', background: dark ? '#282828' : '#F7F1DC', border: `2px solid ${dark ? '#1E1E1E' : '#FFFDF7'}`, marginLeft: -6, display: 'flex', alignItems: 'center', justifyContent: 'center', font: '800 8px/1 var(--font-family)', color: dark ? '#B0B0B0' : '#5F5C4D' }}>+4</div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* NEXT OFF */}
+            <div style={{ background: tintBg, border: `1px solid ${tintBorder}`, borderRadius: 16, padding: 10, display: 'flex', gap: 7, alignItems: 'center' }}>
+              <div style={{ width: 24, height: 24, borderRadius: 7, background: iconTile, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 14, color: s.accent, fontVariationSettings: "'FILL' 1" }}>beach_access</span>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ font: '800 7px/1 var(--font-family)', letterSpacing: 1, textTransform: 'uppercase', color: muted }}>Next Off</div>
+                <div style={{ font: '900 12px/1.1 var(--font-family)', color: s.accent, marginTop: 3 }}>D-3 <span style={{ font: '600 8px/1 var(--font-family)', color: muted }}>6.14(토)</span></div>
+              </div>
+            </div>
+            {/* 인수인계 */}
+            <div style={{ background: tintBg, border: `1px solid ${tintBorder}`, borderRadius: 16, padding: 10, display: 'flex', gap: 7, alignItems: 'center' }}>
+              <div style={{ width: 24, height: 24, borderRadius: 7, background: iconTile, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 14, color: s.accent, fontVariationSettings: "'FILL' 1" }}>sticky_note_2</span>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ font: '800 9px/1 var(--font-family)', color: ink }}>인수인계 <span style={{ color: s.accent }}>2</span></div>
+                <div style={{ font: '500 8px/1.2 var(--font-family)', color: muted, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>제세동기 점검 완료</div>
+              </div>
             </div>
           </div>
+          {/* ON-SHIFT NOW */}
+          <div style={{ flex: 1, background: tintBg, border: `1px solid ${tintBorder}`, borderRadius: 16, padding: 11 }}>
+            <div style={{ font: '800 7px/1 var(--font-family)', letterSpacing: 1, textTransform: 'uppercase', color: muted }}>On-Shift Now</div>
+            <div style={{ display: 'inline-block', marginTop: 6, background: iconTile, borderRadius: 9999, padding: '3px 8px', font: '800 8px/1 var(--font-family)', color: s.accent }}>이브닝 16-24</div>
+            <div style={{ display: 'flex', marginTop: 9 }}>
+              {['#FFC107','#FF8F00','#0061A4'].map((c,i)=>(<div key={i} style={{ width: 21, height: 21, borderRadius: '50%', background: c, border: `2px solid ${s.bg}`, marginLeft: i === 0 ? 0 : -6 }} />))}
+              <div style={{ width: 21, height: 21, borderRadius: '50%', background: '#F7F1DC', border: `2px solid ${s.bg}`, marginLeft: -6, display: 'flex', alignItems: 'center', justifyContent: 'center', font: '800 7px/1 var(--font-family)', color: muted }}>+2</div>
+            </div>
+          </div>
+        </div>
+        {/* 팀 소식 */}
+        <div style={{ font: '900 13px/1 var(--font-family)', color: s.accent, marginTop: 1 }}>팀 소식</div>
+        <div style={{ background: tintBg, border: `1px solid ${tintBorder}`, borderRadius: 16, padding: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ width: 26, height: 26, borderRadius: 8, background: iconTile, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 15, color: s.accent }}>campaign</span>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ font: '800 9px/1 var(--font-family)', color: ink }}>팀 공지사항</span>
+              <span style={{ font: '700 7px/1 var(--font-family)', color: s.accent }}>[3 East]</span>
+            </div>
+            <div style={{ font: '500 9px/1.2 var(--font-family)', color: '#5F5C4D', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>이번 주 컨퍼런스 일정 안내</div>
+          </div>
+          <span className="material-symbols-outlined" style={{ fontSize: 16, color: muted }}>chevron_right</span>
         </div>
       </div>
-      <MiniBottomNav active="home" dark={dark} />
+      <MiniBottomNav active="home" />
     </div>
   );
 };
@@ -171,7 +209,7 @@ const MiniCalendarScreen = () => {
   return (
     <div style={{ height: '100%', position: 'relative', overflow: 'hidden', background: '#FCF6E3' }}>
       <MiniStatusBar />
-      <MiniTopBar title="이예은 님의 일정" />
+      <MiniTopBar title="이간호 님의 일정" />
 
       {/* External calendar header — matches MoniqCalendar _buildExternalHeader */}
       <div style={{ padding: '0 18px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -327,15 +365,15 @@ const MiniTeamCalendarScreen = () => {
   const roster = [
     {
       code: 'D', name: '데이', color: SHIFT_COLORS.D,
-      members: [{ name: '이예은', me: true }, { name: '김민지' }, { name: '박지훈' }, { name: '한지우' }],
+      members: [{ name: '이간호', me: true }, { name: '김간호' }, { name: '박간호' }, { name: '한간호' }],
     },
     {
       code: 'E', name: '이브닝', color: SHIFT_COLORS.E,
-      members: [{ name: '최예린' }, { name: '정하늘' }, { name: '윤도현' }],
+      members: [{ name: '최간호' }, { name: '정간호' }, { name: '윤간호' }],
     },
     {
       code: 'N', name: '나이트', color: SHIFT_COLORS.N,
-      members: [{ name: '강수민' }, { name: '신가은' }],
+      members: [{ name: '강간호' }, { name: '신간호' }],
     },
   ];
 
@@ -564,7 +602,7 @@ const MiniCustomRulesScreen = () => {
           border: '1px solid rgba(178,173,156,.3)',
         }}>
           <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#B8860B', fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-          <div style={{ flex: 1, font: '500 10px/1.3 var(--font-family)', color: '#A89F84' }}>예: 홍길동은 나이트 서지 않아요</div>
+          <div style={{ flex: 1, font: '500 10px/1.3 var(--font-family)', color: '#A89F84' }}>예: 홍간호는 나이트 서지 않아요</div>
           <div style={{
             width: 26, height: 26, borderRadius: '50%',
             background: '#FFC107', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -627,7 +665,7 @@ const MiniAIReportCard = () => {
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
           <span className="material-symbols-outlined" style={{ fontSize: 13, color: '#E07800', marginTop: 1, fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
           <div style={{ flex: 1, font: '500 10px/1.45 var(--font-family)', color: '#312F23' }}>
-            전체적으로 균형이 좋아요. <strong style={{ fontWeight: 800 }}>강수민</strong> 님의 야간이 평균보다 2회 많고, 14·15일 데이가 1명 부족합니다. 원티드는 87% 반영됐어요.
+            전체적으로 균형이 좋아요. <strong style={{ fontWeight: 800 }}>강간호</strong> 님의 야간이 평균보다 2회 많고, 14·15일 데이가 1명 부족합니다. 원티드는 87% 반영됐어요.
           </div>
           <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#A89F84' }}>refresh</span>
         </div>
@@ -673,7 +711,7 @@ const MiniAIReportCard = () => {
           <span className="material-symbols-outlined" style={{ fontSize: 22, color: '#FF8C00' }}>dark_mode</span>
           <div style={{ flex: 1 }}>
             <div style={{ font: '700 10px/1.3 var(--font-family)', color: '#312F23' }}>연속 야간 초과</div>
-            <div style={{ font: '500 9px/1.3 var(--font-family)', color: '#7A7768', marginTop: 2 }}>강수민 · 3일 연속</div>
+            <div style={{ font: '500 9px/1.3 var(--font-family)', color: '#7A7768', marginTop: 2 }}>강간호 · 3일 연속</div>
           </div>
           <div style={{ font: '700 18px/1 var(--font-family)', color: '#FF8C00' }}>1</div>
         </div>
@@ -718,7 +756,7 @@ const MiniWantedCollectionScreen = () => {
   };
 
   const members = [
-    { name: '강수민', count: 7, picks: [
+    { name: '강간호', count: 7, picks: [
       { code: 'O', date: '06.01', rank: 1 },
       { code: 'O', date: '06.02', rank: 1 },
       { code: 'ED', date: '06.03', rank: 2 },
@@ -737,7 +775,7 @@ const MiniWantedCollectionScreen = () => {
       { code: 'D', date: '06.19', rank: 1 },
       { code: 'E', date: '06.26', rank: 2 },
     ] },
-    { name: '백하은', count: 3, picks: [
+    { name: '백간호', count: 3, picks: [
       { code: 'E', date: '06.11', rank: 1 },
       { code: 'E', date: '06.12', rank: 1 },
       { code: 'E', date: '06.27', rank: 1 },
@@ -767,10 +805,10 @@ const MiniWantedCollectionScreen = () => {
   };
 
   return (
-    <div style={{ height: '100%', position: 'relative', overflow: 'hidden', background: '#FCF6E3' }}>
+    <div style={{ height: '100%', position: 'relative', overflow: 'hidden', background: '#FCF6E3', display: 'flex', flexDirection: 'column' }}>
       <MiniStatusBar />
       {/* App bar — 원티드 수집 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 16px 10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 16px 10px', flexShrink: 0 }}>
         <span className="material-symbols-outlined" style={{ color: '#5F5C4D', fontSize: 20 }}>arrow_back</span>
         <div>
           <div style={{ font: '800 8px/1 var(--font-family)', letterSpacing: 1.8, textTransform: 'uppercase', color: '#FF8F00' }}>TEAM</div>
@@ -780,7 +818,7 @@ const MiniWantedCollectionScreen = () => {
       </div>
 
       {/* 수집 결과 배너 */}
-      <div style={{ margin: '0 14px 8px', padding: '10px 12px', borderRadius: 14, background: '#EFE5CC' }}>
+      <div style={{ margin: '0 14px 8px', padding: '10px 12px', borderRadius: 14, background: '#EFE5CC', flexShrink: 0 }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', background: '#FFFDF7', borderRadius: 9999, font: '700 8px/1 var(--font-family)', color: '#5F5C4D', marginBottom: 6 }}>
           <span className="material-symbols-outlined" style={{ fontSize: 10 }}>check_circle</span>
           수집 마감
@@ -794,7 +832,7 @@ const MiniWantedCollectionScreen = () => {
       </div>
 
       {/* 토글: 원티드 / 나이트 전담 */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, padding: '0 14px 8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, padding: '0 14px 8px', flexShrink: 0 }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 9999, background: '#FFD45A', font: '800 9px/1 var(--font-family)', color: '#7A5A00' }}>
           <span className="material-symbols-outlined" style={{ fontSize: 11 }}>check</span>
           원티드
@@ -804,12 +842,12 @@ const MiniWantedCollectionScreen = () => {
         </div>
       </div>
 
-      {/* 멤버별 응답 카드 */}
-      <div style={{ padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* 멤버별 응답 카드 — 남은 공간만 차지, 넘치면 잘림 */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
         {members.map((m, i) => (
           <div key={i} style={{
             background: '#FFFDF7', border: '1px solid rgba(178,173,156,.3)',
-            borderRadius: 14, padding: '8px 10px',
+            borderRadius: 14, padding: '8px 10px', flexShrink: 0,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
               <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#EEE8D3', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '800 8px/1 var(--font-family)', color: '#5F5C4D' }}>
@@ -825,12 +863,12 @@ const MiniWantedCollectionScreen = () => {
         ))}
       </div>
 
-      {/* 액션 — 수집 재개 + 새 수집 시작 */}
-      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 56, padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* 액션 — 수집 재개 + 새 수집 시작 (하단 고정, flow) */}
+      <div style={{ flexShrink: 0, padding: '8px 14px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{
           padding: '8px 12px', borderRadius: 9999,
           border: '1px solid rgba(178,173,156,.5)',
-          background: 'transparent',
+          background: '#FCF6E3',
           textAlign: 'center',
           font: '700 10px/1 var(--font-family)', color: '#5F5C4D',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
@@ -851,6 +889,8 @@ const MiniWantedCollectionScreen = () => {
         </div>
       </div>
 
+      {/* 하단 네비게이션 영역 확보 */}
+      <div style={{ height: 62, flexShrink: 0 }} />
       <MiniBottomNav active="teams" />
     </div>
   );
@@ -878,9 +918,9 @@ const MiniRequestScreen = () => {
 
   // 실제 RequestModel — changeType + reason + createdAt(MM.dd) + status
   const requests = [
-    { type: '근무 교환', reason: '김민지와 5/14(목) ↔ 5/17(일)', date: '05.10', status: 'pending' },
+    { type: '근무 교환', reason: '김간호와 5/14(목) ↔ 5/17(일)', date: '05.10', status: 'pending' },
     { type: '근무 변경', reason: '5/20 데이 → 오프 변경 요청', date: '05.09', status: 'pending' },
-    { type: '근무 교환', reason: '박지훈과 5/22(금) ↔ 5/25(월)', date: '05.07', status: 'approved' },
+    { type: '근무 교환', reason: '박간호와 5/22(금) ↔ 5/25(월)', date: '05.07', status: 'approved' },
     { type: '휴무 요청', reason: '5/28(목) 가족 행사', date: '05.05', status: 'approved' },
     { type: '근무 변경', reason: '5/02 나이트 → 이브닝', date: '05.01', status: 'rejected' },
   ];
@@ -1075,7 +1115,7 @@ const MiniScheduleGenScreen = () => {
     'DDOOEENNDDOOEENNDDOOEENNDDOOEENN',
   ];
   const grid = pattern.map(row => row.slice(0, 30).split(''));
-  const names = ['김민지','이서연','박지훈','최예린','정하늘','강수민','윤도현','임채원','한지우','조유나','신가은','오현우'];
+  const names = ['김간호','서간호','박간호','최간호','정간호','강간호','윤간호','임간호','한간호','조간호','신간호','오간호'];
   const days = Array.from({ length: 30 }, (_, i) => i + 1);
   // 1=Mon (June 2026 starts on Monday). Sat=days 6,13,20,27 / Sun=days 7,14,21,28
   const weekendCol = (d) => {
@@ -1094,6 +1134,17 @@ const MiniScheduleGenScreen = () => {
   const cellGap = 3;
   const nameColW = 100;
   const sumColors = { D: '#FFC107', E: '#FF8C00', N: '#0061A4' };
+
+  // 셀 상태 — 듀팅식 마커. violation(룰 위반)·wanted(원티드 반영)·unmet(미반영)
+  const _violations = [[2, 7], [6, 18], [9, 3]];
+  const _wanted = [[0, 4], [3, 11], [5, 22], [8, 9], [10, 15], [1, 25]];
+  const _unmet = [[1, 14], [7, 26], [4, 19]];
+  const cellStatus = (ri, ci) => {
+    if (_violations.some(([r, c]) => r === ri && c === ci)) return 'violation';
+    if (_wanted.some(([r, c]) => r === ri && c === ci)) return 'wanted';
+    if (_unmet.some(([r, c]) => r === ri && c === ci)) return 'unmet';
+    return null;
+  };
 
   const Chip = ({ icon, label, bg, color, border }) => (
     <div style={{
@@ -1138,21 +1189,19 @@ const MiniScheduleGenScreen = () => {
       {/* Sub toolbar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 16px', gap: 12,
+        padding: '10px 16px', gap: 16,
         background: '#FFFDF7', borderBottom: '1px solid rgba(178,173,156,.25)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#FCF6E3', borderRadius: 9999, padding: '4px 6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexShrink: 1, overflow: 'hidden' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#FCF6E3', borderRadius: 9999, padding: '4px 6px', flexShrink: 0 }}>
             <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#5F5C4D', cursor: 'pointer' }}>chevron_left</span>
             <div style={{ font: '800 12px/1 var(--font-family)', color: '#312F23', padding: '0 4px' }}>2026 · 6월</div>
             <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#5F5C4D', cursor: 'pointer' }}>chevron_right</span>
           </div>
-          <Chip icon="bed" label="기본 OFF 9일" bg="rgba(255,193,7,.16)" color="#6B5300" />
           <Chip icon="tune" label="규칙 편집" bg="#FCF6E3" color="#5F5C4D" border="1px solid rgba(178,173,156,.4)" />
           <Chip icon="auto_awesome" label="AI 분석" bg="rgba(255,140,0,.12)" color="#B05A00" border="1px solid rgba(255,140,0,.3)" />
-          <Chip icon="event_available" label="원티드 13/15 반영" bg="rgba(0,97,164,.10)" color="#0B3F6E" />
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <Chip icon="bolt" label="다시 생성" bg="#312F23" color="#FCF6E3" />
           <Chip icon="ios_share" label="게시" bg="#FFC107" color="#453900" />
         </div>
@@ -1214,14 +1263,30 @@ const MiniScheduleGenScreen = () => {
               {row.map((code, ci) => {
                 const sc = shiftColor[code];
                 const isToday = ci === 12 && ri === 4;
+                const st = cellStatus(ri, ci);
                 return (
                   <div key={ci} style={{
                     width: cellSize, height: cellSize, borderRadius: 5,
                     background: sc.bg, color: sc.fg,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     font: '900 10px/1 var(--font-family)',
-                    boxShadow: isToday ? '0 0 0 2px #FFC107, 0 4px 10px rgba(255,193,7,.4)' : 'none',
-                  }}>{code === 'O' ? '·' : code}</div>
+                    position: 'relative',
+                    boxShadow: st === 'violation'
+                      ? '0 0 0 2px #D64545'
+                      : isToday
+                        ? '0 0 0 2px #FFC107, 0 4px 10px rgba(255,193,7,.4)'
+                        : 'none',
+                  }}>
+                    {code === 'O' ? '·' : code}
+                    {(st === 'wanted' || st === 'unmet') && (
+                      <span style={{
+                        position: 'absolute', top: 2, right: 2,
+                        width: 5, height: 5, borderRadius: '50%',
+                        background: st === 'wanted' ? '#2F9E5E' : '#0061A4',
+                        boxShadow: '0 0 0 1.5px #FFFDF7',
+                      }} />
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -1258,13 +1323,149 @@ const MiniScheduleGenScreen = () => {
         borderTop: '1px solid rgba(178,173,156,.25)',
         font: '600 10px/1 var(--font-family)', color: '#7A7768',
       }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#38A169' }} />
-          제약 조건 통과 · 공정성 점수 92
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#38A169' }} />
+            제약 조건 통과 · 공정성 점수 92
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0061A4' }} />
+            원티드 13/15 반영
+          </span>
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14 }}>
           <span>0.8초 만에 생성됨</span>
           <span>마지막 저장 1분 전</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────
+// MiniRuleSettingPanel — 제약 조건 설정 패널 (FloatingPanel 안에 끼움)
+// 듀팅의 "제약 조건 / 근무 형태" 설정 모달을 우리 룰 체계로 재구성
+// ─────────────────────────────────────────────
+const MiniRuleSettingPanel = () => {
+  const rows = [
+    { label: '연속 근무일', value: '최대 5일', on: true },
+    { label: '연속 야간', value: '최대 3일', on: true },
+    { label: '야간 후 휴식', value: '최소 1일', on: true },
+    { label: 'N→D 기피 패턴', value: '금지', on: true },
+    { label: 'D · E · N 인원', value: '6 / 4 / 3', on: false },
+  ];
+  const Toggle = ({ on }) => (
+    <div style={{
+      width: 30, height: 17, borderRadius: 9999, flexShrink: 0,
+      background: on ? '#FFC107' : '#E4DDC6', position: 'relative',
+    }}>
+      <div style={{
+        position: 'absolute', top: 2, left: on ? 15 : 2,
+        width: 13, height: 13, borderRadius: '50%', background: '#fff',
+        boxShadow: '0 1px 3px rgba(0,0,0,.25)',
+      }} />
+    </div>
+  );
+  return (
+    <div style={{ font: '400 11px/1.3 var(--font-family)', color: '#312F23' }}>
+      {/* 헤더 탭 */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '0 14px', borderBottom: '1px solid rgba(178,173,156,.3)' }}>
+        <div style={{ padding: '12px 8px', font: '800 11px/1 var(--font-family)', color: '#312F23', borderBottom: '2px solid #FFC107' }}>제약 조건</div>
+        <div style={{ padding: '12px 8px', font: '700 11px/1 var(--font-family)', color: '#A89F86' }}>근무 형태</div>
+        <span className="material-symbols-outlined" style={{ marginLeft: 'auto', fontSize: 16, color: '#A89F86' }}>close</span>
+      </div>
+      {/* 행들 */}
+      <div style={{ padding: '4px 14px 12px' }}>
+        {rows.map((r, i) => (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0',
+            borderBottom: i < rows.length - 1 ? '1px solid rgba(178,173,156,.18)' : 'none',
+          }}>
+            <div style={{ font: '700 11px/1.2 var(--font-family)', color: '#312F23', flex: 1 }}>{r.label}</div>
+            <div style={{ font: '800 10px/1 var(--font-family)', color: '#B8860B' }}>{r.value}</div>
+            <Toggle on={r.on} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────
+// MiniWantedEntryPanel — 팀원이 원티드를 신청하는 화면 (FloatingPanel용)
+// 수집 결과 화면(MiniWantedCollectionScreen)의 "신청자 시점" 짝
+// ─────────────────────────────────────────────
+const MiniWantedEntryPanel = () => {
+  const codeColor = {
+    D: { bg: '#FFD45A', fg: '#7A5A00' },
+    E: { bg: '#FFB36A', fg: '#8B4500' },
+    N: { bg: '#7AAEE8', fg: '#0F4F88' },
+    O: { bg: '#C9C2A8', fg: '#5F5C4D' },
+  };
+  const entries = [
+    { date: '06.14', day: '토', code: 'O', rank: 1 },
+    { date: '06.18', day: '수', code: 'D', rank: 1 },
+    { date: '06.26', day: '금', code: 'E', rank: 2 },
+  ];
+  return (
+    <div style={{ font: '400 11px/1.3 var(--font-family)', color: '#312F23' }}>
+      {/* 헤더 */}
+      <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid rgba(178,173,156,.25)' }}>
+        <div style={{ font: '800 8px/1 var(--font-family)', letterSpacing: 1.6, textTransform: 'uppercase', color: '#FF8F00' }}>MY WANTED</div>
+        <div style={{ font: '900 14px/1.2 var(--font-family)', color: '#312F23', marginTop: 3 }}>원티드 신청</div>
+        <div style={{ font: '600 9px/1 var(--font-family)', color: '#7A7768', marginTop: 4 }}>06.01 ~ 06.30 · 마감 D-2</div>
+      </div>
+      {/* 신청 항목 */}
+      <div style={{ padding: '6px 12px' }}>
+        {entries.map((e, i) => {
+          const c = codeColor[e.code];
+          return (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px',
+              borderBottom: i < entries.length - 1 ? '1px solid rgba(178,173,156,.15)' : 'none',
+            }}>
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%',
+                background: c.bg, color: c.fg,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                font: '900 9px/1 var(--font-family)', flexShrink: 0,
+              }}>{e.code}</div>
+              <div style={{ flex: 1, font: '800 11px/1 var(--font-family)', color: '#312F23' }}>
+                {e.date} <span style={{ color: '#7A7768', font: '600 10px/1 var(--font-family)' }}>({e.day})</span>
+              </div>
+              <div style={{
+                padding: '3px 9px', borderRadius: 9999,
+                background: e.rank === 1 ? '#FFC107' : 'rgba(255,193,7,.18)',
+                color: e.rank === 1 ? '#453900' : '#6B5300',
+                font: '800 9px/1 var(--font-family)',
+              }}>{e.rank}순위</div>
+            </div>
+          );
+        })}
+      </div>
+      {/* 날짜 추가 */}
+      <div style={{ padding: '2px 12px 8px' }}>
+        <div style={{
+          border: '1.5px dashed rgba(178,173,156,.5)', borderRadius: 10,
+          padding: '8px 0', textAlign: 'center',
+          font: '700 10px/1 var(--font-family)', color: '#7A7768',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 13 }}>add</span>
+          날짜 추가
+        </div>
+      </div>
+      {/* 제출 버튼 */}
+      <div style={{ padding: '0 12px 13px' }}>
+        <div style={{
+          background: '#FFC107', borderRadius: 9999,
+          padding: '9px 0', textAlign: 'center',
+          font: '900 11px/1 var(--font-family)', color: '#453900',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+          boxShadow: '0 6px 14px rgba(255,193,7,.32)',
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 13, fontVariationSettings: "'FILL' 1" }}>send</span>
+          신청 완료
         </div>
       </div>
     </div>
@@ -1276,6 +1477,6 @@ Object.assign(window, {
   MiniStatusBar, MiniTopBar, MiniGlassBadge, MiniGlassChip, MiniBottomNav,
   MiniHomeScreen, MiniCalendarScreen, MiniTeamCalendarScreen,
   MiniCustomRulesScreen, MiniAIReportCard, MiniRequestScreen,
-  MiniWantedCollectionScreen,
-  LaptopFrame, MiniScheduleGenScreen,
+  MiniWantedCollectionScreen, MiniWantedEntryPanel,
+  LaptopFrame, MiniScheduleGenScreen, MiniRuleSettingPanel,
 });

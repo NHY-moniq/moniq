@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/data/models/custom_rule_model.dart';
+import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/team_member_with_user.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
@@ -99,6 +101,8 @@ class _SetupView extends HookConsumerWidget {
     final notifier = ref.read(
       scheduleGenerationViewModelProvider(teamId).notifier,
     );
+    final defaultShiftTypes = _defaultShiftTypes(state.shiftTypes);
+    final hasDefaultShiftTypes = defaultShiftTypes.isNotEmpty;
 
     return SingleChildScrollView(
       padding: AppSpacing.screenAll,
@@ -192,9 +196,8 @@ class _SetupView extends HookConsumerWidget {
                     ScheduleTappableInfoRow(
                       icon: Icons.schedule,
                       label: '근무 유형',
-                      value: '${state.shiftTypes.length}개',
-                      onTap: () =>
-                          _showShiftTypesDialog(context, ref, state, teamId),
+                      value: '${defaultShiftTypes.length}개',
+                      onTap: () => _showShiftTypesDialog(context, state),
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     ScheduleTappableInfoRow(
@@ -220,12 +223,12 @@ class _SetupView extends HookConsumerWidget {
                           ? null
                           : () => _showCustomRulesDialog(context, state),
                     ),
-                    if (state.shiftTypes.isNotEmpty) ...[
+                    if (hasDefaultShiftTypes) ...[
                       const Divider(height: AppSpacing.xxl),
                       Wrap(
                         spacing: AppSpacing.sm,
                         runSpacing: AppSpacing.sm,
-                        children: state.shiftTypes
+                        children: defaultShiftTypes
                             .map(
                               (t) => Chip(
                                 avatar: CircleAvatar(
@@ -325,7 +328,7 @@ class _SetupView extends HookConsumerWidget {
                 onPressed:
                     state.isGenerating ||
                         state.members.isEmpty ||
-                        state.shiftTypes.isEmpty ||
+                        !hasDefaultShiftTypes ||
                         state.periodStart == null ||
                         state.periodEnd == null ||
                         state.periodEnd!.isBefore(state.periodStart!)
@@ -348,10 +351,10 @@ class _SetupView extends HookConsumerWidget {
               ),
             ),
 
-            if (state.members.isEmpty || state.shiftTypes.isEmpty) ...[
+            if (state.members.isEmpty || !hasDefaultShiftTypes) ...[
               const SizedBox(height: AppSpacing.md),
               Text(
-                state.members.isEmpty ? '멤버를 먼저 추가해주세요' : '근무 유형을 먼저 설정해주세요',
+                state.members.isEmpty ? '멤버를 먼저 추가해주세요' : '기본 근무 유형을 먼저 설정해주세요',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.error,
                 ),
@@ -369,60 +372,202 @@ class _SetupView extends HookConsumerWidget {
 
 void _showShiftTypesDialog(
   BuildContext context,
-  WidgetRef ref,
   ScheduleGenerationState state,
-  String teamId,
 ) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final defaultShiftTypes = _defaultShiftTypes(state.shiftTypes);
+
   showMoniqBottomSheet<void>(
     context: context,
-    title: '근무 유형 (${state.shiftTypes.length}개)',
+    title: '근무 유형 (${defaultShiftTypes.length}개)',
     eyebrow: 'SHIFT TYPES',
     child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (state.shiftTypes.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-            child: Text('설정된 근무 유형이 없어요'),
-          )
-        else
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 320),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: state.shiftTypes.length,
-              itemBuilder: (_, i) {
-                final t = state.shiftTypes[i];
-                return ListTile(
-                  dense: true,
-                  leading: CircleAvatar(
-                    radius: 10,
-                    backgroundColor: parseHexColor(t.color),
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+            borderRadius: AppRadius.borderRadiusMd,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.schedule_rounded,
+                size: 18,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  defaultShiftTypes.isEmpty
+                      ? '기본 근무 유형이 없습니다'
+                      : '총 ${defaultShiftTypes.length}개 기본 근무 유형이 반영됩니다',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
-                  title: Text(t.name),
-                  subtitle: Text(t.code),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        if (defaultShiftTypes.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl),
+            alignment: Alignment.center,
+            child: Text(
+              '설정된 기본 근무 유형이 없어요',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        if (defaultShiftTypes.isNotEmpty)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 420),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: defaultShiftTypes.length,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(height: AppSpacing.sm),
+              itemBuilder: (_, i) {
+                final t = defaultShiftTypes[i];
+                final color = parseHexColor(t.color);
+
+                return _ShiftTypeOverviewTile(
+                  name: t.name,
+                  code: t.code,
+                  color: color,
+                  timeText: _formatShiftTypeTimeText(t.startTime, t.endTime),
+                  badgeLabel: '기본',
                 );
               },
             ),
           ),
-        const SizedBox(height: AppSpacing.lg),
-        FilledButton.tonal(
-          onPressed: () {
-            Navigator.pop(context);
-            context
-                .push('/teams/$teamId/shift-types')
-                .then(
-                  (_) => ref.invalidate(
-                    scheduleGenerationViewModelProvider(teamId),
-                  ),
-                );
-          },
-          child: const Text('근무 유형 설정'),
-        ),
       ],
     ),
   );
+}
+
+const _defaultShiftTypeCodes = {'D', 'E', 'N', 'ED'};
+
+List<ShiftTypeModel> _defaultShiftTypes(List<ShiftTypeModel> shiftTypes) {
+  return shiftTypes
+      .where(
+        (t) => _defaultShiftTypeCodes.contains(t.code.trim().toUpperCase()),
+      )
+      .toList();
+}
+
+class _ShiftTypeOverviewTile extends StatelessWidget {
+  const _ShiftTypeOverviewTile({
+    required this.name,
+    required this.code,
+    required this.color,
+    required this.timeText,
+    required this.badgeLabel,
+  });
+
+  final String name;
+  final String code;
+  final Color color;
+  final String timeText;
+  final String badgeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: AppRadius.borderRadiusMd,
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: AppRadius.borderRadiusMd,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              code,
+              style: TextStyle(
+                color: colorScheme.surface,
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  timeText,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xxs,
+            ),
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer,
+              borderRadius: AppRadius.borderRadiusFull,
+            ),
+            child: Text(
+              badgeLabel,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatShiftTypeTimeText(String? startTime, String? endTime) {
+  final start = _formatClock(startTime);
+  final end = _formatClock(endTime);
+  if (start.isEmpty && end.isEmpty) return '시간 미설정';
+  if (start.isEmpty) return '~ $end';
+  if (end.isEmpty) return '$start ~';
+  return '$start ~ $end';
+}
+
+String _formatClock(String? time) {
+  if (time == null || time.trim().isEmpty) return '';
+  final parts = time.trim().split(':');
+  if (parts.length < 2) return '';
+  final hour = parts[0].padLeft(2, '0');
+  final minute = parts[1].padLeft(2, '0');
+  return '$hour:$minute';
 }
 
 String? _skillDisplayLabel(String? skillLevel) {
@@ -444,6 +589,7 @@ void _showMembersDialog(
   ScheduleGenerationState state,
   String teamId,
 ) {
+  final theme = Theme.of(context);
   final colorScheme = Theme.of(context).colorScheme;
 
   showMoniqBottomSheet<void>(
@@ -463,20 +609,40 @@ void _showMembersDialog(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: Text(
-                '$activeCount명 참여',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: colorScheme.onSurfaceVariant,
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.45,
                 ),
+                borderRadius: AppRadius.borderRadiusMd,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.groups_rounded,
+                    size: 18,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      '$activeCount명 참여 · ${excluded.length}명 제외',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(height: AppSpacing.md),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 360),
-              child: ListView.builder(
+              constraints: const BoxConstraints(maxHeight: 420),
+              child: ListView.separated(
                 shrinkWrap: true,
+                separatorBuilder: (_, __) =>
+                    const SizedBox(height: AppSpacing.sm),
                 itemCount: current.members.length,
                 itemBuilder: (_, i) {
                   final m = current.members[i];
@@ -487,8 +653,9 @@ void _showMembersDialog(
                     onToggle: () {
                       ref
                           .read(
-                            scheduleGenerationViewModelProvider(teamId)
-                                .notifier,
+                            scheduleGenerationViewModelProvider(
+                              teamId,
+                            ).notifier,
                           )
                           .toggleMemberExclusion(m.userId);
                       setLocal(() {}); // 시트 내 즉시 갱신
@@ -498,7 +665,7 @@ void _showMembersDialog(
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            FilledButton.tonal(
+            FilledButton(
               onPressed: () {
                 Navigator.pop(context);
                 context
@@ -550,24 +717,24 @@ String? _ruleValueSummary(String ruleType, Map<String, dynamic> rv) {
     case 'max_consecutive_work_days':
       final days = rv['days'];
       if (days == null) return null;
-      return '최대 연속 근무: ${days}일';
+      return '최대 연속 근무: $days일';
     case 'max_monthly_shifts':
       final count = rv['count'];
       if (count == null) return null;
-      return '월 최대 근무: ${count}회';
+      return '월 최대 근무: $count회';
     case 'max_monthly_night_shifts':
       final count = rv['count'];
       if (count == null) return null;
-      return '월 최대 야간: ${count}회';
+      return '월 최대 야간: $count회';
     case 'max_consecutive_night_shifts':
       // team_settings에서 {'days': value}로 저장됨
       final days = rv['days'];
       if (days == null) return null;
-      return '최대 연속 야간: ${days}일';
+      return '최대 연속 야간: $days일';
     case 'min_weekly_off_days':
       final days = rv['days'];
       if (days == null) return null;
-      return '주 최소 오프: ${days}일';
+      return '주 최소 오프: $days일';
     case 'min_staffing':
     case 'max_staffing':
       // {'counts': {shiftTypeId: count}}
@@ -578,7 +745,7 @@ String? _ruleValueSummary(String ruleType, Map<String, dynamic> rv) {
         (s, v) => s + v.toInt(),
       );
       if (total == 0) return null;
-      return '${_ruleTypeLabels[ruleType]}: 합계 ${total}명';
+      return '${_ruleTypeLabels[ruleType]}: 합계 $total명';
     case 'wanted_priority_order':
       final order = rv['order'] as List?;
       if (order == null || order.isEmpty) return null;
@@ -591,6 +758,9 @@ String? _ruleValueSummary(String ruleType, Map<String, dynamic> rv) {
 }
 
 void _showRulesDialog(BuildContext context, ScheduleGenerationState state) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+
   // null 요약인 규칙은 숨김
   final visibleRules = state.rules
       .where((r) => _ruleValueSummary(r.ruleType, r.ruleValue) != null)
@@ -605,25 +775,62 @@ void _showRulesDialog(BuildContext context, ScheduleGenerationState state) {
             padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
             child: Text('설정된 규칙이 없어요'),
           )
-        : ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 360),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: visibleRules.length,
-              itemBuilder: (_, i) {
-                final rule = visibleRules[i];
-                final label = _ruleTypeLabels[rule.ruleType] ?? rule.ruleType;
-                final summary = _ruleValueSummary(
-                  rule.ruleType,
-                  rule.ruleValue,
-                )!;
-                return ListTile(
-                  dense: true,
-                  title: Text(label),
-                  subtitle: Text(summary),
-                );
-              },
-            ),
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.45,
+                  ),
+                  borderRadius: AppRadius.borderRadiusMd,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.rule_rounded,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        '현재 ${visibleRules.length}개 규칙이 생성 조건에 반영됩니다',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 420),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: visibleRules.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSpacing.sm),
+                  itemBuilder: (_, i) {
+                    final rule = visibleRules[i];
+                    final label =
+                        _ruleTypeLabels[rule.ruleType] ?? rule.ruleType;
+                    final summary = _ruleValueSummary(
+                      rule.ruleType,
+                      rule.ruleValue,
+                    )!;
+                    return _RuleSummaryTile(
+                      label: label,
+                      summary: summary,
+                      icon: _ruleTypeIcon(rule.ruleType),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
   );
 }
@@ -632,6 +839,7 @@ void _showCustomRulesDialog(
   BuildContext context,
   ScheduleGenerationState state,
 ) {
+  final theme = Theme.of(context);
   final colorScheme = Theme.of(context).colorScheme;
   final active = state.customRules.where((r) => r.isActive).toList();
   final inactive = state.customRules.where((r) => !r.isActive).toList();
@@ -641,41 +849,46 @@ void _showCustomRulesDialog(
     context: context,
     title: '커스텀 규칙 (${active.length}개 적용 중)',
     eyebrow: 'CUSTOM RULES',
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 360),
-      child: ListView.builder(
-        shrinkWrap: true,
-        itemCount: all.length,
-        itemBuilder: (_, i) {
-          final rule = all[i];
-          return ListTile(
-            dense: true,
-            leading: Icon(
-              rule.isActive
-                  ? Icons.check_circle_outline_rounded
-                  : Icons.radio_button_unchecked_rounded,
-              size: 18,
-              color: rule.isActive
-                  ? (rule.priority == 'hard'
-                      ? colorScheme.error
-                      : colorScheme.secondary)
-                  : colorScheme.outline,
-            ),
-            title: Text(
-              rule.originalText,
-              style: TextStyle(
-                color: rule.isActive ? null : colorScheme.outline,
-                decoration:
-                    rule.isActive ? null : TextDecoration.lineThrough,
+    child: all.isEmpty
+        ? const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+            child: Text('등록된 커스텀 규칙이 없어요'),
+          )
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.45,
+                  ),
+                  borderRadius: AppRadius.borderRadiusMd,
+                ),
+                child: Text(
+                  '${all.length}개 중 ${active.length}개 적용 · ${inactive.length}개 비활성',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
-            ),
-            subtitle: Text(
-              '${rule.priority == 'hard' ? '하드' : '소프트'} · ${_customRuleTypeLabel(rule.ruleType)}',
-            ),
-          );
-        },
-      ),
-    ),
+              const SizedBox(height: AppSpacing.md),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 420),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: all.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSpacing.sm),
+                  itemBuilder: (_, i) {
+                    final rule = all[i];
+                    return _CustomRuleSummaryTile(rule: rule);
+                  },
+                ),
+              ),
+            ],
+          ),
   );
 }
 
@@ -683,12 +896,9 @@ void _showWantedDetailSheet(
   BuildContext context,
   ScheduleGenerationState state,
 ) {
-  // userId → displayName 맵
   final nameMap = {for (final m in state.members) m.userId: m.displayName};
-  // shiftTypeId → ShiftTypeModel 맵
   final shiftTypeMap = {for (final t in state.shiftTypes) t.id: t};
 
-  // userId별 엔트리 그루핑
   final grouped = <String, List<_WantedEntryRow>>{};
   for (final e in state.wantedEntries) {
     grouped
@@ -708,74 +918,39 @@ void _showWantedDetailSheet(
 
   final sortedUserIds = grouped.keys.toList()
     ..sort((a, b) => (nameMap[a] ?? a).compareTo(nameMap[b] ?? b));
+  final expandedUserIds = sortedUserIds.toSet();
 
-
-  showModalBottomSheet<void>(
+  showMoniqBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (ctx) {
-      final theme = Theme.of(ctx);
-      final colorScheme = theme.colorScheme;
-      final dateFormat = DateFormat('MM.dd');
+    title: '원티드 현황',
+    eyebrow: 'WANTED',
+    child: StatefulBuilder(
+      builder: (ctx, setSheetState) {
+        final theme = Theme.of(ctx);
+        final colorScheme = theme.colorScheme;
+        final dateFormat = DateFormat('MM.dd');
 
-      return DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.6,
-        maxChildSize: 1.0,
-        minChildSize: 0.3,
-        snapSizes: const [0.6, 1.0],
-        snap: true,
-        builder: (_, controller) => Column(
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 핸들
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colorScheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+            Text(
+              '${state.wantedEntries.length}건 · ${grouped.length}명',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.sm,
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    '원티드 현황',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${state.wantedEntries.length}건 · ${grouped.length}명',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
+            const SizedBox(height: AppSpacing.md),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 520),
               child: ListView.builder(
-                controller: controller,
-                padding: const EdgeInsets.all(AppSpacing.lg),
+                shrinkWrap: true,
                 itemCount: sortedUserIds.length,
                 itemBuilder: (_, i) {
                   final uid = sortedUserIds[i];
                   final name = nameMap[uid] ?? uid;
                   final entries = grouped[uid]!;
+                  final isExpanded = expandedUserIds.contains(uid);
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -784,97 +959,135 @@ void _showWantedDetailSheet(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 32,
-                                height: 32,
-                                decoration: BoxDecoration(
-                                  color: colorScheme.primary.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.person,
-                                  color: colorScheme.primary,
-                                  size: 18,
-                                ),
+                          InkWell(
+                            onTap: () {
+                              setSheetState(() {
+                                if (isExpanded) {
+                                  expandedUserIds.remove(uid);
+                                } else {
+                                  expandedUserIds.add(uid);
+                                }
+                              });
+                            },
+                            borderRadius: AppRadius.borderRadiusSm,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppSpacing.xxs,
                               ),
-                              const SizedBox(width: AppSpacing.md),
-                              Expanded(
-                                child: Text(
-                                  name,
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '${entries.length}건',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          Wrap(
-                            spacing: AppSpacing.xs,
-                            runSpacing: AppSpacing.xs,
-                            children: entries.map((e) {
-                              final shiftType = e.shiftTypeId != null
-                                  ? shiftTypeMap[e.shiftTypeId]
-                                  : null;
-                              final Color chipColor;
-                              final String avatarLabel;
-                              if (shiftType != null) {
-                                chipColor = parseHexColor(shiftType.color);
-                                avatarLabel = shiftType.code;
-                              } else {
-                                chipColor = AppColors.shiftOff;
-                                avatarLabel = 'O';
-                              }
-                              final hasReason =
-                                  e.reason != null &&
-                                  e.reason!.isNotEmpty;
-                              final chip = Chip(
-                                avatar: CircleAvatar(
-                                  backgroundColor: chipColor.withValues(
-                                    alpha: 0.25,
-                                  ),
-                                  child: Text(
-                                    avatarLabel,
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w800,
-                                      color: chipColor,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.primary.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.person,
+                                      color: colorScheme.primary,
+                                      size: 18,
                                     ),
                                   ),
-                                ),
-                                label: Text(
-                                  '${dateFormat.format(e.date)} · '
-                                  '${e.priority}순위',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
+                                  const SizedBox(width: AppSpacing.md),
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      style: theme.textTheme.titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
                                   ),
-                                ),
-                                visualDensity: VisualDensity.compact,
-                                backgroundColor: chipColor.withValues(
-                                  alpha: 0.08,
-                                ),
-                                side: BorderSide(
-                                  color: chipColor.withValues(alpha: 0.2),
-                                ),
-                                padding: EdgeInsets.zero,
-                              );
-                              if (!hasReason) return chip;
-                              return WantedReasonChip(
-                                chip: chip,
-                                reason: e.reason!,
-                              );
-                            }).toList(),
+                                  Text(
+                                    '${entries.length}건',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.xs),
+                                  Icon(
+                                    isExpanded
+                                        ? Icons.keyboard_arrow_up_rounded
+                                        : Icons.keyboard_arrow_down_rounded,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          AnimatedCrossFade(
+                            duration: const Duration(milliseconds: 180),
+                            crossFadeState: isExpanded
+                                ? CrossFadeState.showFirst
+                                : CrossFadeState.showSecond,
+                            firstChild: Padding(
+                              padding: const EdgeInsets.only(
+                                top: AppSpacing.md,
+                              ),
+                              child: Wrap(
+                                spacing: AppSpacing.xs,
+                                runSpacing: AppSpacing.xs,
+                                children: entries.map((e) {
+                                  final shiftType = e.shiftTypeId != null
+                                      ? shiftTypeMap[e.shiftTypeId]
+                                      : null;
+                                  final Color chipColor;
+                                  final String avatarLabel;
+                                  if (shiftType != null) {
+                                    chipColor = parseHexColor(shiftType.color);
+                                    avatarLabel = shiftType.code;
+                                  } else {
+                                    chipColor = AppColors.shiftOff;
+                                    avatarLabel = 'O';
+                                  }
+                                  final hasReason =
+                                      e.reason != null && e.reason!.isNotEmpty;
+                                  final chip = Chip(
+                                    avatar: CircleAvatar(
+                                      backgroundColor: chipColor.withValues(
+                                        alpha: 0.25,
+                                      ),
+                                      child: Text(
+                                        avatarLabel,
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                          color: chipColor,
+                                        ),
+                                      ),
+                                    ),
+                                    label: Text(
+                                      '${dateFormat.format(e.date)} · '
+                                      '${e.priority}순위',
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                    backgroundColor: chipColor.withValues(
+                                      alpha: 0.08,
+                                    ),
+                                    side: BorderSide(
+                                      color: chipColor.withValues(alpha: 0.2),
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                  );
+                                  if (!hasReason) return chip;
+                                  return WantedReasonChip(
+                                    chip: chip,
+                                    reason: e.reason!,
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            secondChild: const SizedBox.shrink(),
+                            alignment: Alignment.topLeft,
+                            sizeCurve: Curves.easeOutCubic,
                           ),
                         ],
                       ),
@@ -884,9 +1097,9 @@ void _showWantedDetailSheet(
               ),
             ),
           ],
-        ),
-      );
-    },
+        );
+      },
+    ),
   );
 }
 
@@ -907,57 +1120,304 @@ class _MemberSwitchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final colorScheme = Theme.of(context).colorScheme;
     final skillLabel = _skillDisplayLabel(member.member.skillLevel);
     final m = member.member;
+    final avatarText = member.displayName.isNotEmpty
+        ? member.displayName[0].toUpperCase()
+        : '?';
 
-    return ListTile(
-      dense: true,
-      title: Text(
-        member.displayName,
-        style: TextStyle(
-          color: isExcluded ? colorScheme.onSurfaceVariant : null,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onToggle,
+        borderRadius: AppRadius.borderRadiusMd,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.borderRadiusMd,
+            border: Border.all(
+              color: isExcluded
+                  ? colorScheme.outlineVariant
+                  : colorScheme.primary.withValues(alpha: 0.24),
+            ),
+            color: isExcluded
+                ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.25)
+                : colorScheme.surface,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: colorScheme.primary.withValues(alpha: 0.14),
+                backgroundImage: member.user.avatarUrl != null
+                    ? NetworkImage(member.user.avatarUrl!)
+                    : null,
+                child: member.user.avatarUrl == null
+                    ? Text(
+                        avatarText,
+                        style: TextStyle(
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            member.displayName,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: isExcluded
+                                  ? colorScheme.onSurfaceVariant
+                                  : colorScheme.onSurface,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (skillLabel != null)
+                          _MemberTag(
+                            label: skillLabel,
+                            backgroundColor:
+                                colorScheme.surfaceContainerHighest,
+                            foregroundColor: colorScheme.onSurfaceVariant,
+                          ),
+                        if (m.nightDedicated)
+                          const _MemberTag(
+                            label: '나이트전담',
+                            backgroundColor: Color(
+                              0xFFB3E5FC,
+                            ), // tertiaryContainer
+                            foregroundColor: Color(0xFF2196F3), // shiftNight
+                          ),
+                        if (m.nightExempt)
+                          const _MemberTag(
+                            label: '나이트제외',
+                            backgroundColor: Color(0xFFFFE5C2),
+                            foregroundColor: Color(0xFFB65F00),
+                          ),
+                        if (m.dayOnly)
+                          const _MemberTag(
+                            label: '데이전용',
+                            backgroundColor: Color(
+                              0xFFFFECB3,
+                            ), // primaryContainer
+                            foregroundColor: Color(
+                              0xFF5B4B00,
+                            ), // onPrimaryContainer
+                          ),
+                        for (final code in m.preferredShifts)
+                          _PreferredShiftChip(code: code),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Transform.scale(
+                scale: 0.84,
+                child: Switch.adaptive(
+                  value: !isExcluded,
+                  onChanged: (_) => onToggle(),
+                  activeTrackColor: colorScheme.primary,
+                  activeThumbColor: colorScheme.surface,
+                  inactiveTrackColor: colorScheme.outlineVariant.withValues(
+                    alpha: 0.9,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      subtitle: Wrap(
-        spacing: AppSpacing.xs,
-        runSpacing: AppSpacing.xs,
-        crossAxisAlignment: WrapCrossAlignment.center,
+    );
+  }
+}
+
+class _RuleSummaryTile extends StatelessWidget {
+  const _RuleSummaryTile({
+    required this.label,
+    required this.summary,
+    required this.icon,
+  });
+
+  final String label;
+  final String summary;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: AppRadius.borderRadiusMd,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (skillLabel != null)
-            _MemberTag(
-              label: skillLabel,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-              foregroundColor: colorScheme.onSurfaceVariant,
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.14),
+              borderRadius: AppRadius.borderRadiusSm,
             ),
-          if (m.nightDedicated)
-            const _MemberTag(
-              label: '나이트전담',
-              backgroundColor: Color(0xFFB3E5FC), // tertiaryContainer
-              foregroundColor: Color(0xFF2196F3), // shiftNight
+            child: Icon(icon, size: 18, color: colorScheme.primary),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  summary,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
-          if (m.nightExempt)
-            const _MemberTag(
-              label: '나이트제외',
-              backgroundColor: Color(0xFFFEE2E2), // errorLight
-              foregroundColor: Color(0xFFFF5252), // error
-            ),
-          if (m.dayOnly)
-            const _MemberTag(
-              label: '데이전용',
-              backgroundColor: Color(0xFFFFECB3), // primaryContainer
-              foregroundColor: Color(0xFF5B4B00), // onPrimaryContainer
-            ),
-          for (final code in m.preferredShifts)
-            _PreferredShiftChip(code: code),
+          ),
         ],
       ),
-      trailing: Switch.adaptive(
-        value: !isExcluded,
-        onChanged: (_) => onToggle(),
-      ),
-      onTap: onToggle,
     );
+  }
+}
+
+class _CustomRuleSummaryTile extends StatelessWidget {
+  const _CustomRuleSummaryTile({required this.rule});
+
+  final CustomRuleModel rule;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final priorityColor = rule.priority == 'hard'
+        ? colorScheme.error
+        : colorScheme.secondary;
+
+    return Opacity(
+      opacity: rule.isActive ? 1 : 0.6,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: rule.isActive
+              ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.32)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+          borderRadius: AppRadius.borderRadiusMd,
+          border: Border.all(
+            color: rule.isActive
+                ? priorityColor.withValues(alpha: 0.3)
+                : colorScheme.outlineVariant,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              rule.isActive
+                  ? Icons.check_circle_rounded
+                  : Icons.pause_circle_outline_rounded,
+              size: 20,
+              color: rule.isActive ? priorityColor : colorScheme.outline,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    rule.originalText,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: rule.isActive
+                          ? colorScheme.onSurface
+                          : colorScheme.onSurfaceVariant,
+                      decoration: rule.isActive
+                          ? null
+                          : TextDecoration.lineThrough,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
+                    children: [
+                      _MemberTag(
+                        label: rule.priority == 'hard' ? '하드' : '소프트',
+                        backgroundColor: priorityColor.withValues(alpha: 0.15),
+                        foregroundColor: priorityColor,
+                      ),
+                      _MemberTag(
+                        label: _customRuleTypeLabel(rule.ruleType),
+                        backgroundColor: colorScheme.surfaceContainerHighest,
+                        foregroundColor: colorScheme.onSurfaceVariant,
+                      ),
+                      if (!rule.isActive)
+                        _MemberTag(
+                          label: '비활성',
+                          backgroundColor: colorScheme.surfaceContainerHighest,
+                          foregroundColor: colorScheme.outline,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+IconData _ruleTypeIcon(String type) {
+  switch (type) {
+    case 'min_staffing':
+      return Icons.group_add_rounded;
+    case 'max_staffing':
+      return Icons.groups_rounded;
+    case 'max_consecutive_work_days':
+      return Icons.calendar_view_week_rounded;
+    case 'max_monthly_shifts':
+      return Icons.calendar_month_rounded;
+    case 'max_monthly_night_shifts':
+      return Icons.nightlight_round;
+    case 'max_consecutive_night_shifts':
+      return Icons.bedtime_rounded;
+    case 'min_weekly_off_days':
+      return Icons.event_available_rounded;
+    case 'wanted_priority_order':
+      return Icons.priority_high_rounded;
+    default:
+      return Icons.rule_folder_rounded;
   }
 }
 
@@ -1036,11 +1496,7 @@ class _PreferredShiftChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: fg,
-        ),
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg),
       ),
     );
   }

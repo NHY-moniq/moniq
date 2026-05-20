@@ -49,6 +49,7 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
   ThemeMode _parseThemeMode(String mode) {
     return switch (mode) {
       'dark' => ThemeMode.dark,
+      'system' => ThemeMode.system,
       _ => ThemeMode.light,
     };
   }

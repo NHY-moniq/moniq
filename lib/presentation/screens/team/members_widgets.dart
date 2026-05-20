@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:moniq/data/models/team_member_with_user.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 
 // ── 멤버 타일 ──
@@ -24,12 +23,31 @@ class MemberTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final skillLabel = _skillLabel(member.member.skillLevel);
+    final m = member.member;
+    final workAttributeTags = <Widget>[
+      if (m.nightDedicated)
+        const MemberInfoTag(
+          label: '나이트전담',
+          backgroundColor: Color(0xFFB3E5FC),
+          foregroundColor: Color(0xFF2196F3),
+        ),
+      if (m.nightExempt)
+        const MemberInfoTag(
+          label: '나이트제외',
+          backgroundColor: Color(0xFFFFE5C2),
+          foregroundColor: Color(0xFFB65F00),
+        ),
+      if (m.dayOnly)
+        const MemberInfoTag(
+          label: '데이전용',
+          backgroundColor: Color(0xFFFFECB3),
+          foregroundColor: Color(0xFF5B4B00),
+        ),
+    ];
 
     return ListTile(
       leading: CircleAvatar(
-        backgroundColor:
-            colorScheme.primary.withValues(alpha: 0.1),
+        backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
         backgroundImage: member.user.avatarUrl != null
             ? NetworkImage(member.user.avatarUrl!)
             : null,
@@ -47,7 +65,13 @@ class MemberTile extends StatelessWidget {
       ),
       title: Row(
         children: [
-          Flexible(child: Text(member.displayName)),
+          Flexible(
+            child: Text(
+              member.displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
           if (isSelf) ...[
             const SizedBox(width: AppSpacing.xs),
             Text(
@@ -61,14 +85,24 @@ class MemberTile extends StatelessWidget {
       ),
       subtitle: Row(
         children: [
-          Flexible(child: Text(member.user.email)),
-          if (skillLabel != null) ...[
-            const SizedBox(width: AppSpacing.xs),
-            MemberSkillChip(
-              label: skillLabel,
-              skillLevel: member.member.skillLevel,
+          Flexible(
+            child: Text(
+              member.user.email,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-          ],
+          ),
+          if (workAttributeTags.isNotEmpty)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: AppSpacing.xxs),
+                for (var i = 0; i < workAttributeTags.length; i++) ...[
+                  if (i > 0) const SizedBox(width: AppSpacing.xxs),
+                  workAttributeTags[i],
+                ],
+              ],
+            ),
         ],
       ),
       trailing: Row(
@@ -85,19 +119,6 @@ class MemberTile extends StatelessWidget {
       ),
       onTap: onTap,
     );
-  }
-
-  String? _skillLabel(String? skillLevel) {
-    switch (skillLevel) {
-      case 'junior':
-        return '신규';
-      case 'mid':
-        return '중간';
-      case 'senior':
-        return '올드';
-      default:
-        return null;
-    }
   }
 }
 
@@ -120,73 +141,50 @@ class MemberRoleBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: isAdmin
             ? colorScheme.primary.withValues(alpha: 0.1)
-            : colorScheme.onSurfaceVariant
-                .withValues(alpha: 0.1),
+            : colorScheme.onSurfaceVariant.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Text(
         isAdmin ? '관리자' : '멤버',
-        style: Theme.of(context)
-            .textTheme
-            .labelSmall
-            ?.copyWith(
-              fontWeight: FontWeight.w500,
-              color: isAdmin
-                  ? colorScheme.primary
-                  : colorScheme.onSurfaceVariant,
-            ),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w500,
+          color: isAdmin ? colorScheme.primary : colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }
 }
 
-// ── 스킬 칩 ──
-
-class MemberSkillChip extends StatelessWidget {
-  const MemberSkillChip({
+class MemberInfoTag extends StatelessWidget {
+  const MemberInfoTag({
     super.key,
     required this.label,
-    required this.skillLevel,
+    required this.backgroundColor,
+    required this.foregroundColor,
   });
 
   final String label;
-  final String? skillLevel;
-
-  Color _color(BuildContext context) {
-    switch (skillLevel) {
-      case 'junior':
-        return AppColors.shiftDay;
-      case 'mid':
-        return AppColors.shiftEvening;
-      case 'senior':
-        return AppColors.shiftNight;
-      default:
-        return Theme.of(context).colorScheme.tertiary;
-    }
-  }
+  final Color backgroundColor;
+  final Color foregroundColor;
 
   @override
   Widget build(BuildContext context) {
-    final color = _color(context);
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.xs,
-        vertical: 1,
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs,
       ),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppRadius.xs),
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(AppRadius.full),
       ),
       child: Text(
         label,
-        style: Theme.of(context)
-            .textTheme
-            .labelSmall
-            ?.copyWith(
-              fontSize: 10,
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontSize: 10,
+          color: foregroundColor,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -211,11 +209,9 @@ class MemberInviteCodeBar extends StatelessWidget {
             label: Text('초대 코드 공유: $inviteCode'),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: inviteCode));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('초대 코드가 복사되었습니다'),
-                ),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('초대 코드가 복사되었습니다')));
             },
           ),
         ),

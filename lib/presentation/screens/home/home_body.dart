@@ -9,6 +9,7 @@ import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/screens/home/active_shift_card.dart';
 import 'package:moniq/presentation/screens/home/home_widgets.dart';
+import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 
 // ════════════════════════════════════════════════
@@ -77,7 +78,6 @@ class HomeBody extends ConsumerWidget {
     final endTime = rawEnd == null ? null : formatTimeString(rawEnd);
 
     // 서버 shift는 teamId만 가지고 있어 팀 목록에서 이름을 조회.
-    // 개인 캘린더 기반(=서버 shift 없음) 항목은 팀이 없는 사적 일정이라 null.
     String? teamName;
     if (hasServerShift) {
       final teams = ref.watch(teamViewModelProvider).valueOrNull ?? const [];
@@ -86,6 +86,8 @@ class HomeBody extends ConsumerWidget {
           .map((t) => t.name)
           .firstOrNull;
     }
+    // OFF·근무 없는 날에도 소속(즐겨찾기) 팀 이름은 보여준다.
+    teamName ??= ref.watch(favoriteTeamProvider).valueOrNull?.name;
 
     // Subtitle — 랜덤 인사말
     final subtitle = isOff
@@ -116,9 +118,7 @@ class HomeBody extends ConsumerWidget {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurfaceVariant,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: AppSpacing.xxl),

@@ -11,6 +11,47 @@ class AnnouncementRemoteDataSource {
 
   String? get _userId => _client.auth.currentUser?.id;
 
+  /// 공지 조회용 select 절.
+  ///
+  /// - `users(...)`: 작성자(`created_by`) 프로필을 조인. 작성자가 탈퇴/삭제돼
+  ///   더 이상 존재하지 않으면 null이 되므로 left join이 되도록 `!inner`를
+  ///   쓰지 않는다.
+  /// - `announcement_comments(count)`: 공지별 댓글 수를 집계로 한 번에 조회.
+  static const String _announcementSelect = '''
+        *,
+        author:users!team_announcements_created_by_fkey(display_name, avatar_url),
+        announcement_comments(count)
+      ''';
+
+  /// 조인된 공지 row를 flat한 [AnnouncementModel]로 변환한다.
+  ///
+  /// Supabase는 조인 결과를 중첩 객체/배열로 돌려주므로,
+  /// 작성자 정보와 댓글 수를 모델이 기대하는 평탄한 key로 펼친다.
+  AnnouncementModel _mapAnnouncementRow(Map<String, dynamic> row) {
+    final author = row['author'] as Map<String, dynamic>?;
+
+    // announcement_comments(count) → [{count: N}] 형태 (없으면 빈 배열)
+    var commentCount = 0;
+    final commentsAgg = row['announcement_comments'];
+    if (commentsAgg is List && commentsAgg.isNotEmpty) {
+      final first = commentsAgg.first;
+      if (first is Map<String, dynamic>) {
+        commentCount = (first['count'] as num?)?.toInt() ?? 0;
+      }
+    }
+
+    final flat = <String, dynamic>{
+      ...row,
+      'author_name': author?['display_name'],
+      'author_avatar_url': author?['avatar_url'],
+      'comment_count': commentCount,
+    }
+      ..remove('author')
+      ..remove('announcement_comments');
+
+    return AnnouncementModel.fromJson(flat);
+  }
+
   Future<AnnouncementModel> create({
     required String teamId,
     required String title,
@@ -95,55 +136,76 @@ class AnnouncementRemoteDataSource {
   }
 
   Future<List<AnnouncementModel>> getByTeam(String teamId) async {
-    final rows = await _client
-        .from('team_announcements')
-        .select()
-        .eq('team_id', teamId)
-        .order('is_pinned', ascending: false)
-        .order('created_at', ascending: false);
+    try {
+      final rows = await _client
+          .from('team_announcements')
+          .select(_announcementSelect)
+          .eq('team_id', teamId)
+          .order('is_pinned', ascending: false)
+          .order('created_at', ascending: false);
 
-    return (rows as List)
-        .map((r) => AnnouncementModel.fromJson(r as Map<String, dynamic>))
-        .toList();
+      return (rows as List)
+          .map((r) => _mapAnnouncementRow(r as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw Exception('팀 공지사항을 불러오지 못했습니다: $e');
+    }
+  }
+
+  /// 단건 공지 조회 (작성자 정보 + 댓글 수 포함).
+  Future<AnnouncementModel> getById(String id) async {
+    try {
+      final row = await _client
+          .from('team_announcements')
+          .select(_announcementSelect)
+          .eq('id', id)
+          .single();
+      return _mapAnnouncementRow(row);
+    } catch (e) {
+      throw Exception('공지사항을 불러오지 못했습니다: $e');
+    }
   }
 
   /// 사용자가 속한 모든 팀의 최신 공지사항 (팀 이름 포함)
   Future<List<AnnouncementWithTeam>> getMyTeamsAnnouncements() async {
     if (_userId == null) throw Exception('Not authenticated');
 
-    // 내 팀 ID + 팀 이름 조회
-    final memberRows = await _client
-        .from('team_members')
-        .select('team_id, teams(name)')
-        .eq('user_id', _userId!)
-        .eq('is_deleted', false);
+    try {
+      // 내 팀 ID + 팀 이름 조회
+      final memberRows = await _client
+          .from('team_members')
+          .select('team_id, teams(name)')
+          .eq('user_id', _userId!)
+          .eq('is_deleted', false);
 
-    final teamMap = <String, String>{};
-    for (final r in (memberRows as List)) {
-      final teamId = r['team_id'] as String;
-      final teamJoin = r['teams'] as Map<String, dynamic>?;
-      // 팀이 삭제됐거나 조회 실패한 멤버십은 제외 (is_deleted 누락 방어)
-      if (teamJoin == null) continue;
-      final teamName = teamJoin['name'] as String? ?? '';
-      teamMap[teamId] = teamName;
+      final teamMap = <String, String>{};
+      for (final r in (memberRows as List)) {
+        final teamId = r['team_id'] as String;
+        final teamJoin = r['teams'] as Map<String, dynamic>?;
+        // 팀이 삭제됐거나 조회 실패한 멤버십은 제외 (is_deleted 누락 방어)
+        if (teamJoin == null) continue;
+        final teamName = teamJoin['name'] as String? ?? '';
+        teamMap[teamId] = teamName;
+      }
+      if (teamMap.isEmpty) return [];
+
+      final rows = await _client
+          .from('team_announcements')
+          .select(_announcementSelect)
+          .inFilter('team_id', teamMap.keys.toList())
+          .order('created_at', ascending: false)
+          .limit(10);
+
+      return (rows as List).map((r) {
+        final announcement = _mapAnnouncementRow(r as Map<String, dynamic>);
+        return AnnouncementWithTeam(
+          announcement: announcement,
+          teamName: teamMap[announcement.teamId] ?? '',
+        );
+      }).toList();
+    } catch (e) {
+      throw Exception('내 팀 공지사항을 불러오지 못했습니다: $e');
     }
-    if (teamMap.isEmpty) return [];
-
-    final rows = await _client
-        .from('team_announcements')
-        .select()
-        .inFilter('team_id', teamMap.keys.toList())
-        .order('created_at', ascending: false)
-        .limit(10);
-
-    return (rows as List).map((r) {
-      final map = r as Map<String, dynamic>;
-      final announcement = AnnouncementModel.fromJson(map);
-      return AnnouncementWithTeam(
-        announcement: announcement,
-        teamName: teamMap[announcement.teamId] ?? '',
-      );
-    }).toList();
   }
 
   Future<void> update(String id, {String? title, String? content, bool? isPinned}) async {
