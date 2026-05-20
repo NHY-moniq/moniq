@@ -12,6 +12,7 @@ import 'package:moniq/presentation/screens/calendar/calendar_screen.dart';
 import 'package:moniq/presentation/screens/notifications/notifications_screen.dart';
 import 'package:moniq/presentation/screens/home/home_screen.dart';
 import 'package:moniq/presentation/screens/request/request_create_screen.dart';
+import 'package:moniq/presentation/screens/request/request_history_screen.dart';
 import 'package:moniq/presentation/screens/request/request_list_screen.dart';
 import 'package:moniq/presentation/screens/schedule/schedule_generation_screen.dart';
 import 'package:moniq/presentation/screens/schedule/schedule_history_screen.dart';
@@ -298,6 +299,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/teams/:teamId/requests/create',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => RequestCreateScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/teams/:teamId/requests/history',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => RequestHistoryScreen(
           teamId: state.pathParameters['teamId']!,
         ),
       ),

@@ -92,6 +92,25 @@ String _legacyIconToEmoji(String iconName) {
   }
 }
 
+/// 팀 프로필이 비어있거나 사용자가 아무것도 지정하지 않은 기본 상태인지.
+/// 이 경우엔 moniq 마스코트(off.png)를 표시한다.
+bool _isUnsetIcon(String? icon) {
+  if (icon == null || icon.isEmpty) return true;
+  // 신규 폼 기본값 ('🏥' + 첫 번째 색)
+  if (icon == '$defaultEmoji|#5A8BB5') return true;
+  // 레거시 Material 아이콘 이름들 — 직접 emoji를 고른 게 아니어서 기본 취급.
+  const legacyPlaceholders = {
+    'groups',
+    'local_hospital',
+    'business',
+    'school',
+    'store',
+    'engineering',
+  };
+  if (legacyPlaceholders.contains(icon)) return true;
+  return false;
+}
+
 /// 팀 프로필 아바타 위젯
 class TeamProfileAvatar extends StatelessWidget {
   const TeamProfileAvatar({
@@ -105,6 +124,25 @@ class TeamProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    // 아이콘 미지정 → moniq 마스코트
+    if (_isUnsetIcon(icon)) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: cs.surfaceContainerHigh,
+        child: ClipOval(
+          child: Padding(
+            padding: EdgeInsets.all(radius * 0.18),
+            child: Image.asset(
+              'assets/images/off.png',
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+      );
+    }
+
     final data = TeamIconData.decode(icon);
 
     if (data.isImage) {

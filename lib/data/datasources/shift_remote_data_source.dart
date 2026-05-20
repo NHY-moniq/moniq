@@ -136,6 +136,14 @@ class ShiftRemoteDataSource {
     }).toList();
   }
 
+  /// 특정 날짜의 팀 전체 shifts — getTeamShifts의 단일 일자 편의 래퍼.
+  Future<List<ShiftModel>> getShiftsOnDate({
+    required String teamId,
+    required DateTime date,
+  }) async {
+    return getTeamShifts(teamId: teamId, start: date, end: date);
+  }
+
   /// 특정 날짜 + 팀 + shift_type 에 배정된 팀원(본인 제외) 목록
   Future<List<UserModel>> getCoworkers({
     required String teamId,

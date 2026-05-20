@@ -151,6 +151,8 @@ class CalendarDrawer extends HookConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      // ShellRoute의 BottomNavigation 위로 띄움.
+      useRootNavigator: true,
       shape: const RoundedRectangleBorder(
         borderRadius:
             BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),

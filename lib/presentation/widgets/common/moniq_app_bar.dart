@@ -202,73 +202,80 @@ class MoniqAppBarAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final color = tint ?? cs.onSurface;
+    // 라벨이 있는 액션은 기존 pill 그대로, 아이콘 단독은 소프트 원형 배경으로
+    // 통일된 세련된 톤을 부여.
+    final bgColor = tint != null
+        ? tint!.withValues(alpha: 0.10)
+        : cs.surfaceContainerHigh;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.borderRadiusFull,
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal:
-                label == null ? AppSpacing.sm : AppSpacing.md,
-            vertical: AppSpacing.sm,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(icon, size: 22, color: color),
-                  if (badgeCount != null && badgeCount! > 0)
-                    Positioned(
-                      right: -4,
-                      top: -4,
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: cs.error,
-                          shape: badgeCount! > 9
-                              ? BoxShape.rectangle
-                              : BoxShape.circle,
-                          borderRadius: badgeCount! > 9
-                              ? AppRadius.borderRadiusFull
-                              : null,
-                        ),
-                        child: Text(
-                          badgeCount! > 99
-                              ? '99+'
-                              : '$badgeCount',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            height: 1.6,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+    final iconWithBadge = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(icon, size: 20, color: color),
+        if (badgeCount != null && badgeCount! > 0)
+          Positioned(
+            right: -4,
+            top: -4,
+            child: Container(
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 16,
               ),
-              if (label != null) ...[
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  label!,
-                  style: AppTypography.labelMedium.copyWith(
-                    color: color,
-                    fontSize: 12,
-                  ),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: cs.error,
+                shape: badgeCount! > 9
+                    ? BoxShape.rectangle
+                    : BoxShape.circle,
+                borderRadius:
+                    badgeCount! > 9 ? AppRadius.borderRadiusFull : null,
+              ),
+              child: Text(
+                badgeCount! > 99 ? '99+' : '$badgeCount',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1.6,
                 ),
+              ),
+            ),
+          ),
+      ],
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Material(
+        color: label == null ? bgColor : Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: label == null
+              ? const CircleBorder()
+              : const StadiumBorder(),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: label == null ? AppSpacing.sm : AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                iconWithBadge,
+                if (label != null) ...[
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    label!,
+                    style: AppTypography.labelMedium.copyWith(
+                      color: color,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

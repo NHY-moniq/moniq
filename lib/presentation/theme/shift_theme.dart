@@ -199,7 +199,14 @@ class ShiftThemeData {
 final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
   final today = DateTime.now();
   final todayKey = DateTime(today.year, today.month, today.day);
-  final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
+  final themeMode = ref.watch(themeModeProvider);
+  final isDark = switch (themeMode) {
+    ThemeMode.dark => true,
+    ThemeMode.light => false,
+    ThemeMode.system =>
+      WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+          Brightness.dark,
+  };
 
   // 1. Try server shifts
   final calendarAsync = ref.watch(homeViewModelProvider);

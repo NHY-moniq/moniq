@@ -406,7 +406,7 @@ class _AppSettingsSection extends ConsumerWidget {
               },
               onTap: () {
                 ref.read(themeModeProvider.notifier).setThemeMode(mode);
-                Navigator.pop(ctx);
+                Navigator.of(ctx, rootNavigator: true).pop();
               },
               trailing: current == mode
                   ? Icon(
