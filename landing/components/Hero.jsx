@@ -87,7 +87,7 @@ const LandingHero = ({ tweaks }) => {
             <Mascot color="orange" size={110} style={{ position: 'absolute', bottom: 60, left: 10, filter: 'drop-shadow(0 16px 24px rgba(255,140,0,.3))', animation: 'float2 7s ease-in-out infinite' }} />
             <Mascot color="blue" size={130} style={{ position: 'absolute', top: 80, right: -20, filter: 'drop-shadow(0 18px 26px rgba(0,97,164,.3))', animation: 'float3 8s ease-in-out infinite' }} />
           </>}
-          <PhoneFrame width={320} height={620} tilt={-3} shadow="0 40px 80px rgba(49,47,35,.2)">
+          <PhoneFrame width={320} height={620} shadow="0 40px 80px rgba(49,47,35,.2)">
             <MiniHomeScreen shift={accent} />
           </PhoneFrame>
         </div>

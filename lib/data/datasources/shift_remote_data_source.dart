@@ -141,20 +141,23 @@ class ShiftRemoteDataSource {
     required String teamId,
     required DateTime date,
     required String shiftTypeId,
+    bool excludeSelf = true,
   }) async {
     if (_userId == null) return [];
-    final dateStr = _dateStr(date);
 
-    final shiftRows = await _client
-        .from('shifts')
-        .select('user_id')
-        .eq('team_id', teamId)
-        .eq('shift_date', dateStr)
-        .eq('shift_type_id', shiftTypeId)
-        .neq('user_id', _userId!);
+    // getTeamShifts로 발행 버전(owner schedule) 필터된 시프트만 사용한다.
+    // shifts 테이블을 직접 조회하면 이전 버전 schedule의 시프트까지 섞여
+    // OFF로 바뀐 사람이 근무자로 잘못 노출된다.
+    final teamShifts = await getTeamShifts(
+      teamId: teamId,
+      start: date,
+      end: date,
+    );
 
-    final userIds = (shiftRows as List)
-        .map((r) => r['user_id'] as String)
+    final userIds = teamShifts
+        .where((s) => s.shiftTypeId == shiftTypeId)
+        .map((s) => s.userId)
+        .where((uid) => !excludeSelf || uid != _userId)
         .toSet()
         .toList();
 

@@ -15,6 +15,16 @@ class AnnouncementModel with _$AnnouncementModel {
     @JsonKey(name: 'attachment_urls') @Default([]) List<String> attachmentUrls,
     @JsonKey(name: 'created_at') DateTime? createdAt,
     @JsonKey(name: 'updated_at') DateTime? updatedAt,
+
+    /// 작성자 표시 이름 — `users` 조인으로 채워진다.
+    /// 작성자가 탈퇴/삭제된 경우 null.
+    @JsonKey(name: 'author_name') String? authorName,
+
+    /// 작성자 프로필 이미지 URL — `users` 조인으로 채워진다.
+    @JsonKey(name: 'author_avatar_url') String? authorAvatarUrl,
+
+    /// 공지에 달린 댓글 수 — `announcement_comments(count)` 집계로 채워진다.
+    @JsonKey(name: 'comment_count') @Default(0) int commentCount,
   }) = _AnnouncementModel;
 
   factory AnnouncementModel.fromJson(Map<String, dynamic> json) =>

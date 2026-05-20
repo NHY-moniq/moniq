@@ -215,4 +215,88 @@ const ComingSoonButtons = ({ kind = 'cream' }) => {
   );
 };
 
-Object.assign(window, { LandingEyebrow, LandingChip, LandingButton, LandingCard, PhoneFrame, Section, Mascot, PreLaunchBanner, ComingSoonButtons, ScreenshotImage });
+// ─────────────────────────────────────────────
+// Layered-mockup primitives (듀팅식 멀티스크린 강조)
+// ─────────────────────────────────────────────
+
+// FloatingPanel — 메인 비주얼 위/주변에 독립 UI 패널 목업을 절대 위치로 띄움.
+// 듀팅의 "제약 조건 / 근무 형태 설정 패널이 그리드 위에 겹쳐 떠 있는" 표현.
+// 부모는 position: relative 여야 함.
+const FloatingPanel = ({
+  children, width = 280,
+  top, left, right, bottom,
+  tilt = 0, z = 3, shadow, bg = '#FFFDF7',
+}) => (
+  <div style={{
+    position: 'absolute', width,
+    top, left, right, bottom,
+    transform: tilt ? `rotate(${tilt}deg)` : undefined,
+    zIndex: z,
+    background: bg,
+    borderRadius: 22,
+    border: '1px solid rgba(178,173,156,.3)',
+    boxShadow: shadow || '0 28px 56px rgba(49,47,35,.18)',
+    overflow: 'hidden',
+  }}>
+    {children}
+  </div>
+);
+
+// PhoneStack — 폰 목업 여러 개를 계단식으로 겹쳐 배치.
+// items: [{ mock, scale, tilt, z, dim, shadow, step }]
+//   - mock: <MiniXScreen/>  - scale/tilt: 크기·기울기  - z: 레이어 순서
+//   - dim: true면 살짝 채도↓ (뒤폰)  - step: 폰 하단 단계 라벨
+const PhoneStack = ({ items = [], overlap = 0.5, width = 270, height = 540 }) => (
+  <div className="phone-stack" style={{
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    position: 'relative',
+  }}>
+    {items.map((it, i) => (
+      <div key={i} className="phone-stack-item" style={{
+        marginLeft: i === 0 ? 0 : -Math.round(width * overlap),
+        zIndex: it.z ?? (i + 1),
+        transform: `scale(${it.scale ?? 1})${it.tilt ? ` rotate(${it.tilt}deg)` : ''}`,
+        filter: it.dim ? 'saturate(.9) brightness(.99)' : undefined,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+      }}>
+        <PhoneFrame width={width} height={height} shadow={it.shadow}>
+          {it.mock}
+        </PhoneFrame>
+        {it.step && (
+          <div style={{
+            font: '800 11px/1 var(--font-family)', color: '#5F5C4D',
+            background: '#FFFDF7', border: '1px solid rgba(178,173,156,.3)',
+            padding: '6px 12px', borderRadius: 9999, whiteSpace: 'nowrap',
+            boxShadow: '0 6px 16px rgba(49,47,35,.06)',
+          }}>{it.step}</div>
+        )}
+      </div>
+    ))}
+  </div>
+);
+
+// LegendChips — 색상 범례 칩 행. 듀팅의 "잘못된 근무 / 신청 반영 / 미반영" 범례.
+// items: [{ color, label, dotColor }]
+const LegendChips = ({ items = [], style }) => (
+  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', ...style }}>
+    {items.map((it, i) => (
+      <div key={i} style={{
+        display: 'inline-flex', alignItems: 'center', gap: 7,
+        background: '#FFFDF7', border: '1px solid rgba(178,173,156,.3)',
+        padding: '8px 14px', borderRadius: 12,
+        font: '700 12px/1 var(--font-family)', color: '#312F23',
+        boxShadow: '0 6px 16px rgba(49,47,35,.06)',
+      }}>
+        <span style={{
+          width: 16, height: 16, borderRadius: 5, background: it.color,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {it.dotColor && <span style={{ width: 6, height: 6, borderRadius: '50%', background: it.dotColor }} />}
+        </span>
+        {it.label}
+      </div>
+    ))}
+  </div>
+);
+
+Object.assign(window, { LandingEyebrow, LandingChip, LandingButton, LandingCard, PhoneFrame, Section, Mascot, PreLaunchBanner, ComingSoonButtons, ScreenshotImage, FloatingPanel, PhoneStack, LegendChips });

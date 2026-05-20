@@ -27,6 +27,8 @@ class AnnouncementRepository {
   Future<List<AnnouncementModel>> getByTeam(String teamId) =>
       _dataSource.getByTeam(teamId);
 
+  Future<AnnouncementModel> getById(String id) => _dataSource.getById(id);
+
   Future<List<AnnouncementWithTeam>> getMyTeamsAnnouncements() =>
       _dataSource.getMyTeamsAnnouncements();
 
