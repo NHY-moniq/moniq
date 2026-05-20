@@ -27,7 +27,7 @@ const MiniStatusBar = ({ dark }) => (
   </div>
 );
 
-const MiniTopBar = ({ title = 'Joy 님의 일정', ring = '#FFC107', eyebrow = 'ONOROFF' }) => (
+const MiniTopBar = ({ title = '이간호 님의 일정', ring = '#FFC107', eyebrow = 'ONOROFF' }) => (
   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 18px 14px' }}>
     <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
       <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#EEE8D3', border: `2px solid ${ring}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -209,7 +209,7 @@ const MiniCalendarScreen = () => {
   return (
     <div style={{ height: '100%', position: 'relative', overflow: 'hidden', background: '#FCF6E3' }}>
       <MiniStatusBar />
-      <MiniTopBar title="이예은 님의 일정" />
+      <MiniTopBar title="이간호 님의 일정" />
 
       {/* External calendar header — matches MoniqCalendar _buildExternalHeader */}
       <div style={{ padding: '0 18px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -365,15 +365,15 @@ const MiniTeamCalendarScreen = () => {
   const roster = [
     {
       code: 'D', name: '데이', color: SHIFT_COLORS.D,
-      members: [{ name: '이예은', me: true }, { name: '김민지' }, { name: '박지훈' }, { name: '한지우' }],
+      members: [{ name: '이간호', me: true }, { name: '김간호' }, { name: '박간호' }, { name: '한간호' }],
     },
     {
       code: 'E', name: '이브닝', color: SHIFT_COLORS.E,
-      members: [{ name: '최예린' }, { name: '정하늘' }, { name: '윤도현' }],
+      members: [{ name: '최간호' }, { name: '정간호' }, { name: '윤간호' }],
     },
     {
       code: 'N', name: '나이트', color: SHIFT_COLORS.N,
-      members: [{ name: '강수민' }, { name: '신가은' }],
+      members: [{ name: '강간호' }, { name: '신간호' }],
     },
   ];
 
@@ -602,7 +602,7 @@ const MiniCustomRulesScreen = () => {
           border: '1px solid rgba(178,173,156,.3)',
         }}>
           <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#B8860B', fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-          <div style={{ flex: 1, font: '500 10px/1.3 var(--font-family)', color: '#A89F84' }}>예: 홍길동은 나이트 서지 않아요</div>
+          <div style={{ flex: 1, font: '500 10px/1.3 var(--font-family)', color: '#A89F84' }}>예: 홍간호는 나이트 서지 않아요</div>
           <div style={{
             width: 26, height: 26, borderRadius: '50%',
             background: '#FFC107', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -665,7 +665,7 @@ const MiniAIReportCard = () => {
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
           <span className="material-symbols-outlined" style={{ fontSize: 13, color: '#E07800', marginTop: 1, fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
           <div style={{ flex: 1, font: '500 10px/1.45 var(--font-family)', color: '#312F23' }}>
-            전체적으로 균형이 좋아요. <strong style={{ fontWeight: 800 }}>강수민</strong> 님의 야간이 평균보다 2회 많고, 14·15일 데이가 1명 부족합니다. 원티드는 87% 반영됐어요.
+            전체적으로 균형이 좋아요. <strong style={{ fontWeight: 800 }}>강간호</strong> 님의 야간이 평균보다 2회 많고, 14·15일 데이가 1명 부족합니다. 원티드는 87% 반영됐어요.
           </div>
           <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#A89F84' }}>refresh</span>
         </div>
@@ -711,7 +711,7 @@ const MiniAIReportCard = () => {
           <span className="material-symbols-outlined" style={{ fontSize: 22, color: '#FF8C00' }}>dark_mode</span>
           <div style={{ flex: 1 }}>
             <div style={{ font: '700 10px/1.3 var(--font-family)', color: '#312F23' }}>연속 야간 초과</div>
-            <div style={{ font: '500 9px/1.3 var(--font-family)', color: '#7A7768', marginTop: 2 }}>강수민 · 3일 연속</div>
+            <div style={{ font: '500 9px/1.3 var(--font-family)', color: '#7A7768', marginTop: 2 }}>강간호 · 3일 연속</div>
           </div>
           <div style={{ font: '700 18px/1 var(--font-family)', color: '#FF8C00' }}>1</div>
         </div>
@@ -756,7 +756,7 @@ const MiniWantedCollectionScreen = () => {
   };
 
   const members = [
-    { name: '강수민', count: 7, picks: [
+    { name: '강간호', count: 7, picks: [
       { code: 'O', date: '06.01', rank: 1 },
       { code: 'O', date: '06.02', rank: 1 },
       { code: 'ED', date: '06.03', rank: 2 },
@@ -775,7 +775,7 @@ const MiniWantedCollectionScreen = () => {
       { code: 'D', date: '06.19', rank: 1 },
       { code: 'E', date: '06.26', rank: 2 },
     ] },
-    { name: '백하은', count: 3, picks: [
+    { name: '백간호', count: 3, picks: [
       { code: 'E', date: '06.11', rank: 1 },
       { code: 'E', date: '06.12', rank: 1 },
       { code: 'E', date: '06.27', rank: 1 },
@@ -918,9 +918,9 @@ const MiniRequestScreen = () => {
 
   // 실제 RequestModel — changeType + reason + createdAt(MM.dd) + status
   const requests = [
-    { type: '근무 교환', reason: '김민지와 5/14(목) ↔ 5/17(일)', date: '05.10', status: 'pending' },
+    { type: '근무 교환', reason: '김간호와 5/14(목) ↔ 5/17(일)', date: '05.10', status: 'pending' },
     { type: '근무 변경', reason: '5/20 데이 → 오프 변경 요청', date: '05.09', status: 'pending' },
-    { type: '근무 교환', reason: '박지훈과 5/22(금) ↔ 5/25(월)', date: '05.07', status: 'approved' },
+    { type: '근무 교환', reason: '박간호와 5/22(금) ↔ 5/25(월)', date: '05.07', status: 'approved' },
     { type: '휴무 요청', reason: '5/28(목) 가족 행사', date: '05.05', status: 'approved' },
     { type: '근무 변경', reason: '5/02 나이트 → 이브닝', date: '05.01', status: 'rejected' },
   ];
@@ -1115,7 +1115,7 @@ const MiniScheduleGenScreen = () => {
     'DDOOEENNDDOOEENNDDOOEENNDDOOEENN',
   ];
   const grid = pattern.map(row => row.slice(0, 30).split(''));
-  const names = ['김민지','이서연','박지훈','최예린','정하늘','강수민','윤도현','임채원','한지우','조유나','신가은','오현우'];
+  const names = ['김간호','서간호','박간호','최간호','정간호','강간호','윤간호','임간호','한간호','조간호','신간호','오간호'];
   const days = Array.from({ length: 30 }, (_, i) => i + 1);
   // 1=Mon (June 2026 starts on Monday). Sat=days 6,13,20,27 / Sun=days 7,14,21,28
   const weekendCol = (d) => {

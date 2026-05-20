@@ -25,6 +25,7 @@ class HomeScreen extends HookConsumerWidget {
 
     final currentUser = ref.watch(currentUserProvider);
     final userMeta = currentUser?.userMetadata;
+    final displayName = userMeta?['display_name'] as String?;
     final avatarUrl = userMeta?['avatar_url'] as String?;
 
     PreferredSizeWidget buildAppBar() {
@@ -74,6 +75,7 @@ class HomeScreen extends HookConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 HomeBody(
+                  displayName: displayName,
                   monthlyShifts: state.monthlyShifts,
                   shiftTheme: shiftTheme,
                 ),
