@@ -18,6 +18,7 @@ import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
@@ -188,8 +189,7 @@ class _WebTopActionsBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final unread =
-        ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
+    final unread = ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
 
     return Container(
       height: 60,
@@ -218,13 +218,17 @@ class _WebTopActionsBar extends ConsumerWidget {
                   top: 2,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 4, vertical: 1),
+                      horizontal: 4,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: colorScheme.error,
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    constraints:
-                        const BoxConstraints(minWidth: 16, minHeight: 16),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
                     child: Text(
                       unread > 99 ? '99+' : '$unread',
                       style: TextStyle(
@@ -480,14 +484,31 @@ class _TeamContextItems extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final teamsAsync = ref.watch(teamViewModelProvider);
     final favoriteAsync = ref.watch(favoriteTeamProvider);
     final favoriteTeam = favoriteAsync.valueOrNull;
-    final teamId = favoriteTeam?.id;
+    final viewingTeamIdOverride = ref.watch(viewingTeamIdOverrideProvider);
+    final teams = teamsAsync.valueOrNull ?? const <TeamModel>[];
+
+    TeamModel? currentTeam;
+    if (viewingTeamIdOverride != null) {
+      for (final t in teams) {
+        if (t.id == viewingTeamIdOverride) {
+          currentTeam = t;
+          break;
+        }
+      }
+    }
+    currentTeam ??= favoriteTeam;
+    currentTeam ??= teams.isNotEmpty ? teams.first : null;
+
+    final teamId = currentTeam?.id;
+    final isPersonalTeam = currentTeam?.teamType == 'personal';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (favoriteTeam != null) _FlyoutTeamHeader(team: favoriteTeam),
+        if (currentTeam != null) _FlyoutTeamHeader(team: currentTeam),
         _FlyoutTile(
           icon: Icons.groups_outlined,
           label: '팀 목록',
@@ -505,16 +526,24 @@ class _TeamContextItems extends ConsumerWidget {
             iconColor: AppColors.brandOrange,
             onTap: () => context.push('/teams/$teamId/announcements'),
           ),
-          _FlyoutTile(
-            icon: Icons.edit_calendar_outlined,
-            label: '원티드 입력',
-            onTap: () => context.push('/teams/$teamId/wanted/entry'),
-          ),
-          _FlyoutTile(
-            icon: Icons.swap_horiz,
-            label: '근무 변경 요청',
-            onTap: () => context.push('/teams/$teamId/requests'),
-          ),
+          if (isPersonalTeam)
+            _FlyoutTile(
+              icon: Icons.calendar_today_outlined,
+              label: '멤버 근무 현황',
+              onTap: () => context.push('/teams/$teamId/personal-calendar'),
+            ),
+          if (!isPersonalTeam) ...[
+            _FlyoutTile(
+              icon: Icons.edit_calendar_outlined,
+              label: '원티드 입력',
+              onTap: () => context.push('/teams/$teamId/wanted/entry'),
+            ),
+            _FlyoutTile(
+              icon: Icons.swap_horiz,
+              label: '근무 변경 요청',
+              onTap: () => context.push('/teams/$teamId/requests'),
+            ),
+          ],
         ],
       ],
     );
@@ -808,7 +837,10 @@ class _UserAvatarButtonState extends ConsumerState<_UserAvatarButton>
           ),
           Positioned(
             top: offset.dy + size.height + 4,
-            right: MediaQuery.of(overlayContext).size.width - offset.dx - size.width,
+            right:
+                MediaQuery.of(overlayContext).size.width -
+                offset.dx -
+                size.width,
             child: FadeTransition(
               opacity: _fadeAnim,
               child: SlideTransition(

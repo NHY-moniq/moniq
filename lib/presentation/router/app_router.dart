@@ -18,7 +18,6 @@ import 'package:moniq/presentation/screens/schedule/schedule_history_screen.dart
 import 'package:moniq/presentation/screens/settings/profile_edit_screen.dart';
 import 'package:moniq/presentation/screens/settings/settings_screen.dart';
 import 'package:moniq/presentation/screens/team/members_screen.dart';
-import 'package:moniq/presentation/screens/team/shift_types_screen.dart';
 import 'package:moniq/presentation/screens/team/team_create_screen.dart';
 import 'package:moniq/presentation/screens/team/team_detail_screen.dart';
 import 'package:moniq/presentation/screens/team/team_join_screen.dart';
@@ -188,13 +187,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/teams/:teamId/members',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => MembersScreen(
-          teamId: state.pathParameters['teamId']!,
-        ),
-      ),
-      GoRoute(
-        path: '/teams/:teamId/shift-types',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => ShiftTypesScreen(
           teamId: state.pathParameters['teamId']!,
         ),
       ),
