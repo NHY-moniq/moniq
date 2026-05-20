@@ -97,13 +97,67 @@ class WantedRemoteDataSource {
     }
   }
 
-  /// 마감된 수집 요청 재개 — status를 'collecting'으로 되돌림
-  Future<void> reopenWantedRequest(String requestId) async {
+  /// 여러 수집 요청 일괄 마감.
+  Future<void> closeWantedRequests(List<String> requestIds) async {
+    if (requestIds.isEmpty) return;
     final result = await _client
         .from('wanted_requests')
-        .update({'status': 'collecting'})
+        .update({'status': 'closed'})
+        .inFilter('id', requestIds)
+        .select('id');
+    if ((result as List).isEmpty) {
+      throw Exception('수집 마감 실패: 권한이 없거나 요청을 찾을 수 없습니다');
+    }
+  }
+
+  /// 마감된 수집 요청 재개 — status를 'collecting'으로 되돌리고 deadline을 갱신.
+  Future<void> reopenWantedRequest(
+    String requestId, {
+    required DateTime deadline,
+  }) async {
+    final deadlineEnd = DateTime(
+      deadline.year,
+      deadline.month,
+      deadline.day,
+      23,
+      59,
+      59,
+    );
+    final result = await _client
+        .from('wanted_requests')
+        .update({
+          'status': 'collecting',
+          'deadline': deadlineEnd.toIso8601String(),
+        })
         .eq('id', requestId)
         .select();
+    if ((result as List).isEmpty) {
+      throw Exception('수집 재개 실패: 권한이 없거나 요청을 찾을 수 없습니다');
+    }
+  }
+
+  /// 여러 마감 수집 요청 일괄 재개.
+  Future<void> reopenWantedRequests(
+    List<String> requestIds, {
+    required DateTime deadline,
+  }) async {
+    if (requestIds.isEmpty) return;
+    final deadlineEnd = DateTime(
+      deadline.year,
+      deadline.month,
+      deadline.day,
+      23,
+      59,
+      59,
+    );
+    final result = await _client
+        .from('wanted_requests')
+        .update({
+          'status': 'collecting',
+          'deadline': deadlineEnd.toIso8601String(),
+        })
+        .inFilter('id', requestIds)
+        .select('id');
     if ((result as List).isEmpty) {
       throw Exception('수집 재개 실패: 권한이 없거나 요청을 찾을 수 없습니다');
     }

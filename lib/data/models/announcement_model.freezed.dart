@@ -37,6 +37,19 @@ mixin _$AnnouncementModel {
   @JsonKey(name: 'updated_at')
   DateTime? get updatedAt => throw _privateConstructorUsedError;
 
+  /// 작성자 표시 이름 — `users` 조인으로 채워진다.
+  /// 작성자가 탈퇴/삭제된 경우 null.
+  @JsonKey(name: 'author_name')
+  String? get authorName => throw _privateConstructorUsedError;
+
+  /// 작성자 프로필 이미지 URL — `users` 조인으로 채워진다.
+  @JsonKey(name: 'author_avatar_url')
+  String? get authorAvatarUrl => throw _privateConstructorUsedError;
+
+  /// 공지에 달린 댓글 수 — `announcement_comments(count)` 집계로 채워진다.
+  @JsonKey(name: 'comment_count')
+  int get commentCount => throw _privateConstructorUsedError;
+
   /// Serializes this AnnouncementModel to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
@@ -64,6 +77,9 @@ abstract class $AnnouncementModelCopyWith<$Res> {
     @JsonKey(name: 'attachment_urls') List<String> attachmentUrls,
     @JsonKey(name: 'created_at') DateTime? createdAt,
     @JsonKey(name: 'updated_at') DateTime? updatedAt,
+    @JsonKey(name: 'author_name') String? authorName,
+    @JsonKey(name: 'author_avatar_url') String? authorAvatarUrl,
+    @JsonKey(name: 'comment_count') int commentCount,
   });
 }
 
@@ -91,6 +107,9 @@ class _$AnnouncementModelCopyWithImpl<$Res, $Val extends AnnouncementModel>
     Object? attachmentUrls = null,
     Object? createdAt = freezed,
     Object? updatedAt = freezed,
+    Object? authorName = freezed,
+    Object? authorAvatarUrl = freezed,
+    Object? commentCount = null,
   }) {
     return _then(
       _value.copyWith(
@@ -130,6 +149,18 @@ class _$AnnouncementModelCopyWithImpl<$Res, $Val extends AnnouncementModel>
                 ? _value.updatedAt
                 : updatedAt // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            authorName: freezed == authorName
+                ? _value.authorName
+                : authorName // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            authorAvatarUrl: freezed == authorAvatarUrl
+                ? _value.authorAvatarUrl
+                : authorAvatarUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            commentCount: null == commentCount
+                ? _value.commentCount
+                : commentCount // ignore: cast_nullable_to_non_nullable
+                      as int,
           )
           as $Val,
     );
@@ -155,6 +186,9 @@ abstract class _$$AnnouncementModelImplCopyWith<$Res>
     @JsonKey(name: 'attachment_urls') List<String> attachmentUrls,
     @JsonKey(name: 'created_at') DateTime? createdAt,
     @JsonKey(name: 'updated_at') DateTime? updatedAt,
+    @JsonKey(name: 'author_name') String? authorName,
+    @JsonKey(name: 'author_avatar_url') String? authorAvatarUrl,
+    @JsonKey(name: 'comment_count') int commentCount,
   });
 }
 
@@ -181,6 +215,9 @@ class __$$AnnouncementModelImplCopyWithImpl<$Res>
     Object? attachmentUrls = null,
     Object? createdAt = freezed,
     Object? updatedAt = freezed,
+    Object? authorName = freezed,
+    Object? authorAvatarUrl = freezed,
+    Object? commentCount = null,
   }) {
     return _then(
       _$AnnouncementModelImpl(
@@ -220,6 +257,18 @@ class __$$AnnouncementModelImplCopyWithImpl<$Res>
             ? _value.updatedAt
             : updatedAt // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        authorName: freezed == authorName
+            ? _value.authorName
+            : authorName // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        authorAvatarUrl: freezed == authorAvatarUrl
+            ? _value.authorAvatarUrl
+            : authorAvatarUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        commentCount: null == commentCount
+            ? _value.commentCount
+            : commentCount // ignore: cast_nullable_to_non_nullable
+                  as int,
       ),
     );
   }
@@ -239,6 +288,9 @@ class _$AnnouncementModelImpl implements _AnnouncementModel {
     final List<String> attachmentUrls = const [],
     @JsonKey(name: 'created_at') this.createdAt,
     @JsonKey(name: 'updated_at') this.updatedAt,
+    @JsonKey(name: 'author_name') this.authorName,
+    @JsonKey(name: 'author_avatar_url') this.authorAvatarUrl,
+    @JsonKey(name: 'comment_count') this.commentCount = 0,
   }) : _attachmentUrls = attachmentUrls;
 
   factory _$AnnouncementModelImpl.fromJson(Map<String, dynamic> json) =>
@@ -275,9 +327,25 @@ class _$AnnouncementModelImpl implements _AnnouncementModel {
   @JsonKey(name: 'updated_at')
   final DateTime? updatedAt;
 
+  /// 작성자 표시 이름 — `users` 조인으로 채워진다.
+  /// 작성자가 탈퇴/삭제된 경우 null.
+  @override
+  @JsonKey(name: 'author_name')
+  final String? authorName;
+
+  /// 작성자 프로필 이미지 URL — `users` 조인으로 채워진다.
+  @override
+  @JsonKey(name: 'author_avatar_url')
+  final String? authorAvatarUrl;
+
+  /// 공지에 달린 댓글 수 — `announcement_comments(count)` 집계로 채워진다.
+  @override
+  @JsonKey(name: 'comment_count')
+  final int commentCount;
+
   @override
   String toString() {
-    return 'AnnouncementModel(id: $id, teamId: $teamId, title: $title, content: $content, createdBy: $createdBy, isPinned: $isPinned, attachmentUrls: $attachmentUrls, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'AnnouncementModel(id: $id, teamId: $teamId, title: $title, content: $content, createdBy: $createdBy, isPinned: $isPinned, attachmentUrls: $attachmentUrls, createdAt: $createdAt, updatedAt: $updatedAt, authorName: $authorName, authorAvatarUrl: $authorAvatarUrl, commentCount: $commentCount)';
   }
 
   @override
@@ -300,7 +368,13 @@ class _$AnnouncementModelImpl implements _AnnouncementModel {
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
-                other.updatedAt == updatedAt));
+                other.updatedAt == updatedAt) &&
+            (identical(other.authorName, authorName) ||
+                other.authorName == authorName) &&
+            (identical(other.authorAvatarUrl, authorAvatarUrl) ||
+                other.authorAvatarUrl == authorAvatarUrl) &&
+            (identical(other.commentCount, commentCount) ||
+                other.commentCount == commentCount));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -316,6 +390,9 @@ class _$AnnouncementModelImpl implements _AnnouncementModel {
     const DeepCollectionEquality().hash(_attachmentUrls),
     createdAt,
     updatedAt,
+    authorName,
+    authorAvatarUrl,
+    commentCount,
   );
 
   /// Create a copy of AnnouncementModel
@@ -346,6 +423,9 @@ abstract class _AnnouncementModel implements AnnouncementModel {
     @JsonKey(name: 'attachment_urls') final List<String> attachmentUrls,
     @JsonKey(name: 'created_at') final DateTime? createdAt,
     @JsonKey(name: 'updated_at') final DateTime? updatedAt,
+    @JsonKey(name: 'author_name') final String? authorName,
+    @JsonKey(name: 'author_avatar_url') final String? authorAvatarUrl,
+    @JsonKey(name: 'comment_count') final int commentCount,
   }) = _$AnnouncementModelImpl;
 
   factory _AnnouncementModel.fromJson(Map<String, dynamic> json) =
@@ -375,6 +455,22 @@ abstract class _AnnouncementModel implements AnnouncementModel {
   @override
   @JsonKey(name: 'updated_at')
   DateTime? get updatedAt;
+
+  /// 작성자 표시 이름 — `users` 조인으로 채워진다.
+  /// 작성자가 탈퇴/삭제된 경우 null.
+  @override
+  @JsonKey(name: 'author_name')
+  String? get authorName;
+
+  /// 작성자 프로필 이미지 URL — `users` 조인으로 채워진다.
+  @override
+  @JsonKey(name: 'author_avatar_url')
+  String? get authorAvatarUrl;
+
+  /// 공지에 달린 댓글 수 — `announcement_comments(count)` 집계로 채워진다.
+  @override
+  @JsonKey(name: 'comment_count')
+  int get commentCount;
 
   /// Create a copy of AnnouncementModel
   /// with the given fields replaced by the non-null parameter values.

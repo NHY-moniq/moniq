@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/presentation/router/bottom_sheet_visibility_provider.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/app_typography.dart';
 
@@ -30,21 +32,32 @@ Future<T?> showMoniqBottomSheet<T>({
   String? eyebrow,
   bool isScrollControlled = true,
   bool useSafeArea = true,
-}) {
-  return showModalBottomSheet<T>(
-    context: context,
-    isScrollControlled: isScrollControlled,
-    useSafeArea: useSafeArea,
-    // ShellRoute의 BottomNavigation을 가리도록 root Navigator 사용
-    useRootNavigator: true,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.42),
-    builder: (ctx) => MoniqBottomSheetShell(
-      title: title,
-      eyebrow: eyebrow,
-      child: child,
-    ),
-  );
+}) async {
+  // Hide the app shell's floating bottom dock while the sheet is open so it
+  // does not bleed through the semi-transparent barrier. The counter is
+  // restored in `finally`, covering both normal dismissal and errors.
+  final notifier =
+      ProviderScope.containerOf(context, listen: false)
+          .read(bottomSheetCountProvider.notifier);
+  notifier.increment();
+  try {
+    return await showModalBottomSheet<T>(
+      context: context,
+      isScrollControlled: isScrollControlled,
+      useSafeArea: useSafeArea,
+      // ShellRoute의 BottomNavigation을 가리도록 root Navigator 사용
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.42),
+      builder: (ctx) => MoniqBottomSheetShell(
+        title: title,
+        eyebrow: eyebrow,
+        child: child,
+      ),
+    );
+  } finally {
+    notifier.decrement();
+  }
 }
 
 /// The visual shell used by [showMoniqBottomSheet].

@@ -28,14 +28,9 @@ class HomeScreen extends HookConsumerWidget {
     final displayName = userMeta?['display_name'] as String?;
     final avatarUrl = userMeta?['avatar_url'] as String?;
 
-    final firstName = (displayName == null || displayName.isEmpty)
-        ? 'YOU'
-        : displayName.split(' ').first.toUpperCase();
-
     PreferredSizeWidget buildAppBar() {
       return MoniqAppBar(
         title: 'OnorOff',
-        eyebrow: 'HELLO, $firstName',
         showBack: false,
         leading: GestureDetector(
           onTap: (avatarUrl != null && avatarUrl.isNotEmpty)

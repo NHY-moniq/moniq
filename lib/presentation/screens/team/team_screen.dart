@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/core/utils/team_icon_utils.dart';
+import 'package:moniq/data/models/personal_team_member_shift.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/schedule_providers.dart';
@@ -28,6 +29,8 @@ import 'package:moniq/presentation/screens/team/team_excel_import.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
+import 'package:moniq/presentation/screens/team/personal_team_calendar_widgets.dart';
+import 'package:moniq/presentation/viewmodels/personal_team_calendar_viewmodel.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 class TeamScreen extends HookConsumerWidget {
@@ -38,6 +41,7 @@ class TeamScreen extends HookConsumerWidget {
     // 두 provider 동시에 watch — 순차 로딩 없음
     final teamsAsync = ref.watch(teamViewModelProvider);
     final favoriteTeamAsync = ref.watch(favoriteTeamProvider);
+    final viewingTeamIdOverride = ref.watch(viewingTeamIdOverrideProvider);
 
     if (favoriteTeamAsync.isLoading) {
       return Scaffold(
@@ -82,7 +86,7 @@ class TeamScreen extends HookConsumerWidget {
     }
 
     // 즐겨찾기가 없으면 팀 목록이 필요함
-    if (teamsAsync.isLoading) {
+    if (favoriteTeam == null && teamsAsync.isLoading) {
       return Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
         appBar: AdaptiveLayout.isWide(context)
@@ -92,7 +96,7 @@ class TeamScreen extends HookConsumerWidget {
       );
     }
 
-    if (teamsAsync.hasError) {
+    if (favoriteTeam == null && teamsAsync.hasError) {
       return Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
         appBar: AdaptiveLayout.isWide(context)
@@ -105,7 +109,9 @@ class TeamScreen extends HookConsumerWidget {
       );
     }
 
-    final teams = teamsAsync.valueOrNull ?? [];
+    final teams =
+        teamsAsync.valueOrNull ??
+        (favoriteTeam != null ? [favoriteTeam] : <TeamModel>[]);
 
     if (teams.isEmpty) {
       return Scaffold(
@@ -175,26 +181,32 @@ class _NoFavoriteView extends HookConsumerWidget {
                   final team = teams[index];
                   final isPersonal = team.teamType == 'personal';
                   return ListTile(
-                    leading: TeamProfileAvatar(
-                      icon: team.icon,
-                      radius: 20,
-                    ),
+                    leading: TeamProfileAvatar(icon: team.icon, radius: 20),
                     title: Text(team.name),
                     subtitle: isPersonal
                         ? Text(
                             '개인',
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
                           )
                         : null,
                     trailing: isPersonal
                         ? null
                         : const Icon(Icons.star_outline),
                     onTap: () async {
-                      if (isPersonal) return;
+                      if (isPersonal) {
+                        ref.read(viewingTeamIdOverrideProvider.notifier).state =
+                            team.id;
+                        return;
+                      }
                       final teamRepo = ref.read(teamRepositoryProvider);
                       await teamRepo.setFavoriteTeam(team.id);
+                      ref.read(viewingTeamIdOverrideProvider.notifier).state =
+                          null;
                       ref.invalidate(favoriteTeamProvider);
                       ref.invalidate(teamViewModelProvider);
                     },
@@ -226,8 +238,7 @@ void _showTeamPickerSheet(
     // ShellRoute의 BottomNavigation을 가리도록 root Navigator 사용
     useRootNavigator: true,
     shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
     ),
     builder: (ctx) {
       final theme = Theme.of(ctx);
@@ -303,9 +314,9 @@ void _showTeamPickerSheet(
                           : () {
                               Navigator.pop(ctx);
                               ref
-                                  .read(viewingTeamIdOverrideProvider
-                                      .notifier)
-                                  .state = t.id;
+                                  .read(viewingTeamIdOverrideProvider.notifier)
+                                  .state = t
+                                  .id;
                             },
                     );
                   }
@@ -425,8 +436,9 @@ class _TeamPickerTile extends StatelessWidget {
     final cs = theme.colorScheme;
 
     // 비선택 행은 테두리 없이 plain — 선택된 행만 primary outline 강조
-    final bgColor =
-        selected ? cs.primary.withValues(alpha: 0.06) : Colors.transparent;
+    final bgColor = selected
+        ? cs.primary.withValues(alpha: 0.06)
+        : Colors.transparent;
 
     final titleColor = selected ? cs.primary : cs.onSurface;
     final titleWeight = selected ? FontWeight.w800 : FontWeight.w600;
@@ -440,9 +452,7 @@ class _TeamPickerTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(AppRadius.md),
-            border: selected
-                ? Border.all(color: cs.primary, width: 1.5)
-                : null,
+            border: selected ? Border.all(color: cs.primary, width: 1.5) : null,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(
@@ -466,11 +476,7 @@ class _TeamPickerTile extends StatelessWidget {
                 ),
                 if (isFavorite) ...[
                   const SizedBox(width: AppSpacing.sm),
-                  Icon(
-                    Icons.star_rounded,
-                    size: 16,
-                    color: cs.secondary,
-                  ),
+                  Icon(Icons.star_rounded, size: 16, color: cs.secondary),
                 ],
               ],
             ),
@@ -528,58 +534,28 @@ class _TeamCalendarView extends HookConsumerWidget {
                 padding: const EdgeInsets.only(left: AppSpacing.sm),
                 child: TeamProfileAvatar(icon: team.icon, radius: 16),
               ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  MoniqAppBarAction(
-                    icon: Icons.ios_share_outlined,
-                    onTap: () {
-                      final calState = calendarAsync.valueOrNull;
-                      if (calState == null) return;
-                      exportTeamCalendar(context, ref, calState);
-                    },
-                  ),
-                  if (isAdmin && kIsWeb && AdaptiveLayout.isWide(context))
-                    _ExcelImportMenuButton(teamId: team.id),
-                  if (isAdmin)
-                    MoniqAppBarAction(
-                      icon: Icons.delete_outline_rounded,
-                      tint: AppColors.error,
-                      onTap: () {
-                        final state = ref
-                            .read(teamDetailViewModelProvider(team.id))
-                            .valueOrNull;
-                        if (state == null) return;
-                        final scheduleRepo =
-                            ref.read(scheduleRepositoryProvider);
-                        showDeleteScheduleSheet(
-                          context: context,
-                          ref: ref,
-                          scheduleRepo: scheduleRepo,
-                          teamId: team.id,
-                          state: state,
-                        );
-                      },
-                    ),
-                  if (!AdaptiveLayout.isWide(context))
-                    Builder(
-                      builder: (ctx) => MoniqAppBarAction(
-                        icon: Icons.menu_rounded,
-                        onTap: () => Scaffold.of(ctx).openEndDrawer(),
-                      ),
-                    ),
-                ],
+            if (!AdaptiveLayout.isWide(context))
+              Builder(
+                builder: (ctx) => MoniqAppBarAction(
+                  icon: Icons.menu_rounded,
+                  onTap: () => Scaffold.of(ctx).openEndDrawer(),
+                ),
               ),
-            ),  // MoniqAppBar
+          ],
+        ),
+      ), // MoniqAppBar
       endDrawer: AdaptiveLayout.isWide(context)
           ? null
-          : _TeamDrawer(teams: teams, currentTeamId: team.id, scaffoldContext: context),
+          : _TeamDrawer(
+              teams: teams,
+              currentTeamId: team.id,
+              scaffoldContext: context,
+            ),
       body: calendarAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
           message: '캘린더를 불러올 수 없습니다',
-          onRetry: () =>
-              ref.invalidate(teamCalendarViewModelProvider(team.id)),
+          onRetry: () => ref.invalidate(teamCalendarViewModelProvider(team.id)),
         ),
         data: (state) => RefreshIndicator(
           onRefresh: () => ref
@@ -728,14 +704,85 @@ class _TeamCalendarView extends HookConsumerWidget {
                                   .surface,
                             ),
                           ),
+                        )
+                        .toList();
+                  })(),
+                  focusedDay: state.focusedMonth,
+                  selectedDay: state.selectedDate,
+                  startingDayOfWeek: startingDay,
+                  calendarFormat: state.viewMode == CalendarViewMode.month
+                      ? CalendarFormat.month
+                      : CalendarFormat.week,
+                  onDaySelected: (selected, focused) {
+                    ref
+                        .read(teamCalendarViewModelProvider(team.id).notifier)
+                        .selectDate(selected);
+                  },
+                  onPageChanged: (focused) {
+                    ref
+                        .read(teamCalendarViewModelProvider(team.id).notifier)
+                        .changeMonth(focused);
+                  },
+                  eventLoader: (day) {
+                    final key = DateTime(day.year, day.month, day.day);
+                    return state.monthlyShifts[key] ?? [];
+                  },
+                  markerBuilder: (context, day, events) {
+                    if (events.isEmpty) return null;
+                    final shifts = events.cast<ShiftWithType>();
+                    // 근무유형별 인원수 집계 (교육은 동그라미 표시에서 제외)
+                    final typeCount = <String, _ShiftTypeInfo>{};
+                    for (final s in shifts) {
+                      if (_isEducation(s.shiftType.code, s.shiftType.name)) {
+                        continue;
+                      }
+                      final key = s.shiftType.id;
+                      typeCount.putIfAbsent(
+                        key,
+                        () => _ShiftTypeInfo(
+                          code: s.shiftType.code,
+                          name: s.shiftType.name,
+                          color: s.shiftType.color,
+                          count: 0,
                         ),
                       );
-                    }).toList(),
-                  );
-                },
-              ),
+                      typeCount[key]!.count++;
+                    }
+                    if (typeCount.isEmpty) return null;
+                    // 데이 > 이브닝 > 나이트 > 기타(원래순) 순서로 정렬
+                    final sorted = typeCount.values.toList()
+                      ..sort(
+                        (a, b) => _shiftSortKey(a).compareTo(_shiftSortKey(b)),
+                      );
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: sorted.take(3).map((info) {
+                        final color = parseHexColor(info.color);
+                        return Container(
+                          width: 12,
+                          height: 12,
+                          margin: const EdgeInsets.symmetric(horizontal: 0.5),
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${info.count}',
+                              style: TextStyle(
+                                fontSize: 6,
+                                fontWeight: FontWeight.w700,
+                                color: Theme.of(context).colorScheme.surface,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
 
-              const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.sm),
 
               // Roster panel — 펼친 상태에서 패널 빈 영역 더블탭 시 접기.
               GestureDetector(
@@ -771,6 +818,164 @@ class _TeamCalendarView extends HookConsumerWidget {
   }
 }
 
+class _PersonalTeamCalendarView extends HookConsumerWidget {
+  const _PersonalTeamCalendarView({required this.team, required this.teams});
+
+  final TeamModel team;
+  final List<TeamModel> teams;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stateAsync = ref.watch(
+      personalTeamCalendarViewModelProvider(team.id),
+    );
+    final calendarStartDay = ref.watch(calendarStartDayProvider);
+    final startingDay = calendarStartDay == 'sunday'
+        ? StartingDayOfWeek.sunday
+        : StartingDayOfWeek.monday;
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+      appBar: MoniqAppBar(
+        title: team.name,
+        eyebrow: 'TEAM',
+        showBack: false,
+        onTitleTap: teams.length > 1
+            ? () => _showTeamPickerSheet(
+                context,
+                ref: ref,
+                teams: teams,
+                currentTeamId: team.id,
+                favoriteTeamId: ref.read(favoriteTeamProvider).valueOrNull?.id,
+              )
+            : null,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: AppSpacing.sm),
+          child: TeamProfileAvatar(icon: team.icon, radius: 16),
+        ),
+        trailing: !AdaptiveLayout.isWide(context)
+            ? Builder(
+                builder: (ctx) => MoniqAppBarAction(
+                  icon: Icons.menu_rounded,
+                  onTap: () => Scaffold.of(ctx).openEndDrawer(),
+                ),
+              )
+            : null,
+      ),
+      endDrawer: AdaptiveLayout.isWide(context)
+          ? null
+          : _TeamDrawer(
+              teams: teams,
+              currentTeamId: team.id,
+              scaffoldContext: context,
+            ),
+      body: stateAsync.when(
+        loading: () => const MoniqLoadingView(),
+        error: (e, _) => MoniqErrorView(
+          message: '개인 팀 캘린더를 불러올 수 없습니다',
+          onRetry: () =>
+              ref.invalidate(personalTeamCalendarViewModelProvider(team.id)),
+        ),
+        data: (state) {
+          final vm = ref.read(
+            personalTeamCalendarViewModelProvider(team.id).notifier,
+          );
+          return RefreshIndicator(
+            onRefresh: () async =>
+                ref.invalidate(personalTeamCalendarViewModelProvider(team.id)),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: AppSpacing.sm),
+                  MoniqCalendar(
+                    rowHeight: 80,
+                    viewMode: state.viewMode,
+                    onViewModeChanged: vm.setViewMode,
+                    calendarFormat: state.viewMode == CalendarViewMode.month
+                        ? CalendarFormat.month
+                        : CalendarFormat.week,
+                    focusedDay: state.focusedMonth,
+                    selectedDay: state.selectedDate,
+                    startingDayOfWeek: startingDay,
+                    legendItems: const [
+                      (color: personalShiftDayColor, label: 'D'),
+                      (color: personalShiftEveningColor, label: 'E'),
+                      (color: personalShiftNightColor, label: 'N'),
+                    ],
+                    onDaySelected: (selected, _) => vm.selectDate(selected),
+                    onPageChanged: (focused) => vm.changeMonth(focused),
+                    eventLoader: (day) {
+                      final key = DateTime(day.year, day.month, day.day);
+                      return state.monthlyData[key] ?? [];
+                    },
+                    markerBuilder: (context, _, events) {
+                      if (events.isEmpty) return null;
+                      final shifts = events.cast<PersonalMemberShift>();
+                      final typeCount = <String, int>{};
+                      for (final shift in shifts) {
+                        final denCode = personalShiftDenCode(shift);
+                        if (denCode == null) continue;
+                        typeCount[denCode] = (typeCount[denCode] ?? 0) + 1;
+                      }
+                      if (typeCount.isEmpty) return null;
+
+                      final sortedCodes = typeCount.keys.toList()
+                        ..sort(
+                          (a, b) => personalShiftDenSortKey(
+                            a,
+                          ).compareTo(personalShiftDenSortKey(b)),
+                        );
+
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: sortedCodes.take(3).map((code) {
+                          final color = personalShiftColorByCode(code);
+                          final count = typeCount[code]!;
+                          return Container(
+                            width: 12,
+                            height: 12,
+                            margin: const EdgeInsets.symmetric(horizontal: 0.5),
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '$count',
+                                style: TextStyle(
+                                  fontSize: 6,
+                                  fontWeight: FontWeight.w700,
+                                  color: Theme.of(context).colorScheme.surface,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Padding(
+                    padding: AppSpacing.screenHorizontal,
+                    child: PersonalDayDetailPanel(
+                      date: state.selectedDate,
+                      shifts: state.shiftsForDate(state.selectedDate),
+                      members: state.members,
+                    ),
+                  ),
+                  const SizedBox(height: 100),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 /// 우측 Drawer — 팀 메뉴
 class _TeamDrawer extends HookConsumerWidget {
   const _TeamDrawer({
@@ -786,9 +991,8 @@ class _TeamDrawer extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final currentTeam = teams.firstWhere(
-      (t) => t.id == currentTeamId,
-    );
+    final currentTeam = teams.firstWhere((t) => t.id == currentTeamId);
+    final isPersonalTeam = currentTeam.teamType == 'personal';
 
     final cs = theme.colorScheme;
 
@@ -880,22 +1084,33 @@ class _TeamDrawer extends HookConsumerWidget {
                       context.push('/teams/$currentTeamId/announcements');
                     },
                   ),
-                  _TeamDrawerNavItem(
-                    icon: Icons.edit_calendar_outlined,
-                    label: '원티드 입력',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/teams/$currentTeamId/wanted/entry');
-                    },
-                  ),
-                  _TeamDrawerNavItem(
-                    icon: Icons.swap_horiz,
-                    label: '근무 변경 요청',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/teams/$currentTeamId/requests');
-                    },
-                  ),
+                  if (isPersonalTeam)
+                    _TeamDrawerNavItem(
+                      icon: Icons.calendar_today_outlined,
+                      label: '멤버 근무 현황',
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/teams/$currentTeamId/personal-calendar');
+                      },
+                    ),
+                  if (!isPersonalTeam) ...[
+                    _TeamDrawerNavItem(
+                      icon: Icons.edit_calendar_outlined,
+                      label: '원티드 입력',
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/teams/$currentTeamId/wanted/entry');
+                      },
+                    ),
+                    _TeamDrawerNavItem(
+                      icon: Icons.swap_horiz,
+                      label: '근무 변경 요청',
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/teams/$currentTeamId/requests');
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -953,9 +1168,9 @@ class _TeamDrawerNavItem extends StatelessWidget {
                   child: Text(
                     label,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: cs.onSurfaceVariant,
-                        ),
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ),
                 if (badge != null)
@@ -971,9 +1186,9 @@ class _TeamDrawerNavItem extends StatelessWidget {
                     child: Text(
                       badge!,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: cs.onPrimaryContainer,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        color: cs.onPrimaryContainer,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
               ],
@@ -1024,7 +1239,9 @@ int _legendSortKey(String code, String name) {
   if (c == 'E' || name.contains('이브닝') || name.toLowerCase().contains('eve')) {
     return 1;
   }
-  if (c == 'N' || name.contains('나이트') || name.toLowerCase().contains('night')) {
+  if (c == 'N' ||
+      name.contains('나이트') ||
+      name.toLowerCase().contains('night')) {
     return 2;
   }
   return 3;
@@ -1066,11 +1283,7 @@ class _ExcelImportMenuButton extends ConsumerWidget {
             teamRepo: teamRepo,
           );
         } else if (value == 'sample') {
-          exportSampleTemplate(
-            context,
-            shiftRepo: shiftRepo,
-            teamId: teamId,
-          );
+          exportSampleTemplate(context, shiftRepo: shiftRepo, teamId: teamId);
         }
       },
       itemBuilder: (_) => const [

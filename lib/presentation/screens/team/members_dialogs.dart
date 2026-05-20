@@ -4,6 +4,7 @@ import 'package:moniq/data/models/team_member_with_user.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
 // ── 숙련도 옵션 ──
 
@@ -147,21 +148,39 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
   }
 
   String _attrConflictMessage(String code) {
-    if (_nightDedicated && code != 'N') return '나이트 전담 속성으로 데이·이브닝 선호를 설정할 수 없습니다';
-    if (_dayOnly && code != 'D') return '데이 전담 속성으로 이브닝·나이트 선호를 설정할 수 없습니다';
-    if (_nightExempt && code == 'N') return '나이트 제외 속성으로 나이트 선호를 설정할 수 없습니다';
+    if (_nightDedicated && code != 'N') {
+      return '나이트 전담 속성으로 데이·이브닝 선호를 설정할 수 없습니다';
+    }
+    if (_dayOnly && code != 'D') {
+      return '데이 전담 속성으로 이브닝·나이트 선호를 설정할 수 없습니다';
+    }
+    if (_nightExempt && code == 'N') {
+      return '나이트 제외 속성으로 나이트 선호를 설정할 수 없습니다';
+    }
     return '근무 속성과 충돌하는 선호 근무입니다';
   }
 
   Future<void> _changeRole() async {
     final m = widget.member;
     final newRole = m.role == 'admin' ? 'member' : 'admin';
-    final adminCount =
-        widget.state.members.where((x) => x.role == 'admin').length;
+    final adminCount = widget.state.members
+        .where((x) => x.role == 'admin')
+        .length;
     if (m.role == 'admin' && adminCount <= 1) {
       _showError('관리자가 1명만 남아 있어 역할을 변경할 수 없습니다.');
       return;
     }
+
+    final nextRoleLabel = newRole == 'admin' ? '관리자' : '일반 멤버';
+    final confirmTitle = newRole == 'admin' ? '관리자로 변경' : '관리자 권한 해제';
+    final confirmLabel = newRole == 'admin' ? '변경' : '해제';
+    final ok = await showMoniqConfirmSheet(
+      context: context,
+      title: confirmTitle,
+      message: '${m.displayName}님의 역할을 $nextRoleLabel로 변경하시겠습니까?',
+      confirmLabel: confirmLabel,
+    );
+    if (!ok || !mounted) return;
 
     setState(() => _saving = true);
     try {
@@ -192,43 +211,23 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
     }
   }
 
-  void _confirmRemove() {
-    showDialog(
+  Future<void> _confirmRemove() async {
+    final ok = await showMoniqConfirmSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('멤버 제거'),
-        content:
-            Text('${widget.member.displayName}님을 팀에서 제거하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              if (mounted) Navigator.pop(context);
-              await ref
-                  .read(teamDetailViewModelProvider(widget.teamId).notifier)
-                  .removeMember(widget.member.userId);
-            },
-            child: Text(
-              '제거',
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ),
-        ],
-      ),
+      title: '멤버 제거',
+      message: '${widget.member.displayName}님을 팀에서 제거하시겠습니까?',
+      confirmLabel: '제거',
+      destructive: true,
     );
+    if (!ok) return;
+    if (mounted) Navigator.pop(context);
+    await ref
+        .read(teamDetailViewModelProvider(widget.teamId).notifier)
+        .removeMember(widget.member.userId);
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
-      ),
-    );
+    showMoniqInfoSheet(context: context, title: '안내', message: message);
   }
 
   @override
@@ -404,16 +403,16 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
                           color: isSelected
                               ? meta.color
                               : isAllowed
-                                  ? colorScheme.onSurface
-                                  : colorScheme.onSurface
-                                      .withValues(alpha: 0.35),
+                              ? colorScheme.onSurface
+                              : colorScheme.onSurface.withValues(alpha: 0.35),
                           fontWeight: isSelected ? FontWeight.w700 : null,
                         ),
                         side: BorderSide(
                           color: isSelected
                               ? meta.color.withValues(alpha: 0.6)
-                              : colorScheme.outline
-                                  .withValues(alpha: isAllowed ? 0.5 : 0.2),
+                              : colorScheme.outline.withValues(
+                                  alpha: isAllowed ? 0.5 : 0.2,
+                                ),
                         ),
                       );
                     }).toList(),
@@ -437,7 +436,8 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: colorScheme.error,
                     side: BorderSide(
-                        color: colorScheme.error.withValues(alpha: 0.4)),
+                      color: colorScheme.error.withValues(alpha: 0.4),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
@@ -474,9 +474,7 @@ class _MemberHeader extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        border: Border(
-          bottom: BorderSide(color: colorScheme.outlineVariant),
-        ),
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -497,99 +495,116 @@ class _MemberHeader extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg, AppSpacing.xs, AppSpacing.lg, AppSpacing.md),
+              AppSpacing.lg,
+              AppSpacing.xs,
+              AppSpacing.lg,
+              AppSpacing.md,
+            ),
             child: Row(
-        children: [
-          // 아바타
-          Stack(
-            children: [
-              CircleAvatar(
-                radius: 30,
-                backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                backgroundImage: member.user.avatarUrl != null
-                    ? NetworkImage(member.user.avatarUrl!)
-                    : null,
-                child: member.user.avatarUrl == null
-                    ? Text(
-                        initial,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: AppColors.onPrimaryContainer,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      )
-                    : null,
-              ),
-              // 관리자 뱃지
-              if (isAdmin)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: colorScheme.surfaceContainerLow, width: 2),
-                    ),
-                    child: const Icon(Icons.star_rounded,
-                        size: 11, color: AppColors.onPrimary),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                // 아바타
+                Stack(
                   children: [
-                    Flexible(
-                      child: Text(
-                        member.displayName,
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: AppColors.primary.withValues(
+                        alpha: 0.15,
                       ),
+                      backgroundImage: member.user.avatarUrl != null
+                          ? NetworkImage(member.user.avatarUrl!)
+                          : null,
+                      child: member.user.avatarUrl == null
+                          ? Text(
+                              initial,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                color: AppColors.onPrimaryContainer,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            )
+                          : null,
                     ),
-                    if (isSelf) ...[
-                      const SizedBox(width: AppSpacing.xs),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary.withValues(alpha: 0.1),
-                          borderRadius:
-                              BorderRadius.circular(AppRadius.full),
-                        ),
-                        child: Text(
-                          '나',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w600,
+                    // 관리자 뱃지
+                    if (isAdmin)
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: colorScheme.surfaceContainerLow,
+                              width: 2,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.star_rounded,
+                            size: 11,
+                            color: AppColors.onPrimary,
                           ),
                         ),
                       ),
-                    ],
                   ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  member.user.email,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              member.displayName,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          if (isSelf) ...[
+                            const SizedBox(width: AppSpacing.xs),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary.withValues(
+                                  alpha: 0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.full,
+                                ),
+                              ),
+                              child: Text(
+                                '나',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        member.user.email,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-            ),  // Row
-          ),    // Padding
-        ],      // Column children
-      ),        // Column
-    );          // Container
+            ), // Row
+          ), // Padding
+        ], // Column children
+      ), // Column
+    ); // Container
   }
 }
 
@@ -614,14 +629,18 @@ class _RoleCard extends StatelessWidget {
     final isAdmin = role == 'admin';
     final currentLabel = isAdmin ? '관리자' : '일반 멤버';
     final nextLabel = isAdmin ? '일반 멤버로 변경' : '관리자로 변경';
-    final roleColor = isAdmin ? AppColors.primary : colorScheme.onSurfaceVariant;
+    final roleColor = isAdmin
+        ? AppColors.primary
+        : colorScheme.onSurfaceVariant;
 
     return InkWell(
       onTap: saving ? null : onTap,
       borderRadius: BorderRadius.circular(AppRadius.sm),
       child: Container(
         padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md, vertical: AppSpacing.md),
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
         decoration: BoxDecoration(
           color: colorScheme.surface,
           borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -655,8 +674,9 @@ class _RoleCard extends StatelessWidget {
                   ),
                   Text(
                     currentLabel,
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(fontWeight: FontWeight.w600),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -669,8 +689,11 @@ class _RoleCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.xs),
-            Icon(Icons.swap_horiz_rounded,
-                size: 16, color: colorScheme.primary),
+            Icon(
+              Icons.swap_horiz_rounded,
+              size: 16,
+              color: colorScheme.primary,
+            ),
           ],
         ),
       ),
@@ -721,7 +744,9 @@ class _SkillSelector extends StatelessWidget {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md, vertical: AppSpacing.md),
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.md,
+              ),
               decoration: BoxDecoration(
                 color: isSelected
                     ? color.withValues(alpha: 0.08)
@@ -730,7 +755,10 @@ class _SkillSelector extends StatelessWidget {
                     ? null
                     : Border(
                         bottom: BorderSide(
-                            color: colorScheme.outlineVariant, width: 0.5)),
+                          color: colorScheme.outlineVariant,
+                          width: 0.5,
+                        ),
+                      ),
               ),
               child: Row(
                 children: [
@@ -740,9 +768,7 @@ class _SkillSelector extends StatelessWidget {
                     width: 4,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? color
-                          : Colors.transparent,
+                      color: isSelected ? color : Colors.transparent,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -757,9 +783,7 @@ class _SkillSelector extends StatelessWidget {
                             fontWeight: isSelected
                                 ? FontWeight.w700
                                 : FontWeight.w500,
-                            color: isSelected
-                                ? color
-                                : colorScheme.onSurface,
+                            color: isSelected ? color : colorScheme.onSurface,
                           ),
                         ),
                         Text(
@@ -772,12 +796,13 @@ class _SkillSelector extends StatelessWidget {
                     ),
                   ),
                   if (isSelected)
-                    Icon(Icons.check_circle_rounded,
-                        size: 18, color: color)
+                    Icon(Icons.check_circle_rounded, size: 18, color: color)
                   else
-                    Icon(Icons.radio_button_unchecked,
-                        size: 18,
-                        color: colorScheme.outlineVariant),
+                    Icon(
+                      Icons.radio_button_unchecked,
+                      size: 18,
+                      color: colorScheme.outlineVariant,
+                    ),
                 ],
               ),
             ),
@@ -815,12 +840,16 @@ class _AttrToggleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final effectiveColor = disabled ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4) : color;
+    final effectiveColor = disabled
+        ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
+        : color;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.md),
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.md,
+      ),
       decoration: BoxDecoration(
         color: value && !disabled
             ? color.withValues(alpha: 0.07)
@@ -907,4 +936,3 @@ class _SectionLabel extends StatelessWidget {
     );
   }
 }
-

@@ -7,16 +7,18 @@ import 'package:moniq/data/providers/custom_rule_providers.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 
 // ──────────────────────────────────────────────
 // Providers (package-visible for screen)
 // ──────────────────────────────────────────────
 
-final customRulesProvider =
-    FutureProvider.autoDispose.family<List<CustomRuleModel>, String>(
-  (ref, teamId) => ref.watch(customRuleRepositoryProvider).fetchRules(teamId),
-);
+final customRulesProvider = FutureProvider.autoDispose
+    .family<List<CustomRuleModel>, String>(
+      (ref, teamId) =>
+          ref.watch(customRuleRepositoryProvider).fetchRules(teamId),
+    );
 
 // ──────────────────────────────────────────────
 // Body
@@ -42,9 +44,7 @@ class CustomRulesBody extends ConsumerWidget {
       children: [
         Expanded(
           child: rules.isEmpty
-              ? CustomRulesEmptyState(
-                  onAdd: () => _showAddSheet(context, ref),
-                )
+              ? CustomRulesEmptyState(onAdd: () => _showAddSheet(context, ref))
               : ListView.separated(
                   padding: const EdgeInsets.all(AppSpacing.md),
                   itemCount: rules.length,
@@ -61,11 +61,15 @@ class CustomRulesBody extends ConsumerWidget {
                     onTogglePriority: rules[i].ruleType == 'freeform'
                         ? null
                         : () async {
-                            final newPriority =
-                                rules[i].priority == 'hard' ? 'soft' : 'hard';
+                            final newPriority = rules[i].priority == 'hard'
+                                ? 'soft'
+                                : 'hard';
                             await ref
                                 .read(customRuleRepositoryProvider)
-                                .updatePriority(rules[i].id, priority: newPriority);
+                                .updatePriority(
+                                  rules[i].id,
+                                  priority: newPriority,
+                                );
                             ref.invalidate(customRulesProvider(teamId));
                           },
                     onDelete: () async {
@@ -124,27 +128,13 @@ class CustomRulesBody extends ConsumerWidget {
 // ──────────────────────────────────────────────
 
 Future<bool> confirmDeleteRule(BuildContext context) async {
-  return await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('규칙 삭제'),
-          content: const Text('이 규칙을 삭제하시겠습니까?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.error,
-              ),
-              child: const Text('삭제'),
-            ),
-          ],
-        ),
-      ) ??
-      false;
+  return showMoniqConfirmSheet(
+    context: context,
+    title: '규칙 삭제',
+    message: '이 규칙을 삭제하시겠습니까?',
+    confirmLabel: '삭제',
+    destructive: true,
+  );
 }
 
 // ──────────────────────────────────────────────
@@ -192,8 +182,8 @@ class CustomRuleCard extends StatelessWidget {
           color: !rule.isActive
               ? AppColors.outline
               : isHard
-                  ? AppColors.error
-                  : AppColors.secondary,
+              ? AppColors.error
+              : AppColors.secondary,
           size: 22,
         ),
         title: Text(
@@ -278,9 +268,9 @@ class CustomRuleTypeBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppColors.onSurfaceVariant,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(color: AppColors.onSurfaceVariant),
       ),
     );
   }
@@ -308,10 +298,7 @@ class CustomRuleTypeBadge extends StatelessWidget {
 }
 
 class _PriorityToggle extends StatelessWidget {
-  const _PriorityToggle({
-    required this.priority,
-    this.onToggle,
-  });
+  const _PriorityToggle({required this.priority, this.onToggle});
 
   final String priority;
   final VoidCallback? onToggle; // null = freeform (비활성)
@@ -332,8 +319,8 @@ class _PriorityToggle extends StatelessWidget {
             color: isFreeform
                 ? theme.colorScheme.outline.withValues(alpha: 0.3)
                 : isSoft
-                    ? theme.colorScheme.secondary
-                    : AppColors.error,
+                ? theme.colorScheme.secondary
+                : AppColors.error,
             width: 1.5,
           ),
         ),
@@ -351,8 +338,8 @@ class _PriorityToggle extends StatelessWidget {
               color: isFreeform
                   ? theme.colorScheme.outline.withValues(alpha: 0.3)
                   : isSoft
-                      ? theme.colorScheme.secondary
-                      : AppColors.error,
+                  ? theme.colorScheme.secondary
+                  : AppColors.error,
             ),
             _Segment(
               label: '하드',
@@ -496,11 +483,14 @@ class _CustomRuleAddSheetState extends ConsumerState<CustomRuleAddSheet> {
 
       final ruleType = data['rule_type'] as String? ?? 'freeform';
       final ruleValue =
-          (data['rule_value'] as Map<String, dynamic>?) ?? {'description': text};
+          (data['rule_value'] as Map<String, dynamic>?) ??
+          {'description': text};
       final parsedDsl = data['parsed_dsl'] as Map<String, dynamic>?;
       final priority = data['priority'] as String? ?? 'soft';
 
-      await ref.read(customRuleRepositoryProvider).addRule(
+      await ref
+          .read(customRuleRepositoryProvider)
+          .addRule(
             teamId: widget.teamId,
             ruleType: ruleType,
             ruleValue: ruleValue,
@@ -550,8 +540,9 @@ class _CustomRuleAddSheetState extends ConsumerState<CustomRuleAddSheet> {
             const SizedBox(height: AppSpacing.xs),
             Text(
               '자연어로 입력하면 AI가 자동으로 분석합니다.',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: AppColors.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
             ),
 
             const SizedBox(height: AppSpacing.md),
@@ -605,8 +596,9 @@ class _CustomRuleAddSheetState extends ConsumerState<CustomRuleAddSheet> {
                 ),
                 child: Text(
                   _error!,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: AppColors.error),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.error,
+                  ),
                 ),
               ),
             ],

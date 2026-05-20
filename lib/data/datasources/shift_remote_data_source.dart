@@ -9,6 +9,7 @@ class ShiftRemoteDataSource {
   ShiftRemoteDataSource({required SupabaseClient client}) : _client = client;
 
   final SupabaseClient _client;
+  static const Set<String> _protectedDefaultCodes = {'D', 'E', 'N', 'ED'};
 
   String? get _userId => _client.auth.currentUser?.id;
 
@@ -114,8 +115,7 @@ class ShiftRemoteDataSource {
         final row = raw as Map<String, dynamic>;
         final pStart = row['period_start']?.toString() ?? '';
         final pEnd = row['period_end']?.toString() ?? '';
-        if (dateStr.compareTo(pStart) < 0 ||
-            dateStr.compareTo(pEnd) > 0) {
+        if (dateStr.compareTo(pStart) < 0 || dateStr.compareTo(pEnd) > 0) {
           continue;
         }
         final version = (row['version_no'] as num?)?.toInt() ?? 0;
@@ -149,20 +149,23 @@ class ShiftRemoteDataSource {
     required String teamId,
     required DateTime date,
     required String shiftTypeId,
+    bool excludeSelf = true,
   }) async {
     if (_userId == null) return [];
-    final dateStr = _dateStr(date);
 
-    final shiftRows = await _client
-        .from('shifts')
-        .select('user_id')
-        .eq('team_id', teamId)
-        .eq('shift_date', dateStr)
-        .eq('shift_type_id', shiftTypeId)
-        .neq('user_id', _userId!);
+    // getTeamShifts로 발행 버전(owner schedule) 필터된 시프트만 사용한다.
+    // shifts 테이블을 직접 조회하면 이전 버전 schedule의 시프트까지 섞여
+    // OFF로 바뀐 사람이 근무자로 잘못 노출된다.
+    final teamShifts = await getTeamShifts(
+      teamId: teamId,
+      start: date,
+      end: date,
+    );
 
-    final userIds = (shiftRows as List)
-        .map((r) => r['user_id'] as String)
+    final userIds = teamShifts
+        .where((s) => s.shiftTypeId == shiftTypeId)
+        .map((s) => s.userId)
+        .where((uid) => !excludeSelf || uid != _userId)
         .toSet()
         .toList();
 
@@ -357,6 +360,17 @@ class ShiftRemoteDataSource {
 
   /// 근무 유형 삭제. 해당 유형으로 배정된 근무가 있으면 삭제 불가 예외.
   Future<void> deleteShiftType(String id) async {
+    final shiftType = await _client
+        .from('shift_types')
+        .select('code')
+        .eq('id', id)
+        .maybeSingle();
+
+    final code = (shiftType?['code'] as String?)?.trim().toUpperCase();
+    if (code != null && _protectedDefaultCodes.contains(code)) {
+      throw Exception('데이/이브닝/나이트/교육 기본 근무 유형은 삭제할 수 없습니다.');
+    }
+
     final referenced = await _client
         .from('shifts')
         .select('id')
