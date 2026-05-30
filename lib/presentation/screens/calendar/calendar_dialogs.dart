@@ -33,127 +33,145 @@ String formatTime(TimeOfDay time) =>
 void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
   final shiftTypes = ref.read(personalShiftTypesProvider);
 
-  showModalBottomSheet(
+  showMoniqBottomSheet<void>(
     context: context,
-    useRootNavigator: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-    ),
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-              decoration: BoxDecoration(
-                color: Theme.of(ctx).colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // 근무 일정 빠른 추가 (근무 유형 칩) — 하루 최대 1개
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: Builder(
-                builder: (innerCtx) {
-                  final existingEvents = ref.read(dateEventsProvider(date));
-                  final hasShift = existingEvents.any((e) =>
-                      shiftTypes.any((st) =>
-                          st.name == e.title && st.color == e.color));
+    title: '추가하기',
+    child: Builder(
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        final existingEvents = ref.read(dateEventsProvider(date));
+        final hasShift = existingEvents.any((e) => shiftTypes
+            .any((st) => st.name == e.title && st.color == e.color));
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('근무 일정 추가',
-                          style: Theme.of(ctx)
-                              .textTheme
-                              .titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w600)),
-                      if (hasShift) ...[
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          '이미 등록된 근무가 있습니다 (1일 1개)',
-                          style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                                color: AppColors.error,
-                              ),
-                        ),
-                      ],
-                      const SizedBox(height: AppSpacing.sm),
-                      Opacity(
-                        opacity: hasShift ? 0.4 : 1.0,
-                        child: Wrap(
-                          spacing: AppSpacing.sm,
-                          runSpacing: AppSpacing.sm,
-                          children: shiftTypes.map((st) {
-                            final color = parseHexColor(st.color);
-                            return ActionChip(
-                              avatar: CircleAvatar(
-                                backgroundColor: color,
-                                radius: 8,
-                              ),
-                              label: Text(st.name),
-                              onPressed: hasShift
-                                  ? null
-                                  : () {
-                                      Navigator.pop(ctx);
-                                      addShiftEvent(ref, date, st);
-                                    },
-                            );
-                          }).toList(),
-                        ),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── 근무 일정 빠른 추가 (근무 유형 칩) — 하루 최대 1개 ──
+            if (shiftTypes.isNotEmpty) ...[
+              Text(
+                '근무 일정 추가',
+                style: Theme.of(ctx).textTheme.labelLarge?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              if (hasShift) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '이미 등록된 근무가 있어요 (하루 1개)',
+                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
-                    ],
-                  );
-                },
-              ),
-            ),
-            const Divider(height: AppSpacing.xxl),
-            ListTile(
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.12),
-                  borderRadius: AppRadius.borderRadiusMd,
                 ),
-                child:
-                    const Icon(Icons.event, color: AppColors.success),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              Opacity(
+                opacity: hasShift ? 0.4 : 1.0,
+                child: Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: shiftTypes.map((st) {
+                    final color = parseHexColor(st.color);
+                    return _ShiftQuickChip(
+                      color: color,
+                      label: st.name,
+                      onTap: hasShift
+                          ? null
+                          : () {
+                              Navigator.pop(ctx);
+                              addShiftEvent(ref, date, st);
+                            },
+                    );
+                  }).toList(),
+                ),
               ),
-              title: const Text('일정 추가'),
-              subtitle: const Text('시간, 색상, 설명을 포함한 일정'),
+              const SizedBox(height: AppSpacing.xl),
+              Divider(height: 1, color: cs.outlineVariant),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+            // ── 일정 추가 ──
+            MoniqSheetOption(
+              icon: Icons.event,
+              label: '일정 추가',
+              description: '시간, 색상, 설명을 포함한 일정',
+              accentColor: AppColors.success,
+              trailing: const SizedBox.shrink(),
               onTap: () {
                 Navigator.pop(ctx);
                 showEventForm(context, ref, date, null, null);
               },
             ),
-            ListTile(
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Theme.of(ctx).colorScheme.tertiary.withValues(alpha: 0.12),
-                  borderRadius: AppRadius.borderRadiusMd,
-                ),
-                child: Icon(Icons.edit_note,
-                    color: Theme.of(ctx).colorScheme.tertiary),
-              ),
-              title: const Text('메모 추가'),
-              subtitle: const Text('간단한 텍스트 메모'),
+            // ── 메모 추가 ──
+            MoniqSheetOption(
+              icon: Icons.edit_note,
+              label: '메모 추가',
+              description: '간단한 텍스트 메모',
+              accentColor: cs.tertiary,
+              trailing: const SizedBox.shrink(),
               onTap: () {
                 Navigator.pop(ctx);
                 showNoteForm(context, ref, date, null, null);
               },
             ),
           ],
-        ),
-      ),
+        );
+      },
     ),
   );
+}
+
+/// 근무 유형 빠른 선택 칩 — 색 점 + 이름. 흰색 셸 위에서 단정한 톤.
+class _ShiftQuickChip extends StatelessWidget {
+  const _ShiftQuickChip({
+    required this.color,
+    required this.label,
+    required this.onTap,
+  });
+
+  final Color color;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surfaceContainerHighest,
+      borderRadius: AppRadius.borderRadiusFull,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.borderRadiusFull,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// 근무 유형으로 빠르게 일정 추가

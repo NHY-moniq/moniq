@@ -78,10 +78,13 @@ class MoniqBottomSheetShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final viewInsets = MediaQuery.of(context).viewInsets;
+    // 내용이 적어도 시트가 너무 납작해지지 않도록 최소 높이를 보장한다.
+    final minHeight = MediaQuery.of(context).size.height * 0.28;
 
     return Padding(
       padding: viewInsets,
       child: Container(
+        constraints: BoxConstraints(minHeight: minHeight),
         decoration: BoxDecoration(
           color: cs.surfaceContainerLowest,
           borderRadius: const BorderRadius.vertical(

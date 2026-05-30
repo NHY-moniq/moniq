@@ -24,6 +24,7 @@ import 'calendar_dialogs.dart';
 import 'calendar_drawer.dart';
 import 'calendar_export.dart';
 import 'calendar_providers.dart';
+import 'package:moniq/presentation/router/bottom_sheet_visibility_provider.dart';
 import 'date_items_panel.dart';
 
 // Re-export providers so external code importing calendar_screen.dart
@@ -181,6 +182,16 @@ class CalendarScreen extends HookConsumerWidget {
                     ],
                   ),
                 ),
+          // 햄버거 드로어가 열리면 하단 dock을 숨긴다 (바텀시트와 동일 처리).
+          onEndDrawerChanged: (isOpened) {
+            final notifier =
+                ref.read(bottomSheetCountProvider.notifier);
+            if (isOpened) {
+              notifier.increment();
+            } else {
+              notifier.decrement();
+            }
+          },
           endDrawer: AdaptiveLayout.isWide(context)
               ? null
               : CalendarDrawer(
@@ -271,6 +282,12 @@ class CalendarScreen extends HookConsumerWidget {
                           .selectDate(selected);
                     }
                   },
+                  onDayLongPressed: (day, focused) {
+                    // 날짜를 길게 누르면 해당 날짜를 선택하고 근무 일정 추가 시트를 연다.
+                    // (더블탭은 일정 패널 펼치기/접기로 유지)
+                    ref.read(homeViewModelProvider.notifier).selectDate(day);
+                    showAddMenu(context, ref, day);
+                  },
                   onPageChanged: (focused) {
                     ref
                         .read(homeViewModelProvider.notifier)
@@ -316,7 +333,8 @@ class CalendarScreen extends HookConsumerWidget {
                       if (c.isEmpty) {
                         return name.isEmpty ? '?' : name[0].toUpperCase();
                       }
-                      return c.length > 1 ? c[0] : c;
+                      // 근무 코드 전체를 그대로 노출 (예: 'Dw' → 'Dw').
+                      return code;
                     }
 
                     // 1) 서버 근무: 컬러 박스로 단문자 표시

@@ -7,6 +7,8 @@ import 'package:moniq/data/models/team_member_with_user.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
+import 'package:moniq/presentation/widgets/common/moniq_date_picker_sheet.dart';
 
 /// 한 건의 "내 근무 변경" 요청 (다중 등록용).
 ///
@@ -122,11 +124,12 @@ class _SelfChangeEntriesSectionState
 
   Future<void> _pickDate(SelfChangeEntry entry) async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final picked = await showMoniqDatePickerSheet(
       context: context,
       initialDate: entry.date ?? now,
       firstDate: now,
       lastDate: now.add(const Duration(days: 90)),
+      title: '날짜 선택',
     );
     if (picked == null) return;
     setState(() {
@@ -294,61 +297,17 @@ class _SelfChangeEntryRow extends StatelessWidget {
                 flex: 5,
                 child: _LabeledField(
                   label: '변경 근무',
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      isDense: true,
-                      style: _entryFieldTextStyle(context),
-                      hint: Text('선택', style: _entryHintStyle(context)),
-                      value: entry.desiredShiftType?.id,
-                      // 선택된 값은 날짜 필드와 동일한 좌측 정렬 텍스트로
-                      // 표시한다 (색상 박스는 메뉴 항목 안에서만 노출).
-                      selectedItemBuilder: (_) => shiftTypes
-                          .map((t) => Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  t.name,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: _entryFieldTextStyle(context),
-                                ),
-                              ))
-                          .toList(),
-                      items: shiftTypes.map((t) {
-                        final color = parseHexColor(t.color);
-                        return DropdownMenuItem<String>(
-                          value: t.id,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  t.name,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: _entryFieldTextStyle(context),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: entry.date != null
-                          ? (id) {
-                              final s = id == null
-                                  ? null
-                                  : shiftTypes
-                                      .firstWhere((t) => t.id == id);
-                              onShiftSelected(s);
-                            }
-                          : null,
-                    ),
+                  child: _EntrySelectorField(
+                    valueText: entry.desiredShiftType?.name,
+                    enabled: entry.date != null,
+                    onTap: () async {
+                      final picked = await _showShiftPickerSheet(
+                        context,
+                        shiftTypes: shiftTypes,
+                        selectedShiftId: entry.desiredShiftType?.id,
+                      );
+                      if (picked != null) onShiftSelected(picked);
+                    },
                   ),
                 ),
               ),
@@ -479,11 +438,12 @@ class _SwapEntriesSectionState extends ConsumerState<SwapEntriesSection> {
 
   Future<void> _pickDate(SwapEntry entry) async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final picked = await showMoniqDatePickerSheet(
       context: context,
       initialDate: entry.date ?? now,
       firstDate: now,
       lastDate: now.add(const Duration(days: 90)),
+      title: '날짜 선택',
     );
     if (picked == null) return;
     setState(() {
@@ -654,30 +614,16 @@ class _SwapEntryRow extends StatelessWidget {
                 flex: 4,
                 child: _LabeledField(
                   label: '팀원',
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      isDense: true,
-                      style: _entryFieldTextStyle(context),
-                      hint: Text('선택', style: _entryHintStyle(context)),
-                      value: entry.userId,
-                      items: members
-                          .map((m) => DropdownMenuItem<String>(
-                                value: m.userId,
-                                child: Text(
-                                  m.displayName,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: _entryFieldTextStyle(context),
-                                ),
-                              ))
-                          .toList(),
-                      onChanged: (id) {
-                        final m = id == null
-                            ? null
-                            : members.firstWhere((m) => m.userId == id);
-                        onMemberSelected(m);
-                      },
-                    ),
+                  child: _EntrySelectorField(
+                    valueText: entry.userName,
+                    onTap: () async {
+                      final picked = await _showMemberPickerSheet(
+                        context,
+                        members: members,
+                        selectedUserId: entry.userId,
+                      );
+                      if (picked != null) onMemberSelected(picked);
+                    },
                   ),
                 ),
               ),
@@ -717,61 +663,17 @@ class _SwapEntryRow extends StatelessWidget {
                 flex: 4,
                 child: _LabeledField(
                   label: '변경 근무',
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      isDense: true,
-                      style: _entryFieldTextStyle(context),
-                      hint: Text('선택', style: _entryHintStyle(context)),
-                      value: entry.desiredShiftType?.id,
-                      // 선택된 값은 팀원 드롭다운과 동일하게 텍스트만 좌측 정렬로
-                      // 표시한다 (색상 박스는 메뉴 항목 안에서만 노출).
-                      selectedItemBuilder: (_) => shiftTypes
-                          .map((t) => Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  t.name,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: _entryFieldTextStyle(context),
-                                ),
-                              ))
-                          .toList(),
-                      items: shiftTypes.map((t) {
-                        final color = parseHexColor(t.color);
-                        return DropdownMenuItem<String>(
-                          value: t.id,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  t.name,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: _entryFieldTextStyle(context),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: entry.userId != null && entry.date != null
-                          ? (id) {
-                              final s = id == null
-                                  ? null
-                                  : shiftTypes
-                                      .firstWhere((t) => t.id == id);
-                              onShiftSelected(s);
-                            }
-                          : null,
-                    ),
+                  child: _EntrySelectorField(
+                    valueText: entry.desiredShiftType?.name,
+                    enabled: entry.userId != null && entry.date != null,
+                    onTap: () async {
+                      final picked = await _showShiftPickerSheet(
+                        context,
+                        shiftTypes: shiftTypes,
+                        selectedShiftId: entry.desiredShiftType?.id,
+                      );
+                      if (picked != null) onShiftSelected(picked);
+                    },
                   ),
                 ),
               ),
@@ -810,6 +712,166 @@ TextStyle _entryHintStyle(BuildContext context) {
     color: cs.onSurfaceVariant,
     height: 1.2,
   );
+}
+
+/// 드롭다운을 대체하는 탭 가능한 선택 필드.
+///
+/// 선택된 값(`valueText`)이 있으면 본문 스타일로, 없으면 힌트('선택')로
+/// 표시하며 우측에 chevron 아이콘을 둔다. `enabled`가 false이면 흐리게
+/// 표시하고 탭을 막는다.
+class _EntrySelectorField extends StatelessWidget {
+  const _EntrySelectorField({
+    required this.valueText,
+    required this.onTap,
+    this.enabled = true,
+  });
+
+  final String? valueText;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final hasValue = valueText != null;
+    final baseStyle =
+        hasValue ? _entryFieldTextStyle(context) : _entryHintStyle(context);
+    final style = enabled
+        ? baseStyle
+        : baseStyle.copyWith(
+            color: baseStyle.color?.withValues(alpha: 0.5),
+          );
+    final iconColor = enabled
+        ? cs.onSurfaceVariant
+        : cs.onSurfaceVariant.withValues(alpha: 0.5);
+
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              valueText ?? '선택',
+              style: style,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: iconColor),
+        ],
+      ),
+    );
+  }
+}
+
+/// 팀원 선택 바텀시트. 선택한 팀원을 반환하고 미선택 시 null.
+Future<TeamMemberWithUser?> _showMemberPickerSheet(
+  BuildContext context, {
+  required List<TeamMemberWithUser> members,
+  String? selectedUserId,
+}) {
+  return showMoniqBottomSheet<TeamMemberWithUser>(
+    context: context,
+    title: '팀원 선택',
+    child: ListView.builder(
+      shrinkWrap: true,
+      itemCount: members.length,
+      itemBuilder: (ctx, i) {
+        final m = members[i];
+        final selected = m.userId == selectedUserId;
+        return _PickerOptionTile(
+          label: m.displayName,
+          selected: selected,
+          onTap: () => Navigator.pop(ctx, m),
+        );
+      },
+    ),
+  );
+}
+
+/// 근무 타입 선택 바텀시트. 색상 칩 + 이름으로 표시하고 선택값을 반환한다.
+Future<ShiftTypeModel?> _showShiftPickerSheet(
+  BuildContext context, {
+  required List<ShiftTypeModel> shiftTypes,
+  String? selectedShiftId,
+}) {
+  return showMoniqBottomSheet<ShiftTypeModel>(
+    context: context,
+    title: '변경 근무 선택',
+    child: ListView.builder(
+      shrinkWrap: true,
+      itemCount: shiftTypes.length,
+      itemBuilder: (ctx, i) {
+        final t = shiftTypes[i];
+        final selected = t.id == selectedShiftId;
+        return _PickerOptionTile(
+          label: t.name,
+          color: parseHexColor(t.color),
+          selected: selected,
+          onTap: () => Navigator.pop(ctx, t),
+        );
+      },
+    ),
+  );
+}
+
+/// 선택 바텀시트의 한 줄 옵션. 색상 칩(선택)과 선택 체크를 지원한다.
+class _PickerOptionTile extends StatelessWidget {
+  const _PickerOptionTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.color,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.borderRadiusMd,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xs,
+          vertical: AppSpacing.md,
+        ),
+        child: Row(
+          children: [
+            if (color != null) ...[
+              Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+            ],
+            Expanded(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: cs.onSurface,
+                  fontWeight:
+                      selected ? FontWeight.w800 : FontWeight.w500,
+                ),
+              ),
+            ),
+            if (selected)
+              Icon(Icons.check_rounded, size: 20, color: cs.primary),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _LabeledField extends StatelessWidget {

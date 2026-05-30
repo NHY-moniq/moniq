@@ -346,6 +346,12 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
                   selectionMode: _selectionMode,
                   selectedIds: _selectedIds,
                   onToggleSelectionGroup: _toggleSelectionGroup,
+                  onLongPressGroup: (g) {
+                    if (!_selectionMode) {
+                      setState(() => _selectionMode = true);
+                    }
+                    _toggleSelectionGroup(g);
+                  },
                   onToggleSelectAll: () =>
                       _toggleSelectAll(_filtered(state)),
                   onFilterChanged: (f) => ref
@@ -431,6 +437,7 @@ class _MobileLayout extends StatelessWidget {
     required this.selectionMode,
     required this.selectedIds,
     required this.onToggleSelectionGroup,
+    required this.onLongPressGroup,
     required this.onToggleSelectAll,
     required this.onFilterChanged,
     required this.onShowDetail,
@@ -445,6 +452,7 @@ class _MobileLayout extends StatelessWidget {
   final bool selectionMode;
   final Set<String> selectedIds;
   final ValueChanged<RequestGroup> onToggleSelectionGroup;
+  final ValueChanged<RequestGroup> onLongPressGroup;
   final VoidCallback onToggleSelectAll;
   final ValueChanged<String> onFilterChanged;
   final ValueChanged<RequestGroup> onShowDetail;
@@ -508,6 +516,7 @@ class _MobileLayout extends StatelessWidget {
                           onShowDetail(g);
                         }
                       },
+                      onLongPress: () => onLongPressGroup(g),
                     );
 
                     // selection mode 중에는 swipe-to-delete 비활성
@@ -893,6 +902,55 @@ class _EntryHeader extends StatelessWidget {
 // 모바일 바텀시트
 // ────────────────────────────────────────
 
+/// 히스토리 등 다른 화면에서 요청 상세 시트를 재사용하기 위한 공개 헬퍼.
+void showRequestDetailSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  required RequestGroup group,
+  required bool isAdmin,
+  required String teamId,
+  required Map<String, String> userNames,
+}) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+    ),
+    builder: (ctx) => _RequestDetailSheet(
+      teamId: teamId,
+      group: group,
+      isAdmin: isAdmin,
+      myUserId: ref.read(currentUserProvider)?.id,
+      userNames: userNames,
+      onApprove: () async {
+        for (final id in group.ids) {
+          await ref
+              .read(requestListViewModelProvider(teamId).notifier)
+              .approveRequest(id);
+        }
+        if (ctx.mounted) Navigator.pop(ctx);
+      },
+      onReject: () async {
+        for (final id in group.ids) {
+          await ref
+              .read(requestListViewModelProvider(teamId).notifier)
+              .rejectRequest(id);
+        }
+        if (ctx.mounted) Navigator.pop(ctx);
+      },
+      onCancel: () async {
+        for (final id in group.ids) {
+          await ref
+              .read(requestListViewModelProvider(teamId).notifier)
+              .cancelRequest(id);
+        }
+        if (ctx.mounted) Navigator.pop(ctx);
+      },
+    ),
+  );
+}
+
 class _RequestDetailSheet extends ConsumerWidget {
   const _RequestDetailSheet({
     required this.teamId,
@@ -1110,6 +1168,7 @@ class RequestCard extends StatelessWidget {
     super.key,
     required this.group,
     required this.onTap,
+    this.onLongPress,
     required this.userNames,
     this.selectionMode = false,
     this.selected = false,
@@ -1117,6 +1176,7 @@ class RequestCard extends StatelessWidget {
 
   final RequestGroup group;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final Map<String, String> userNames;
   final bool selectionMode;
   final bool selected;
@@ -1149,18 +1209,14 @@ class RequestCard extends StatelessWidget {
           : null,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: IntrinsicHeight(
           child: Row(
             children: [
               Container(width: 4, color: statusColor),
               if (selectionMode) ...[
                 const SizedBox(width: AppSpacing.md),
-                Icon(
-                  selected
-                      ? Icons.check_box_rounded
-                      : Icons.check_box_outline_blank_rounded,
-                  color: selected ? AppColors.primary : colorScheme.outline,
-                ),
+                MoniqSelectionCheck(selected: selected),
               ],
               Expanded(
                 child: Padding(
@@ -1179,7 +1235,7 @@ class RequestCard extends StatelessWidget {
                               group.entries.length > 1
                                   ? '$changeLabel · ${group.entries.length}건'
                                   : changeLabel,
-                              style: theme.textTheme.titleSmall?.copyWith(
+                              style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w700,
                               ),
                               maxLines: 1,
@@ -1189,85 +1245,23 @@ class RequestCard extends StatelessWidget {
                           StatusBadge(status: group.status),
                         ],
                       ),
-                      const SizedBox(height: AppSpacing.xs),
-                      // 신청자 (그룹 1회)
-                      if (requesterName != null &&
-                          requesterName.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.person_outline,
-                                size: 14,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  '신청자 $requesterName',
-                                  style: theme.textTheme.bodySmall
-                                      ?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      // entries: 모든 날짜를 한 줄에 가로 나열 — 카드 폭을 넘으면 …
-                      // 전체 목록은 상세 시트에서 확인.
+                      const SizedBox(height: AppSpacing.sm),
+                      if (requesterName != null && requesterName.isNotEmpty)
+                        _MetaInfoRow(label: '신청자', value: requesterName),
                       Builder(builder: (_) {
                         final dates = group.entries
                             .where((r) => r.requestedDate != null)
-                            .map((r) =>
-                                entryDateFormat.format(r.requestedDate!))
+                            .map((r) => entryDateFormat.format(r.requestedDate!))
                             .toList();
                         if (dates.isEmpty) return const SizedBox.shrink();
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.calendar_today_outlined,
-                                size: 14,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  dates.join(', '),
-                                  style:
-                                      theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
+                        return _MetaInfoRow(
+                            label: '변경일', value: dates.join(', '));
                       }),
-                      // 신청일 (등록 시점, KST)
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.event_note_outlined,
-                            size: 14,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '신청일 ${createdAt != null ? stampFormat.format(_toKst(createdAt)) : '-'}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                      _MetaInfoRow(
+                        label: '신청일',
+                        value: createdAt != null
+                            ? stampFormat.format(_toKst(createdAt))
+                            : '-',
                       ),
                     ],
                   ),
@@ -1547,15 +1541,7 @@ class _SelectAllBar extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                isAllSelected
-                    ? Icons.check_box_rounded
-                    : Icons.check_box_outline_blank_rounded,
-                size: 20,
-                color: isAllSelected
-                    ? AppColors.primary
-                    : cs.onSurfaceVariant,
-              ),
+              MoniqSelectionCheck(selected: isAllSelected, size: 20),
               const SizedBox(width: AppSpacing.sm),
               Text(
                 isAllSelected ? '전체 해제' : '전체 선택',
@@ -1572,6 +1558,64 @@ class _SelectAllBar extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────
+// 공용 선택 인디케이터 (request 탭 전역 재사용)
+// ────────────────────────────────────────
+
+/// 선택 모드에서 사용하는 세련된 커스텀 체크 인디케이터.
+///
+/// 둥근 사각형(radius 7) 형태로, 미선택 시 투명 배경 + 1.5px 테두리,
+/// 선택 시 primary 채움 + onPrimary 체크 아이콘으로 부드럽게 전환된다.
+class MoniqSelectionCheck extends StatelessWidget {
+  const MoniqSelectionCheck({
+    super.key,
+    required this.selected,
+    this.size = 22,
+  });
+
+  final bool selected;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOutCubic,
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: selected ? AppColors.primary : Colors.transparent,
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(
+          color: selected ? AppColors.primary : cs.outlineVariant,
+          width: 1.5,
+        ),
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.28),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutBack,
+        scale: selected ? 1 : 0,
+        child: Icon(
+          Icons.check_rounded,
+          size: size * 0.66,
+          weight: 800,
+          color: cs.onPrimary,
         ),
       ),
     );
@@ -2014,6 +2058,53 @@ class _ShiftTypeChip extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+/// 카드 부가 정보 key-value 행 (신청자/변경일/신청일)
+class _MetaInfoRow extends StatelessWidget {
+  const _MetaInfoRow({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 44,
+            child: Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontSize: 10,
+                height: 1.3,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontSize: 10,
+                height: 1.3,
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
