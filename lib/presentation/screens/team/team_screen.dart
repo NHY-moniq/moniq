@@ -8,8 +8,6 @@ import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/data/models/personal_team_member_shift.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/models/team_model.dart';
-import 'package:moniq/data/providers/schedule_providers.dart';
-import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
@@ -25,7 +23,6 @@ import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_export.dart';
-import 'package:moniq/presentation/screens/team/team_excel_import.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
@@ -1360,59 +1357,4 @@ bool _isEducation(String code, String name) {
   final lower = name.toLowerCase();
   if (lower.contains('education') || lower.contains('training')) return true;
   return false;
-}
-
-// ── Excel 가져오기 팝업 버튼 (웹 AppBar 전용) ──
-
-class _ExcelImportMenuButton extends ConsumerWidget {
-  const _ExcelImportMenuButton({required this.teamId});
-
-  final String teamId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return PopupMenuButton<String>(
-      tooltip: 'Excel',
-      icon: const Icon(Icons.table_chart_outlined),
-      iconSize: 22,
-      onSelected: (value) {
-        final shiftRepo = ref.read(shiftRepositoryProvider);
-        final scheduleRepo = ref.read(scheduleRepositoryProvider);
-        final teamRepo = ref.read(teamRepositoryProvider);
-        if (value == 'import') {
-          importTeamExcel(
-            context,
-            teamId: teamId,
-            shiftRepo: shiftRepo,
-            scheduleRepo: scheduleRepo,
-            teamRepo: teamRepo,
-          );
-        } else if (value == 'sample') {
-          exportSampleTemplate(context, shiftRepo: shiftRepo, teamId: teamId);
-        }
-      },
-      itemBuilder: (_) => const [
-        PopupMenuItem(
-          value: 'import',
-          child: Row(
-            children: [
-              Icon(Icons.upload_file_outlined, size: 18),
-              SizedBox(width: 10),
-              Text('엑셀로 가져오기'),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'sample',
-          child: Row(
-            children: [
-              Icon(Icons.description_outlined, size: 18),
-              SizedBox(width: 10),
-              Text('샘플 양식 다운로드'),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }

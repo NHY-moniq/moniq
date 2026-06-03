@@ -400,19 +400,22 @@ class _MoniqDestructiveConfirmDialog extends StatelessWidget {
         horizontal: AppSpacing.xxl,
         vertical: AppSpacing.xxl,
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.sm,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Destructive icon chip
-            Center(
+      child: ConstrainedBox(
+        // 웹/데스크톱에서 거대하게 늘어나지 않도록 최대 너비 제한.
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.sm,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Destructive icon chip
+              Center(
               child: Container(
                 width: 40,
                 height: 40,
@@ -497,6 +500,7 @@ class _MoniqDestructiveConfirmDialog extends StatelessWidget {
               ],
             ),
           ],
+        ),
         ),
       ),
     );
