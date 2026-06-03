@@ -771,10 +771,13 @@ Future<TeamMemberWithUser?> _showMemberPickerSheet(
 }) {
   return showMoniqBottomSheet<TeamMemberWithUser>(
     context: context,
+    eyebrow: 'SELECT',
     title: '팀원 선택',
-    child: ListView.builder(
+    child: ListView.separated(
       shrinkWrap: true,
       itemCount: members.length,
+      separatorBuilder: (_, __) =>
+          const SizedBox(height: AppSpacing.sm),
       itemBuilder: (ctx, i) {
         final m = members[i];
         final selected = m.userId == selectedUserId;
@@ -796,10 +799,13 @@ Future<ShiftTypeModel?> _showShiftPickerSheet(
 }) {
   return showMoniqBottomSheet<ShiftTypeModel>(
     context: context,
+    eyebrow: 'SELECT',
     title: '변경 근무 선택',
-    child: ListView.builder(
+    child: ListView.separated(
       shrinkWrap: true,
       itemCount: shiftTypes.length,
+      separatorBuilder: (_, __) =>
+          const SizedBox(height: AppSpacing.sm),
       itemBuilder: (ctx, i) {
         final t = shiftTypes[i];
         final selected = t.id == selectedShiftId;
@@ -833,41 +839,56 @@ class _PickerOptionTile extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
-    return InkWell(
-      onTap: onTap,
+    // 선택 항목은 primary 톤(연한 배경 + 테두리)으로 명확히 강조하고,
+    // 미선택 항목은 표준 시트 행처럼 surfaceContainer 톤으로 둔다.
+    final bgColor = selected
+        ? cs.primaryContainer.withValues(alpha: 0.5)
+        : cs.surfaceContainerHigh;
+    final borderColor = selected ? cs.primary : Colors.transparent;
+
+    return Material(
+      color: bgColor,
       borderRadius: AppRadius.borderRadiusMd,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs,
-          vertical: AppSpacing.md,
-        ),
-        child: Row(
-          children: [
-            if (color != null) ...[
-              Container(
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(4),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.borderRadiusMd,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.borderRadiusMd,
+            border: Border.all(color: borderColor),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          child: Row(
+            children: [
+              if (color != null) ...[
+                Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: AppRadius.borderRadiusSm,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+              ],
+              Expanded(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight:
+                        selected ? FontWeight.w800 : FontWeight.w600,
+                  ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.md),
+              if (selected)
+                Icon(Icons.check_rounded, size: 20, color: cs.primary),
             ],
-            Expanded(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: cs.onSurface,
-                  fontWeight:
-                      selected ? FontWeight.w800 : FontWeight.w500,
-                ),
-              ),
-            ),
-            if (selected)
-              Icon(Icons.check_rounded, size: 20, color: cs.primary),
-          ],
+          ),
         ),
       ),
     );
