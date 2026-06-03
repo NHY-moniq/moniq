@@ -184,29 +184,42 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
   Future<String?> _pickTeam(BuildContext context, List<TeamModel> teams) {
     return showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Text(
-                '공지를 작성할 팀 선택',
-                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.6,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Text(
+                  '공지를 작성할 팀 선택',
+                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+              const Divider(height: 1),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    ...teams.map(
+                      (t) => ListTile(
+                        leading: const Icon(Icons.groups_outlined),
+                        title: Text(t.name),
+                        onTap: () => Navigator.pop(ctx, t.id),
+                      ),
                     ),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+                ),
               ),
-            ),
-            const Divider(height: 1),
-            ...teams.map(
-              (t) => ListTile(
-                leading: const Icon(Icons.groups_outlined),
-                title: Text(t.name),
-                onTap: () => Navigator.pop(ctx, t.id),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-          ],
+            ],
+          ),
         ),
       ),
     );
