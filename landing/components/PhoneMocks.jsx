@@ -1326,7 +1326,7 @@ const MiniScheduleGenScreen = () => {
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#38A169' }} />
-            제약 조건 통과 · 공정성 점수 92
+            제약 조건 통과
           </span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0061A4' }} />

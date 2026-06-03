@@ -29,8 +29,16 @@ class AnnouncementRepository {
 
   Future<AnnouncementModel> getById(String id) => _dataSource.getById(id);
 
-  Future<List<AnnouncementWithTeam>> getMyTeamsAnnouncements() =>
-      _dataSource.getMyTeamsAnnouncements();
+  Future<List<AnnouncementWithTeam>> getMyTeamsAnnouncements({
+    int limit = 20,
+    int offset = 0,
+    String? teamId,
+  }) =>
+      _dataSource.getMyTeamsAnnouncements(
+        limit: limit,
+        offset: offset,
+        teamId: teamId,
+      );
 
   Future<void> update(String id, {String? title, String? content, bool? isPinned}) =>
       _dataSource.update(id, title: title, content: content, isPinned: isPinned);

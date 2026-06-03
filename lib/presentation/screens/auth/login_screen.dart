@@ -210,32 +210,38 @@ class LoginScreen extends HookConsumerWidget {
                       _OrDivider(),
                       const SizedBox(height: AppSpacing.xxxl),
 
-                      // Social login grid
+                      // 카카오 — 메인 소셜 버튼 (full width)
+                      _KakaoLoginButton(
+                        onPressed: busy
+                            ? null
+                            : () => handleSocialLogin(
+                                  ref
+                                      .read(authViewModelProvider.notifier)
+                                      .signInWithKakao,
+                                ),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+
+                      // Google / Apple — 소형 아이콘 버튼 Row
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Expanded(
-                            child: _SocialPillButton(
-                              onPressed: () => handleSocialLogin(
-                                ref
-                                    .read(authViewModelProvider.notifier)
-                                    .signInWithGoogle,
-                              ),
-                              icon: Icons.g_mobiledata,
-                              label: 'Google',
-                            ),
+                          _SmallSocialButton(
+                            onPressed: busy
+                                ? null
+                                : () => handleSocialLogin(
+                                      ref
+                                          .read(authViewModelProvider.notifier)
+                                          .signInWithGoogle,
+                                    ),
+                            icon: Icons.g_mobiledata,
+                            tooltip: 'Google로 로그인',
                           ),
                           const SizedBox(width: AppSpacing.lg),
-                          Expanded(
-                            child: _SocialPillButton(
-                              onPressed: () => handleSocialLogin(
-                                ref
-                                    .read(authViewModelProvider.notifier)
-                                    .signInWithKakao,
-                              ),
-                              icon: Icons.chat_bubble,
-                              label: '카카오',
-                              backgroundColor: const Color(0xFFFEE500),
-                            ),
+                          _SmallSocialButton(
+                            onPressed: null, // TODO: signInWithApple 구현 후 연결
+                            icon: Icons.apple,
+                            tooltip: 'Apple로 로그인',
                           ),
                         ],
                       ),
@@ -466,52 +472,88 @@ class _OrDivider extends StatelessWidget {
   }
 }
 
-/// Social login pill button (grid style)
-class _SocialPillButton extends StatelessWidget {
-  const _SocialPillButton({
-    required this.onPressed,
-    required this.icon,
-    required this.label,
-    this.backgroundColor,
-  });
+/// 카카오 full-width 버튼.
+/// 카카오 브랜드 규정: 배경 #FEE500, 텍스트/아이콘 #3C1E1E (다크모드 무관 고정).
+class _KakaoLoginButton extends StatelessWidget {
+  const _KakaoLoginButton({required this.onPressed});
 
-  final VoidCallback onPressed;
-  final IconData icon;
-  final String label;
-  final Color? backgroundColor;
+  final VoidCallback? onPressed;
+
+  static const _kakaoYellow = Color(0xFFFEE500);
+  static const _kakaoBrown = Color(0xFF3C1E1E);
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
+      width: double.infinity,
       height: AppSizing.buttonHeight,
-      child: OutlinedButton(
+      child: ElevatedButton(
         onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          backgroundColor:
-              backgroundColor ?? colorScheme.surface,
-          foregroundColor: colorScheme.onSurfaceVariant,
-          side: BorderSide(
-            color: colorScheme.surfaceContainer,
-            width: 2,
-          ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _kakaoYellow,
+          foregroundColor: _kakaoBrown,
+          disabledBackgroundColor: _kakaoYellow.withValues(alpha: 0.5),
+          disabledForegroundColor: _kakaoBrown.withValues(alpha: 0.5),
+          elevation: 0,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: AppRadius.borderRadiusFull,
           ),
         ),
-        child: Row(
+        child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 22),
-            const SizedBox(width: AppSpacing.sm),
+            Icon(Icons.chat_bubble, size: 20, color: _kakaoBrown),
+            SizedBox(width: AppSpacing.sm),
             Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
+              '카카오로 시작하기',
+              style: TextStyle(
+                color: _kakaoBrown,
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 소형 원형 소셜 버튼 (44×44).
+class _SmallSocialButton extends StatelessWidget {
+  const _SmallSocialButton({
+    required this.onPressed,
+    required this.icon,
+    required this.tooltip,
+  });
+
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: 52,
+        height: 52,
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            padding: EdgeInsets.zero,
+            backgroundColor: cs.surface,
+            foregroundColor: cs.onSurfaceVariant,
+            disabledForegroundColor: cs.onSurfaceVariant.withValues(alpha: 0.35),
+            side: BorderSide(
+              color: cs.outlineVariant,
+              width: 1.5,
+            ),
+            shape: const CircleBorder(),
+          ),
+          child: Icon(icon, size: 24),
         ),
       ),
     );

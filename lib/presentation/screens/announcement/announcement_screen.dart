@@ -43,7 +43,7 @@ class AnnouncementScreen extends HookConsumerWidget {
     final filter = ref.watch(_teamAnnouncementFilterProvider);
 
     return Scaffold(
-      appBar: const MoniqAppBar(title: '팀 공지사항'),
+      appBar: const MoniqAppBar(title: '공지사항'),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateSheet(context, ref),
         icon: const Icon(Icons.add),
@@ -196,11 +196,46 @@ class _AnnouncementCreateSheetState
   final _contentC = TextEditingController();
   final List<_PendingAttachment> _pending = [];
   bool _saving = false;
+  final _contentFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  void _wrapSelection(String prefix, String suffix) {
+    final ctrl = _contentC;
+    final text = ctrl.text;
+    final sel = ctrl.selection;
+    if (!sel.isValid) {
+      ctrl.text = '$text$prefix$suffix';
+      ctrl.selection = TextSelection.collapsed(
+        offset: ctrl.text.length - suffix.length,
+      );
+      return;
+    }
+    final selected = sel.textInside(text);
+    final replacement = '$prefix$selected$suffix';
+    final newText =
+        text.replaceRange(sel.start, sel.end, replacement);
+    ctrl.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(
+        offset: sel.start + replacement.length,
+      ),
+    );
+    _contentFocus.requestFocus();
+  }
+
+  void _insertColor(String colorName) {
+    _wrapSelection('[색상:$colorName]', '[/색상]');
+  }
 
   @override
   void dispose() {
     _titleC.dispose();
     _contentC.dispose();
+    _contentFocus.dispose();
     super.dispose();
   }
 
@@ -337,14 +372,25 @@ class _AnnouncementCreateSheetState
             maxLength: 50,
           ),
           const SizedBox(height: AppSpacing.md),
+          _MarkdownToolbar(
+            onBold: () => _wrapSelection('**', '**'),
+            onColorRed: () => _insertColor('red'),
+            onColorBlue: () => _insertColor('blue'),
+            onColorOrange: () => _insertColor('orange'),
+          ),
+          const SizedBox(height: AppSpacing.xs),
           TextField(
             controller: _contentC,
+            focusNode: _contentFocus,
             decoration: const InputDecoration(
               hintText: '내용 (선택)',
               prefixIcon: Icon(Icons.notes),
             ),
             maxLines: 6,
             maxLength: 2000,
+            keyboardType: TextInputType.multiline,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.newline,
           ),
           const SizedBox(height: AppSpacing.md),
           // 첨부파일 영역
@@ -424,6 +470,7 @@ class _AnnouncementEditSheetState
     extends ConsumerState<_AnnouncementEditSheet> {
   late final TextEditingController _titleC;
   late final TextEditingController _contentC;
+  final _contentFocus = FocusNode();
   late bool _isPinned;
   bool _saving = false;
 
@@ -431,7 +478,9 @@ class _AnnouncementEditSheetState
   void initState() {
     super.initState();
     _titleC = TextEditingController(text: widget.announcement.title);
-    _contentC = TextEditingController(text: widget.announcement.content ?? '');
+    _contentC = TextEditingController(
+      text: widget.announcement.content ?? '',
+    );
     _isPinned = widget.announcement.isPinned;
   }
 
@@ -439,7 +488,36 @@ class _AnnouncementEditSheetState
   void dispose() {
     _titleC.dispose();
     _contentC.dispose();
+    _contentFocus.dispose();
     super.dispose();
+  }
+
+  void _wrapSelection(String prefix, String suffix) {
+    final ctrl = _contentC;
+    final text = ctrl.text;
+    final sel = ctrl.selection;
+    if (!sel.isValid) {
+      ctrl.text = '$text$prefix$suffix';
+      ctrl.selection = TextSelection.collapsed(
+        offset: ctrl.text.length - suffix.length,
+      );
+      return;
+    }
+    final selected = sel.textInside(text);
+    final replacement = '$prefix$selected$suffix';
+    final newText =
+        text.replaceRange(sel.start, sel.end, replacement);
+    ctrl.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(
+        offset: sel.start + replacement.length,
+      ),
+    );
+    _contentFocus.requestFocus();
+  }
+
+  void _insertColor(String colorName) {
+    _wrapSelection('[색상:$colorName]', '[/색상]');
   }
 
   Future<void> _submit() async {
@@ -510,14 +588,25 @@ class _AnnouncementEditSheetState
             maxLength: 50,
           ),
           const SizedBox(height: AppSpacing.md),
+          _MarkdownToolbar(
+            onBold: () => _wrapSelection('**', '**'),
+            onColorRed: () => _insertColor('red'),
+            onColorBlue: () => _insertColor('blue'),
+            onColorOrange: () => _insertColor('orange'),
+          ),
+          const SizedBox(height: AppSpacing.xs),
           TextField(
             controller: _contentC,
+            focusNode: _contentFocus,
             decoration: const InputDecoration(
               hintText: '내용 (선택)',
               prefixIcon: Icon(Icons.notes),
             ),
             maxLines: 6,
             maxLength: 2000,
+            keyboardType: TextInputType.multiline,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.newline,
           ),
           const SizedBox(height: AppSpacing.md),
           SwitchListTile(
@@ -584,9 +673,11 @@ class _AnnouncementFilterBar extends StatelessWidget {
 
 /// 공지사항 리스트 타일 (공용)
 ///
-/// 본문 미리보기 대신 작성자(아바타+이름)와 댓글 수를 노출한다.
-/// 작성자/댓글 수는 [AnnouncementModel]에 조인·집계로 함께 담겨 오므로
-/// 추가 조회 없이 모델에서 바로 읽는다.
+/// 헤더 행: 팀명 chip + 고정 핀 아이콘 (우측 정렬)
+/// 제목 행: bold(w800) fontSize 16
+/// 하단 행: 본문 미리보기 / 날짜
+///
+/// isPinned == true 일 때 좌측 4px primary 세로 선 + 우상단 핀 아이콘 표시.
 class AnnouncementListTile extends StatelessWidget {
   const AnnouncementListTile({
     super.key,
@@ -608,89 +699,94 @@ class AnnouncementListTile extends StatelessWidget {
     final title = announcement.title;
     final isPinned = announcement.isPinned;
     final createdAt = announcement.createdAt;
-    final author =
-        AnnouncementAuthorInfo.fromAnnouncement(announcement);
-    final commentCount = announcement.commentCount;
+    final preview = announcement.content?.isNotEmpty == true
+        ? announcement.content!.replaceAll(
+            RegExp(r'\*\*(.+?)\*\*'), r'\1',
+          ).replaceAll(
+            RegExp(r'\[색상:[^\]]+\](.+?)\[/색상\]'), r'\1',
+          )
+        : null;
 
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         borderRadius: AppRadius.borderRadiusMd,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+        child: IntrinsicHeight(
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 팀 이름 (있는 경우)
-                    if (teamName != null) ...[
-                      Text(
-                        teamName!,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xxs),
-                    ],
-                    // 제목
-                    Row(
-                      children: [
-                        if (isPinned) ...[
-                          Icon(
-                            Icons.push_pin,
-                            size: 14,
-                            color: AppColors.brandOrange,
-                          ),
-                          const SizedBox(width: AppSpacing.xs),
-                        ],
-                        Expanded(
-                          child: Text(
-                            title,
-                            style:
-                                theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    // 작성자 + 댓글 수
-                    Row(
-                      children: [
-                        Flexible(
-                          child: AnnouncementAuthor(
-                            name: author.displayName,
-                            avatarUrl: author.avatarUrl,
-                            avatarRadius: 9,
-                            dense: true,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        _CommentCountBadge(count: commentCount),
-                      ],
-                    ),
-                  ],
+              // 좌측 고정 표시 세로 선
+              if (isPinned)
+                Container(
+                  width: 4,
+                  color: colorScheme.primary,
                 ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              if (createdAt != null)
-                Text(
-                  dateFormat.format(createdAt),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 헤더 행: 팀명 chip + 핀 아이콘
+                      Row(
+                        children: [
+                          if (teamName != null) ...[
+                            _TeamNameChip(name: teamName!),
+                            const SizedBox(width: AppSpacing.xs),
+                          ],
+                          const Spacer(),
+                          if (isPinned)
+                            Icon(
+                              Icons.push_pin,
+                              size: 14,
+                              color: colorScheme.primary,
+                            ),
+                        ],
+                      ),
+                      if (teamName != null || isPinned)
+                        const SizedBox(height: AppSpacing.xs),
+                      // 제목 행
+                      Text(
+                        title,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      // 하단 행: 미리보기 / 날짜
+                      Row(
+                        children: [
+                          Expanded(
+                            child: preview != null
+                                ? Text(
+                                    preview,
+                                    style:
+                                        theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                          if (createdAt != null) ...[
+                            const SizedBox(width: AppSpacing.sm),
+                            Text(
+                              dateFormat.format(createdAt),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              const SizedBox(width: AppSpacing.xs),
-              Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: colorScheme.outline,
               ),
             ],
           ),
@@ -700,33 +796,32 @@ class AnnouncementListTile extends StatelessWidget {
   }
 }
 
-/// 카드에 표시하는 댓글 수 뱃지.
-class _CommentCountBadge extends StatelessWidget {
-  const _CommentCountBadge({required this.count});
+/// 공지 타일 헤더의 팀명 chip.
+class _TeamNameChip extends StatelessWidget {
+  const _TeamNameChip({required this.name});
 
-  final int count;
+  final String name;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final label = '$count';
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          Icons.mode_comment_outlined,
-          size: 12,
-          color: cs.onSurfaceVariant,
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.12),
+        borderRadius: AppRadius.borderRadiusFull,
+      ),
+      child: Text(
+        name,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: cs.primary,
         ),
-        const SizedBox(width: 3),
-        Text(
-          label,
-          style: AppTypography.captionSmall.copyWith(
-            fontWeight: FontWeight.w700,
-            color: cs.onSurfaceVariant,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -910,12 +1005,13 @@ class _AnnouncementDetailPageState
                   ),
                   const Divider(height: AppSpacing.xxxl),
                   if (a.content != null && a.content!.isNotEmpty)
-                    Text(
-                      a.content!,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(height: 1.6),
+                    _RichBodyText(
+                      text: a.content!,
+                      baseStyle: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(height: 1.6) ??
+                          const TextStyle(height: 1.6),
                     ),
 
                   // 첨부파일
@@ -1089,7 +1185,7 @@ class _AnnouncementDetailPageState
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 CircleAvatar(
-                                  radius: 14,
+                                  radius: 12,
                                   backgroundColor: AppColors.primary
                                       .withValues(alpha: 0.15),
                                   child: Text(
@@ -1097,7 +1193,7 @@ class _AnnouncementDetailPageState
                                         ? cw.displayName[0]
                                         : '?',
                                     style: const TextStyle(
-                                      fontSize: 11,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -1212,7 +1308,7 @@ class _DetailAuthorLine extends StatelessWidget {
     return AnnouncementAuthor(
       name: author.displayName,
       avatarUrl: author.avatarUrl,
-      avatarRadius: 14,
+      avatarRadius: 12,
       trailing: createdAt == null
           ? null
           : Text(
@@ -1221,6 +1317,200 @@ class _DetailAuthorLine extends StatelessWidget {
                 color: cs.onSurfaceVariant,
               ),
             ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════
+// 마크다운 파싱 유틸
+// ══════════════════════════════════════════════
+
+/// `**텍스트**` → Bold, `[색상:red/blue/orange]텍스트[/색상]` → 색 텍스트.
+///
+/// 지원 색상: red, blue, orange.
+List<InlineSpan> parseRichText(String text, TextStyle base) {
+  final spans = <InlineSpan>[];
+  // 패턴: bold(**...**) 또는 색상 태그([색상:color]...[/색상])
+  final pattern = RegExp(
+    r'\*\*(.+?)\*\*|\[색상:(red|blue|orange)\](.+?)\[/색상\]',
+    dotAll: true,
+  );
+  int cursor = 0;
+  for (final match in pattern.allMatches(text)) {
+    if (match.start > cursor) {
+      spans.add(
+        TextSpan(
+          text: text.substring(cursor, match.start),
+          style: base,
+        ),
+      );
+    }
+    if (match.group(1) != null) {
+      // Bold match
+      spans.add(
+        TextSpan(
+          text: match.group(1),
+          style: base.copyWith(fontWeight: FontWeight.w800),
+        ),
+      );
+    } else {
+      // Color match
+      final colorName = match.group(2);
+      final coloredText = match.group(3) ?? '';
+      final color = switch (colorName) {
+        'red' => const Color(0xFFFF5252),
+        'blue' => const Color(0xFF2196F3),
+        'orange' => const Color(0xFFFF8F00),
+        _ => base.color,
+      };
+      spans.add(
+        TextSpan(
+          text: coloredText,
+          style: base.copyWith(color: color),
+        ),
+      );
+    }
+    cursor = match.end;
+  }
+  if (cursor < text.length) {
+    spans.add(
+      TextSpan(text: text.substring(cursor), style: base),
+    );
+  }
+  return spans;
+}
+
+/// 마크다운 파싱을 적용한 본문 텍스트 위젯.
+class _RichBodyText extends StatelessWidget {
+  const _RichBodyText({
+    required this.text,
+    required this.baseStyle,
+  });
+
+  final String text;
+  final TextStyle baseStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final spans = parseRichText(text, baseStyle);
+    return RichText(
+      text: TextSpan(children: spans),
+    );
+  }
+}
+
+/// 서식 toolbar — Bold 버튼 + 색상 3개 버튼.
+class _MarkdownToolbar extends StatelessWidget {
+  const _MarkdownToolbar({
+    required this.onBold,
+    required this.onColorRed,
+    required this.onColorBlue,
+    required this.onColorOrange,
+  });
+
+  final VoidCallback onBold;
+  final VoidCallback onColorRed;
+  final VoidCallback onColorBlue;
+  final VoidCallback onColorOrange;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _ToolbarBtn(
+          label: 'B',
+          bold: true,
+          onTap: onBold,
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        _ColorBtn(
+          color: const Color(0xFFFF5252),
+          onTap: onColorRed,
+          tooltip: '빨강',
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        _ColorBtn(
+          color: const Color(0xFF2196F3),
+          onTap: onColorBlue,
+          tooltip: '파랑',
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        _ColorBtn(
+          color: const Color(0xFFFF8F00),
+          onTap: onColorOrange,
+          tooltip: '주황',
+        ),
+      ],
+    );
+  }
+}
+
+class _ToolbarBtn extends StatelessWidget {
+  const _ToolbarBtn({
+    required this.label,
+    required this.onTap,
+    this.bold = false,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.borderRadiusSm,
+      child: Container(
+        width: 32,
+        height: 28,
+        decoration: BoxDecoration(
+          border: Border.all(color: cs.outlineVariant),
+          borderRadius: AppRadius.borderRadiusSm,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight:
+                bold ? FontWeight.w800 : FontWeight.w500,
+            color: cs.onSurface,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ColorBtn extends StatelessWidget {
+  const _ColorBtn({
+    required this.color,
+    required this.onTap,
+    required this.tooltip,
+  });
+
+  final Color color;
+  final VoidCallback onTap;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.borderRadiusFull,
+        child: Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -95,7 +95,7 @@ const PhoneFrame = ({ children, bg = '#FCF6E3', width = 320, height = 640, tilt 
 // Section wrapper
 const Section = ({ children, bg = 'transparent', paddingY = 120, style }) => (
   <section style={{
-    background: bg, padding: `${paddingY}px 40px`, position: 'relative', overflow: 'hidden', ...style,
+    background: bg, padding: `${paddingY}px clamp(20px, 4vw, 40px)`, position: 'relative', overflow: 'hidden', ...style,
   }}>
     <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative' }}>{children}</div>
   </section>
@@ -227,7 +227,7 @@ const FloatingPanel = ({
   top, left, right, bottom,
   tilt = 0, z = 3, shadow, bg = '#FFFDF7',
 }) => (
-  <div style={{
+  <div className="floating-panel-mobile" style={{
     position: 'absolute', width,
     top, left, right, bottom,
     transform: tilt ? `rotate(${tilt}deg)` : undefined,

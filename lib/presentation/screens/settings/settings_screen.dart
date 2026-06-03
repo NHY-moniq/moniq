@@ -71,6 +71,11 @@ class SettingsScreen extends HookConsumerWidget {
               padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: _InfoSection(),
             ),
+            SizedBox(height: AppSpacing.lg),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: _DangerZoneSection(),
+            ),
           ],
         ),
       ),
@@ -512,12 +517,25 @@ class _NotificationsSection extends ConsumerWidget {
 class _AccountSection extends ConsumerWidget {
   const _AccountSection();
 
+  static String _formatUserId(String? uid) {
+    if (uid == null || uid.length < 6) return 'MQ-000-XXX';
+    final h = uid.substring(0, 6).toUpperCase();
+    return 'MQ-${h.substring(0, 3)}-${h.substring(3, 6)}';
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final userId = ref.watch(currentUserProvider)?.id;
+
     return MoniqGroupedCard(
       backgroundColor: _settingsCardTint(context, ref),
       heading: '계정',
       children: [
+        MoniqCardRow(
+          icon: Icons.badge_outlined,
+          label: 'Moniq ID',
+          valuePill: _formatUserId(userId),
+        ),
         MoniqCardRow(
           icon: Icons.person_outline_rounded,
           label: '프로필 편집',
@@ -527,12 +545,6 @@ class _AccountSection extends ConsumerWidget {
           icon: Icons.logout_rounded,
           label: '로그아웃',
           onTap: () => _confirmSignOut(context, ref),
-        ),
-        MoniqCardRow(
-          icon: Icons.delete_forever_rounded,
-          label: '계정 삭제',
-          destructive: true,
-          onTap: () => _confirmDelete(context, ref),
         ),
       ],
     );
@@ -557,6 +569,58 @@ class _AccountSection extends ConsumerWidget {
         ctx,
       ).showSnackBar(SnackBar(content: Text(friendlyAuthError(error))));
     }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// Apple Review 5.1.1(v) · Danger zone — account deletion
+// ═══════════════════════════════════════════════════════
+
+class _DangerZoneSection extends ConsumerWidget {
+  const _DangerZoneSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+
+    void onDeleteTap() => _confirmDelete(context, ref);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.sm,
+          ),
+          child: Text(
+            '위험 영역',
+            style: AppTypography.captionSmall.copyWith(
+              color: cs.error,
+              letterSpacing: 1.6,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.borderRadiusLg,
+            border: Border.all(
+              color: cs.error.withValues(alpha: 0.3),
+              width: 1.5,
+            ),
+          ),
+          child: MoniqCardRow(
+            icon: Icons.delete_forever_rounded,
+            label: '계정 삭제',
+            destructive: true,
+            onTap: onDeleteTap,
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _confirmDelete(BuildContext ctx, WidgetRef ref) async {

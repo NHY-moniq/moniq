@@ -166,8 +166,16 @@ class AnnouncementRemoteDataSource {
     }
   }
 
-  /// 사용자가 속한 모든 팀의 최신 공지사항 (팀 이름 포함)
-  Future<List<AnnouncementWithTeam>> getMyTeamsAnnouncements() async {
+  /// 사용자가 속한 모든 팀의 최신 공지사항 (팀 이름 포함, 페이지네이션)
+  ///
+  /// [limit] 한 번에 가져올 건수 (기본 20).
+  /// [offset] 건너뛸 건수 (0부터 시작).
+  /// [teamId] null이면 전체 팀, 값이 있으면 해당 팀만 필터.
+  Future<List<AnnouncementWithTeam>> getMyTeamsAnnouncements({
+    int limit = 20,
+    int offset = 0,
+    String? teamId,
+  }) async {
     if (_userId == null) throw Exception('Not authenticated');
 
     try {
@@ -180,21 +188,28 @@ class AnnouncementRemoteDataSource {
 
       final teamMap = <String, String>{};
       for (final r in (memberRows as List)) {
-        final teamId = r['team_id'] as String;
+        final tId = r['team_id'] as String;
         final teamJoin = r['teams'] as Map<String, dynamic>?;
         // 팀이 삭제됐거나 조회 실패한 멤버십은 제외 (is_deleted 누락 방어)
         if (teamJoin == null) continue;
         final teamName = teamJoin['name'] as String? ?? '';
-        teamMap[teamId] = teamName;
+        teamMap[tId] = teamName;
       }
       if (teamMap.isEmpty) return [];
+
+      // teamId 필터 적용: 지정된 팀이 내 팀 목록에 없으면 빈 결과 반환
+      final targetIds = teamId != null
+          ? (teamMap.containsKey(teamId) ? [teamId] : <String>[])
+          : teamMap.keys.toList();
+      if (targetIds.isEmpty) return [];
 
       final rows = await _client
           .from('team_announcements')
           .select(_announcementSelect)
-          .inFilter('team_id', teamMap.keys.toList())
+          .inFilter('team_id', targetIds)
+          .order('is_pinned', ascending: false)
           .order('created_at', ascending: false)
-          .limit(10);
+          .range(offset, offset + limit - 1);
 
       return (rows as List).map((r) {
         final announcement = _mapAnnouncementRow(r as Map<String, dynamic>);

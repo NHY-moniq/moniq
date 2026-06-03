@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/announcement_model.dart';
@@ -14,13 +15,13 @@ import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
-/// 홈탭에서 진입하는 내 팀 전체 공지사항 리스트
+/// 홈탭에서 진입하는 내 팀 전체 공지사항 리스트 (무한 스크롤)
 class MyAnnouncementsScreen extends HookConsumerWidget {
   const MyAnnouncementsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final announcementsAsync = ref.watch(filteredAnnouncementsProvider);
+    final listAsync = ref.watch(myAnnouncementsProvider);
     final teamsAsync = ref.watch(teamViewModelProvider);
     final selectedTeamId =
         ref.watch(selectedAnnouncementTeamFilterProvider);
@@ -30,8 +31,23 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
         : teams.where((t) => t.id == selectedTeamId).firstOrNull;
     final filterLabel = selectedTeam?.name ?? '전체';
 
+    final scrollCtrl = useScrollController();
+
+    // 하단 도달 시 loadMore 호출
+    useEffect(() {
+      void listener() {
+        final pos = scrollCtrl.position;
+        if (pos.pixels >= pos.maxScrollExtent - 200) {
+          ref.read(myAnnouncementsProvider.notifier).loadMore();
+        }
+      }
+
+      scrollCtrl.addListener(listener);
+      return () => scrollCtrl.removeListener(listener);
+    }, [scrollCtrl]);
+
     return Scaffold(
-      appBar: const MoniqAppBar(title: '팀 공지사항'),
+      appBar: const MoniqAppBar(title: '공지사항'),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _onCreateTap(context, ref),
         icon: const Icon(Icons.add),
@@ -50,14 +66,18 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
               ),
             ),
           Expanded(
-            child: announcementsAsync.when(
+            child: listAsync.when(
               loading: () => const MoniqLoadingView(),
               error: (e, _) => MoniqErrorView(
                 message: '공지사항을 불러올 수 없습니다',
-                onRetry: () => ref.invalidate(myAnnouncementsProvider),
+                onRetry: () => ref
+                    .read(myAnnouncementsProvider.notifier)
+                    .refresh(),
               ),
-              data: (items) {
-                if (items.isEmpty) {
+              data: (listState) {
+                final items = listState.items;
+
+                if (items.isEmpty && !listState.isLoadingMore) {
                   return MoniqEmptyState.peaceful(
                     title: '공지사항이 없어요',
                     message: selectedTeam == null
@@ -67,15 +87,27 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
                 }
 
                 return RefreshIndicator(
-                  onRefresh: () async =>
-                      ref.invalidate(myAnnouncementsProvider),
-                  child: ListView.separated(
+                  onRefresh: () => ref
+                      .read(myAnnouncementsProvider.notifier)
+                      .refresh(),
+                  child: ListView.builder(
+                    controller: scrollCtrl,
                     padding: AppSpacing.screenAll,
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: AppSpacing.sm),
+                    // 아이템 + 구분선 + (로딩 스피너 or 빈 공간)
+                    itemCount: items.length * 2 + 1,
                     itemBuilder: (context, index) {
-                      final item = items[index];
+                      // 홀수 인덱스: 구분선
+                      if (index.isOdd && index < items.length * 2) {
+                        return const SizedBox(height: AppSpacing.sm);
+                      }
+                      // 마지막 인덱스: 하단 로딩 인디케이터
+                      if (index == items.length * 2) {
+                        return _BottomLoadingIndicator(
+                          visible: listState.isLoadingMore,
+                        );
+                      }
+                      final itemIndex = index ~/ 2;
+                      final item = items[itemIndex];
                       final a = item.announcement;
                       return AnnouncementListTile(
                         announcement: a,
@@ -99,7 +131,6 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
     List<TeamModel> teams,
     String? selectedTeamId,
   ) async {
-    // teamId 가 null(전체)일 수 있어 sentinel 문자열로 감싼다.
     const allValue = '__all__';
     final options = <AnnouncementFilterOption<String>>[
       const AnnouncementFilterOption(
@@ -127,7 +158,6 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
   }
 
   Future<void> _onCreateTap(BuildContext context, WidgetRef ref) async {
-    // 로그인 직후 첫 클릭 시 아직 로드 안 됐을 수 있으므로 future를 await
     List<TeamModel> teams;
     try {
       teams = await ref.read(teamViewModelProvider.future);
@@ -183,7 +213,10 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
   }
 
   void _showDetail(
-      BuildContext context, WidgetRef ref, AnnouncementWithTeam item) {
+    BuildContext context,
+    WidgetRef ref,
+    AnnouncementWithTeam item,
+  ) {
     final a = item.announcement;
     final myUserId = ref.read(currentUserProvider)?.id;
     final isMine = myUserId != null && a.createdBy == myUserId;
@@ -197,10 +230,16 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
           onEdit: isMine
               ? () async {
                   final updated = await showAnnouncementEditSheet(
-                      detailContext, a);
+                    detailContext,
+                    a,
+                  );
                   if (updated == true) {
-                    ref.invalidate(teamAnnouncementsProvider(a.teamId));
-                    ref.invalidate(myAnnouncementsProvider);
+                    ref.invalidate(
+                      teamAnnouncementsProvider(a.teamId),
+                    );
+                    ref
+                        .read(myAnnouncementsProvider.notifier)
+                        .refresh();
                     if (detailContext.mounted) {
                       Navigator.pop(detailContext);
                     }
@@ -213,7 +252,9 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
                       .read(announcementRepositoryProvider)
                       .delete(a.id);
                   ref.invalidate(teamAnnouncementsProvider(a.teamId));
-                  ref.invalidate(myAnnouncementsProvider);
+                  ref
+                      .read(myAnnouncementsProvider.notifier)
+                      .refresh();
                 }
               : null,
         ),
@@ -223,9 +264,6 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
 }
 
 /// 홈탭 공지사항 팀 필터 헤더.
-///
-/// 기존 [PopupMenuButton] 드롭다운을 [MoniqBottomSheet] 기반
-/// [AnnouncementFilterChip]으로 통일했다.
 class _TeamFilterHeader extends StatelessWidget {
   const _TeamFilterHeader({
     required this.label,
@@ -251,6 +289,24 @@ class _TeamFilterHeader extends StatelessWidget {
           icon: Icons.groups_outlined,
           onTap: onTap,
         ),
+      ),
+    );
+  }
+}
+
+/// 리스트 하단 로딩 인디케이터 (hasMore && isLoadingMore 시 표시).
+class _BottomLoadingIndicator extends StatelessWidget {
+  const _BottomLoadingIndicator({required this.visible});
+
+  final bool visible;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!visible) return const SizedBox.shrink();
+    return const SizedBox(
+      height: AppSpacing.huge,
+      child: Center(
+        child: CircularProgressIndicator(strokeWidth: 2),
       ),
     );
   }

@@ -3,7 +3,7 @@
 // Feature 1: Personal calendar — team shifts auto-sync + personal events
 const FeaturePersonalCalendar = () => (
   <Section paddingY={140}>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
+    <div className="feature-grid">
       <div>
         <LandingEyebrow style={{ color: '#B8860B' }}>Feature · 07</LandingEyebrow>
         <h2 style={{ font: '900 40px/1.15 var(--font-family)', letterSpacing: -1.2, color: '#312F23', marginTop: 18, textWrap: 'balance', wordBreak: 'keep-all' }}>
@@ -44,7 +44,7 @@ const FeaturePersonalCalendar = () => (
 // Feature 2: Team calendar — free team creation + shared schedule view
 const FeatureTeamCalendar = () => (
   <Section bg="#F7F1DC" paddingY={140}>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
+    <div className="feature-grid">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {/* 팀 캘린더 — 메인, 원래 사이즈 */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, zIndex: 2 }}>
@@ -158,7 +158,7 @@ const FeatureTeamCalendar = () => (
           팀 캘린더 자동 연동으로<br />근무를 쉽고 빠르게 파악할 수 있어요.
         </h2>
         <p style={{ font: '500 18px/1.55 var(--font-family)', color: '#5F5C4D', marginTop: 22, maxWidth: 520 }}>
-          병동이든 식당이든, 함께 일하는 사람이라면 팀이 돼요.<br />
+          병동이든, 함께 일하는 사람이라면 팀이 돼요.<br />
           한 화면에서 누가 언제 들어오고 누가 쉬는지 한눈에 확인해요.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 32 }}>
@@ -187,7 +187,7 @@ const FeatureTeamCalendar = () => (
 // Feature 4: Swap request
 const FeatureSwap = () => (
   <Section paddingY={140}>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
+    <div className="feature-grid">
       <div>
         <LandingEyebrow style={{ color: '#0061A4' }}>Feature · 05</LandingEyebrow>
         <h2 style={{ font: '900 60px/1.02 var(--font-family)', letterSpacing: -1.8, color: '#312F23', marginTop: 18, textWrap: 'balance' }}>
@@ -236,7 +236,7 @@ const FeatureWantedCollection = () => {
   ];
   return (
     <Section bg="#FCF6E3" paddingY={140}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
+      <div className="feature-grid">
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <div style={{ position: 'relative' }}>
             <PhoneFrame width={340} height={660}>
@@ -425,7 +425,7 @@ const FeatureAIReport = () => {
           숙련도·기피 패턴은 물론, 반영되지 못한 요청까지 한눈에 보여줘요.
         </p>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center', marginTop: 32, position: 'relative' }}>
+      <div className="feature-grid" style={{ gap: 60, marginTop: 32, position: 'relative' }}>
         {/* Left: phone + 수치 클로즈업 디테일 */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <div style={{ position: 'relative' }}>
@@ -509,11 +509,10 @@ const FeatureCustomRules = () => {
           maxWidth: 640, margin: '24px auto 0',
           textWrap: 'balance',
         }}>
-          정해진 옵션 밖의 규칙도 자연어로 입력해요.<br />
-          AI가 의미를 파악해서 근무표에 반영하고, 하드·소프트 우선순위까지 자동 분류해요.
+          정해진 옵션 밖의 규칙도 직접 입력하고, 하드·소프트 우선순위를 설정해요.
         </p>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center', marginTop: 32, position: 'relative' }}>
+      <div className="feature-grid" style={{ gap: 60, marginTop: 32, position: 'relative' }}>
         {/* Left: chat-like input mock */}
         <div style={{
           background: 'rgba(252,246,227,.06)',
@@ -598,7 +597,7 @@ const FeatureCustomRules = () => {
                 font: '800 9px/1 var(--font-family)', letterSpacing: 1.2,
                 flexShrink: 0, marginTop: 1,
               }}>소프트</span>
-              <span>가급적 지키도록 노력하는 규칙. 충돌하면 우선순위에 따라 조정해요.</span>
+              <span>가급적 지키도록 설정하는 규칙. 충돌하면 우선순위에 따라 조정해요.</span>
             </div>
           </div>
         </div>
@@ -610,12 +609,12 @@ const FeatureCustomRules = () => {
             </PhoneFrame>
             <FloatingPanel width={196} top={64} left={-48} z={4}>
               <div style={{ padding: '15px 16px' }}>
-                <div style={{ font: '800 9px/1 var(--font-family)', letterSpacing: 1.4, textTransform: 'uppercase', color: '#7A7768' }}>AI 자동 분류</div>
+                <div style={{ font: '800 9px/1 var(--font-family)', letterSpacing: 1.4, textTransform: 'uppercase', color: '#7A7768' }}>규칙 우선순위 설정</div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
                   <span style={{ background: 'rgba(176,37,0,.12)', color: '#B02500', padding: '5px 10px', borderRadius: 9999, font: '800 11px/1 var(--font-family)' }}>하드 2</span>
                   <span style={{ background: 'rgba(255,193,7,.2)', color: '#6B5300', padding: '5px 10px', borderRadius: 9999, font: '800 11px/1 var(--font-family)' }}>소프트 3</span>
                 </div>
-                <div style={{ font: '600 11px/1.45 var(--font-family)', color: '#5F5C4D', marginTop: 10 }}>입력한 규칙을 하드·소프트로 자동 분류해요</div>
+                <div style={{ font: '600 11px/1.45 var(--font-family)', color: '#5F5C4D', marginTop: 10 }}>하드(필수)·소프트(권장) 우선순위를 직접 설정해요</div>
               </div>
             </FloatingPanel>
           </div>

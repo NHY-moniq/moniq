@@ -1186,7 +1186,7 @@ class AnnouncementCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final announcementsAsync = ref.watch(filteredAnnouncementsProvider);
+    final listAsync = ref.watch(myAnnouncementsProvider);
     final teamsAsync = ref.watch(teamViewModelProvider);
     final selectedTeamId =
         ref.watch(selectedAnnouncementTeamFilterProvider);
@@ -1199,11 +1199,17 @@ class AnnouncementCard extends ConsumerWidget {
         selectedTeam?.name ?? (teams.length > 1 ? '전체' : null);
 
     // 로딩 중이거나 에러면 기본 카드 표시
-    if (announcementsAsync.isLoading || announcementsAsync.hasError) {
+    if (listAsync.isLoading || listAsync.hasError) {
       return _buildDefaultCard(context, ref, teams, filterLabel);
     }
 
-    final items = announcementsAsync.valueOrNull ?? [];
+    // 팀 필터가 적용된 경우 클라이언트 측에서도 필터링
+    final allItems = listAsync.valueOrNull?.items ?? [];
+    final items = selectedTeamId == null
+        ? allItems
+        : allItems
+            .where((a) => a.announcement.teamId == selectedTeamId)
+            .toList();
 
     // 데이터 로드 완료 후 공지가 없으면 기본 카드
     if (items.isEmpty) {
