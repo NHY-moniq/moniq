@@ -20,6 +20,11 @@ abstract final class AppTheme {
       error: AppColors.error,
       onError: AppColors.onError,
       surface: AppColors.surface,
+      surfaceContainerLowest: AppColors.surfaceContainerLowest,
+      surfaceContainerLow: AppColors.surfaceContainerLow,
+      surfaceContainer: AppColors.surfaceContainer,
+      surfaceContainerHigh: AppColors.surfaceContainerHigh,
+      surfaceContainerHighest: AppColors.surfaceContainerHighest,
       onSurface: AppColors.onSurface,
       onSurfaceVariant: AppColors.onSurfaceVariant,
       outline: AppColors.outline,
@@ -74,10 +79,7 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: AppRadius.borderRadiusFull,
           ),
-          side: BorderSide(
-            color: AppColors.outlineVariant,
-            width: 2,
-          ),
+          side: BorderSide(color: AppColors.outlineVariant, width: 2),
           textStyle: AppTypography.labelLarge,
         ),
       ),
@@ -100,10 +102,7 @@ abstract final class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppRadius.borderRadiusLg,
-          borderSide: const BorderSide(
-            color: Colors.transparent,
-            width: 2,
-          ),
+          borderSide: const BorderSide(color: Colors.transparent, width: 2),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.borderRadiusLg,
@@ -116,9 +115,7 @@ abstract final class AppTheme {
           borderRadius: AppRadius.borderRadiusLg,
           borderSide: const BorderSide(color: AppColors.error),
         ),
-        hintStyle: TextStyle(
-          color: AppColors.outline.withValues(alpha: 0.4),
-        ),
+        hintStyle: TextStyle(color: AppColors.outline.withValues(alpha: 0.4)),
       ),
       dividerTheme: const DividerThemeData(
         color: AppColors.dividerLight,
@@ -126,19 +123,17 @@ abstract final class AppTheme {
         space: 1,
       ),
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: AppColors.surfaceContainerLow,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.borderRadiusXl,
           side: BorderSide(
-            color: AppColors.outlineVariant.withValues(alpha: 0.3),
+            color: AppColors.borderLight.withValues(alpha: 0.45),
           ),
         ),
       ),
       dialogTheme: DialogThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusXl,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusXl),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         shape: RoundedRectangleBorder(
@@ -149,18 +144,14 @@ abstract final class AppTheme {
         ),
       ),
       listTileTheme: ListTileThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusLg,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.xl,
           vertical: AppSpacing.sm,
         ),
       ),
       chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusFull,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusFull),
       ),
     );
   }
@@ -187,25 +178,26 @@ abstract final class AppTheme {
       surfaceContainerLow: AppColors.surfaceContainerLowDark,
       surfaceContainer: AppColors.surfaceContainerDark,
       surfaceContainerHigh: AppColors.surfaceContainerHighDark,
-      surfaceContainerHighest: const Color(0xFF333333),
+      surfaceContainerHighest: AppColors.surfaceContainerHighestDark,
       outline: AppColors.outline,
       outlineVariant: AppColors.outlineVariantDark,
     );
 
-    final textTheme = GoogleFonts.plusJakartaSansTextTheme(
-      ThemeData.dark().textTheme,
-    ).copyWith(
-      displayLarge: AppTypography.displayLarge,
-      displayMedium: AppTypography.displayMedium,
-      headlineLarge: AppTypography.headlineLarge,
-      headlineMedium: AppTypography.headlineMedium,
-      titleLarge: AppTypography.titleLarge,
-      titleMedium: AppTypography.titleMedium,
-      bodyLarge: AppTypography.bodyLarge,
-      bodyMedium: AppTypography.bodyMedium,
-      labelLarge: AppTypography.labelLarge,
-      labelMedium: AppTypography.labelMedium,
-    );
+    final textTheme =
+        GoogleFonts.plusJakartaSansTextTheme(
+          ThemeData.dark().textTheme,
+        ).copyWith(
+          displayLarge: AppTypography.displayLarge,
+          displayMedium: AppTypography.displayMedium,
+          headlineLarge: AppTypography.headlineLarge,
+          headlineMedium: AppTypography.headlineMedium,
+          titleLarge: AppTypography.titleLarge,
+          titleMedium: AppTypography.titleMedium,
+          bodyLarge: AppTypography.bodyLarge,
+          bodyMedium: AppTypography.bodyMedium,
+          labelLarge: AppTypography.labelLarge,
+          labelMedium: AppTypography.labelMedium,
+        );
 
     return ThemeData(
       useMaterial3: true,
@@ -267,10 +259,7 @@ abstract final class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppRadius.borderRadiusLg,
-          borderSide: const BorderSide(
-            color: Colors.transparent,
-            width: 2,
-          ),
+          borderSide: const BorderSide(color: Colors.transparent, width: 2),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.borderRadiusLg,
@@ -301,9 +290,7 @@ abstract final class AppTheme {
         ),
       ),
       dialogTheme: DialogThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusXl,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusXl),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         shape: RoundedRectangleBorder(
@@ -314,18 +301,14 @@ abstract final class AppTheme {
         ),
       ),
       listTileTheme: ListTileThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusLg,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.xl,
           vertical: AppSpacing.sm,
         ),
       ),
       chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusFull,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusFull),
       ),
     );
   }

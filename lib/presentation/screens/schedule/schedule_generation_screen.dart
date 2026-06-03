@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/models/custom_rule_model.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
+import 'package:moniq/data/models/shift_rule_model.dart';
 import 'package:moniq/data/models/team_member_with_user.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
@@ -20,11 +21,12 @@ import '../wanted/wanted_request_widgets.dart';
 import 'widgets/schedule_common_widgets.dart';
 import 'widgets/schedule_preview_widgets.dart';
 
-/// 스케줄 생성 3단계 플로우
+/// 스케줄 생성 4단계 플로우
 ///
-/// Step 1 — 기간·요약 확인 + 생성 실행
-/// Step 2 — 미리보기 (날짜별 그룹)
-/// Step 3 — 발행 완료 (피드백 바텀시트)
+/// Step 1 — 생성 규칙 설정
+/// Step 2 — 기간·규칙 요약 확인 + 생성 실행
+/// Step 3 — 미리보기 (날짜별 그룹)
+/// Step 4 — 발행 완료 (피드백 바텀시트)
 class ScheduleGenerationScreen extends HookConsumerWidget {
   const ScheduleGenerationScreen({super.key, required this.teamId});
 
@@ -85,7 +87,7 @@ class ScheduleGenerationScreen extends HookConsumerWidget {
 }
 
 // ────────────────────────────────────────
-// Step 1: 설정 & 생성
+// Step 2: 기간 설정 & 생성
 // ────────────────────────────────────────
 
 class _SetupView extends HookConsumerWidget {
@@ -112,8 +114,8 @@ class _SetupView extends HookConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // -- 단계 표시 --
-            const ScheduleStepIndicator(currentStep: 0, totalSteps: 3),
-            const SizedBox(height: AppSpacing.xxl),
+            const ScheduleStepIndicator(currentStep: 1, totalSteps: 4),
+            const SizedBox(height: AppSpacing.xl),
 
             // -- 기간 설정 --
             Text(
@@ -690,6 +692,10 @@ const _priorityKeyLabels = <String, String>{
   'night_dedicated': '나이트전담 우선',
   'fairness_rest': '휴무배려',
   'fairness_equal': '균등배분',
+  'wanted': '원티드 반영',
+  'avoid_pattern': '기피패턴 처리',
+  'preferred_shift': '선호근무 반영',
+  'skill_placement': '숙련도 배치',
 };
 
 const _ruleTypeLabels = <String, String>{
@@ -707,12 +713,102 @@ const _ruleTypeLabels = <String, String>{
   'avoid_nood': 'NOOD 기피',
   'avoid_noe': 'NOE 기피',
   'avoid_eod': 'EOD 기피',
+  'wanted_p1_limit': '1순위 최대 신청',
+  'wanted_p2_limit': '2순위 최대 신청',
   'wanted_priority_order': '원티드 우선순위',
+  'scheduling_priority_order': '우선순위',
   'consider_skill_level': '숙련도 배치',
 };
 
+const _ruleCategorySpecs = <_RuleCategorySpec>[
+  _RuleCategorySpec(
+    key: 'staffing',
+    title: '인력 설정',
+    icon: Icons.groups_rounded,
+    ruleTypes: {'min_staffing', 'max_staffing'},
+  ),
+  _RuleCategorySpec(
+    key: 'workload',
+    title: '근무량 제한',
+    icon: Icons.calendar_month_rounded,
+    ruleTypes: {'max_monthly_shifts', 'max_monthly_night_shifts'},
+  ),
+  _RuleCategorySpec(
+    key: 'required',
+    title: '필수 규칙',
+    icon: Icons.rule_rounded,
+    ruleTypes: {
+      'max_consecutive_work_days',
+      'max_consecutive_night_shifts',
+      'min_weekly_off_days',
+    },
+  ),
+  _RuleCategorySpec(
+    key: 'blocked_pattern',
+    title: '금지 패턴',
+    icon: Icons.block_rounded,
+    ruleTypes: {
+      'no_night_then_day',
+      'no_night_then_evening',
+      'no_evening_then_day',
+      'nod_disabled',
+    },
+  ),
+  _RuleCategorySpec(
+    key: 'avoid_pattern',
+    title: '기피 패턴',
+    icon: Icons.tune_rounded,
+    ruleTypes: {'avoid_nood', 'avoid_noe', 'avoid_eod'},
+  ),
+  _RuleCategorySpec(
+    key: 'scheduling',
+    title: '스케줄링 우선순위',
+    icon: Icons.auto_graph_rounded,
+    ruleTypes: {'scheduling_priority_order', 'consider_skill_level'},
+  ),
+];
+
+const _otherRuleCategorySpec = _RuleCategorySpec(
+  key: 'other',
+  title: '기타 규칙',
+  icon: Icons.rule_folder_rounded,
+  ruleTypes: <String>{},
+);
+
+class _RuleCategorySpec {
+  const _RuleCategorySpec({
+    required this.key,
+    required this.title,
+    required this.icon,
+    required this.ruleTypes,
+  });
+
+  final String key;
+  final String title;
+  final IconData icon;
+  final Set<String> ruleTypes;
+}
+
+class _AppliedRuleSummary {
+  const _AppliedRuleSummary({required this.title, required this.icon});
+
+  final String title;
+  final IconData icon;
+}
+
+class _RuleSummaryGroup {
+  const _RuleSummaryGroup({required this.spec, required this.rules});
+
+  final _RuleCategorySpec spec;
+  final List<_AppliedRuleSummary> rules;
+}
+
 /// null이 포함되는 규칙은 null 반환 -> 다이얼로그에서 숨김
-String? _ruleValueSummary(String ruleType, Map<String, dynamic> rv) {
+String? _ruleValueSummary(
+  String ruleType,
+  Map<String, dynamic> rv, {
+  Map<String, ShiftTypeModel> shiftTypeLookup = const {},
+}) {
   switch (ruleType) {
     case 'max_consecutive_work_days':
       final days = rv['days'];
@@ -735,36 +831,149 @@ String? _ruleValueSummary(String ruleType, Map<String, dynamic> rv) {
       final days = rv['days'];
       if (days == null) return null;
       return '주 최소 오프: $days일';
+    case 'wanted_p1_limit':
+    case 'wanted_p2_limit':
+      return null;
     case 'min_staffing':
     case 'max_staffing':
-      // {'counts': {shiftTypeId: count}}
-      final counts = rv['counts'] as Map?;
-      if (counts == null || counts.isEmpty) return null;
-      final total = counts.values.whereType<num>().fold<int>(
-        0,
-        (s, v) => s + v.toInt(),
+      return _staffingRuleValueSummary(
+        ruleType,
+        rv,
+        shiftTypeLookup: shiftTypeLookup,
       );
-      if (total == 0) return null;
-      return '${_ruleTypeLabels[ruleType]}: 합계 $total명';
     case 'wanted_priority_order':
+      return null;
+    case 'scheduling_priority_order':
       final order = rv['order'] as List?;
       if (order == null || order.isEmpty) return null;
-      return order.map((k) => _priorityKeyLabels[k] ?? k).join(' > ');
+      return '${_ruleTypeLabels[ruleType]}: '
+          '${order.map((k) => _priorityKeyLabels[k] ?? k).join(' > ')}';
     default:
       final enabled = rv['enabled'];
       if (enabled == null) return null;
-      return enabled == true ? '활성화' : '비활성화';
+      return '${_ruleTypeLabels[ruleType] ?? ruleType}: '
+          '${enabled == true ? '활성화' : '비활성화'}';
   }
 }
 
-void _showRulesDialog(BuildContext context, ScheduleGenerationState state) {
-  final theme = Theme.of(context);
-  final colorScheme = theme.colorScheme;
+Map<String, ShiftTypeModel> _buildShiftTypeLookup(
+  List<ShiftTypeModel> shiftTypes,
+) {
+  final lookup = <String, ShiftTypeModel>{};
+  for (final type in shiftTypes) {
+    lookup[type.id] = type;
+    lookup[type.code] = type;
+    lookup[type.code.toUpperCase()] = type;
+  }
+  return lookup;
+}
 
+String _shiftTypeSummaryLabel(String key, ShiftTypeModel? type) {
+  final code = type?.code.trim();
+  if (code != null && code.isNotEmpty) return code.toUpperCase();
+  final name = type?.name.trim();
+  if (name != null && name.isNotEmpty) return name;
+  return key;
+}
+
+String? _staffingRuleValueSummary(
+  String ruleType,
+  Map<String, dynamic> rv, {
+  required Map<String, ShiftTypeModel> shiftTypeLookup,
+}) {
+  final counts = rv['counts'] is Map ? rv['counts'] as Map : rv;
+  final entries =
+      counts.entries
+          .map((entry) {
+            final key = entry.key.toString();
+            final count = entry.value is num ? (entry.value as num).toInt() : 0;
+            final shiftType =
+                shiftTypeLookup[key] ?? shiftTypeLookup[key.toUpperCase()];
+            return (key: key, count: count, shiftType: shiftType);
+          })
+          .where((entry) => entry.count > 0)
+          .toList()
+        ..sort((a, b) {
+          final orderA = a.shiftType?.displayOrder ?? 999;
+          final orderB = b.shiftType?.displayOrder ?? 999;
+          if (orderA != orderB) return orderA.compareTo(orderB);
+          return _shiftTypeSummaryLabel(
+            a.key,
+            a.shiftType,
+          ).compareTo(_shiftTypeSummaryLabel(b.key, b.shiftType));
+        });
+
+  if (entries.isEmpty) return null;
+  final detail = entries
+      .map((entry) {
+        final label = _shiftTypeSummaryLabel(entry.key, entry.shiftType);
+        return '$label ${entry.count}명';
+      })
+      .join(' · ');
+  return '${_ruleTypeLabels[ruleType]}: $detail';
+}
+
+_RuleCategorySpec _ruleCategorySpecFor(String ruleType) {
+  for (final spec in _ruleCategorySpecs) {
+    if (spec.ruleTypes.contains(ruleType)) return spec;
+  }
+  return _otherRuleCategorySpec;
+}
+
+List<_RuleSummaryGroup> _buildRuleSummaryGroups(
+  List<ShiftRuleModel> rules,
+  Map<String, ShiftTypeModel> shiftTypeLookup,
+) {
+  final grouped = <String, List<_AppliedRuleSummary>>{};
+  final specsByKey = <String, _RuleCategorySpec>{
+    for (final spec in _ruleCategorySpecs) spec.key: spec,
+    _otherRuleCategorySpec.key: _otherRuleCategorySpec,
+  };
+
+  for (final rule in rules) {
+    final summary = _ruleValueSummary(
+      rule.ruleType,
+      rule.ruleValue,
+      shiftTypeLookup: shiftTypeLookup,
+    );
+    if (summary == null) continue;
+    final spec = _ruleCategorySpecFor(rule.ruleType);
+    grouped
+        .putIfAbsent(spec.key, () => [])
+        .add(
+          _AppliedRuleSummary(
+            title: summary,
+            icon: _ruleTypeIcon(rule.ruleType),
+          ),
+        );
+  }
+
+  return [
+    for (final spec in [..._ruleCategorySpecs, _otherRuleCategorySpec])
+      if ((grouped[spec.key] ?? const <_AppliedRuleSummary>[]).isNotEmpty)
+        _RuleSummaryGroup(
+          spec: specsByKey[spec.key]!,
+          rules: grouped[spec.key]!,
+        ),
+  ];
+}
+
+void _showRulesDialog(BuildContext context, ScheduleGenerationState state) {
+  final shiftTypeLookup = _buildShiftTypeLookup(state.shiftTypes);
   // null 요약인 규칙은 숨김
   final visibleRules = state.rules
-      .where((r) => _ruleValueSummary(r.ruleType, r.ruleValue) != null)
+      .where(
+        (r) =>
+            _ruleValueSummary(
+              r.ruleType,
+              r.ruleValue,
+              shiftTypeLookup: shiftTypeLookup,
+            ) !=
+            null,
+      )
       .toList();
+  final ruleGroups = _buildRuleSummaryGroups(visibleRules, shiftTypeLookup);
+  final expandedGroupKeys = ruleGroups.map((g) => g.spec.key).toSet();
 
   showMoniqBottomSheet<void>(
     context: context,
@@ -775,62 +984,41 @@ void _showRulesDialog(BuildContext context, ScheduleGenerationState state) {
             padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
             child: Text('설정된 규칙이 없어요'),
           )
-        : Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.45,
+        : StatefulBuilder(
+            builder: (ctx, setSheetState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 520),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: ruleGroups.length,
+                      itemBuilder: (_, index) {
+                        final group = ruleGroups[index];
+                        final isExpanded = expandedGroupKeys.contains(
+                          group.spec.key,
+                        );
+                        return _RuleCategoryCard(
+                          group: group,
+                          isExpanded: isExpanded,
+                          onToggle: () {
+                            setSheetState(() {
+                              if (isExpanded) {
+                                expandedGroupKeys.remove(group.spec.key);
+                              } else {
+                                expandedGroupKeys.add(group.spec.key);
+                              }
+                            });
+                          },
+                        );
+                      },
+                    ),
                   ),
-                  borderRadius: AppRadius.borderRadiusMd,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.rule_rounded,
-                      size: 18,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        '현재 ${visibleRules.length}개 규칙이 생성 조건에 반영됩니다',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 420),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: visibleRules.length,
-                  separatorBuilder: (_, __) =>
-                      const SizedBox(height: AppSpacing.sm),
-                  itemBuilder: (_, i) {
-                    final rule = visibleRules[i];
-                    final label =
-                        _ruleTypeLabels[rule.ruleType] ?? rule.ruleType;
-                    final summary = _ruleValueSummary(
-                      rule.ruleType,
-                      rule.ruleValue,
-                    )!;
-                    return _RuleSummaryTile(
-                      label: label,
-                      summary: summary,
-                      icon: _ruleTypeIcon(rule.ruleType),
-                    );
-                  },
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
   );
 }
@@ -1046,20 +1234,9 @@ void _showWantedDetailSheet(
                                   }
                                   final hasReason =
                                       e.reason != null && e.reason!.isNotEmpty;
-                                  final chip = Chip(
-                                    avatar: CircleAvatar(
-                                      backgroundColor: chipColor.withValues(
-                                        alpha: 0.25,
-                                      ),
-                                      child: Text(
-                                        avatarLabel,
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w800,
-                                          color: chipColor,
-                                        ),
-                                      ),
-                                    ),
+                                  final chip = WantedEntryPill(
+                                    color: chipColor,
+                                    avatarLabel: avatarLabel,
                                     label: Text(
                                       '${dateFormat.format(e.date)} · '
                                       '${e.priority}순위',
@@ -1068,14 +1245,6 @@ void _showWantedDetailSheet(
                                             fontWeight: FontWeight.w600,
                                           ),
                                     ),
-                                    visualDensity: VisualDensity.compact,
-                                    backgroundColor: chipColor.withValues(
-                                      alpha: 0.08,
-                                    ),
-                                    side: BorderSide(
-                                      color: chipColor.withValues(alpha: 0.2),
-                                    ),
-                                    padding: EdgeInsets.zero,
                                   );
                                   if (!hasReason) return chip;
                                   return WantedReasonChip(
@@ -1252,58 +1421,147 @@ class _MemberSwitchTile extends StatelessWidget {
 }
 
 class _RuleSummaryTile extends StatelessWidget {
-  const _RuleSummaryTile({
-    required this.label,
-    required this.summary,
-    required this.icon,
-  });
+  const _RuleSummaryTile({required this.title, required this.icon});
 
-  final String label;
-  final String summary;
+  final String title;
   final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
     return Container(
+      constraints: const BoxConstraints(minHeight: 58),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        color: colorScheme.surface,
         borderRadius: AppRadius.borderRadiusMd,
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.14),
+              color: colorScheme.primary.withValues(alpha: 0.13),
               borderRadius: AppRadius.borderRadiusSm,
             ),
             child: Icon(icon, size: 18, color: colorScheme.primary),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+            child: Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+                height: 1.25,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RuleSummaryList extends StatelessWidget {
+  const _RuleSummaryList({required this.rules});
+
+  final List<_AppliedRuleSummary> rules;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var index = 0; index < rules.length; index++)
+          Padding(
+            padding: EdgeInsets.only(top: index == 0 ? 0 : AppSpacing.sm),
+            child: _RuleSummaryTile(
+              title: rules[index].title,
+              icon: rules[index].icon,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _RuleCategoryCard extends StatelessWidget {
+  const _RuleCategoryCard({
+    required this.group,
+    required this.isExpanded,
+    required this.onToggle,
+  });
+
+  final _RuleSummaryGroup group;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: onToggle,
+            borderRadius: AppRadius.borderRadiusSm,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: AppSpacing.sm,
+                horizontal: AppSpacing.xs,
+              ),
+              child: Row(
+                children: [
+                  Icon(group.spec.icon, color: colorScheme.primary, size: 20),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      group.spec.title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  summary,
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  Text(
+                    '${group.rules.length}개',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Icon(
+                    isExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
                     color: colorScheme.onSurfaceVariant,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
+          ),
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 180),
+            crossFadeState: isExpanded
+                ? CrossFadeState.showFirst
+                : CrossFadeState.showSecond,
+            firstChild: Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.xs),
+              child: _RuleSummaryList(rules: group.rules),
+            ),
+            secondChild: const SizedBox.shrink(),
+            alignment: Alignment.topLeft,
+            sizeCurve: Curves.easeOutCubic,
           ),
         ],
       ),
@@ -1414,7 +1672,7 @@ IconData _ruleTypeIcon(String type) {
       return Icons.bedtime_rounded;
     case 'min_weekly_off_days':
       return Icons.event_available_rounded;
-    case 'wanted_priority_order':
+    case 'scheduling_priority_order':
       return Icons.priority_high_rounded;
     default:
       return Icons.rule_folder_rounded;

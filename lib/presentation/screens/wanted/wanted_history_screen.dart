@@ -324,47 +324,26 @@ class _AdminEntryList extends StatelessWidget {
                       final entry = ew.entry;
                       final Color chipColor;
                       final String avatarLabel;
-                      final String chipLabel;
                       if (entry.shiftTypeId != null) {
                         final st = shiftTypeMap[entry.shiftTypeId];
                         chipColor = st != null
                             ? parseHexColor(st.color)
                             : AppColors.shiftOff;
                         avatarLabel = st?.code ?? 'O';
-                        chipLabel =
-                            '${dateFormat.format(entry.wantedDate)} · '
-                            '${entry.priority}순위';
                       } else {
                         chipColor = AppColors.shiftOff;
                         avatarLabel = 'O';
-                        chipLabel =
-                            '${dateFormat.format(entry.wantedDate)} · '
-                            '${entry.priority}순위';
                       }
-                      final chip = Chip(
-                        avatar: CircleAvatar(
-                          backgroundColor: chipColor.withValues(alpha: 0.25),
-                          child: Text(
-                            avatarLabel,
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: chipColor,
-                            ),
-                          ),
-                        ),
+                      final chip = WantedEntryPill(
+                        color: chipColor,
+                        avatarLabel: avatarLabel,
                         label: Text(
-                          chipLabel,
+                          '${dateFormat.format(entry.wantedDate)} · '
+                          '${entry.priority}순위',
                           style: theme.textTheme.labelSmall?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: chipColor.withValues(alpha: 0.08),
-                        side: BorderSide(
-                          color: chipColor.withValues(alpha: 0.2),
-                        ),
-                        padding: EdgeInsets.zero,
                       );
                       final reason = entry.reason?.trim();
                       if (reason == null || reason.isEmpty) return chip;
@@ -428,28 +407,15 @@ class _MemberEntryList extends StatelessWidget {
             chipColor = AppColors.shiftOff;
             avatarLabel = 'O';
           }
-          final chip = Chip(
-            avatar: CircleAvatar(
-              backgroundColor: chipColor.withValues(alpha: 0.25),
-              child: Text(
-                avatarLabel,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  color: chipColor,
-                ),
-              ),
-            ),
+          final chip = WantedEntryPill(
+            color: chipColor,
+            avatarLabel: avatarLabel,
             label: Text(
               '${dateFormat.format(entry.wantedDate)} · ${entry.priority}순위',
               style: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            visualDensity: VisualDensity.compact,
-            backgroundColor: chipColor.withValues(alpha: 0.08),
-            side: BorderSide(color: chipColor.withValues(alpha: 0.2)),
-            padding: EdgeInsets.zero,
           );
           final reason = entry.reason?.trim();
           if (reason == null || reason.isEmpty) return chip;
