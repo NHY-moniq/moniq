@@ -9,6 +9,7 @@ class ShiftRemoteDataSource {
   ShiftRemoteDataSource({required SupabaseClient client}) : _client = client;
 
   final SupabaseClient _client;
+  static const Set<String> _protectedDefaultCodes = {'D', 'E', 'N', 'ED'};
 
   String? get _userId => _client.auth.currentUser?.id;
 
@@ -114,8 +115,7 @@ class ShiftRemoteDataSource {
         final row = raw as Map<String, dynamic>;
         final pStart = row['period_start']?.toString() ?? '';
         final pEnd = row['period_end']?.toString() ?? '';
-        if (dateStr.compareTo(pStart) < 0 ||
-            dateStr.compareTo(pEnd) > 0) {
+        if (dateStr.compareTo(pStart) < 0 || dateStr.compareTo(pEnd) > 0) {
           continue;
         }
         final version = (row['version_no'] as num?)?.toInt() ?? 0;
@@ -134,6 +134,14 @@ class ShiftRemoteDataSource {
       final owner = dateOwnerScheduleId[_dateStr(s.shiftDate)];
       return owner != null && owner == s.scheduleId;
     }).toList();
+  }
+
+  /// 특정 날짜의 팀 전체 shifts — getTeamShifts의 단일 일자 편의 래퍼.
+  Future<List<ShiftModel>> getShiftsOnDate({
+    required String teamId,
+    required DateTime date,
+  }) async {
+    return getTeamShifts(teamId: teamId, start: date, end: date);
   }
 
   /// 특정 날짜 + 팀 + shift_type 에 배정된 팀원(본인 제외) 목록
@@ -352,6 +360,17 @@ class ShiftRemoteDataSource {
 
   /// 근무 유형 삭제. 해당 유형으로 배정된 근무가 있으면 삭제 불가 예외.
   Future<void> deleteShiftType(String id) async {
+    final shiftType = await _client
+        .from('shift_types')
+        .select('code')
+        .eq('id', id)
+        .maybeSingle();
+
+    final code = (shiftType?['code'] as String?)?.trim().toUpperCase();
+    if (code != null && _protectedDefaultCodes.contains(code)) {
+      throw Exception('데이/이브닝/나이트/교육 기본 근무 유형은 삭제할 수 없습니다.');
+    }
+
     final referenced = await _client
         .from('shifts')
         .select('id')

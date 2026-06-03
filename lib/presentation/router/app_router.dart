@@ -12,13 +12,13 @@ import 'package:moniq/presentation/screens/calendar/calendar_screen.dart';
 import 'package:moniq/presentation/screens/notifications/notifications_screen.dart';
 import 'package:moniq/presentation/screens/home/home_screen.dart';
 import 'package:moniq/presentation/screens/request/request_create_screen.dart';
+import 'package:moniq/presentation/screens/request/request_history_screen.dart';
 import 'package:moniq/presentation/screens/request/request_list_screen.dart';
 import 'package:moniq/presentation/screens/schedule/schedule_generation_screen.dart';
 import 'package:moniq/presentation/screens/schedule/schedule_history_screen.dart';
 import 'package:moniq/presentation/screens/settings/profile_edit_screen.dart';
 import 'package:moniq/presentation/screens/settings/settings_screen.dart';
 import 'package:moniq/presentation/screens/team/members_screen.dart';
-import 'package:moniq/presentation/screens/team/shift_types_screen.dart';
 import 'package:moniq/presentation/screens/team/team_create_screen.dart';
 import 'package:moniq/presentation/screens/team/team_detail_screen.dart';
 import 'package:moniq/presentation/screens/team/team_join_screen.dart';
@@ -192,13 +192,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: '/teams/:teamId/shift-types',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => ShiftTypesScreen(
-          teamId: state.pathParameters['teamId']!,
-        ),
-      ),
-      GoRoute(
         path: '/teams/:teamId/settings',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => TeamSettingsScreen(
@@ -306,6 +299,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/teams/:teamId/requests/create',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => RequestCreateScreen(
+          teamId: state.pathParameters['teamId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/teams/:teamId/requests/history',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => RequestHistoryScreen(
           teamId: state.pathParameters['teamId']!,
         ),
       ),

@@ -23,6 +23,11 @@ mixin _$HomeCalendarState {
       throw _privateConstructorUsedError;
   List<ShiftWithType>? get selectedDateShifts =>
       throw _privateConstructorUsedError;
+  CalendarViewMode get viewMode => throw _privateConstructorUsedError;
+
+  /// 즐겨찾기 팀의 published 스케줄이 커버하는 날짜들.
+  /// 본인 근무가 없어도 이 set에 포함되면 OFF로 표시한다.
+  Set<DateTime> get teamScheduledDates => throw _privateConstructorUsedError;
 
   /// Create a copy of HomeCalendarState
   /// with the given fields replaced by the non-null parameter values.
@@ -43,6 +48,8 @@ abstract class $HomeCalendarStateCopyWith<$Res> {
     DateTime selectedDate,
     Map<DateTime, List<ShiftWithType>> monthlyShifts,
     List<ShiftWithType>? selectedDateShifts,
+    CalendarViewMode viewMode,
+    Set<DateTime> teamScheduledDates,
   });
 }
 
@@ -65,6 +72,8 @@ class _$HomeCalendarStateCopyWithImpl<$Res, $Val extends HomeCalendarState>
     Object? selectedDate = null,
     Object? monthlyShifts = null,
     Object? selectedDateShifts = freezed,
+    Object? viewMode = null,
+    Object? teamScheduledDates = null,
   }) {
     return _then(
       _value.copyWith(
@@ -84,6 +93,14 @@ class _$HomeCalendarStateCopyWithImpl<$Res, $Val extends HomeCalendarState>
                 ? _value.selectedDateShifts
                 : selectedDateShifts // ignore: cast_nullable_to_non_nullable
                       as List<ShiftWithType>?,
+            viewMode: null == viewMode
+                ? _value.viewMode
+                : viewMode // ignore: cast_nullable_to_non_nullable
+                      as CalendarViewMode,
+            teamScheduledDates: null == teamScheduledDates
+                ? _value.teamScheduledDates
+                : teamScheduledDates // ignore: cast_nullable_to_non_nullable
+                      as Set<DateTime>,
           )
           as $Val,
     );
@@ -104,6 +121,8 @@ abstract class _$$HomeCalendarStateImplCopyWith<$Res>
     DateTime selectedDate,
     Map<DateTime, List<ShiftWithType>> monthlyShifts,
     List<ShiftWithType>? selectedDateShifts,
+    CalendarViewMode viewMode,
+    Set<DateTime> teamScheduledDates,
   });
 }
 
@@ -125,6 +144,8 @@ class __$$HomeCalendarStateImplCopyWithImpl<$Res>
     Object? selectedDate = null,
     Object? monthlyShifts = null,
     Object? selectedDateShifts = freezed,
+    Object? viewMode = null,
+    Object? teamScheduledDates = null,
   }) {
     return _then(
       _$HomeCalendarStateImpl(
@@ -144,6 +165,14 @@ class __$$HomeCalendarStateImplCopyWithImpl<$Res>
             ? _value._selectedDateShifts
             : selectedDateShifts // ignore: cast_nullable_to_non_nullable
                   as List<ShiftWithType>?,
+        viewMode: null == viewMode
+            ? _value.viewMode
+            : viewMode // ignore: cast_nullable_to_non_nullable
+                  as CalendarViewMode,
+        teamScheduledDates: null == teamScheduledDates
+            ? _value._teamScheduledDates
+            : teamScheduledDates // ignore: cast_nullable_to_non_nullable
+                  as Set<DateTime>,
       ),
     );
   }
@@ -157,8 +186,11 @@ class _$HomeCalendarStateImpl implements _HomeCalendarState {
     required this.selectedDate,
     final Map<DateTime, List<ShiftWithType>> monthlyShifts = const {},
     final List<ShiftWithType>? selectedDateShifts = null,
+    this.viewMode = CalendarViewMode.month,
+    final Set<DateTime> teamScheduledDates = const {},
   }) : _monthlyShifts = monthlyShifts,
-       _selectedDateShifts = selectedDateShifts;
+       _selectedDateShifts = selectedDateShifts,
+       _teamScheduledDates = teamScheduledDates;
 
   @override
   final DateTime focusedMonth;
@@ -186,8 +218,27 @@ class _$HomeCalendarStateImpl implements _HomeCalendarState {
   }
 
   @override
+  @JsonKey()
+  final CalendarViewMode viewMode;
+
+  /// 즐겨찾기 팀의 published 스케줄이 커버하는 날짜들.
+  /// 본인 근무가 없어도 이 set에 포함되면 OFF로 표시한다.
+  final Set<DateTime> _teamScheduledDates;
+
+  /// 즐겨찾기 팀의 published 스케줄이 커버하는 날짜들.
+  /// 본인 근무가 없어도 이 set에 포함되면 OFF로 표시한다.
+  @override
+  @JsonKey()
+  Set<DateTime> get teamScheduledDates {
+    if (_teamScheduledDates is EqualUnmodifiableSetView)
+      return _teamScheduledDates;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableSetView(_teamScheduledDates);
+  }
+
+  @override
   String toString() {
-    return 'HomeCalendarState(focusedMonth: $focusedMonth, selectedDate: $selectedDate, monthlyShifts: $monthlyShifts, selectedDateShifts: $selectedDateShifts)';
+    return 'HomeCalendarState(focusedMonth: $focusedMonth, selectedDate: $selectedDate, monthlyShifts: $monthlyShifts, selectedDateShifts: $selectedDateShifts, viewMode: $viewMode, teamScheduledDates: $teamScheduledDates)';
   }
 
   @override
@@ -206,6 +257,12 @@ class _$HomeCalendarStateImpl implements _HomeCalendarState {
             const DeepCollectionEquality().equals(
               other._selectedDateShifts,
               _selectedDateShifts,
+            ) &&
+            (identical(other.viewMode, viewMode) ||
+                other.viewMode == viewMode) &&
+            const DeepCollectionEquality().equals(
+              other._teamScheduledDates,
+              _teamScheduledDates,
             ));
   }
 
@@ -216,6 +273,8 @@ class _$HomeCalendarStateImpl implements _HomeCalendarState {
     selectedDate,
     const DeepCollectionEquality().hash(_monthlyShifts),
     const DeepCollectionEquality().hash(_selectedDateShifts),
+    viewMode,
+    const DeepCollectionEquality().hash(_teamScheduledDates),
   );
 
   /// Create a copy of HomeCalendarState
@@ -236,6 +295,8 @@ abstract class _HomeCalendarState implements HomeCalendarState {
     required final DateTime selectedDate,
     final Map<DateTime, List<ShiftWithType>> monthlyShifts,
     final List<ShiftWithType>? selectedDateShifts,
+    final CalendarViewMode viewMode,
+    final Set<DateTime> teamScheduledDates,
   }) = _$HomeCalendarStateImpl;
 
   @override
@@ -246,6 +307,13 @@ abstract class _HomeCalendarState implements HomeCalendarState {
   Map<DateTime, List<ShiftWithType>> get monthlyShifts;
   @override
   List<ShiftWithType>? get selectedDateShifts;
+  @override
+  CalendarViewMode get viewMode;
+
+  /// 즐겨찾기 팀의 published 스케줄이 커버하는 날짜들.
+  /// 본인 근무가 없어도 이 set에 포함되면 OFF로 표시한다.
+  @override
+  Set<DateTime> get teamScheduledDates;
 
   /// Create a copy of HomeCalendarState
   /// with the given fields replaced by the non-null parameter values.

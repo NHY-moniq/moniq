@@ -205,10 +205,10 @@ const FeatureSwap = () => (
         </div>
         <div style={{ marginTop: 44, padding: 24, background: '#FFFDF7', borderRadius: 24, border: '1px solid rgba(178,173,156,.25)' }}>
           <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#0061A4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', font: '900 14px/1 var(--font-family)' }}>JS</div>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#0061A4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', font: '900 14px/1 var(--font-family)' }}>이</div>
             <div style={{ flex: 1 }}>
-              <div style={{ font: '700 13px/1.4 var(--font-family)', color: '#5F5C4D' }}><strong style={{ color: '#312F23' }}>Joy 간호사님</strong>이 교대를 요청했어요.</div>
-              <div style={{ font: '500 12px/1.4 var(--font-family)', color: '#7A7768', marginTop: 6 }}>10월 15일 Day → 10월 17일 OFF (Soojin과 교대)</div>
+              <div style={{ font: '700 13px/1.4 var(--font-family)', color: '#5F5C4D' }}><strong style={{ color: '#312F23' }}>이간호님</strong>이 교대를 요청했어요.</div>
+              <div style={{ font: '500 12px/1.4 var(--font-family)', color: '#7A7768', marginTop: 6 }}>10월 15일 Day → 10월 17일 OFF (송간호와 교대)</div>
               <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                 <button style={{ border: 'none', background: '#FFC107', color: '#453900', padding: '8px 16px', borderRadius: 9999, font: '800 12px/1 var(--font-family)' }}>승인</button>
                 <button style={{ border: '1.5px solid rgba(49,47,35,.15)', background: 'transparent', color: '#312F23', padding: '8px 16px', borderRadius: 9999, font: '800 12px/1 var(--font-family)' }}>확인 중</button>

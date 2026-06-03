@@ -20,8 +20,9 @@ mixin _$RequestListState {
   String get teamId => throw _privateConstructorUsedError;
   List<RequestModel> get requests => throw _privateConstructorUsedError;
   String get filter =>
-      throw _privateConstructorUsedError; // all, pending, approved, rejected
+      throw _privateConstructorUsedError; // pending, approved, rejected, all
   bool get isAdmin => throw _privateConstructorUsedError;
+  Map<String, String> get userNames => throw _privateConstructorUsedError;
 
   /// Create a copy of RequestListState
   /// with the given fields replaced by the non-null parameter values.
@@ -42,6 +43,7 @@ abstract class $RequestListStateCopyWith<$Res> {
     List<RequestModel> requests,
     String filter,
     bool isAdmin,
+    Map<String, String> userNames,
   });
 }
 
@@ -64,6 +66,7 @@ class _$RequestListStateCopyWithImpl<$Res, $Val extends RequestListState>
     Object? requests = null,
     Object? filter = null,
     Object? isAdmin = null,
+    Object? userNames = null,
   }) {
     return _then(
       _value.copyWith(
@@ -83,6 +86,10 @@ class _$RequestListStateCopyWithImpl<$Res, $Val extends RequestListState>
                 ? _value.isAdmin
                 : isAdmin // ignore: cast_nullable_to_non_nullable
                       as bool,
+            userNames: null == userNames
+                ? _value.userNames
+                : userNames // ignore: cast_nullable_to_non_nullable
+                      as Map<String, String>,
           )
           as $Val,
     );
@@ -103,6 +110,7 @@ abstract class _$$RequestListStateImplCopyWith<$Res>
     List<RequestModel> requests,
     String filter,
     bool isAdmin,
+    Map<String, String> userNames,
   });
 }
 
@@ -124,6 +132,7 @@ class __$$RequestListStateImplCopyWithImpl<$Res>
     Object? requests = null,
     Object? filter = null,
     Object? isAdmin = null,
+    Object? userNames = null,
   }) {
     return _then(
       _$RequestListStateImpl(
@@ -143,6 +152,10 @@ class __$$RequestListStateImplCopyWithImpl<$Res>
             ? _value.isAdmin
             : isAdmin // ignore: cast_nullable_to_non_nullable
                   as bool,
+        userNames: null == userNames
+            ? _value._userNames
+            : userNames // ignore: cast_nullable_to_non_nullable
+                  as Map<String, String>,
       ),
     );
   }
@@ -154,9 +167,11 @@ class _$RequestListStateImpl implements _RequestListState {
   const _$RequestListStateImpl({
     required this.teamId,
     required final List<RequestModel> requests,
-    this.filter = 'all',
+    this.filter = 'pending',
     this.isAdmin = false,
-  }) : _requests = requests;
+    final Map<String, String> userNames = const {},
+  }) : _requests = requests,
+       _userNames = userNames;
 
   @override
   final String teamId;
@@ -171,14 +186,22 @@ class _$RequestListStateImpl implements _RequestListState {
   @override
   @JsonKey()
   final String filter;
-  // all, pending, approved, rejected
+  // pending, approved, rejected, all
   @override
   @JsonKey()
   final bool isAdmin;
+  final Map<String, String> _userNames;
+  @override
+  @JsonKey()
+  Map<String, String> get userNames {
+    if (_userNames is EqualUnmodifiableMapView) return _userNames;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(_userNames);
+  }
 
   @override
   String toString() {
-    return 'RequestListState(teamId: $teamId, requests: $requests, filter: $filter, isAdmin: $isAdmin)';
+    return 'RequestListState(teamId: $teamId, requests: $requests, filter: $filter, isAdmin: $isAdmin, userNames: $userNames)';
   }
 
   @override
@@ -189,7 +212,11 @@ class _$RequestListStateImpl implements _RequestListState {
             (identical(other.teamId, teamId) || other.teamId == teamId) &&
             const DeepCollectionEquality().equals(other._requests, _requests) &&
             (identical(other.filter, filter) || other.filter == filter) &&
-            (identical(other.isAdmin, isAdmin) || other.isAdmin == isAdmin));
+            (identical(other.isAdmin, isAdmin) || other.isAdmin == isAdmin) &&
+            const DeepCollectionEquality().equals(
+              other._userNames,
+              _userNames,
+            ));
   }
 
   @override
@@ -199,6 +226,7 @@ class _$RequestListStateImpl implements _RequestListState {
     const DeepCollectionEquality().hash(_requests),
     filter,
     isAdmin,
+    const DeepCollectionEquality().hash(_userNames),
   );
 
   /// Create a copy of RequestListState
@@ -219,6 +247,7 @@ abstract class _RequestListState implements RequestListState {
     required final List<RequestModel> requests,
     final String filter,
     final bool isAdmin,
+    final Map<String, String> userNames,
   }) = _$RequestListStateImpl;
 
   @override
@@ -226,9 +255,11 @@ abstract class _RequestListState implements RequestListState {
   @override
   List<RequestModel> get requests;
   @override
-  String get filter; // all, pending, approved, rejected
+  String get filter; // pending, approved, rejected, all
   @override
   bool get isAdmin;
+  @override
+  Map<String, String> get userNames;
 
   /// Create a copy of RequestListState
   /// with the given fields replaced by the non-null parameter values.

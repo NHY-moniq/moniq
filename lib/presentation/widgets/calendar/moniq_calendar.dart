@@ -171,8 +171,10 @@ class MoniqCalendar extends StatelessWidget {
   Widget _buildExternalHeader(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final now = DateTime.now();
-    final isCurrentMonth =
-        focusedDay.year == now.year && focusedDay.month == now.month;
+    // 월 모드: 현재 달인지. 주 모드: focused가 속한 주 안에 오늘이 있는지.
+    final showsToday = viewMode == CalendarViewMode.week
+        ? _isSameWeek(focusedDay, now, startingDayOfWeek)
+        : focusedDay.year == now.year && focusedDay.month == now.month;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -191,7 +193,7 @@ class MoniqCalendar extends StatelessWidget {
                 ),
               ),
             ),
-            if (!isCurrentMonth && onTodayPressed != null) ...[
+            if (!showsToday && onTodayPressed != null) ...[
               _HeaderPill(
                 onTap: onTodayPressed!,
                 child: Icon(
@@ -544,6 +546,26 @@ class MoniqCalendar extends StatelessWidget {
       onPageChanged(result);
       onDaySelected(result, result);
     }
+  }
+
+  /// [a]와 [b]가 같은 주에 속하는지 — [startingDayOfWeek]를 기준으로 계산.
+  static bool _isSameWeek(
+    DateTime a,
+    DateTime b,
+    StartingDayOfWeek startingDayOfWeek,
+  ) {
+    final startWeekday = switch (startingDayOfWeek) {
+      StartingDayOfWeek.sunday => DateTime.sunday,
+      StartingDayOfWeek.monday => DateTime.monday,
+      _ => DateTime.monday,
+    };
+    DateTime startOfWeek(DateTime d) {
+      final daysFromStart = (d.weekday - startWeekday) % 7;
+      final base = DateTime(d.year, d.month, d.day);
+      return base.subtract(Duration(days: daysFromStart));
+    }
+
+    return startOfWeek(a) == startOfWeek(b);
   }
 
   static String _dowLabel(int weekday) {

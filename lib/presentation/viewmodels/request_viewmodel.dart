@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/datasources/notification_service.dart';
 import 'package:moniq/data/datasources/push_service.dart';
 import 'package:moniq/data/models/request_model.dart';
+import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/providers/request_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
@@ -10,13 +11,110 @@ import 'package:moniq/data/providers/team_providers.dart';
 
 part 'request_viewmodel.freezed.dart';
 
+/// 요청 카드/시트에서 "근무 변경 전/후"를 한눈에 표시하기 위한 데이터.
+/// targetBeforeShiftType은 swap일 때만 존재.
+class RequestChangePreview {
+  RequestChangePreview({
+    this.requesterBeforeShiftType,
+    this.requesterAfterShiftType,
+    this.targetBeforeShiftType,
+    this.targetAfterShiftType,
+    this.targetName,
+  });
+
+  final ShiftTypeModel? requesterBeforeShiftType;
+  final ShiftTypeModel? requesterAfterShiftType; // null = OFF
+  final ShiftTypeModel? targetBeforeShiftType;
+  final ShiftTypeModel? targetAfterShiftType; // null = OFF
+  final String? targetName;
+}
+
+/// 단일 요청의 before/after 정보를 조회.
+/// Key: '{teamId}|{requestId}'
+final requestChangePreviewProvider = FutureProvider.autoDispose
+    .family<RequestChangePreview, String>((ref, key) async {
+  final sep = key.indexOf('|');
+  if (sep < 0) return RequestChangePreview();
+  final teamId = key.substring(0, sep);
+  final requestId = key.substring(sep + 1);
+
+  final state = ref.watch(requestListViewModelProvider(teamId)).valueOrNull;
+  if (state == null) return RequestChangePreview();
+
+  final req = state.requests.cast<RequestModel?>().firstWhere(
+        (r) => r?.id == requestId,
+        orElse: () => null,
+      );
+  if (req == null || req.requestedDate == null) {
+    return RequestChangePreview();
+  }
+
+  final shiftRepo = ref.watch(shiftRepositoryProvider);
+  final shiftTypes = await shiftRepo.getAllShiftTypes(teamId);
+  final typeMap = {for (final t in shiftTypes) t.id: t};
+
+  final shiftsOnDate = await shiftRepo.getShiftsOnDate(
+    teamId: teamId,
+    date: req.requestedDate!,
+  );
+
+  ShiftTypeModel? typeOf(String userId) {
+    final s = shiftsOnDate.cast<dynamic>().firstWhere(
+          (e) => e?.userId == userId,
+          orElse: () => null,
+        );
+    return s == null ? null : typeMap[s.shiftTypeId];
+  }
+
+  final requesterBefore = typeOf(req.requesterUserId);
+  final targetBefore =
+      req.targetUserId != null ? typeOf(req.targetUserId!) : null;
+
+  final ShiftTypeModel? requesterAfter;
+  final ShiftTypeModel? targetAfter;
+
+  switch (req.changeType) {
+    case 'swap':
+      // 멤버 간 근무 변경(단방향): 신청자가 다른 멤버의 근무 변경을 요청.
+      // 신청자 본인 근무는 변경되지 않으며, 대상자만 requestedShiftType로 변경된다.
+      requesterAfter = requesterBefore;
+      targetAfter = req.requestedShiftTypeId != null
+          ? typeMap[req.requestedShiftTypeId!]
+          : null;
+      break;
+    case 'day_off':
+      requesterAfter = null; // OFF
+      targetAfter = null;
+      break;
+    case 'shift_change':
+      requesterAfter = req.requestedShiftTypeId != null
+          ? typeMap[req.requestedShiftTypeId!]
+          : null;
+      targetAfter = null;
+      break;
+    default:
+      requesterAfter = null;
+      targetAfter = null;
+  }
+
+  return RequestChangePreview(
+    requesterBeforeShiftType: requesterBefore,
+    requesterAfterShiftType: requesterAfter,
+    targetBeforeShiftType: targetBefore,
+    targetAfterShiftType: targetAfter,
+    targetName:
+        req.targetUserId != null ? state.userNames[req.targetUserId!] : null,
+  );
+});
+
 @freezed
 class RequestListState with _$RequestListState {
   const factory RequestListState({
     required String teamId,
     required List<RequestModel> requests,
-    @Default('all') String filter, // all, pending, approved, rejected
+    @Default('pending') String filter, // pending, approved, rejected, all
     @Default(false) bool isAdmin,
+    @Default({}) Map<String, String> userNames, // userId → displayName
   }) = _RequestListState;
 }
 
@@ -31,17 +129,27 @@ class RequestListViewModel
   Future<RequestListState> build(String teamId) async {
     final repo = ref.watch(requestRepositoryProvider);
 
-    // 관리자 여부 확인
+    // 관리자 여부 + 멤버 이름 맵 (요청 카드 표시용)
     bool isAdmin = false;
     String? userId;
+    final userNames = <String, String>{};
     try {
       final authState = ref.watch(authStateChangesProvider);
       userId = authState.whenOrNull(data: (auth) => auth.session?.user.id);
       if (userId != null) {
         final teamRepo = ref.watch(teamRepositoryProvider);
-        final members = await teamRepo.getTeamMembers(teamId);
-        isAdmin = members.any(
-            (m) => m.userId == userId && m.role == 'admin' && !m.isDeleted);
+        final membersWithUsers =
+            await teamRepo.getTeamMembersWithUsers(teamId);
+        for (final mu in membersWithUsers) {
+          final name = mu.user.displayName;
+          if (name != null && name.isNotEmpty) {
+            userNames[mu.member.userId] = name;
+          }
+        }
+        isAdmin = membersWithUsers.any(
+            (mu) => mu.member.userId == userId &&
+                mu.member.role == 'admin' &&
+                !mu.member.isDeleted);
       }
     } catch (_) {}
 
@@ -57,6 +165,7 @@ class RequestListViewModel
       teamId: teamId,
       requests: requests,
       isAdmin: isAdmin,
+      userNames: userNames,
     );
   }
 

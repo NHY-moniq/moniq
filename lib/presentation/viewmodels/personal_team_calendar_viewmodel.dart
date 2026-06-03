@@ -2,12 +2,14 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/personal_team_member_shift.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
+import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 
 class PersonalTeamCalendarState {
   const PersonalTeamCalendarState({
     required this.teamId,
     required this.focusedMonth,
     required this.selectedDate,
+    required this.viewMode,
     required this.members,
     required this.monthlyData,
   });
@@ -15,6 +17,7 @@ class PersonalTeamCalendarState {
   final String teamId;
   final DateTime focusedMonth;
   final DateTime selectedDate;
+  final CalendarViewMode viewMode;
   final List<PersonalTeamMember> members;
 
   // normalized date (midnight) → 해당 날 각 멤버의 shift (shift 없으면 포함 안 됨)
@@ -23,6 +26,7 @@ class PersonalTeamCalendarState {
   PersonalTeamCalendarState copyWith({
     DateTime? focusedMonth,
     DateTime? selectedDate,
+    CalendarViewMode? viewMode,
     List<PersonalTeamMember>? members,
     Map<DateTime, List<PersonalMemberShift>>? monthlyData,
   }) {
@@ -30,6 +34,7 @@ class PersonalTeamCalendarState {
       teamId: teamId,
       focusedMonth: focusedMonth ?? this.focusedMonth,
       selectedDate: selectedDate ?? this.selectedDate,
+      viewMode: viewMode ?? this.viewMode,
       members: members ?? this.members,
       monthlyData: monthlyData ?? this.monthlyData,
     );
@@ -41,11 +46,12 @@ class PersonalTeamCalendarState {
   }
 }
 
-final personalTeamCalendarViewModelProvider = AsyncNotifierProvider.family<
-  PersonalTeamCalendarViewModel,
-  PersonalTeamCalendarState,
-  String
->(PersonalTeamCalendarViewModel.new);
+final personalTeamCalendarViewModelProvider =
+    AsyncNotifierProvider.family<
+      PersonalTeamCalendarViewModel,
+      PersonalTeamCalendarState,
+      String
+    >(PersonalTeamCalendarViewModel.new);
 
 class PersonalTeamCalendarViewModel
     extends FamilyAsyncNotifier<PersonalTeamCalendarState, String> {
@@ -55,13 +61,14 @@ class PersonalTeamCalendarViewModel
     ref.watch(teamViewModelProvider);
 
     final now = DateTime.now();
-    final focusMonth = DateTime(now.year, now.month);
     final selected = DateTime(now.year, now.month, now.day);
-    final (members, data) = await _fetch(teamId, focusMonth);
+    final focusedDay = selected;
+    final (members, data) = await _fetch(teamId, focusedDay);
     return PersonalTeamCalendarState(
       teamId: teamId,
-      focusedMonth: focusMonth,
+      focusedMonth: focusedDay,
       selectedDate: selected,
+      viewMode: CalendarViewMode.month,
       members: members,
       monthlyData: data,
     );
@@ -70,12 +77,26 @@ class PersonalTeamCalendarViewModel
   Future<void> changeMonth(DateTime month) async {
     final current = state.valueOrNull;
     if (current == null) return;
-    final normalized = DateTime(month.year, month.month);
-    final (members, data) = await _fetch(current.teamId, normalized);
+    final nextFocused = DateTime(month.year, month.month, month.day);
+    final nextSelected = current.viewMode == CalendarViewMode.week
+        ? nextFocused
+        : DateTime(month.year, month.month, 1);
+    final isSameMonth =
+        current.focusedMonth.year == nextFocused.year &&
+        current.focusedMonth.month == nextFocused.month;
+
+    if (isSameMonth) {
+      state = AsyncData(
+        current.copyWith(focusedMonth: nextFocused, selectedDate: nextSelected),
+      );
+      return;
+    }
+
+    final (members, data) = await _fetch(current.teamId, nextFocused);
     state = AsyncData(
       current.copyWith(
-        focusedMonth: normalized,
-        selectedDate: DateTime(month.year, month.month, 1),
+        focusedMonth: nextFocused,
+        selectedDate: nextSelected,
         members: members,
         monthlyData: data,
       ),
@@ -86,21 +107,30 @@ class PersonalTeamCalendarViewModel
     final current = state.valueOrNull;
     if (current == null) return;
     state = AsyncData(
-      current.copyWith(
-        selectedDate: DateTime(date.year, date.month, date.day),
-      ),
+      current.copyWith(selectedDate: DateTime(date.year, date.month, date.day)),
     );
+  }
+
+  void setViewMode(CalendarViewMode mode) {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    if (current.viewMode == mode) return;
+    state = AsyncData(current.copyWith(viewMode: mode));
   }
 
   Future<(List<PersonalTeamMember>, Map<DateTime, List<PersonalMemberShift>>)>
   _fetch(String teamId, DateTime month) async {
     final client = ref.read(supabaseClientProvider);
     final rows =
-        await client.rpc('get_personal_team_member_shifts', params: {
-          'p_team_id': teamId,
-          'p_year': month.year,
-          'p_month': month.month,
-        }) as List<dynamic>;
+        await client.rpc(
+              'get_personal_team_member_shifts',
+              params: {
+                'p_team_id': teamId,
+                'p_year': month.year,
+                'p_month': month.month,
+              },
+            )
+            as List<dynamic>;
 
     final membersMap = <String, PersonalTeamMember>{};
     final dataMap = <DateTime, List<PersonalMemberShift>>{};

@@ -11,6 +11,7 @@ import 'package:moniq/data/providers/request_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/request_viewmodel.dart';
+import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 
@@ -29,7 +30,8 @@ class RosterPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final dateStr = DateFormat('M월 d일 (E)', 'ko_KR').format(date);
+    final isExpanded = ref.watch(dateExpandedProvider);
+    final hasItems = rosterEntries.isNotEmpty;
 
     return Padding(
       padding: AppSpacing.screenHorizontal,
@@ -37,27 +39,62 @@ class RosterPanel extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: AppSpacing.md),
-          Text(
-            dateStr,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.2,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          if (rosterEntries.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-              child: Center(
-                child: Text(
-                  '이 날짜에 배정된 근무가 없습니다',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+          // 개인 캘린더와 동일한 chevron pill 토글
+          if (hasItems)
+            Center(
+              child: Material(
+                color: theme.colorScheme.surfaceContainerHigh,
+                shape: const StadiumBorder(),
+                child: InkWell(
+                  customBorder: const StadiumBorder(),
+                  onTap: () => ref
+                      .read(dateExpandedProvider.notifier)
+                      .state = !isExpanded,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: 6,
+                    ),
+                    child: AnimatedRotation(
+                      turns: isExpanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      child: Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 20,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ),
                 ),
               ),
+            ),
+          const SizedBox(height: AppSpacing.sm),
+          if (!hasItems)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+              child: Center(
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: 72,
+                      height: 72,
+                      child: Image.asset(
+                        'assets/images/off.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      '이 날짜에 배정된 근무가 없습니다',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             )
-          else
+          else if (isExpanded)
             ...(_sortedRoster(rosterEntries)).map(
               (entry) => _ShiftTypeGroup(
                 entry: entry,

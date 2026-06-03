@@ -150,21 +150,35 @@ class TeamCalendarViewModel
     final current = state.valueOrNull;
     if (current == null) return;
 
+    // 주간 모드에서는 focused 날짜를 그대로 사용, 월간에서는 1일
+    final selectedDate = current.viewMode == CalendarViewMode.week
+        ? DateTime(month.year, month.month, month.day)
+        : DateTime(month.year, month.month, 1);
+
+    // 1) focusedMonth와 selectedDate를 먼저 반영해 UI를 즉시 업데이트한다
+    //    (스냅백 방지 + 즉각적인 반응성).
+    state = AsyncData(
+      current.copyWith(
+        focusedMonth: month,
+        selectedDate: selectedDate,
+      ),
+    );
+
+    // 2) 두 네트워크 요청을 병렬로 수행 (이전엔 순차였음).
     try {
-      final monthlyShifts = await _shiftRepository.getTeamMonthlyShifts(
-        teamId: current.teamId,
-        month: month,
-      );
-
-      // 주간 모드에서는 focused 날짜를 그대로 사용, 월간에서는 1일
-      final selectedDate = current.viewMode == CalendarViewMode.week
-          ? DateTime(month.year, month.month, month.day)
-          : DateTime(month.year, month.month, 1);
-
-      final roster = await _shiftRepository.getTeamRoster(
-        teamId: current.teamId,
-        date: selectedDate,
-      );
+      final results = await Future.wait([
+        _shiftRepository.getTeamMonthlyShifts(
+          teamId: current.teamId,
+          month: month,
+        ),
+        _shiftRepository.getTeamRoster(
+          teamId: current.teamId,
+          date: selectedDate,
+        ),
+      ]);
+      final monthlyShifts =
+          results[0] as Map<DateTime, List<ShiftWithType>>;
+      final roster = results[1] as List<RosterEntry>;
 
       state = AsyncData(
         current.copyWith(

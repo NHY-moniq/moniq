@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/datasources/notification_service.dart';
@@ -8,6 +10,7 @@ import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/data/providers/wanted_providers.dart';
+import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 
 part 'wanted_viewmodel.freezed.dart';
 
@@ -46,27 +49,8 @@ class WantedAdminViewModel
 
     // 마감일이 지난 수집 요청 자동 종료 (DB status → 'closed')
     final now = DateTime.now();
-    for (final r in all) {
-      if (r.deadline != null) {
-        final deadlineEnd = DateTime(
-          r.deadline!.year,
-          r.deadline!.month,
-          r.deadline!.day,
-          23,
-          59,
-          59,
-        );
-        if (now.isAfter(deadlineEnd)) {
-          try {
-            await repo.closeWantedRequest(r.id);
-          } catch (_) {}
-        }
-      }
-    }
-
-    // 자동 종료 후 실제 활성 목록 (마감일 미경과 요청만)
-    final effective = all.where((r) {
-      if (r.deadline == null) return true;
+    final expiredRequests = all.where((r) {
+      if (r.deadline == null) return false;
       final deadlineEnd = DateTime(
         r.deadline!.year,
         r.deadline!.month,
@@ -75,8 +59,19 @@ class WantedAdminViewModel
         59,
         59,
       );
-      return !now.isAfter(deadlineEnd);
+      return now.isAfter(deadlineEnd);
     }).toList();
+    if (expiredRequests.isNotEmpty) {
+      try {
+        await repo.closeWantedRequests(
+          expiredRequests.map((r) => r.id).toSet().toList(),
+        );
+      } catch (_) {}
+    }
+
+    // 자동 종료 후 실제 활성 목록 (마감일 미경과 요청만)
+    final expiredIds = expiredRequests.map((r) => r.id).toSet();
+    final effective = all.where((r) => !expiredIds.contains(r.id)).toList();
 
     // 타입별 중복 제거 (최신순 정렬이므로 첫 번째가 최신)
     final seen = <String>{};
@@ -104,10 +99,12 @@ class WantedAdminViewModel
 
     // 비나이트 요청 전체 병합; 비나이트가 없으면 나이트 엔트리 로드
     List<WantedEntryWithUser> entries = [];
-    for (final req in nonNightRequests) {
-      entries.addAll(await repo.getAllEntries(req.id));
-    }
-    if (nonNightRequests.isEmpty && nightRequest != null) {
+    if (nonNightRequests.isNotEmpty) {
+      final entryBatches = await Future.wait(
+        nonNightRequests.map((req) => repo.getAllEntries(req.id)),
+      );
+      entries = entryBatches.expand((batch) => batch).toList();
+    } else if (nightRequest != null) {
       entries = await repo.getAllEntries(nightRequest.id);
     }
 
@@ -140,9 +137,12 @@ class WantedAdminViewModel
         if (nonNightClosedRequests.isNotEmpty) {
           // 비나이트(휴무/희망근무)는 마감 후에도 하나의 "원티드"로 병합 표시
           lastClosedRequest = nonNightClosedRequests.first;
-          for (final req in nonNightClosedRequests) {
-            lastClosedEntries.addAll(await repo.getAllEntries(req.id));
-          }
+          final closedEntryBatches = await Future.wait(
+            nonNightClosedRequests.map((req) => repo.getAllEntries(req.id)),
+          );
+          lastClosedEntries = closedEntryBatches
+              .expand((batch) => batch)
+              .toList();
         } else if (closedNightRequest != null) {
           lastClosedRequest = closedNightRequest;
           lastClosedEntries = await repo.getAllEntries(closedNightRequest.id);
@@ -205,10 +205,10 @@ class WantedAdminViewModel
 
       try {
         final repo = ref.read(wantedRepositoryProvider);
-        final allEntries = <WantedEntryWithUser>[];
-        for (final req in nonNightRequests) {
-          allEntries.addAll(await repo.getAllEntries(req.id));
-        }
+        final entryBatches = await Future.wait(
+          nonNightRequests.map((req) => repo.getAllEntries(req.id)),
+        );
+        final allEntries = entryBatches.expand((batch) => batch).toList();
         state = AsyncData(state.value!.copyWith(lastClosedEntries: allEntries));
       } catch (e) {
         state = AsyncData(state.value!.copyWith(error: '로드 중 오류: $e'));
@@ -255,10 +255,10 @@ class WantedAdminViewModel
       );
       try {
         final repo = ref.read(wantedRepositoryProvider);
-        final allEntries = <WantedEntryWithUser>[];
-        for (final req in nonNightRequests) {
-          allEntries.addAll(await repo.getAllEntries(req.id));
-        }
+        final entryBatches = await Future.wait(
+          nonNightRequests.map((req) => repo.getAllEntries(req.id)),
+        );
+        final allEntries = entryBatches.expand((batch) => batch).toList();
         state = AsyncData(state.value!.copyWith(allEntries: allEntries));
       } catch (e) {
         state = AsyncData(state.value!.copyWith(error: '로드 중 오류: $e'));
@@ -290,10 +290,8 @@ class WantedAdminViewModel
       );
 
       // 타입별 메시지 (day_off / preferred_shift / night_dedicated)
-      final startStr =
-          '${periodStart.month}/${periodStart.day}';
-      final endStr =
-          '${periodEnd.month}/${periodEnd.day}';
+      final startStr = '${periodStart.month}/${periodStart.day}';
+      final endStr = '${periodEnd.month}/${periodEnd.day}';
       final body = '$startStr~$endStr 기간의 원티드를 입력해주세요.';
 
       await NotificationService.instance.showScheduleChangeNotification(
@@ -345,86 +343,58 @@ class WantedAdminViewModel
     final current = state.valueOrNull;
     if (current == null) return;
 
-    final closingRequest = current.activeRequest!;
+    final closingRequest = current.activeRequest;
+    state = const AsyncLoading();
 
     try {
       final repo = ref.read(wantedRepositoryProvider);
-      await repo.closeWantedRequest(closingRequest.id);
-      // 즉시 로딩 상태로 전환해 중간 화면(생성 폼 등)이 잠깐 뜨지 않도록 함
-      state = const AsyncLoading();
-
-      // 팀원 전체에게 종료 알림 (관리자 본인 제외)
-      try {
-        final team = await ref
-            .read(teamRepositoryProvider)
-            .getTeamById(current.teamId);
-        final typeLabel = _wantedTypeLabel(closingRequest.wantedType);
-        await PushService.instance.sendToTeam(
-          teamId: current.teamId,
-          title: '[${team.name}] $typeLabel 수집 종료',
-          body: '$typeLabel 수집이 마감되었습니다.',
-          data: {
-            'type': 'wanted_close',
-            'team_id': current.teamId,
-            'wanted_type': closingRequest.wantedType,
-          },
-        );
-      } catch (_) {}
-      // state가 아닌 DB 직접 조회로 누락 없이 마감
       final allActive = await repo.getActiveWantedRequests(current.teamId);
-      for (final req in allActive) {
-        await repo.closeWantedRequest(req.id);
+      final requestIds = allActive.map((r) => r.id).toSet().toList();
+      if (requestIds.isNotEmpty) {
+        await repo.closeWantedRequests(requestIds);
       }
+
       // build() 재실행 → lastClosedRequests 로드
       ref.invalidateSelf();
+      await future;
       // 팀원 입력 화면도 즉시 마감 상태로 전환
       ref.invalidate(wantedMemberViewModelProvider(current.teamId));
-    } catch (_) {}
+      if (closingRequest != null) {
+        unawaited(
+          _sendCloseNotification(
+            teamId: current.teamId,
+            wantedType: closingRequest.wantedType,
+          ),
+        );
+      }
+    } catch (e) {
+      state = AsyncData(current.copyWith(error: '수집 마감 중 오류: $e'));
+    }
   }
 
   /// 마감된 수집 재개 — lastClosedRequests를 모두 collecting으로 되돌림.
   /// 재개 시 createWantedRequest와 동일하게 팀원에게 로컬/FCM 푸시 발송.
-  Future<bool> reopenRequests() async {
+  Future<bool> reopenRequests({required DateTime deadline}) async {
     final current = state.valueOrNull;
     if (current == null || current.lastClosedRequests.isEmpty) return false;
+    state = const AsyncLoading();
 
     try {
       final repo = ref.read(wantedRepositoryProvider);
-      for (final req in current.lastClosedRequests) {
-        await repo.reopenWantedRequest(req.id);
-      }
+      final requestIds = current.lastClosedRequests.map((r) => r.id).toSet();
+      await repo.reopenWantedRequests(requestIds.toList(), deadline: deadline);
 
-      // 팀원에게 재개 푸시 (관리자 본인 제외). 타입별로 1건씩 발송.
-      try {
-        final team = await ref
-            .read(teamRepositoryProvider)
-            .getTeamById(current.teamId);
-        for (final req in current.lastClosedRequests) {
-          final typeLabel = _wantedTypeLabel(req.wantedType);
-          final startStr = '${req.periodStart.month}/${req.periodStart.day}';
-          final endStr = '${req.periodEnd.month}/${req.periodEnd.day}';
-          final body = '$startStr~$endStr 기간의 $typeLabel 수집이 재개되었어요. 입력해주세요.';
-
-          await NotificationService.instance.showScheduleChangeNotification(
-            teamName: team.name,
-            message: body,
-          );
-          await PushService.instance.sendToTeam(
-            teamId: current.teamId,
-            title: '[${team.name}] $typeLabel 수집 재개',
-            body: body,
-            data: {
-              'type': 'wanted_open',
-              'team_id': current.teamId,
-              'wanted_type': req.wantedType,
-            },
-          );
-        }
-      } catch (_) {}
-
-      // build() 재실행 → 재개된 요청이 activeRequests로 로드됨
+      // 즉시 재조회 완료까지 기다려서 화면이 바로 '수집 중' 상태로 전환되게 함.
       ref.invalidateSelf();
+      await future;
       ref.invalidate(wantedMemberViewModelProvider(current.teamId));
+      unawaited(
+        _sendReopenNotifications(
+          teamId: current.teamId,
+          requests: current.lastClosedRequests,
+          deadline: deadline,
+        ),
+      );
       return true;
     } catch (e) {
       state = AsyncData(current.copyWith(error: '수집 재개 중 오류: $e'));
@@ -456,13 +426,36 @@ class WantedAdminViewModel
 
     try {
       final teamRepo = ref.read(teamRepositoryProvider);
+      final approvedSet = approvedUserIds.toSet();
+      final teamMembers = await teamRepo.getTeamMembers(current.teamId);
+      final memberByUserId = {for (final m in teamMembers) m.userId: m};
+
       for (final uid in allApplicantUserIds) {
+        final isApproved = approvedSet.contains(uid);
+        List<String>? nextPreferredShifts;
+
+        if (isApproved) {
+          final existing =
+              memberByUserId[uid]?.preferredShifts ?? const <String>[];
+          final filtered = existing.where((code) {
+            final normalized = code.trim().toUpperCase();
+            return normalized != 'D' && normalized != 'E';
+          }).toList();
+          if (filtered.length != existing.length) {
+            nextPreferredShifts = filtered;
+          }
+        }
+
         await teamRepo.updateMemberAttrs(
           current.teamId,
           uid,
-          nightDedicated: approvedUserIds.contains(uid),
+          nightDedicated: isApproved,
+          preferredShifts: nextPreferredShifts,
         );
       }
+
+      // 확정 직후 멤버 화면에서도 최신 속성이 즉시 보이도록 관련 캐시 동기화
+      ref.invalidate(teamDetailViewModelProvider(current.teamId));
       ref.invalidateSelf();
       return true;
     } catch (e) {
@@ -473,6 +466,62 @@ class WantedAdminViewModel
 
   Future<void> refresh() async {
     ref.invalidateSelf();
+  }
+
+  Future<void> _sendCloseNotification({
+    required String teamId,
+    required String wantedType,
+  }) async {
+    try {
+      final team = await ref.read(teamRepositoryProvider).getTeamById(teamId);
+      final typeLabel = _wantedTypeLabel(wantedType);
+      await PushService.instance.sendToTeam(
+        teamId: teamId,
+        title: '[${team.name}] $typeLabel 수집 종료',
+        body: '$typeLabel 수집이 마감되었습니다.',
+        data: {
+          'type': 'wanted_close',
+          'team_id': teamId,
+          'wanted_type': wantedType,
+        },
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _sendReopenNotifications({
+    required String teamId,
+    required List<WantedRequestModel> requests,
+    required DateTime deadline,
+  }) async {
+    try {
+      final team = await ref.read(teamRepositoryProvider).getTeamById(teamId);
+      await Future.wait(
+        requests.map((req) async {
+          final typeLabel = _wantedTypeLabel(req.wantedType);
+          final startStr = '${req.periodStart.month}/${req.periodStart.day}';
+          final endStr = '${req.periodEnd.month}/${req.periodEnd.day}';
+          final deadlineStr = '${deadline.month}/${deadline.day}';
+          final body =
+              '$startStr~$endStr 기간의 $typeLabel 수집이 재개되었어요. '
+              '(마감: $deadlineStr)';
+
+          await NotificationService.instance.showScheduleChangeNotification(
+            teamName: team.name,
+            message: body,
+          );
+          await PushService.instance.sendToTeam(
+            teamId: teamId,
+            title: '[${team.name}] $typeLabel 수집 재개',
+            body: body,
+            data: {
+              'type': 'wanted_open',
+              'team_id': teamId,
+              'wanted_type': req.wantedType,
+            },
+          );
+        }),
+      );
+    } catch (_) {}
   }
 }
 
@@ -542,11 +591,10 @@ class WantedMemberViewModel
 
     final activeRequest = activeRequests.isEmpty ? null : activeRequests.first;
 
-    List<WantedEntryModel> myEntries = [];
-    for (final req in activeRequests) {
-      final entries = await repo.getMyEntries(req.id);
-      myEntries.addAll(entries);
-    }
+    final myEntryBatches = await Future.wait(
+      activeRequests.map((req) => repo.getMyEntries(req.id)),
+    );
+    final myEntries = myEntryBatches.expand((batch) => batch).toList();
 
     // 현재 유저의 멤버 속성 로드 (원티드 신청 제한 검증용)
     TeamMemberModel? myMember;
@@ -673,21 +721,21 @@ class WantedMemberViewModel
           final isNight = code == 'N';
           final isEvening = code == 'E';
           if (member.nightExempt && isNight) {
-            state = AsyncData(current.copyWith(
-              error: '나이트 제외 속성으로 나이트 근무를 원티드 신청할 수 없습니다',
-            ));
+            state = AsyncData(
+              current.copyWith(error: '나이트 제외 속성으로 나이트 근무를 원티드 신청할 수 없습니다'),
+            );
             return false;
           }
           if (member.nightDedicated && !isNight) {
-            state = AsyncData(current.copyWith(
-              error: '나이트 전담 속성으로 데이·이브닝 근무를 원티드 신청할 수 없습니다',
-            ));
+            state = AsyncData(
+              current.copyWith(error: '나이트 전담 속성으로 데이·이브닝 근무를 원티드 신청할 수 없습니다'),
+            );
             return false;
           }
           if (member.dayOnly && (isEvening || isNight)) {
-            state = AsyncData(current.copyWith(
-              error: '데이 전담 속성으로 이브닝·나이트 근무를 원티드 신청할 수 없습니다',
-            ));
+            state = AsyncData(
+              current.copyWith(error: '데이 전담 속성으로 이브닝·나이트 근무를 원티드 신청할 수 없습니다'),
+            );
             return false;
           }
         }

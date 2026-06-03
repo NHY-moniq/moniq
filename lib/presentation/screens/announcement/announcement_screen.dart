@@ -1308,7 +1308,7 @@ class _DetailAuthorLine extends StatelessWidget {
     return AnnouncementAuthor(
       name: author.displayName,
       avatarUrl: author.avatarUrl,
-      avatarRadius: 12,
+      avatarRadius: 14,
       trailing: createdAt == null
           ? null
           : Text(
