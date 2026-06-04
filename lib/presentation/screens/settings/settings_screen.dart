@@ -164,10 +164,6 @@ class _ShiftThemedProfileHero extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: AppSpacing.sm),
-                        _MoniqIdPill(
-                          userId: user?.id,
-                          onColor: shift.onPrimary,
-                        ),
                       ],
                     ),
                   ),
@@ -271,54 +267,6 @@ class _InitialBadge extends StatelessWidget {
           fontWeight: FontWeight.w900,
           fontSize: 28,
         ),
-      ),
-    );
-  }
-}
-
-/// F13 fix — MONIQ ID pill without hardcoded monospace font.
-class _MoniqIdPill extends StatelessWidget {
-  const _MoniqIdPill({required this.userId, required this.onColor});
-  final String? userId;
-  final Color onColor;
-
-  String _format(String? uid) {
-    if (uid == null || uid.length < 6) return 'MQ-000-XXX';
-    final h = uid.substring(0, 6).toUpperCase();
-    return 'MQ-${h.substring(0, 3)}-${h.substring(3, 6)}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: 5,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.4),
-        borderRadius: AppRadius.borderRadiusFull,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'MONIQ ID · ',
-            style: AppTypography.captionSmall.copyWith(
-              color: onColor.withValues(alpha: 0.75),
-              letterSpacing: 1.2,
-            ),
-          ),
-          Text(
-            _format(userId),
-            style: AppTypography.captionSmall.copyWith(
-              color: onColor,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
       ),
     );
   }

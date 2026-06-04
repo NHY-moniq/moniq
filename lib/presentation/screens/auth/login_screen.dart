@@ -210,32 +210,28 @@ class LoginScreen extends HookConsumerWidget {
                       _OrDivider(),
                       const SizedBox(height: AppSpacing.xxxl),
 
-                      // Social login grid
+                      // 카카오 (primary, full-width)
+                      _KakaoLoginButton(
+                        onPressed: () => handleSocialLogin(
+                          ref
+                              .read(authViewModelProvider.notifier)
+                              .signInWithKakao,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      // 보조 소셜 버튼 (작은 아이콘)
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Expanded(
-                            child: _SocialPillButton(
-                              onPressed: () => handleSocialLogin(
-                                ref
-                                    .read(authViewModelProvider.notifier)
-                                    .signInWithGoogle,
-                              ),
-                              icon: Icons.g_mobiledata,
-                              label: 'Google',
+                          _SmallSocialButton(
+                            onPressed: () => handleSocialLogin(
+                              ref
+                                  .read(authViewModelProvider.notifier)
+                                  .signInWithGoogle,
                             ),
-                          ),
-                          const SizedBox(width: AppSpacing.lg),
-                          Expanded(
-                            child: _SocialPillButton(
-                              onPressed: () => handleSocialLogin(
-                                ref
-                                    .read(authViewModelProvider.notifier)
-                                    .signInWithKakao,
-                              ),
-                              icon: Icons.chat_bubble,
-                              label: '카카오',
-                              backgroundColor: const Color(0xFFFEE500),
-                            ),
+                            icon: Icons.g_mobiledata,
+                            tooltip: 'Google로 로그인',
                           ),
                         ],
                       ),
@@ -466,35 +462,29 @@ class _OrDivider extends StatelessWidget {
   }
 }
 
-/// Social login pill button (grid style)
-class _SocialPillButton extends StatelessWidget {
-  const _SocialPillButton({
-    required this.onPressed,
-    required this.icon,
-    required this.label,
-    this.backgroundColor,
-  });
+/// 카카오 로그인 버튼 — full-width, 공식 브랜드 컬러 고정 (다크모드 무관)
+class _KakaoLoginButton extends StatelessWidget {
+  const _KakaoLoginButton({required this.onPressed});
 
   final VoidCallback onPressed;
-  final IconData icon;
-  final String label;
-  final Color? backgroundColor;
+
+  static const _kakaoYellow = Color(0xFFFEE500);
+  static const _kakaoBrown = Color(0xFF3C1E1E);
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
+      width: double.infinity,
       height: AppSizing.buttonHeight,
-      child: OutlinedButton(
+      child: ElevatedButton(
         onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          backgroundColor:
-              backgroundColor ?? colorScheme.surface,
-          foregroundColor: colorScheme.onSurfaceVariant,
-          side: BorderSide(
-            color: colorScheme.surfaceContainer,
-            width: 2,
-          ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _kakaoYellow,
+          foregroundColor: _kakaoBrown,
+          disabledBackgroundColor: _kakaoYellow.withValues(alpha: 0.5),
+          disabledForegroundColor: _kakaoBrown.withValues(alpha: 0.5),
+          elevation: 0,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: AppRadius.borderRadiusFull,
           ),
@@ -502,16 +492,53 @@ class _SocialPillButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 22),
+            Icon(Icons.chat_bubble, size: 20, color: _kakaoBrown),
             const SizedBox(width: AppSpacing.sm),
             Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
+              '카카오로 시작하기',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+                color: _kakaoBrown,
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 보조 소셜 로그인 — 작은 원형 아이콘 버튼
+class _SmallSocialButton extends StatelessWidget {
+  const _SmallSocialButton({
+    required this.onPressed,
+    required this.icon,
+    required this.tooltip,
+  });
+
+  final VoidCallback onPressed;
+  final IconData icon;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: 52,
+        height: 52,
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            backgroundColor: cs.surface,
+            foregroundColor: cs.onSurface,
+            side: BorderSide(color: cs.outlineVariant),
+            shape: const CircleBorder(),
+            padding: EdgeInsets.zero,
+          ),
+          child: Icon(icon, size: 24),
         ),
       ),
     );

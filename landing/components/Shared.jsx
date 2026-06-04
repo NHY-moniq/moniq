@@ -197,7 +197,10 @@ const ComingSoonButtons = ({ kind = 'cream' }) => {
         display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer',
         position: 'relative',
       }}>
-        <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+        {icon === 'apple'
+          ? <svg width="16" height="18" viewBox="0 0 814 1000" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.3-167.2-107.3C188 664 163 614 138.3 563.8c-24.5-49.8-58.5-136.7-58.5-221.2 0-149.5 97.7-229 193.1-229 50.8 0 93.1 33.3 124.5 33.3 30 0 76.7-35.5 133.9-35.5 58.6 0 148.2 20.3 197.5 96.8zm-234-181.5c28.2-36.2 48.6-86.2 48.6-136.2 0-6.8-.6-13.6-1.3-20.2-45.8 1.6-99.9 31.4-132.5 71.2-23.2 28.6-45.6 78.6-45.6 129.2 0 7.6.6 15.2 1.3 22.1 3.3.5 8.7 1.3 14.1 1.3 40.8 0 91.1-28.4 115.4-67.4z"/></svg>
+          : <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+        }
         <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
           <span style={{ font: '700 9px/1 var(--font-family)', letterSpacing: 1.2, opacity: .65 }}>COMING SOON</span>
           <span>{label}</span>

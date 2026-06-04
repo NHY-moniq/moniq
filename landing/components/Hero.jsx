@@ -13,16 +13,7 @@ const LandingNav = () => (
       pointerEvents: 'auto',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 24 }}>
-        <div style={{ display: 'flex', gap: -4 }}>
-          {['#FFD700','#FF8C00','#0061A4'].map((c,i)=>(
-            <div key={i} style={{ width: 14, height: 14, borderRadius: '50%', background: c, marginLeft: i === 0 ? 0 : -4, border: '2px solid #FFFDF7' }} />
-          ))}
-        </div>
-        <div style={{ font: '900 14px/1 var(--font-family)', letterSpacing: -.3 }}>
-          <span style={{ color: '#FFC107' }}>ON</span>
-          <span style={{ color: '#312F23' }}>OR</span>
-          <span style={{ color: '#0061A4' }}>OFF</span>
-        </div>
+        <img src="assets/app_logo.png" alt="OnorOff" style={{ height: 28, objectFit: 'contain' }} />
       </div>
       {['기능', '팀 스케줄', '요청하기', 'FAQ'].map(l => (
         <a key={l} href="#" style={{ font: '700 13px/1 var(--font-family)', color: '#5F5C4D', textDecoration: 'none', padding: '10px 14px', borderRadius: 9999 }}>{l}</a>
@@ -32,11 +23,28 @@ const LandingNav = () => (
   </div>
 );
 
-// HERO — left copy, right layered phone mockup with floating mascots
+// Hero 슬라이드 화면 목록 (라벨, mock 컴포넌트, shift)
+const HERO_SLIDES = [
+  { label: '오늘 내 근무', mock: (accent) => <MiniHomeScreen shift={accent} /> },
+  { label: '팀 캘린더', mock: () => <MiniTeamCalendarScreen /> },
+  { label: '내 캘린더', mock: () => <MiniCalendarScreen /> },
+];
+
+// HERO — left copy, right phone slideshow with floating mascots
 const LandingHero = ({ tweaks }) => {
   const showMascots = tweaks.showMascots;
   const accent = tweaks.accent;
   const accentColor = { day: '#FFD700', evening: '#FF8C00', night: '#0061A4' }[accent];
+  const [slideIndex, setSlideIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setSlideIndex(i => (i + 1) % HERO_SLIDES.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentSlide = HERO_SLIDES[slideIndex];
 
   return (
     <Section paddingY={160} style={{ paddingTop: 180 }}>
@@ -75,21 +83,48 @@ const LandingHero = ({ tweaks }) => {
               사전 신청 열려있어요
             </div>
             <div style={{ font: '600 13px/1.5 var(--font-family)', color: '#5F5C4D' }}>
-              규칙 기반 자동 생성 · 자연어 커스텀 룰 · AI 공평성 리포트
+              규칙 기반 자동 생성 · 자연어 커스텀 룰 · AI 분석 리포트
             </div>
           </div>
         </div>
 
-        {/* RIGHT: phone + floating mascots */}
-        <div className="hero-phone-col" style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', height: 640 }}>
+        {/* RIGHT: phone slideshow + floating mascots */}
+        <div className="hero-phone-col" style={{ position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: 700, gap: 20 }}>
           {showMascots && <>
             <Mascot color="yellow" size={150} style={{ position: 'absolute', top: 20, left: -10, filter: 'drop-shadow(0 20px 28px rgba(255,215,0,.35))', animation: 'float1 6s ease-in-out infinite' }} />
-            <Mascot color="orange" size={110} style={{ position: 'absolute', bottom: 60, left: 10, filter: 'drop-shadow(0 16px 24px rgba(255,140,0,.3))', animation: 'float2 7s ease-in-out infinite' }} />
+            <Mascot color="orange" size={110} style={{ position: 'absolute', bottom: 80, left: 10, filter: 'drop-shadow(0 16px 24px rgba(255,140,0,.3))', animation: 'float2 7s ease-in-out infinite' }} />
             <Mascot color="blue" size={130} style={{ position: 'absolute', top: 80, right: -20, filter: 'drop-shadow(0 18px 26px rgba(0,97,164,.3))', animation: 'float3 8s ease-in-out infinite' }} />
           </>}
-          <PhoneFrame width={320} height={620} shadow="0 40px 80px rgba(49,47,35,.2)">
-            <MiniHomeScreen shift={accent} />
-          </PhoneFrame>
+          {/* 폰 슬라이드 */}
+          <div className="hero-slide-phone" key={slideIndex} style={{ position: 'relative', zIndex: 2 }}>
+            <PhoneFrame width={320} height={620} shadow="0 40px 80px rgba(49,47,35,.2)">
+              {currentSlide.mock(accent)}
+            </PhoneFrame>
+          </div>
+          {/* 슬라이드 인디케이터 */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, zIndex: 2 }}>
+            <div style={{ font: '700 12px/1 var(--font-family)', color: '#5F5C4D', letterSpacing: 0.5 }}>
+              {currentSlide.label}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {HERO_SLIDES.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSlideIndex(i)}
+                  style={{
+                    width: i === slideIndex ? 20 : 8,
+                    height: 8,
+                    borderRadius: 9999,
+                    background: i === slideIndex ? '#312F23' : 'rgba(49,47,35,.2)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0,
+                    transition: 'width .3s ease, background .3s ease',
+                  }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -97,6 +132,11 @@ const LandingHero = ({ tweaks }) => {
         @keyframes float1 { 0%,100%{transform:translateY(0) rotate(-6deg)} 50%{transform:translateY(-18px) rotate(4deg)} }
         @keyframes float2 { 0%,100%{transform:translateY(0) rotate(6deg)} 50%{transform:translateY(-14px) rotate(-4deg)} }
         @keyframes float3 { 0%,100%{transform:translateY(0) rotate(4deg)} 50%{transform:translateY(-22px) rotate(-6deg)} }
+        @keyframes heroSlideIn {
+          from { opacity: 0; transform: translateY(16px) scale(.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .hero-slide-phone { animation: heroSlideIn .45s cubic-bezier(0.22,1,0.36,1); }
       `}</style>
     </Section>
   );

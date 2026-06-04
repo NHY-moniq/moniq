@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/announcement_model.dart';
@@ -6,6 +7,7 @@ import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/announcement_providers.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/presentation/screens/announcement/announcement_screen.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/announcement/announcement_filter_sheet.dart';
@@ -21,6 +23,7 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final announcementsAsync = ref.watch(filteredAnnouncementsProvider);
+    final pinnedIds = ref.watch(pinnedAnnouncementIdsProvider);
     final teamsAsync = ref.watch(teamViewModelProvider);
     final selectedTeamId =
         ref.watch(selectedAnnouncementTeamFilterProvider);
@@ -66,23 +69,70 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
                   );
                 }
 
+                // 개인 핀 기준 정렬: 내가 고정한 것 먼저, 그 안에서 최신순
+                final sorted = [...items]..sort((x, y) {
+                    final a = x.announcement;
+                    final b = y.announcement;
+                    final aPinned = pinnedIds.contains(a.id) ? 0 : 1;
+                    final bPinned = pinnedIds.contains(b.id) ? 0 : 1;
+                    if (aPinned != bPinned) return aPinned - bPinned;
+                    final aDate = a.createdAt;
+                    final bDate = b.createdAt;
+                    if (aDate == null && bDate == null) return 0;
+                    if (aDate == null) return 1;
+                    if (bDate == null) return -1;
+                    return bDate.compareTo(aDate);
+                  });
+
                 return RefreshIndicator(
                   onRefresh: () async =>
                       ref.invalidate(myAnnouncementsProvider),
-                  child: ListView.separated(
-                    padding: AppSpacing.screenAll,
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: AppSpacing.sm),
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      final a = item.announcement;
-                      return AnnouncementListTile(
-                        announcement: a,
-                        teamName: item.teamName,
-                        onTap: () => _showDetail(context, ref, item),
-                      );
-                    },
+                  child: SlidableAutoCloseBehavior(
+                    child: ListView.separated(
+                      padding: AppSpacing.screenAll,
+                      itemCount: sorted.length,
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(height: AppSpacing.sm),
+                      itemBuilder: (context, index) {
+                        final item = sorted[index];
+                        final a = item.announcement;
+                        final isPinnedLocally = pinnedIds.contains(a.id);
+                        return Slidable(
+                          key: ValueKey(a.id),
+                          startActionPane: ActionPane(
+                            motion: const BehindMotion(),
+                            extentRatio: 0.28,
+                            children: [
+                              SlidableAction(
+                                onPressed: (_) => ref
+                                    .read(pinnedAnnouncementIdsProvider
+                                        .notifier)
+                                    .toggle(a.id),
+                                backgroundColor: isPinnedLocally
+                                    ? AppColors.brandOrange
+                                    : AppColors.primary,
+                                foregroundColor: Colors.white,
+                                icon: isPinnedLocally
+                                    ? Icons.push_pin
+                                    : Icons.push_pin_outlined,
+                                label: isPinnedLocally ? '해제' : '고정',
+                                borderRadius: AppRadius.borderRadiusLg,
+                              ),
+                            ],
+                          ),
+                          child: AnnouncementListTile(
+                            key: ValueKey('tile_${a.id}'),
+                            announcement: a,
+                            teamName: item.teamName,
+                            isPinnedLocally: isPinnedLocally,
+                            onTap: () => _showDetail(context, ref, item),
+                            onTogglePin: () => ref
+                                .read(pinnedAnnouncementIdsProvider.notifier)
+                                .toggle(a.id),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 );
               },
