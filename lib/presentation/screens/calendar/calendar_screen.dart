@@ -311,8 +311,15 @@ class CalendarScreen extends HookConsumerWidget {
                   previewBuilder: (day) {
                     final key = DateTime(day.year, day.month, day.day);
                     final result = <CalendarPreview>[];
+                    // 즐겨찾기 팀이 있으면 그 팀의 근무 유형을 우선 사용(없으면 개인).
+                    // 로딩 중(valueOrNull == null)이면 개인 유형으로 graceful fallback.
+                    final teamTypes = ref
+                        .watch(favoriteTeamShiftTypesProvider)
+                        .valueOrNull;
                     final personalShiftTypes =
-                        ref.read(personalShiftTypesProvider);
+                        (teamTypes != null && teamTypes.isNotEmpty)
+                            ? teamTypes.map(personalTypeFromTeam).toList()
+                            : ref.read(personalShiftTypesProvider);
                     final shiftTypeByName = {
                       for (final st in personalShiftTypes) st.name: st,
                     };
@@ -325,8 +332,13 @@ class CalendarScreen extends HookConsumerWidget {
                     String labelOf(String name, String code) {
                       final personalType = shiftTypeByName[name];
                       if (personalType != null) {
-                        return displayShiftLabel(
-                            personalType, personalShiftTypes);
+                        // 사용자가 지정한 코드 우선, 없으면 파생 라벨.
+                        final typeCode =
+                            personalType.code.trim().toUpperCase();
+                        return typeCode.isEmpty
+                            ? displayShiftLabel(
+                                personalType, personalShiftTypes)
+                            : typeCode;
                       }
                       final c = code.toUpperCase();
                       if (c == 'OFF') return 'O';
@@ -367,8 +379,13 @@ class CalendarScreen extends HookConsumerWidget {
                                 ?.startsWith(kPersonalTeamImportMarker) ==
                             true;
                         if (matchedType != null) {
-                          final label = displayShiftLabel(
-                              matchedType, personalShiftTypes);
+                          // 사용자가 지정한 코드 우선, 없으면 파생 라벨.
+                          final matchedCode =
+                              matchedType.code.trim().toUpperCase();
+                          final label = matchedCode.isEmpty
+                              ? displayShiftLabel(
+                                  matchedType, personalShiftTypes)
+                              : matchedCode;
                           if (!seenWorkLabels.add(label)) continue;
                           final colorHex = e.color ?? matchedType.color;
                           result.add(CalendarPreview(

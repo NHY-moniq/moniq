@@ -6,7 +6,9 @@ import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
+import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/character_blob.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
@@ -205,7 +207,13 @@ class TeamListScreen extends HookConsumerWidget {
     } else {
       await teamRepo.setFavoriteTeam(team.id);
     }
+    // 즐겨찾기 변경 시 개인/팀 캘린더 미리보기가 즉시 반영되도록 모두 갱신.
+    // - 임시 보기 전환(override)을 비워 팀 탭이 새 즐겨찾기 팀을 따르게 한다.
+    // - 개인 캘린더(home)와 팀 근무유형 미리보기 provider를 무효화한다.
+    ref.read(viewingTeamIdOverrideProvider.notifier).state = null;
     ref.invalidate(favoriteTeamProvider);
+    ref.invalidate(favoriteTeamShiftTypesProvider);
+    ref.invalidate(homeViewModelProvider);
     ref.invalidate(teamViewModelProvider);
   }
 

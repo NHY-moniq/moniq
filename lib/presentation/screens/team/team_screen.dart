@@ -21,6 +21,7 @@ import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
 import 'package:moniq/presentation/widgets/calendar/roster_panel.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
+import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_export.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
@@ -177,6 +178,8 @@ class _NoFavoriteView extends HookConsumerWidget {
                   await teamRepo.setFavoriteTeam(team.id);
                   ref.read(viewingTeamIdOverrideProvider.notifier).state = null;
                   ref.invalidate(favoriteTeamProvider);
+                  ref.invalidate(favoriteTeamShiftTypesProvider);
+                  ref.invalidate(homeViewModelProvider);
                   ref.invalidate(teamViewModelProvider);
                 },
               ),
