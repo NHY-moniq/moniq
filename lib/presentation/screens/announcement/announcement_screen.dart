@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -41,9 +42,10 @@ class AnnouncementScreen extends HookConsumerWidget {
     final announcementsAsync =
         ref.watch(teamAnnouncementsProvider(teamId));
     final filter = ref.watch(_teamAnnouncementFilterProvider);
+    final pinnedIds = ref.watch(pinnedAnnouncementIdsProvider);
 
     return Scaffold(
-      appBar: const MoniqAppBar(title: '팀 공지사항'),
+      appBar: const MoniqAppBar(title: '공지사항'),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateSheet(context, ref),
         icon: const Icon(Icons.add),
@@ -64,9 +66,22 @@ class AnnouncementScreen extends HookConsumerWidget {
             );
           }
 
+          // 개인 핀 기준으로 정렬: 내가 고정한 것 먼저, 그 안에서도 최신순
+          final sorted = [...announcements]..sort((a, b) {
+              final aPinned = pinnedIds.contains(a.id) ? 0 : 1;
+              final bPinned = pinnedIds.contains(b.id) ? 0 : 1;
+              if (aPinned != bPinned) return aPinned - bPinned;
+              final aDate = a.createdAt;
+              final bDate = b.createdAt;
+              if (aDate == null && bDate == null) return 0;
+              if (aDate == null) return 1;
+              if (bDate == null) return -1;
+              return bDate.compareTo(aDate);
+            });
+
           final visible = filter == _AnnouncementFilter.pinned
-              ? announcements.where((a) => a.isPinned).toList()
-              : announcements;
+              ? sorted.where((a) => pinnedIds.contains(a.id)).toList()
+              : sorted;
 
           return Column(
             children: [
@@ -78,24 +93,63 @@ class AnnouncementScreen extends HookConsumerWidget {
                 child: visible.isEmpty
                     ? MoniqEmptyState.peaceful(
                         title: '고정된 공지가 없어요',
-                        message: '중요한 공지를 상단에 고정해보세요',
+                        message: '공지 카드의 핀 아이콘을 눌러 상단에 고정하세요',
                       )
                     : RefreshIndicator(
                         onRefresh: () async => ref.invalidate(
                             teamAnnouncementsProvider(teamId)),
-                        child: ListView.separated(
-                          padding: AppSpacing.screenAll,
-                          itemCount: visible.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: AppSpacing.sm),
-                          itemBuilder: (context, index) {
-                            final a = visible[index];
-                            return AnnouncementListTile(
-                              announcement: a,
-                              onTap: () =>
-                                  _showDetail(context, ref, a),
-                            );
-                          },
+                        child: SlidableAutoCloseBehavior(
+                          child: ListView.builder(
+                            padding: AppSpacing.screenAll,
+                            itemCount: visible.length,
+                            itemBuilder: (context, index) {
+                              final a = visible[index];
+                              final isPinnedLocally =
+                                  pinnedIds.contains(a.id);
+                              return Padding(
+                                padding: const EdgeInsets.only(
+                                    bottom: AppSpacing.sm),
+                                child: Slidable(
+                                  key: ValueKey(a.id),
+                                  startActionPane: ActionPane(
+                                    motion: const BehindMotion(),
+                                    extentRatio: 0.28,
+                                    children: [
+                                      SlidableAction(
+                                        onPressed: (_) => ref
+                                            .read(
+                                                pinnedAnnouncementIdsProvider
+                                                    .notifier)
+                                            .toggle(a.id),
+                                        backgroundColor: isPinnedLocally
+                                            ? AppColors.brandOrange
+                                            : AppColors.primary,
+                                        foregroundColor: Colors.white,
+                                        icon: isPinnedLocally
+                                            ? Icons.push_pin
+                                            : Icons.push_pin_outlined,
+                                        label:
+                                            isPinnedLocally ? '해제' : '고정',
+                                        borderRadius:
+                                            AppRadius.borderRadiusLg,
+                                      ),
+                                    ],
+                                  ),
+                                  child: AnnouncementListTile(
+                                    key: ValueKey('tile_${a.id}'),
+                                    announcement: a,
+                                    isPinnedLocally: isPinnedLocally,
+                                    onTap: () =>
+                                        _showDetail(context, ref, a),
+                                    onTogglePin: () => ref
+                                        .read(pinnedAnnouncementIdsProvider
+                                            .notifier)
+                                        .toggle(a.id),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
               ),
@@ -424,7 +478,6 @@ class _AnnouncementEditSheetState
     extends ConsumerState<_AnnouncementEditSheet> {
   late final TextEditingController _titleC;
   late final TextEditingController _contentC;
-  late bool _isPinned;
   bool _saving = false;
 
   @override
@@ -432,7 +485,6 @@ class _AnnouncementEditSheetState
     super.initState();
     _titleC = TextEditingController(text: widget.announcement.title);
     _contentC = TextEditingController(text: widget.announcement.content ?? '');
-    _isPinned = widget.announcement.isPinned;
   }
 
   @override
@@ -451,8 +503,7 @@ class _AnnouncementEditSheetState
 
     final titleChanged = title != widget.announcement.title;
     final contentChanged = content != originalContent;
-    final pinChanged = _isPinned != widget.announcement.isPinned;
-    if (!titleChanged && !contentChanged && !pinChanged) {
+    if (!titleChanged && !contentChanged) {
       Navigator.pop(context, false);
       return;
     }
@@ -463,7 +514,6 @@ class _AnnouncementEditSheetState
             widget.announcement.id,
             title: titleChanged ? title : null,
             content: contentChanged ? content : null,
-            isPinned: pinChanged ? _isPinned : null,
           );
       if (mounted) {
         Navigator.pop(context, true);
@@ -520,15 +570,6 @@ class _AnnouncementEditSheetState
             maxLength: 2000,
           ),
           const SizedBox(height: AppSpacing.md),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('상단 고정'),
-            secondary: const Icon(Icons.push_pin_outlined),
-            value: _isPinned,
-            onChanged: _saving
-                ? null
-                : (v) => setState(() => _isPinned = v),
-          ),
           const SizedBox(height: AppSpacing.xxl),
           ElevatedButton(
             onPressed: _saving ? null : _submit,
@@ -593,107 +634,159 @@ class AnnouncementListTile extends StatelessWidget {
     required this.announcement,
     this.teamName,
     required this.onTap,
+    this.isPinnedLocally = false,
+    this.onTogglePin,
   });
 
   final AnnouncementModel announcement;
   final String? teamName;
   final VoidCallback onTap;
+  final bool isPinnedLocally;
+  final VoidCallback? onTogglePin;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final dateFormat = DateFormat('MM.dd');
+    final isDark = theme.brightness == Brightness.dark;
 
     final title = announcement.title;
-    final isPinned = announcement.isPinned;
     final createdAt = announcement.createdAt;
-    final author =
-        AnnouncementAuthorInfo.fromAnnouncement(announcement);
+    final author = AnnouncementAuthorInfo.fromAnnouncement(announcement);
     final commentCount = announcement.commentCount;
 
-    return Card(
+    return Material(
+      color: isDark
+          ? colorScheme.surfaceContainer
+          : colorScheme.surfaceContainerLowest,
+      borderRadius: AppRadius.borderRadiusLg,
       child: InkWell(
         onTap: onTap,
-        borderRadius: AppRadius.borderRadiusMd,
+        borderRadius: AppRadius.borderRadiusLg,
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              _AuthorAvatar(
+                avatarUrl: author.avatarUrl,
+                displayName: author.displayName,
+                radius: 20,
+                primary: colorScheme.primary,
+              ),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 팀 이름 (있는 경우)
-                    if (teamName != null) ...[
-                      Text(
-                        teamName!,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xxs),
-                    ],
-                    // 제목
                     Row(
                       children: [
-                        if (isPinned) ...[
-                          Icon(
-                            Icons.push_pin,
-                            size: 14,
-                            color: AppColors.brandOrange,
-                          ),
+                        Text(
+                          author.displayName,
+                          style: theme.textTheme.labelMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        if (teamName != null) ...[
                           const SizedBox(width: AppSpacing.xs),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary
+                                  .withValues(alpha: 0.1),
+                              borderRadius: AppRadius.borderRadiusSm,
+                            ),
+                            child: Text(
+                              teamName!,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const Spacer(),
+                        if (createdAt != null)
+                          Text(
+                            dateFormat.format(createdAt),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        const SizedBox(width: AppSpacing.xxs),
+                        Icon(Icons.chevron_right,
+                            size: 16, color: colorScheme.outline),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Row(
+                      children: [
+                        if (isPinnedLocally) ...[
+                          Icon(Icons.push_pin,
+                              size: 13, color: AppColors.brandOrange),
+                          const SizedBox(width: 4),
                         ],
                         Expanded(
                           child: Text(
                             title,
-                            style:
-                                theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
+                            style: theme.textTheme.bodyLarge
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: AppSpacing.xs),
-                    // 작성자 + 댓글 수
-                    Row(
-                      children: [
-                        Flexible(
-                          child: AnnouncementAuthor(
-                            name: author.displayName,
-                            avatarUrl: author.avatarUrl,
-                            avatarRadius: 9,
-                            dense: true,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        _CommentCountBadge(count: commentCount),
-                      ],
-                    ),
+                    _CommentCountBadge(count: commentCount),
                   ],
                 ),
               ),
-              const SizedBox(width: AppSpacing.md),
-              if (createdAt != null)
-                Text(
-                  dateFormat.format(createdAt),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              const SizedBox(width: AppSpacing.xs),
-              Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: colorScheme.outline,
-              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 공지 카드용 작성자 아바타 (이니셜 폴백 포함).
+class _AuthorAvatar extends StatelessWidget {
+  const _AuthorAvatar({
+    required this.avatarUrl,
+    required this.displayName,
+    required this.radius,
+    required this.primary,
+  });
+
+  final String? avatarUrl;
+  final String displayName;
+  final double radius;
+  final Color primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial =
+        displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
+    if (avatarUrl != null && avatarUrl!.isNotEmpty) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundImage: NetworkImage(avatarUrl!),
+      );
+    }
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: primary.withValues(alpha: 0.15),
+      child: Text(
+        initial,
+        style: TextStyle(
+          fontSize: radius * 0.8,
+          fontWeight: FontWeight.w700,
+          color: primary,
         ),
       ),
     );
@@ -898,8 +991,8 @@ class _AnnouncementDetailPageState
                   ],
                   Text(
                     a.title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
                         ),
                   ),
                   const SizedBox(height: AppSpacing.md),
@@ -1212,7 +1305,7 @@ class _DetailAuthorLine extends StatelessWidget {
     return AnnouncementAuthor(
       name: author.displayName,
       avatarUrl: author.avatarUrl,
-      avatarRadius: 14,
+      avatarRadius: 10,
       trailing: createdAt == null
           ? null
           : Text(

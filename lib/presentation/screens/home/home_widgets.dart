@@ -1260,7 +1260,7 @@ class AnnouncementCard extends ConsumerWidget {
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
-                  '팀 공지사항',
+                  '공지사항',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -1294,15 +1294,6 @@ class AnnouncementCard extends ConsumerWidget {
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '[${latest.teamName}]',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: shiftTheme.accentText,
-                          fontWeight: FontWeight.w600,
-                        ),
                       ),
                     ],
                   ),
@@ -1377,7 +1368,7 @@ class AnnouncementCard extends ConsumerWidget {
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
-                  '팀 공지사항',
+                  '공지사항',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
