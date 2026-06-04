@@ -129,45 +129,46 @@ class MoniqCalendar extends StatelessWidget {
                   fontSize: 10,
                   letterSpacing: 1.2,
                 ),
-          ),
-          calendarStyle: const CalendarStyle(
-            outsideDaysVisible: true,
-            cellMargin: EdgeInsets.all(1),
-            markersMaxCount: 0,
-          ),
-          calendarBuilders: CalendarBuilders<dynamic>(
-            dowBuilder: (context, day) {
-              final cs = Theme.of(context).colorScheme;
-              final text = _dowLabel(day.weekday).toUpperCase();
-              Color color;
-              if (day.weekday == DateTime.sunday) {
-                color = cs.error.withValues(alpha: 0.7);
-              } else if (day.weekday == DateTime.saturday) {
-                color = cs.tertiary;
-              } else {
-                color = cs.onSurfaceVariant;
-              }
-              return Center(
-                child: Text(
-                  text,
-                  style: Theme.of(context).textTheme.bodySmall!.copyWith(
+              ),
+              calendarStyle: const CalendarStyle(
+                outsideDaysVisible: true,
+                cellMargin: EdgeInsets.all(1),
+                markersMaxCount: 0,
+              ),
+              calendarBuilders: CalendarBuilders<dynamic>(
+                dowBuilder: (context, day) {
+                  final cs = Theme.of(context).colorScheme;
+                  final text = _dowLabel(day.weekday).toUpperCase();
+                  Color color;
+                  if (day.weekday == DateTime.sunday) {
+                    color = cs.error.withValues(alpha: 0.7);
+                  } else if (day.weekday == DateTime.saturday) {
+                    color = cs.tertiary;
+                  } else {
+                    color = cs.onSurfaceVariant;
+                  }
+                  return Center(
+                    child: Text(
+                      text,
+                      style: Theme.of(context).textTheme.bodySmall!.copyWith(
                         color: color,
                         fontWeight: FontWeight.w600,
                         fontSize: 10,
                         letterSpacing: 1.2,
                       ),
-                ),
-              );
-            },
-            defaultBuilder: (context, day, focusedDay) =>
-                _buildCell(context, day, false, false),
-            todayBuilder: (context, day, focusedDay) =>
-                _buildCell(context, day, true, false),
-            selectedBuilder: (context, day, focusedDay) =>
-                _buildCell(context, day, false, true),
-            // 이전달·다음달 미리보기 — 날짜 숫자만 회색으로 표시
-            outsideBuilder: (context, day, focusedDay) =>
-                _buildOutsideCell(context, day),
+                    ),
+                  );
+                },
+                defaultBuilder: (context, day, focusedDay) =>
+                    _buildCell(context, day, false, false),
+                todayBuilder: (context, day, focusedDay) =>
+                    _buildCell(context, day, true, false),
+                selectedBuilder: (context, day, focusedDay) =>
+                    _buildCell(context, day, false, true),
+                // 이전달·다음달 미리보기 — 날짜 숫자만 회색으로 표시
+                outsideBuilder: (context, day, focusedDay) =>
+                    _buildOutsideCell(context, day),
+              ),
             ),
           ),
         ],
@@ -287,7 +288,6 @@ class MoniqCalendar extends StatelessWidget {
       ],
     );
   }
-
 
   /// 이전달·다음달 날짜 — 숫자만 흐린 회색으로 미리보기 표시 (근무/일정은 숨김).
   Widget _buildOutsideCell(BuildContext context, DateTime day) {
@@ -528,9 +528,7 @@ class MoniqCalendar extends StatelessWidget {
                   backgroundColor: cs.primary,
                   foregroundColor: cs.onPrimary,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.md,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                   shape: RoundedRectangleBorder(
                     borderRadius: AppRadius.borderRadiusFull,
                   ),

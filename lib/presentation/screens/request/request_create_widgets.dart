@@ -298,24 +298,24 @@ class _SelfChangeEntryRow extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              // 변경 근무 (TO-BE) — 더 넓게 (flex 5)
-              Expanded(
-                flex: 5,
-                child: _LabeledField(
-                  label: '변경 근무',
-                  child: _EntrySelectorField(
-                    valueText: entry.desiredShiftType?.name,
-                    enabled: entry.date != null,
-                    onTap: () async {
-                      final picked = await _showShiftPickerSheet(
-                        context,
-                        shiftTypes: shiftTypes,
-                        selectedShiftId: entry.desiredShiftType?.id,
-                      );
-                      if (picked != null) onShiftSelected(picked);
-                    },
+                const SizedBox(width: AppSpacing.md),
+                // 변경 근무 (TO-BE) — 더 넓게 (flex 5)
+                Expanded(
+                  flex: 5,
+                  child: _LabeledField(
+                    label: '변경 근무',
+                    child: _EntrySelectorField(
+                      valueText: entry.desiredShiftType?.name,
+                      enabled: entry.date != null,
+                      onTap: () async {
+                        final picked = await _showShiftPickerSheet(
+                          context,
+                          shiftTypes: shiftTypes,
+                          selectedShiftId: entry.desiredShiftType?.id,
+                        );
+                        if (picked != null) onShiftSelected(picked);
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -617,21 +617,22 @@ class _SwapEntryRow extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              // 팀원
-              Expanded(
-                flex: 4,
-                child: _LabeledField(
-                  label: '팀원',
-                  child: _EntrySelectorField(
-                    valueText: entry.userName,
-                    onTap: () async {
-                      final picked = await _showMemberPickerSheet(
-                        context,
-                        members: members,
-                        selectedUserId: entry.userId,
-                      );
-                      if (picked != null) onMemberSelected(picked);
-                    },
+                // 팀원
+                Expanded(
+                  flex: 4,
+                  child: _LabeledField(
+                    label: '팀원',
+                    child: _EntrySelectorField(
+                      valueText: entry.userName,
+                      onTap: () async {
+                        final picked = await _showMemberPickerSheet(
+                          context,
+                          members: members,
+                          selectedUserId: entry.userId,
+                        );
+                        if (picked != null) onMemberSelected(picked);
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -669,24 +670,24 @@ class _SwapEntryRow extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              // 변경 근무 (TO-BE)
-              Expanded(
-                flex: 4,
-                child: _LabeledField(
-                  label: '변경 근무',
-                  child: _EntrySelectorField(
-                    valueText: entry.desiredShiftType?.name,
-                    enabled: entry.userId != null && entry.date != null,
-                    onTap: () async {
-                      final picked = await _showShiftPickerSheet(
-                        context,
-                        shiftTypes: shiftTypes,
-                        selectedShiftId: entry.desiredShiftType?.id,
-                      );
-                      if (picked != null) onShiftSelected(picked);
-                    },
+                const SizedBox(width: AppSpacing.sm),
+                // 변경 근무 (TO-BE)
+                Expanded(
+                  flex: 4,
+                  child: _LabeledField(
+                    label: '변경 근무',
+                    child: _EntrySelectorField(
+                      valueText: entry.desiredShiftType?.name,
+                      enabled: entry.userId != null && entry.date != null,
+                      onTap: () async {
+                        final picked = await _showShiftPickerSheet(
+                          context,
+                          shiftTypes: shiftTypes,
+                          selectedShiftId: entry.desiredShiftType?.id,
+                        );
+                        if (picked != null) onShiftSelected(picked);
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -738,13 +739,12 @@ class _EntrySelectorField extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final hasValue = valueText != null;
-    final baseStyle =
-        hasValue ? _entryFieldTextStyle(context) : _entryHintStyle(context);
+    final baseStyle = hasValue
+        ? _entryFieldTextStyle(context)
+        : _entryHintStyle(context);
     final style = enabled
         ? baseStyle
-        : baseStyle.copyWith(
-            color: baseStyle.color?.withValues(alpha: 0.5),
-          );
+        : baseStyle.copyWith(color: baseStyle.color?.withValues(alpha: 0.5));
     final iconColor = enabled
         ? cs.onSurfaceVariant
         : cs.onSurfaceVariant.withValues(alpha: 0.5);
@@ -780,8 +780,7 @@ Future<TeamMemberWithUser?> _showMemberPickerSheet(
     child: ListView.separated(
       shrinkWrap: true,
       itemCount: members.length,
-      separatorBuilder: (_, __) =>
-          const SizedBox(height: AppSpacing.sm),
+      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
       itemBuilder: (ctx, i) {
         final m = members[i];
         final selected = m.userId == selectedUserId;
@@ -808,8 +807,7 @@ Future<ShiftTypeModel?> _showShiftPickerSheet(
     child: ListView.separated(
       shrinkWrap: true,
       itemCount: shiftTypes.length,
-      separatorBuilder: (_, __) =>
-          const SizedBox(height: AppSpacing.sm),
+      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
       itemBuilder: (ctx, i) {
         final t = shiftTypes[i];
         final selected = t.id == selectedShiftId;
@@ -884,8 +882,7 @@ class _PickerOptionTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: cs.onSurface,
-                    fontWeight:
-                        selected ? FontWeight.w800 : FontWeight.w600,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                   ),
                 ),
               ),
