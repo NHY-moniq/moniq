@@ -77,10 +77,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
   }
 
   Future<void> _bulkApprove(List<RequestModel> requests) async {
-    final ids = _selectedFilteredIds(
-      requests,
-      (r) => r.status == 'pending',
-    );
+    final ids = _selectedFilteredIds(requests, (r) => r.status == 'pending');
     if (ids.isEmpty) return;
     final ok = await showMoniqConfirmSheet(
       context: context,
@@ -95,18 +92,16 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
           .approveRequests(ids);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('승인 실패: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('승인 실패: $e')));
       }
     }
     _exitSelectionMode();
   }
 
   Future<void> _bulkReject(List<RequestModel> requests) async {
-    final ids = _selectedFilteredIds(
-      requests,
-      (r) => r.status == 'pending',
-    );
+    final ids = _selectedFilteredIds(requests, (r) => r.status == 'pending');
     if (ids.isEmpty) return;
     final ok = await showMoniqConfirmSheet(
       context: context,
@@ -122,8 +117,9 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
           .rejectRequests(ids);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('거절 실패: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('거절 실패: $e')));
       }
     }
     _exitSelectionMode();
@@ -154,8 +150,9 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
           .cancelRequests(ids);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('취소 실패: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('취소 실패: $e')));
       }
     }
     _exitSelectionMode();
@@ -163,10 +160,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
 
   Future<void> _bulkDelete(List<RequestModel> requests) async {
     // pending은 삭제 불가, 그 외 status만 일괄 삭제
-    final ids = _selectedFilteredIds(
-      requests,
-      (r) => r.status != 'pending',
-    );
+    final ids = _selectedFilteredIds(requests, (r) => r.status != 'pending');
     final pendingCount = _selectedFilteredIds(
       requests,
       (r) => r.status == 'pending',
@@ -187,7 +181,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
     // 혼합 또는 비-pending 단독 → 확인 모달에서 안내 후 삭제
     final message = pendingCount > 0
         ? '대기중인 $pendingCount건은 삭제가 불가능하여 제외하고 '
-            '${ids.length}건에 대해서 삭제를 진행합니다.'
+              '${ids.length}건에 대해서 삭제를 진행합니다.'
         : '${ids.length}건이 영구적으로 삭제돼요.';
     final confirm = await showMoniqConfirmSheet(
       context: context,
@@ -204,8 +198,9 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
           .deleteRequests(ids);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('삭제 실패: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('삭제 실패: $e')));
       }
     }
     _exitSelectionMode();
@@ -233,9 +228,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
 
     return Scaffold(
       appBar: MoniqAppBar(
-        title: _selectionMode
-            ? '${_selectedIds.length}건 선택됨'
-            : '근무 변경 요청',
+        title: _selectionMode ? '${_selectedIds.length}건 선택됨' : '근무 변경 요청',
         leading: _selectionMode
             ? IconButton(
                 icon: const Icon(Icons.close_rounded),
@@ -260,8 +253,8 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
                     Padding(
                       padding: const EdgeInsets.only(left: AppSpacing.sm),
                       child: FilledButton.icon(
-                        onPressed: () => context
-                            .push('/teams/$teamId/requests/create'),
+                        onPressed: () =>
+                            context.push('/teams/$teamId/requests/create'),
                         icon: const Icon(Icons.add, size: 18),
                         label: const Text('요청하기'),
                       ),
@@ -275,23 +268,22 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
               selectedIds: _selectedIds,
               isAdmin: stateAsync.valueOrNull?.isAdmin ?? false,
               myUserId: ref.read(currentUserProvider)?.id,
-              onApprove: () => _bulkApprove(
-                  stateAsync.valueOrNull?.requests ?? const []),
-              onReject: () => _bulkReject(
-                  stateAsync.valueOrNull?.requests ?? const []),
+              onApprove: () =>
+                  _bulkApprove(stateAsync.valueOrNull?.requests ?? const []),
+              onReject: () =>
+                  _bulkReject(stateAsync.valueOrNull?.requests ?? const []),
               onCancel: () => _bulkCancel(
                 stateAsync.valueOrNull?.requests ?? const [],
                 isAdmin: stateAsync.valueOrNull?.isAdmin ?? false,
                 myUserId: ref.read(currentUserProvider)?.id,
               ),
-              onDelete: () => _bulkDelete(
-                  stateAsync.valueOrNull?.requests ?? const []),
+              onDelete: () =>
+                  _bulkDelete(stateAsync.valueOrNull?.requests ?? const []),
             )
           : null,
       floatingActionButton: (!isWide && !_selectionMode)
           ? FloatingActionButton.extended(
-              onPressed: () =>
-                  context.push('/teams/$teamId/requests/create'),
+              onPressed: () => context.push('/teams/$teamId/requests/create'),
               icon: const Icon(Icons.add),
               label: const Text('요청하기'),
             )
@@ -300,14 +292,12 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
           message: '요청 목록을 불러올 수 없습니다',
-          onRetry: () =>
-              ref.invalidate(requestListViewModelProvider(teamId)),
+          onRetry: () => ref.invalidate(requestListViewModelProvider(teamId)),
         ),
         data: (state) {
           // 선택된 그룹의 primary가 목록에서 사라진 경우 초기화
           if (_selectedGroup != null &&
-              !state.requests
-                  .any((r) => r.id == _selectedGroup!.primary.id)) {
+              !state.requests.any((r) => r.id == _selectedGroup!.primary.id)) {
             WidgetsBinding.instance.addPostFrameCallback(
               (_) => setState(() => _selectedGroup = null),
             );
@@ -321,8 +311,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
                   selectedIds: _selectedIds,
                   selectedGroup: _selectedGroup,
                   myUserId: ref.read(currentUserProvider)?.id,
-                  onSelectGroup: (g) =>
-                      setState(() => _selectedGroup = g),
+                  onSelectGroup: (g) => setState(() => _selectedGroup = g),
                   onToggleSelectionGroup: _toggleSelectionGroup,
                   onFilterChanged: (f) => ref
                       .read(requestListViewModelProvider(teamId).notifier)
@@ -346,8 +335,13 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
                   selectionMode: _selectionMode,
                   selectedIds: _selectedIds,
                   onToggleSelectionGroup: _toggleSelectionGroup,
-                  onToggleSelectAll: () =>
-                      _toggleSelectAll(_filtered(state)),
+                  onLongPressGroup: (g) {
+                    if (!_selectionMode) {
+                      setState(() => _selectionMode = true);
+                    }
+                    _toggleSelectionGroup(g);
+                  },
+                  onToggleSelectAll: () => _toggleSelectAll(_filtered(state)),
                   onFilterChanged: (f) => ref
                       .read(requestListViewModelProvider(teamId).notifier)
                       .setFilter(f),
@@ -371,50 +365,50 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
     );
   }
 
-  void _showRequestDetail(BuildContext context, WidgetRef ref,
-      RequestGroup group, bool isAdmin) {
+  void _showRequestDetail(
+    BuildContext context,
+    WidgetRef ref,
+    RequestGroup group,
+    bool isAdmin,
+  ) {
     final teamId = widget.teamId;
-    final userNames = ref
-            .read(requestListViewModelProvider(teamId))
-            .valueOrNull
-            ?.userNames ??
+    final userNames =
+        ref.read(requestListViewModelProvider(teamId)).valueOrNull?.userNames ??
         const {};
-    showModalBottomSheet(
+    showMoniqBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
-      ),
-      builder: (ctx) => _RequestDetailSheet(
-        teamId: teamId,
-        group: group,
-        isAdmin: isAdmin,
-        myUserId: ref.read(currentUserProvider)?.id,
-        userNames: userNames,
-        onApprove: () async {
-          for (final id in group.ids) {
-            await ref
-                .read(requestListViewModelProvider(teamId).notifier)
-                .approveRequest(id);
-          }
-          if (ctx.mounted) Navigator.pop(ctx);
-        },
-        onReject: () async {
-          for (final id in group.ids) {
-            await ref
-                .read(requestListViewModelProvider(teamId).notifier)
-                .rejectRequest(id);
-          }
-          if (ctx.mounted) Navigator.pop(ctx);
-        },
-        onCancel: () async {
-          for (final id in group.ids) {
-            await ref
-                .read(requestListViewModelProvider(teamId).notifier)
-                .cancelRequest(id);
-          }
-          if (ctx.mounted) Navigator.pop(ctx);
-        },
+      child: Builder(
+        builder: (ctx) => _RequestDetailSheet(
+          teamId: teamId,
+          group: group,
+          isAdmin: isAdmin,
+          myUserId: ref.read(currentUserProvider)?.id,
+          userNames: userNames,
+          onApprove: () async {
+            for (final id in group.ids) {
+              await ref
+                  .read(requestListViewModelProvider(teamId).notifier)
+                  .approveRequest(id);
+            }
+            if (ctx.mounted) Navigator.pop(ctx);
+          },
+          onReject: () async {
+            for (final id in group.ids) {
+              await ref
+                  .read(requestListViewModelProvider(teamId).notifier)
+                  .rejectRequest(id);
+            }
+            if (ctx.mounted) Navigator.pop(ctx);
+          },
+          onCancel: () async {
+            for (final id in group.ids) {
+              await ref
+                  .read(requestListViewModelProvider(teamId).notifier)
+                  .cancelRequest(id);
+            }
+            if (ctx.mounted) Navigator.pop(ctx);
+          },
+        ),
       ),
     );
   }
@@ -431,6 +425,7 @@ class _MobileLayout extends StatelessWidget {
     required this.selectionMode,
     required this.selectedIds,
     required this.onToggleSelectionGroup,
+    required this.onLongPressGroup,
     required this.onToggleSelectAll,
     required this.onFilterChanged,
     required this.onShowDetail,
@@ -445,6 +440,7 @@ class _MobileLayout extends StatelessWidget {
   final bool selectionMode;
   final Set<String> selectedIds;
   final ValueChanged<RequestGroup> onToggleSelectionGroup;
+  final ValueChanged<RequestGroup> onLongPressGroup;
   final VoidCallback onToggleSelectAll;
   final ValueChanged<String> onFilterChanged;
   final ValueChanged<RequestGroup> onShowDetail;
@@ -457,15 +453,16 @@ class _MobileLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final groups = _filteredGroups(state);
 
-    final allVisibleIds =
-        groups.expand((g) => g.ids).toSet();
-    final isAllSelected = allVisibleIds.isNotEmpty &&
-        allVisibleIds.every(selectedIds.contains);
+    final allVisibleIds = groups.expand((g) => g.ids).toSet();
+    final isAllSelected =
+        allVisibleIds.isNotEmpty && allVisibleIds.every(selectedIds.contains);
 
     return Column(
       children: [
         _FilterBar(
-            currentFilter: state.filter, onFilterChanged: onFilterChanged),
+          currentFilter: state.filter,
+          onFilterChanged: onFilterChanged,
+        ),
         if (selectionMode)
           _SelectAllBar(
             isAllSelected: isAllSelected,
@@ -508,6 +505,7 @@ class _MobileLayout extends StatelessWidget {
                           onShowDetail(g);
                         }
                       },
+                      onLongPress: () => onLongPressGroup(g),
                     );
 
                     // selection mode 중에는 swipe-to-delete 비활성
@@ -519,19 +517,22 @@ class _MobileLayout extends StatelessWidget {
                       background: Container(
                         alignment: Alignment.centerRight,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.xl),
+                          horizontal: AppSpacing.xl,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.error,
                           borderRadius: AppRadius.borderRadiusMd,
                         ),
-                        child: const Icon(Icons.delete,
-                            color: Colors.white, size: 28),
+                        child: const Icon(
+                          Icons.delete,
+                          color: Colors.white,
+                          size: 28,
+                        ),
                       ),
                       confirmDismiss: (_) => showMoniqConfirmSheet(
                         context: context,
                         title: '요청을 삭제할까요?',
-                        message:
-                            '취소된 요청 ${g.ids.length}건이 영구적으로 삭제돼요.',
+                        message: '취소된 요청 ${g.ids.length}건이 영구적으로 삭제돼요.',
                         confirmLabel: '삭제',
                         destructive: true,
                       ),
@@ -601,8 +602,9 @@ class _WebLayout extends StatelessWidget {
           child: Column(
             children: [
               _FilterBar(
-                  currentFilter: state.filter,
-                  onFilterChanged: onFilterChanged),
+                currentFilter: state.filter,
+                onFilterChanged: onFilterChanged,
+              ),
               Expanded(
                 child: groups.isEmpty
                     ? MoniqEmptyState.peaceful(
@@ -616,9 +618,11 @@ class _WebLayout extends StatelessWidget {
                             const SizedBox(height: AppSpacing.sm),
                         itemBuilder: (_, i) {
                           final g = groups[i];
-                          final isCheckboxSelected =
-                              g.ids.every(selectedIds.contains);
-                          final isFocused = !selectionMode &&
+                          final isCheckboxSelected = g.ids.every(
+                            selectedIds.contains,
+                          );
+                          final isFocused =
+                              !selectionMode &&
                               selectedGroup?.primary.id == g.primary.id;
                           return RequestCard(
                             group: g,
@@ -652,8 +656,9 @@ class _WebLayout extends StatelessWidget {
                       Icon(
                         Icons.swap_horiz_rounded,
                         size: 48,
-                        color: colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.3),
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.3,
+                        ),
                       ),
                       const SizedBox(height: AppSpacing.md),
                       Text(
@@ -714,8 +719,7 @@ class _WebDetailPanel extends ConsumerWidget {
   final VoidCallback onReject;
   final VoidCallback onCancel;
 
-  bool get _canCancel =>
-      myUserId != null && group.requesterUserId == myUserId;
+  bool get _canCancel => myUserId != null && group.requesterUserId == myUserId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -739,8 +743,7 @@ class _WebDetailPanel extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(AppRadius.md),
-                  border: Border.all(
-                      color: statusColor.withValues(alpha: 0.2)),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.2)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -763,8 +766,9 @@ class _WebDetailPanel extends ConsumerWidget {
                       group.entries.length > 1
                           ? '${changeTypeLabel(group.changeType)} · ${group.entries.length}건'
                           : changeTypeLabel(group.changeType),
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
@@ -773,11 +777,7 @@ class _WebDetailPanel extends ConsumerWidget {
               // ── 각 entry별 변경 전/후 ──
               for (final r in group.entries) ...[
                 const SizedBox(height: AppSpacing.md),
-                _EntryHeader(
-                  request: r,
-                  userNames: userNames,
-                  isSwap: isSwap,
-                ),
+                _EntryHeader(request: r, userNames: userNames, isSwap: isSwap),
                 const SizedBox(height: AppSpacing.sm),
                 _ChangePreview(teamId: teamId, request: r),
               ],
@@ -795,10 +795,9 @@ class _WebDetailPanel extends ConsumerWidget {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: colorScheme.error,
                             side: BorderSide(
-                                color: colorScheme.error
-                                    .withValues(alpha: 0.5)),
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 14),
+                              color: colorScheme.error.withValues(alpha: 0.5),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                           child: const Text('거절'),
                         ),
@@ -808,8 +807,7 @@ class _WebDetailPanel extends ConsumerWidget {
                         child: ElevatedButton(
                           onPressed: onApprove,
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 14),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                           child: const Text('승인'),
                         ),
@@ -856,12 +854,11 @@ class _EntryHeader extends StatelessWidget {
     final cs = theme.colorScheme;
     final personName = isSwap
         ? (request.targetUserId != null
-            ? userNames[request.targetUserId!]
-            : null)
+              ? userNames[request.targetUserId!]
+              : null)
         : userNames[request.requesterUserId];
     final dateText = request.requestedDate != null
-        ? DateFormat('yyyy.MM.dd (E)', 'ko')
-            .format(request.requestedDate!)
+        ? DateFormat('yyyy.MM.dd (E)', 'ko').format(request.requestedDate!)
         : null;
 
     return Row(
@@ -893,6 +890,53 @@ class _EntryHeader extends StatelessWidget {
 // 모바일 바텀시트
 // ────────────────────────────────────────
 
+/// 히스토리 등 다른 화면에서 요청 상세 시트를 재사용하기 위한 공개 헬퍼.
+void showRequestDetailSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  required RequestGroup group,
+  required bool isAdmin,
+  required String teamId,
+  required Map<String, String> userNames,
+}) {
+  showMoniqBottomSheet<void>(
+    context: context,
+    child: Builder(
+      builder: (ctx) => _RequestDetailSheet(
+        teamId: teamId,
+        group: group,
+        isAdmin: isAdmin,
+        myUserId: ref.read(currentUserProvider)?.id,
+        userNames: userNames,
+        onApprove: () async {
+          for (final id in group.ids) {
+            await ref
+                .read(requestListViewModelProvider(teamId).notifier)
+                .approveRequest(id);
+          }
+          if (ctx.mounted) Navigator.pop(ctx);
+        },
+        onReject: () async {
+          for (final id in group.ids) {
+            await ref
+                .read(requestListViewModelProvider(teamId).notifier)
+                .rejectRequest(id);
+          }
+          if (ctx.mounted) Navigator.pop(ctx);
+        },
+        onCancel: () async {
+          for (final id in group.ids) {
+            await ref
+                .read(requestListViewModelProvider(teamId).notifier)
+                .cancelRequest(id);
+          }
+          if (ctx.mounted) Navigator.pop(ctx);
+        },
+      ),
+    ),
+  );
+}
+
 class _RequestDetailSheet extends ConsumerWidget {
   const _RequestDetailSheet({
     required this.teamId,
@@ -914,8 +958,7 @@ class _RequestDetailSheet extends ConsumerWidget {
   final VoidCallback onReject;
   final VoidCallback onCancel;
 
-  bool get _canCancel =>
-      myUserId != null && group.requesterUserId == myUserId;
+  bool get _canCancel => myUserId != null && group.requesterUserId == myUserId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -923,94 +966,79 @@ class _RequestDetailSheet extends ConsumerWidget {
     final colorScheme = theme.colorScheme;
     final isSwap = group.changeType == 'swap';
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 핸들
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: colorScheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Row(
-              children: [
-                StatusBadge(status: group.status),
-                const Spacer(),
-                if (group.createdAt != null)
-                  Text(
-                    '신청일 ${DateFormat('yyyy.MM.dd HH:mm').format(_toKst(group.createdAt!))}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+    // 공용 셸(showMoniqBottomSheet)이 그랩핸들·surface·외곽 패딩·SafeArea를
+    // 제공하므로, 여기서는 본문만 그린다. 내용이 길 수 있어 스크롤은 유지.
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              StatusBadge(status: group.status),
+              const Spacer(),
+              if (group.createdAt != null)
+                Text(
+                  '신청일 ${DateFormat('yyyy.MM.dd HH:mm').format(_toKst(group.createdAt!))}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              group.entries.length > 1
-                  ? '${changeTypeLabel(group.changeType)} · ${group.entries.length}건'
-                  : changeTypeLabel(group.changeType),
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
-            ),
-
-            // ── 각 entry별 변경 전/후 ──
-            for (final r in group.entries) ...[
-              const SizedBox(height: AppSpacing.md),
-              _EntryHeader(
-                request: r,
-                userNames: userNames,
-                isSwap: isSwap,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              _ChangePreview(teamId: teamId, request: r),
+                ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            group.entries.length > 1
+                ? '${changeTypeLabel(group.changeType)} · ${group.entries.length}건'
+                : changeTypeLabel(group.changeType),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
 
-            const SizedBox(height: AppSpacing.xl),
-            if (group.status == 'pending') ...[
-              if (isAdmin)
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: onReject,
-                        style: OutlinedButton.styleFrom(
-                            foregroundColor: colorScheme.error),
-                        child: const Text('거절'),
+          // ── 각 entry별 변경 전/후 ──
+          for (final r in group.entries) ...[
+            const SizedBox(height: AppSpacing.md),
+            _EntryHeader(request: r, userNames: userNames, isSwap: isSwap),
+            const SizedBox(height: AppSpacing.sm),
+            _ChangePreview(teamId: teamId, request: r),
+          ],
+
+          const SizedBox(height: AppSpacing.xl),
+          if (group.status == 'pending') ...[
+            if (isAdmin)
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: onReject,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colorScheme.error,
                       ),
+                      child: const Text('거절'),
                     ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: onApprove,
-                        child: const Text('승인'),
-                      ),
-                    ),
-                  ],
-                ),
-              if (_canCancel) ...[
-                const SizedBox(height: AppSpacing.sm),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    onPressed: onCancel,
-                    child: const Text('요청 취소'),
                   ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: onApprove,
+                      child: const Text('승인'),
+                    ),
+                  ),
+                ],
+              ),
+            if (_canCancel) ...[
+              const SizedBox(height: AppSpacing.sm),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: onCancel,
+                  child: const Text('요청 취소'),
                 ),
-              ],
+              ),
             ],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -1022,8 +1050,10 @@ class _RequestDetailSheet extends ConsumerWidget {
 
 // 필터 바
 class _FilterBar extends StatelessWidget {
-  const _FilterBar(
-      {required this.currentFilter, required this.onFilterChanged});
+  const _FilterBar({
+    required this.currentFilter,
+    required this.onFilterChanged,
+  });
   final String currentFilter;
   final ValueChanged<String> onFilterChanged;
 
@@ -1038,17 +1068,21 @@ class _FilterBar extends StatelessWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
       child: Row(
         children: filters
-            .map((f) => Padding(
-                  padding: const EdgeInsets.only(right: AppSpacing.sm),
-                  child: _FilterChip(
-                    label: f.$2,
-                    selected: currentFilter == f.$1,
-                    onTap: () => onFilterChanged(f.$1),
-                  ),
-                ))
+            .map(
+              (f) => Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.sm),
+                child: _FilterChip(
+                  label: f.$2,
+                  selected: currentFilter == f.$1,
+                  onTap: () => onFilterChanged(f.$1),
+                ),
+              ),
+            )
             .toList(),
       ),
     );
@@ -1092,7 +1126,8 @@ class _DetailSection extends StatelessWidget {
             content,
             style: isSecondary
                 ? theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant)
+                    color: colorScheme.onSurfaceVariant,
+                  )
                 : theme.textTheme.bodyMedium,
           ),
         ),
@@ -1110,6 +1145,7 @@ class RequestCard extends StatelessWidget {
     super.key,
     required this.group,
     required this.onTap,
+    this.onLongPress,
     required this.userNames,
     this.selectionMode = false,
     this.selected = false,
@@ -1117,6 +1153,7 @@ class RequestCard extends StatelessWidget {
 
   final RequestGroup group;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final Map<String, String> userNames;
   final bool selectionMode;
   final bool selected;
@@ -1149,18 +1186,14 @@ class RequestCard extends StatelessWidget {
           : null,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: IntrinsicHeight(
           child: Row(
             children: [
               Container(width: 4, color: statusColor),
               if (selectionMode) ...[
                 const SizedBox(width: AppSpacing.md),
-                Icon(
-                  selected
-                      ? Icons.check_box_rounded
-                      : Icons.check_box_outline_blank_rounded,
-                  color: selected ? AppColors.primary : colorScheme.outline,
-                ),
+                MoniqSelectionCheck(selected: selected),
               ],
               Expanded(
                 child: Padding(
@@ -1179,7 +1212,7 @@ class RequestCard extends StatelessWidget {
                               group.entries.length > 1
                                   ? '$changeLabel · ${group.entries.length}건'
                                   : changeLabel,
-                              style: theme.textTheme.titleSmall?.copyWith(
+                              style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w700,
                               ),
                               maxLines: 1,
@@ -1189,85 +1222,29 @@ class RequestCard extends StatelessWidget {
                           StatusBadge(status: group.status),
                         ],
                       ),
-                      const SizedBox(height: AppSpacing.xs),
-                      // 신청자 (그룹 1회)
-                      if (requesterName != null &&
-                          requesterName.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.person_outline,
-                                size: 14,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  '신청자 $requesterName',
-                                  style: theme.textTheme.bodySmall
-                                      ?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      // entries: 모든 날짜를 한 줄에 가로 나열 — 카드 폭을 넘으면 …
-                      // 전체 목록은 상세 시트에서 확인.
-                      Builder(builder: (_) {
-                        final dates = group.entries
-                            .where((r) => r.requestedDate != null)
-                            .map((r) =>
-                                entryDateFormat.format(r.requestedDate!))
-                            .toList();
-                        if (dates.isEmpty) return const SizedBox.shrink();
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.calendar_today_outlined,
-                                size: 14,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  dates.join(', '),
-                                  style:
-                                      theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                      // 신청일 (등록 시점, KST)
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.event_note_outlined,
-                            size: 14,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '신청일 ${createdAt != null ? stampFormat.format(_toKst(createdAt)) : '-'}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: AppSpacing.sm),
+                      if (requesterName != null && requesterName.isNotEmpty)
+                        _MetaInfoRow(label: '신청자', value: requesterName),
+                      Builder(
+                        builder: (_) {
+                          final dates = group.entries
+                              .where((r) => r.requestedDate != null)
+                              .map(
+                                (r) => entryDateFormat.format(r.requestedDate!),
+                              )
+                              .toList();
+                          if (dates.isEmpty) return const SizedBox.shrink();
+                          return _MetaInfoRow(
+                            label: '변경일',
+                            value: dates.join(', '),
+                          );
+                        },
+                      ),
+                      _MetaInfoRow(
+                        label: '신청일',
+                        value: createdAt != null
+                            ? stampFormat.format(_toKst(createdAt))
+                            : '-',
                       ),
                     ],
                   ),
@@ -1282,12 +1259,12 @@ class RequestCard extends StatelessWidget {
 }
 
 String _changeTypeCode(String type) => switch (type) {
-      'swap' => 'S',
-      'day_off' => 'O',
-      'shift_change' => 'C',
-      'schedule_change' => 'E',
-      _ => '?',
-    };
+  'swap' => 'S',
+  'day_off' => 'O',
+  'shift_change' => 'C',
+  'schedule_change' => 'E',
+  _ => '?',
+};
 
 class _RequestCodeBadge extends StatelessWidget {
   const _RequestCodeBadge({required this.code, required this.color});
@@ -1333,7 +1310,9 @@ class StatusBadge extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(AppRadius.full),
@@ -1341,9 +1320,9 @@ class StatusBadge extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -1354,8 +1333,11 @@ class StatusBadge extends StatelessWidget {
 // ────────────────────────────────────────
 
 class _FilterChip extends StatelessWidget {
-  const _FilterChip(
-      {required this.label, required this.selected, required this.onTap});
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -1380,16 +1362,12 @@ class _FilterChip extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 7,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           child: Text(
             label,
             style: theme.textTheme.labelMedium?.copyWith(
               color: fg,
-              fontWeight:
-                  selected ? FontWeight.w800 : FontWeight.w600,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
               letterSpacing: 0.1,
             ),
           ),
@@ -1421,7 +1399,9 @@ class RequestGroup {
 /// 그룹핑 키: 동일 신청자 + 변경 유형 + 상태 + (createdAt 분 단위)
 String _groupKey(RequestModel r) {
   final t = r.createdAt;
-  final minute = t == null ? 'x' : '${t.toUtc().millisecondsSinceEpoch ~/ 60000}';
+  final minute = t == null
+      ? 'x'
+      : '${t.toUtc().millisecondsSinceEpoch ~/ 60000}';
   return '${r.requesterUserId}|${r.changeType}|${r.status}|$minute';
 }
 
@@ -1472,23 +1452,17 @@ List<RequestGroup> groupHistoryRequests(List<RequestModel> requests) {
 }
 
 (Color color, Color bgColor, String label) _statusStyle(
-    String status, ColorScheme colorScheme) {
+  String status,
+  ColorScheme colorScheme,
+) {
   return switch (status) {
     'pending' => (
       AppColors.brandOrange,
       AppColors.brandOrange.withValues(alpha: 0.1),
       '대기중',
     ),
-    'approved' => (
-      AppColors.success,
-      AppColors.successLight,
-      '승인',
-    ),
-    'rejected' => (
-      colorScheme.error,
-      AppColors.errorLight,
-      '거절',
-    ),
+    'approved' => (AppColors.success, AppColors.successLight, '승인'),
+    'rejected' => (colorScheme.error, AppColors.errorLight, '거절'),
     'cancelled' => (
       colorScheme.onSurfaceVariant,
       colorScheme.surfaceContainerHighest,
@@ -1503,17 +1477,16 @@ List<RequestGroup> groupHistoryRequests(List<RequestModel> requests) {
 }
 
 String changeTypeLabel(String type) => switch (type) {
-      'swap' => '멤버 간 근무 변경',
-      'day_off' => '내 근무 변경 (휴무)',
-      'shift_change' => '내 근무 변경',
-      'schedule_change' => '일정 변경',
-      _ => type,
-    };
+  'swap' => '멤버 간 근무 변경',
+  'day_off' => '내 근무 변경 (휴무)',
+  'shift_change' => '내 근무 변경',
+  'schedule_change' => '일정 변경',
+  _ => type,
+};
 
 /// Supabase가 UTC로 저장한 timestamp를 한국 시간(KST = UTC+9)으로 변환.
 /// 디바이스 타임존과 무관하게 항상 KST를 반환한다.
-DateTime _toKst(DateTime dt) =>
-    dt.toUtc().add(const Duration(hours: 9));
+DateTime _toKst(DateTime dt) => dt.toUtc().add(const Duration(hours: 9));
 
 // ────────────────────────────────────────
 // 선택 모드 — 필터 바 아래 전체 선택/해제 행
@@ -1547,15 +1520,7 @@ class _SelectAllBar extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                isAllSelected
-                    ? Icons.check_box_rounded
-                    : Icons.check_box_outline_blank_rounded,
-                size: 20,
-                color: isAllSelected
-                    ? AppColors.primary
-                    : cs.onSurfaceVariant,
-              ),
+              MoniqSelectionCheck(selected: isAllSelected, size: 20),
               const SizedBox(width: AppSpacing.sm),
               Text(
                 isAllSelected ? '전체 해제' : '전체 선택',
@@ -1572,6 +1537,64 @@ class _SelectAllBar extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────
+// 공용 선택 인디케이터 (request 탭 전역 재사용)
+// ────────────────────────────────────────
+
+/// 선택 모드에서 사용하는 세련된 커스텀 체크 인디케이터.
+///
+/// 둥근 사각형(radius 7) 형태로, 미선택 시 투명 배경 + 1.5px 테두리,
+/// 선택 시 primary 채움 + onPrimary 체크 아이콘으로 부드럽게 전환된다.
+class MoniqSelectionCheck extends StatelessWidget {
+  const MoniqSelectionCheck({
+    super.key,
+    required this.selected,
+    this.size = 22,
+  });
+
+  final bool selected;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOutCubic,
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: selected ? AppColors.primary : Colors.transparent,
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(
+          color: selected ? AppColors.primary : cs.outlineVariant,
+          width: 1.5,
+        ),
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.28),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutBack,
+        scale: selected ? 1 : 0,
+        child: Icon(
+          Icons.check_rounded,
+          size: size * 0.66,
+          weight: 800,
+          color: cs.onPrimary,
         ),
       ),
     );
@@ -1853,9 +1876,7 @@ class _ChangePreview extends ConsumerWidget {
             ),
             error: (_, __) => Text(
               '근무 정보를 불러올 수 없어요',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: cs.error,
-              ),
+              style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
             ),
             data: (preview) => _previewBody(context, preview),
           ),
@@ -1931,7 +1952,9 @@ class _BeforeAfterRow extends StatelessWidget {
     final cs = theme.colorScheme;
     return Row(
       children: [
-        Expanded(child: _ShiftTypeChip(label: '변경 전', shiftType: before)),
+        Expanded(
+          child: _ShiftTypeChip(label: '변경 전', shiftType: before),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           child: Icon(
@@ -1940,7 +1963,9 @@ class _BeforeAfterRow extends StatelessWidget {
             color: cs.onSurfaceVariant,
           ),
         ),
-        Expanded(child: _ShiftTypeChip(label: '변경 후', shiftType: after)),
+        Expanded(
+          child: _ShiftTypeChip(label: '변경 후', shiftType: after),
+        ),
       ],
     );
   }
@@ -2014,6 +2039,52 @@ class _ShiftTypeChip extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 카드 부가 정보 key-value 행 (신청자/변경일/신청일)
+class _MetaInfoRow extends StatelessWidget {
+  const _MetaInfoRow({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 44,
+            child: Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontSize: 10,
+                height: 1.3,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontSize: 10,
+                height: 1.3,
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),

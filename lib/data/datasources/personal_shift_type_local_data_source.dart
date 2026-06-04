@@ -128,23 +128,26 @@ class PersonalShiftTypeLocalDataSource {
     await save(list);
   }
 
-  /// 기본 근무 유형 — 최초 1회만 생성. OFF는 캘린더가 자동으로 처리하므로
-  /// 사용자 설정 목록에는 포함하지 않는다.
+  /// 기본 근무 유형 목록 (저장하지 않음). OFF는 캘린더가 자동 처리하므로 제외.
+  /// 빠른 근무 추가에서 개인 근무 유형이 비어 있을 때의 폴백으로도 사용된다.
+  static List<PersonalShiftType> get defaultTypes => [
+        PersonalShiftType(
+          id: 'day', name: '데이', code: 'D',
+          startTime: '07:00', endTime: '15:00', color: '#FFD700',
+        ),
+        PersonalShiftType(
+          id: 'evening', name: '이브닝', code: 'E',
+          startTime: '15:00', endTime: '23:00', color: '#FF8C00',
+        ),
+        PersonalShiftType(
+          id: 'night', name: '나이트', code: 'N',
+          startTime: '23:00', endTime: '07:00', color: '#0061A4',
+        ),
+      ];
+
+  /// 기본 근무 유형 — 최초 1회만 생성 후 저장.
   List<PersonalShiftType> _defaults() {
-    final defaults = [
-      PersonalShiftType(
-        id: 'day', name: '데이', code: 'D',
-        startTime: '07:00', endTime: '15:00', color: '#FFD700',
-      ),
-      PersonalShiftType(
-        id: 'evening', name: '이브닝', code: 'E',
-        startTime: '15:00', endTime: '23:00', color: '#FF8C00',
-      ),
-      PersonalShiftType(
-        id: 'night', name: '나이트', code: 'N',
-        startTime: '23:00', endTime: '07:00', color: '#0061A4',
-      ),
-    ];
+    final defaults = defaultTypes;
     save(defaults);
     return defaults;
   }

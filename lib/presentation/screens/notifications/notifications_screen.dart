@@ -76,6 +76,8 @@ class NotificationsScreen extends HookConsumerWidget {
                     message: '30일 이내 알림만 표시돼요',
                   );
                 }
+                // 날짜 그룹별로 가벼운 섹션 헤더를 삽입한 평탄화 리스트.
+                final rows = _buildGroupedRows(items);
                 return RefreshIndicator(
                   onRefresh: () async {
                     ref.invalidate(myNotificationsProvider);
@@ -83,29 +85,39 @@ class NotificationsScreen extends HookConsumerWidget {
                   },
                   child: ListView.separated(
                     padding: AppSpacing.screenAll,
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: AppSpacing.sm),
+                    itemCount: rows.length,
+                    separatorBuilder: (_, index) {
+                      // 다음 행이 헤더면 섹션 간격을 더 넓게.
+                      final next = rows[index + 1];
+                      return SizedBox(
+                        height: next is _HeaderRow
+                            ? AppSpacing.lg
+                            : AppSpacing.sm,
+                      );
+                    },
                     itemBuilder: (context, index) {
+                      final row = rows[index];
+                      if (row is _HeaderRow) {
+                        return _SectionHeader(label: row.label);
+                      }
+                      final item = (row as _ItemRow).item;
                       return _NotificationTile(
-                        item: items[index],
+                        item: item,
                         onTap: () async {
-                          final n = items[index];
-                          if (!n.isRead) {
+                          if (!item.isRead) {
                             final repo =
                                 ref.read(notificationRepositoryProvider);
-                            await repo.markAsRead(n.id);
+                            await repo.markAsRead(item.id);
                             ref.invalidate(myNotificationsProvider);
                             ref.invalidate(unreadNotificationCountProvider);
                           }
                           if (!context.mounted) return;
-                          await _navigateForNotification(context, ref, n);
+                          await _navigateForNotification(context, ref, item);
                         },
                         onDelete: () async {
-                          final n = items[index];
                           final repo =
                               ref.read(notificationRepositoryProvider);
-                          await repo.delete(n.id);
+                          await repo.delete(item.id);
                           ref.invalidate(myNotificationsProvider);
                           ref.invalidate(unreadNotificationCountProvider);
                         },
@@ -117,6 +129,72 @@ class NotificationsScreen extends HookConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 리스트 행 — 섹션 헤더 또는 알림 항목.
+sealed class _Row {
+  const _Row();
+}
+
+class _HeaderRow extends _Row {
+  const _HeaderRow(this.label);
+  final String label;
+}
+
+class _ItemRow extends _Row {
+  const _ItemRow(this.item);
+  final NotificationModel item;
+}
+
+/// 정렬된(최신순) 알림을 날짜 구간별 헤더와 함께 평탄화한다.
+/// 구간: 오늘 / 어제 / 이번 주 / 이전.
+List<_Row> _buildGroupedRows(List<NotificationModel> items) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final yesterday = today.subtract(const Duration(days: 1));
+  final weekStart = today.subtract(const Duration(days: 7));
+
+  String bucketOf(DateTime dt) {
+    final d = DateTime(dt.year, dt.month, dt.day);
+    if (!d.isBefore(today)) return '오늘';
+    if (!d.isBefore(yesterday)) return '어제';
+    if (!d.isBefore(weekStart)) return '이번 주';
+    return '이전';
+  }
+
+  final rows = <_Row>[];
+  String? current;
+  for (final item in items) {
+    final bucket = bucketOf(item.createdAt);
+    if (bucket != current) {
+      current = bucket;
+      rows.add(_HeaderRow(bucket));
+    }
+    rows.add(_ItemRow(item));
+  }
+  return rows;
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(left: AppSpacing.xxs),
+      child: Text(
+        label,
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: cs.onSurfaceVariant,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.3,
+        ),
       ),
     );
   }
@@ -244,43 +322,44 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = cs.brightness == Brightness.dark;
-    // scaffold가 surfaceContainerLow로 바뀌었으므로 칩은 한 단계 위 surface로
-    // 띄워 배경과 구분되게 한다.
+    final theme = Theme.of(context);
+    // request_list_screen의 `_FilterChip`과 톤 통일:
+    // 선택 시 primary tint pill + 또렷한 라벨, 비선택은 차분한 surface.
     final bg = active
-        ? cs.primary.withValues(alpha: 0.15)
-        : (isDark ? cs.surfaceContainer : cs.surfaceContainerLowest);
-    final fg = active ? cs.primary : cs.onSurface;
-    final borderColor = active
-        ? cs.primary.withValues(alpha: 0.5)
-        : cs.outlineVariant.withValues(alpha: 0.5);
+        ? cs.primary.withValues(alpha: 0.10)
+        : cs.surfaceContainerHigh;
+    final fg = active ? cs.primary : cs.onSurfaceVariant;
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.xs,
+        horizontal: 14,
+        vertical: 7,
       ),
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: borderColor),
+        shape: StadiumBorder(
+          side: active
+              ? BorderSide(color: cs.primary.withValues(alpha: 0.45))
+              : const BorderSide(color: Colors.transparent),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: fg),
+          Icon(icon, size: 15, color: fg),
           const SizedBox(width: AppSpacing.xs),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+            style: theme.textTheme.labelMedium?.copyWith(
               color: fg,
+              fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+              letterSpacing: 0.1,
             ),
           ),
           if (trailing != null) ...[
             const SizedBox(width: 2),
-            Icon(trailing, size: 16, color: cs.onSurfaceVariant),
+            Icon(trailing, size: 16, color: fg),
           ],
         ],
       ),
@@ -306,10 +385,18 @@ class _NotificationTile extends StatelessWidget {
     final isDark = cs.brightness == Brightness.dark;
     final isUnread = !item.isRead;
     final dateLabel = _formatRelative(item.createdAt);
+    final accent = _NotifAccent.of(item, cs);
 
     // 설정 페이지(MoniqCard)와 동일한 카드 surface 토큰을 사용해 톤을 통일.
     final readSurface =
         isDark ? cs.surfaceContainer : cs.surfaceContainerLowest;
+    // 안 읽음: 타입 악센트 컬러를 아주 옅게 깐 강조 배경 + 좌측 컬러 바.
+    final bg = isUnread
+        ? Color.alphaBlend(
+            accent.color.withValues(alpha: isDark ? 0.10 : 0.06),
+            readSurface,
+          )
+        : readSurface;
 
     return Dismissible(
       key: ValueKey(item.id),
@@ -319,83 +406,146 @@ class _NotificationTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         decoration: BoxDecoration(
           color: cs.error.withValues(alpha: 0.12),
-          borderRadius: AppRadius.borderRadiusMd,
+          borderRadius: AppRadius.borderRadiusLg,
         ),
-        child: Icon(Icons.delete_outline, color: cs.error),
+        child: Icon(Icons.delete_outline_rounded, color: cs.error),
       ),
       onDismissed: (_) => onDelete(),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.borderRadiusMd,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: isUnread
-                ? cs.primaryContainer.withValues(alpha: 0.2)
-                : readSurface,
-            borderRadius: AppRadius.borderRadiusMd,
-            border: Border.all(
-              color: isUnread
-                  ? cs.primary.withValues(alpha: 0.3)
-                  : cs.outlineVariant.withValues(alpha: 0.3),
-            ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (isUnread)
-                Container(
-                  margin: const EdgeInsets.only(
-                    top: 6,
-                    right: AppSpacing.sm,
-                  ),
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: cs.primary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.title,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: isUnread
-                                  ? FontWeight.w700
-                                  : FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Text(
-                          dateLabel,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      item.body,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurface,
-                      ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
+      child: Material(
+        color: bg,
+        borderRadius: AppRadius.borderRadiusLg,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: AppRadius.borderRadiusLg,
+              border: Border.all(
+                color: isUnread
+                    ? accent.color.withValues(alpha: 0.28)
+                    : cs.outlineVariant.withValues(alpha: 0.4),
               ),
-            ],
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 좌측 컬러 바 — 안 읽음일 때만 또렷하게.
+                  Container(
+                    width: 4,
+                    decoration: BoxDecoration(
+                      color: isUnread
+                          ? accent.color
+                          : Colors.transparent,
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 타입별 아이콘 칩.
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: accent.color
+                                  .withValues(alpha: isDark ? 0.18 : 0.12),
+                              borderRadius: AppRadius.borderRadiusSm,
+                            ),
+                            alignment: Alignment.center,
+                            child: Icon(
+                              accent.icon,
+                              size: 20,
+                              color: accent.color,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        item.title,
+                                        style: theme.textTheme.bodyLarge
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: isUnread
+                                              ? cs.onSurface
+                                              : cs.onSurface
+                                                  .withValues(alpha: 0.85),
+                                          height: 1.25,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (isUnread) ...[
+                                      const SizedBox(width: AppSpacing.sm),
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 6),
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          color: accent.color,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.xs),
+                                Text(
+                                  item.body,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                    height: 1.4,
+                                  ),
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.schedule_rounded,
+                                      size: 13,
+                                      color: cs.onSurfaceVariant
+                                          .withValues(alpha: 0.7),
+                                    ),
+                                    const SizedBox(width: AppSpacing.xxs),
+                                    Text(
+                                      dateLabel,
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                        color: cs.onSurfaceVariant
+                                            .withValues(alpha: 0.85),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -410,6 +560,32 @@ class _NotificationTile extends StatelessWidget {
     if (diff.inHours < 24) return '${diff.inHours}시간 전';
     if (diff.inDays < 7) return '${diff.inDays}일 전';
     return DateFormat('MM.dd').format(dt);
+  }
+}
+
+/// 알림 타입별 아이콘 + 악센트 컬러. `_classifyNotification`의 분류를
+/// 시각 표현으로 매핑한다(데이터/라우팅 로직과 독립적인 표시용 헬퍼).
+class _NotifAccent {
+  const _NotifAccent(this.icon, this.color);
+  final IconData icon;
+  final Color color;
+
+  static _NotifAccent of(NotificationModel n, ColorScheme cs) {
+    switch (_classifyNotification(n)) {
+      case _NotifTarget.requests:
+        return _NotifAccent(Icons.swap_horiz_rounded, cs.tertiary);
+      case _NotifTarget.teamCalendar:
+        return _NotifAccent(Icons.event_available_rounded, cs.primary);
+      case _NotifTarget.wanted:
+        return _NotifAccent(Icons.event_note_rounded, cs.secondary);
+      case _NotifTarget.announcements:
+        return _NotifAccent(Icons.campaign_rounded, cs.tertiary);
+      case _NotifTarget.none:
+        return _NotifAccent(
+          Icons.notifications_rounded,
+          cs.onSurfaceVariant,
+        );
+    }
   }
 }
 

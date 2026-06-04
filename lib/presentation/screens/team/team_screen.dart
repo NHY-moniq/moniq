@@ -7,8 +7,6 @@ import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/data/models/personal_team_member_shift.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/models/team_model.dart';
-import 'package:moniq/data/providers/schedule_providers.dart';
-import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
@@ -20,7 +18,9 @@ import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
 import 'package:moniq/presentation/widgets/calendar/roster_panel.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
+import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
+import 'package:moniq/presentation/screens/calendar/calendar_export.dart';
 import 'package:moniq/presentation/screens/team/team_excel_import.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -28,6 +28,7 @@ import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 import 'package:moniq/presentation/screens/team/personal_team_calendar_widgets.dart';
 import 'package:moniq/presentation/viewmodels/personal_team_calendar_viewmodel.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:moniq/presentation/router/bottom_sheet_visibility_provider.dart';
 
 class TeamScreen extends HookConsumerWidget {
   const TeamScreen({super.key});
@@ -147,75 +148,234 @@ class _NoFavoriteView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+      backgroundColor: cs.surfaceContainerLow,
       appBar: AdaptiveLayout.isWide(context)
           ? null
           : const MoniqAppBar(title: '팀', showBack: false),
-      body: Padding(
+      body: ListView(
         padding: AppSpacing.screenAll,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '기본 팀을 선택해주세요',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+        children: [
+          const _NoFavoriteHeader(),
+          const SizedBox(height: AppSpacing.xxl),
+          ...List.generate(teams.length, (index) {
+            final team = teams[index];
+            final isPersonal = team.teamType == 'personal';
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index == teams.length - 1 ? 0 : AppSpacing.sm,
               ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              '팀 탭에서 표시할 팀을 선택합니다',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xxl),
-            Expanded(
-              child: ListView.separated(
-                itemCount: teams.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final team = teams[index];
-                  final isPersonal = team.teamType == 'personal';
-                  return ListTile(
-                    leading: TeamProfileAvatar(icon: team.icon, radius: 20),
-                    title: Text(team.name),
-                    subtitle: isPersonal
-                        ? Text(
-                            '개인',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          )
-                        : null,
-                    trailing: isPersonal
-                        ? null
-                        : const Icon(Icons.star_outline),
-                    onTap: () async {
-                      if (isPersonal) {
-                        ref.read(viewingTeamIdOverrideProvider.notifier).state =
-                            team.id;
-                        return;
-                      }
-                      final teamRepo = ref.read(teamRepositoryProvider);
-                      await teamRepo.setFavoriteTeam(team.id);
-                      ref.read(viewingTeamIdOverrideProvider.notifier).state =
-                          null;
-                      ref.invalidate(favoriteTeamProvider);
-                      ref.invalidate(teamViewModelProvider);
-                    },
-                  );
+              child: _NoFavoriteTeamTile(
+                team: team,
+                isPersonal: isPersonal,
+                onTap: () async {
+                  if (isPersonal) {
+                    ref.read(viewingTeamIdOverrideProvider.notifier).state =
+                        team.id;
+                    return;
+                  }
+                  final teamRepo = ref.read(teamRepositoryProvider);
+                  await teamRepo.setFavoriteTeam(team.id);
+                  ref.read(viewingTeamIdOverrideProvider.notifier).state = null;
+                  ref.invalidate(favoriteTeamProvider);
+                  ref.invalidate(favoriteTeamShiftTypesProvider);
+                  ref.invalidate(homeViewModelProvider);
+                  ref.invalidate(teamViewModelProvider);
                 },
               ),
-            ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+/// 즐겨찾기 미설정 안내 — 친근한 일러스트 헤더 카드.
+class _NoFavoriteHeader extends StatelessWidget {
+  const _NoFavoriteHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+        AppSpacing.xl,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: AppRadius.borderRadiusLg,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.brandOrange.withValues(alpha: 0.14),
+            cs.primary.withValues(alpha: 0.08),
           ],
         ),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: cs.surface.withValues(alpha: 0.7),
+            ),
+            alignment: Alignment.center,
+            child: Image.asset(
+              'assets/images/orange.png',
+              width: 56,
+              height: 56,
+              fit: BoxFit.contain,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '기본으로 볼 팀을 골라주세요',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: cs.onSurface,
+                    height: 1.25,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '선택한 팀이 팀 탭에 가장 먼저 보여요 ✨',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 팀 선택 타일 — 부드러운 InkWell 하이라이트의 카드형 행.
+class _NoFavoriteTeamTile extends StatelessWidget {
+  const _NoFavoriteTeamTile({
+    required this.team,
+    required this.isPersonal,
+    required this.onTap,
+  });
+
+  final TeamModel team;
+  final bool isPersonal;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Material(
+      color: cs.surface,
+      borderRadius: AppRadius.borderRadiusMd,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.borderRadiusMd,
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          child: Row(
+            children: [
+              TeamProfileAvatar(icon: team.icon, radius: 22),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      team.name,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurface,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (isPersonal) ...[
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        '개인',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              if (isPersonal)
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                )
+              else
+                _SelectChip(cs: cs),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 공개 팀 우측의 '기본으로' 선택 칩.
+class _SelectChip extends StatelessWidget {
+  const _SelectChip({required this.cs});
+
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.12),
+        borderRadius: AppRadius.borderRadiusFull,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.star_rounded, size: 14, color: cs.secondary),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            '기본으로',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -538,6 +698,15 @@ class _TeamCalendarView extends HookConsumerWidget {
               )
             : null,
       ),
+      // 햄버거 드로어가 열리면 하단 dock을 숨긴다 (바텀시트와 동일 처리).
+      onEndDrawerChanged: (isOpened) {
+        final notifier = ref.read(bottomSheetCountProvider.notifier);
+        if (isOpened) {
+          notifier.increment();
+        } else {
+          notifier.decrement();
+        }
+      },
       endDrawer: AdaptiveLayout.isWide(context)
           ? null
           : _TeamDrawer(
@@ -791,6 +960,15 @@ class _PersonalTeamCalendarView extends HookConsumerWidget {
               )
             : null,
       ),
+      // 햄버거 드로어가 열리면 하단 dock을 숨긴다 (바텀시트와 동일 처리).
+      onEndDrawerChanged: (isOpened) {
+        final notifier = ref.read(bottomSheetCountProvider.notifier);
+        if (isOpened) {
+          notifier.increment();
+        } else {
+          notifier.decrement();
+        }
+      },
       endDrawer: AdaptiveLayout.isWide(context)
           ? null
           : _TeamDrawer(
@@ -1184,59 +1362,4 @@ bool _isEducation(String code, String name) {
   final lower = name.toLowerCase();
   if (lower.contains('education') || lower.contains('training')) return true;
   return false;
-}
-
-// ── Excel 가져오기 팝업 버튼 (웹 AppBar 전용) ──
-
-class _ExcelImportMenuButton extends ConsumerWidget {
-  const _ExcelImportMenuButton({required this.teamId});
-
-  final String teamId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return PopupMenuButton<String>(
-      tooltip: 'Excel',
-      icon: const Icon(Icons.table_chart_outlined),
-      iconSize: 22,
-      onSelected: (value) {
-        final shiftRepo = ref.read(shiftRepositoryProvider);
-        final scheduleRepo = ref.read(scheduleRepositoryProvider);
-        final teamRepo = ref.read(teamRepositoryProvider);
-        if (value == 'import') {
-          importTeamExcel(
-            context,
-            teamId: teamId,
-            shiftRepo: shiftRepo,
-            scheduleRepo: scheduleRepo,
-            teamRepo: teamRepo,
-          );
-        } else if (value == 'sample') {
-          exportSampleTemplate(context, shiftRepo: shiftRepo, teamId: teamId);
-        }
-      },
-      itemBuilder: (_) => const [
-        PopupMenuItem(
-          value: 'import',
-          child: Row(
-            children: [
-              Icon(Icons.upload_file_outlined, size: 18),
-              SizedBox(width: 10),
-              Text('엑셀로 가져오기'),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'sample',
-          child: Row(
-            children: [
-              Icon(Icons.description_outlined, size: 18),
-              SizedBox(width: 10),
-              Text('샘플 양식 다운로드'),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }

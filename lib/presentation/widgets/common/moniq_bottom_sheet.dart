@@ -76,6 +76,8 @@ class MoniqBottomSheetShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final viewInsets = MediaQuery.of(context).viewInsets;
+    // 내용이 적어도 시트가 너무 납작해지지 않도록 최소 높이를 보장한다.
+    final minHeight = MediaQuery.of(context).size.height * 0.28;
     final sheetColor = cs.brightness == Brightness.dark
         ? cs.surface
         : Colors.white;
@@ -83,6 +85,7 @@ class MoniqBottomSheetShell extends StatelessWidget {
     return Padding(
       padding: viewInsets,
       child: Container(
+        constraints: BoxConstraints(minHeight: minHeight),
         decoration: BoxDecoration(
           color: sheetColor,
           borderRadius: const BorderRadius.vertical(
@@ -390,19 +393,22 @@ class _MoniqDestructiveConfirmDialog extends StatelessWidget {
         horizontal: AppSpacing.xxl,
         vertical: AppSpacing.xxl,
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.sm,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Destructive icon chip
-            Center(
+      child: ConstrainedBox(
+        // 웹/데스크톱에서 거대하게 늘어나지 않도록 최대 너비 제한.
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.sm,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Destructive icon chip
+              Center(
               child: Container(
                 width: 40,
                 height: 40,
@@ -483,6 +489,7 @@ class _MoniqDestructiveConfirmDialog extends StatelessWidget {
               ],
             ),
           ],
+        ),
         ),
       ),
     );
