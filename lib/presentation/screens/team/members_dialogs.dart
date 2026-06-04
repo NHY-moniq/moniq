@@ -211,6 +211,58 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
     }
   }
 
+  void _setNightDedicated(bool value) {
+    final newNightExempt = value ? false : _nightExempt;
+    final newDayOnly = value ? false : _dayOnly;
+    final newPreferredShifts = value
+        ? _preferredShifts.where((code) => code == 'N').toList()
+        : _preferredShifts;
+    setState(() {
+      _nightDedicated = value;
+      _nightExempt = newNightExempt;
+      _dayOnly = newDayOnly;
+      _preferredShifts = newPreferredShifts;
+    });
+    _saveAttrs(
+      nightExempt: newNightExempt,
+      dayOnly: newDayOnly,
+      nightDedicated: value,
+      preferredShifts: newPreferredShifts,
+    );
+  }
+
+  void _setNightExempt(bool value) {
+    final newPreferredShifts = value
+        ? _preferredShifts.where((code) => code != 'N').toList()
+        : _preferredShifts;
+    setState(() {
+      _nightExempt = value;
+      _preferredShifts = newPreferredShifts;
+    });
+    _saveAttrs(
+      nightExempt: value,
+      dayOnly: _dayOnly,
+      nightDedicated: _nightDedicated,
+      preferredShifts: newPreferredShifts,
+    );
+  }
+
+  void _setDayOnly(bool value) {
+    final newPreferredShifts = value
+        ? _preferredShifts.where((code) => code == 'D').toList()
+        : _preferredShifts;
+    setState(() {
+      _dayOnly = value;
+      _preferredShifts = newPreferredShifts;
+    });
+    _saveAttrs(
+      nightExempt: _nightExempt,
+      dayOnly: value,
+      nightDedicated: _nightDedicated,
+      preferredShifts: newPreferredShifts,
+    );
+  }
+
   Future<void> _confirmRemove() async {
     final ok = await showMoniqConfirmSheet(
       context: context,
@@ -236,22 +288,30 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
     final colorScheme = theme.colorScheme;
     final m = widget.member;
     final isPersonal = widget.state.team.teamType == 'personal';
+    final isBottomSheet = widget.scrollController != null;
+    final sheetColor = colorScheme.brightness == Brightness.dark
+        ? colorScheme.surface
+        : Colors.white;
 
-    return SingleChildScrollView(
+    final content = SingleChildScrollView(
       controller: widget.scrollController,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── 헤더 ──
-          _MemberHeader(member: m, isSelf: widget.isSelf),
+          _MemberHeader(
+            member: m,
+            isSelf: widget.isSelf,
+            showHandle: isBottomSheet,
+          ),
 
           const SizedBox(height: AppSpacing.lg),
 
           // ── 역할 ──
           if (!widget.isSelf)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
               child: _RoleCard(
                 role: m.role,
                 saving: _saving,
@@ -265,7 +325,7 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
 
             // 숙련도
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -284,86 +344,39 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
 
             // 근무 속성
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _SectionLabel(label: '근무 속성'),
                   const SizedBox(height: AppSpacing.sm),
-                  _AttrToggleCard(
-                    icon: Icons.nights_stay_rounded,
-                    color: AppColors.shiftNight,
-                    title: '나이트 전담',
-                    subtitle: '나이트 근무만 배정',
-                    value: _nightDedicated,
-                    disabled: _saving,
-                    onChanged: (v) {
-                      final newNightExempt = v ? false : _nightExempt;
-                      final newDayOnly = v ? false : _dayOnly;
-                      final newPref = v
-                          ? _preferredShifts.where((c) => c == 'N').toList()
-                          : _preferredShifts;
-                      setState(() {
-                        _nightDedicated = v;
-                        _nightExempt = newNightExempt;
-                        _dayOnly = newDayOnly;
-                        _preferredShifts = newPref;
-                      });
-                      _saveAttrs(
-                        nightExempt: newNightExempt,
-                        dayOnly: newDayOnly,
-                        nightDedicated: v,
-                        preferredShifts: newPref,
-                      );
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _AttrToggleCard(
-                    icon: Icons.bedtime_off_outlined,
-                    color: AppColors.primary,
-                    title: '나이트 제외',
-                    subtitle: '나이트 근무 배정 안 함',
-                    value: _nightExempt,
-                    disabled: _saving || _nightDedicated,
-                    onChanged: (v) {
-                      final newPref = v
-                          ? _preferredShifts.where((c) => c != 'N').toList()
-                          : _preferredShifts;
-                      setState(() {
-                        _nightExempt = v;
-                        _preferredShifts = newPref;
-                      });
-                      _saveAttrs(
-                        nightExempt: v,
-                        dayOnly: _dayOnly,
-                        nightDedicated: _nightDedicated,
-                        preferredShifts: newPref,
-                      );
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _AttrToggleCard(
-                    icon: Icons.wb_sunny_outlined,
-                    color: AppColors.shiftDay,
-                    title: '데이 전담',
-                    subtitle: '데이 근무만 배정',
-                    value: _dayOnly,
-                    disabled: _saving || _nightDedicated,
-                    onChanged: (v) {
-                      final newPref = v
-                          ? _preferredShifts.where((c) => c == 'D').toList()
-                          : _preferredShifts;
-                      setState(() {
-                        _dayOnly = v;
-                        _preferredShifts = newPref;
-                      });
-                      _saveAttrs(
-                        nightExempt: _nightExempt,
-                        dayOnly: v,
-                        nightDedicated: _nightDedicated,
-                        preferredShifts: newPref,
-                      );
-                    },
+                  _AttrSegmentedToggle(
+                    options: [
+                      _AttrSegmentOption(
+                        icon: Icons.nights_stay_rounded,
+                        color: AppColors.shiftNight,
+                        label: '나이트전담',
+                        selected: _nightDedicated,
+                        disabled: _saving,
+                        onTap: () => _setNightDedicated(!_nightDedicated),
+                      ),
+                      _AttrSegmentOption(
+                        icon: Icons.bedtime_off_outlined,
+                        color: AppColors.primary,
+                        label: '나이트제외',
+                        selected: _nightExempt,
+                        disabled: _saving || _nightDedicated,
+                        onTap: () => _setNightExempt(!_nightExempt),
+                      ),
+                      _AttrSegmentOption(
+                        icon: Icons.wb_sunny_outlined,
+                        color: AppColors.shiftDay,
+                        label: '데이전담',
+                        selected: _dayOnly,
+                        disabled: _saving || _nightDedicated,
+                        onTap: () => _setDayOnly(!_dayOnly),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -373,49 +386,25 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
 
             // 선호 근무
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _SectionLabel(label: '선호 근무'),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '최소 1개, 최대 2개 선택 (근무 속성 내에서만 선택 가능)',
+                    '최대 2개 선택 · 근무 속성과 충돌 시 비활성화',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    children: _shiftMeta.map((meta) {
-                      final isSelected = _preferredShifts.contains(meta.code);
-                      final isAllowed = _allowedShiftCodes.contains(meta.code);
-                      return FilterChip(
-                        label: Text(meta.label),
-                        selected: isSelected,
-                        onSelected: _saving
-                            ? null
-                            : (_) => _togglePreferredShift(meta.code),
-                        selectedColor: meta.color.withValues(alpha: 0.2),
-                        checkmarkColor: meta.color,
-                        labelStyle: TextStyle(
-                          color: isSelected
-                              ? meta.color
-                              : isAllowed
-                              ? colorScheme.onSurface
-                              : colorScheme.onSurface.withValues(alpha: 0.35),
-                          fontWeight: isSelected ? FontWeight.w700 : null,
-                        ),
-                        side: BorderSide(
-                          color: isSelected
-                              ? meta.color.withValues(alpha: 0.6)
-                              : colorScheme.outline.withValues(
-                                  alpha: isAllowed ? 0.5 : 0.2,
-                                ),
-                        ),
-                      );
-                    }).toList(),
+                  _ShiftPreferenceSelector(
+                    metas: _shiftMeta,
+                    selectedCodes: _preferredShifts,
+                    allowedCodes: _allowedShiftCodes,
+                    saving: _saving,
+                    onToggle: _togglePreferredShift,
                   ),
                 ],
               ),
@@ -426,7 +415,7 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
           if (!widget.isSelf) ...[
             const SizedBox(height: AppSpacing.xl),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -449,6 +438,21 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
         ],
       ),
     );
+
+    if (!isBottomSheet) {
+      return content;
+    }
+
+    const sheetRadius = BorderRadius.vertical(
+      top: Radius.circular(AppRadius.xl),
+    );
+    return ClipRRect(
+      borderRadius: sheetRadius,
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: sheetColor, borderRadius: sheetRadius),
+        child: content,
+      ),
+    );
   }
 }
 
@@ -457,9 +461,14 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
 // ────────────────────────────────────────
 
 class _MemberHeader extends StatelessWidget {
-  const _MemberHeader({required this.member, required this.isSelf});
+  const _MemberHeader({
+    required this.member,
+    required this.isSelf,
+    required this.showHandle,
+  });
   final TeamMemberWithUser member;
   final bool isSelf;
+  final bool showHandle;
 
   @override
   Widget build(BuildContext context) {
@@ -473,32 +482,39 @@ class _MemberHeader extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+        color: colorScheme.brightness == Brightness.dark
+            ? colorScheme.surface
+            : Colors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+          ),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // 드래그 핸들
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-            child: Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(2),
+          if (showHandle)
+            Padding(
+              padding: const EdgeInsets.only(top: 14, bottom: AppSpacing.lg),
+              child: Center(
+                child: Container(
+                  width: 52,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: colorScheme.outlineVariant,
+                    borderRadius: AppRadius.borderRadiusFull,
+                  ),
                 ),
               ),
             ),
-          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.xs,
-              AppSpacing.lg,
-              AppSpacing.md,
+              AppSpacing.xxl,
+              0,
+              AppSpacing.xxl,
+              AppSpacing.xl,
             ),
             child: Row(
               children: [
@@ -535,7 +551,9 @@ class _MemberHeader extends StatelessWidget {
                             color: AppColors.primary,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: colorScheme.surfaceContainerLow,
+                              color: colorScheme.brightness == Brightness.dark
+                                  ? colorScheme.surface
+                                  : Colors.white,
                               width: 2,
                             ),
                           ),
@@ -635,16 +653,20 @@ class _RoleCard extends StatelessWidget {
 
     return InkWell(
       onTap: saving ? null : onTap,
-      borderRadius: BorderRadius.circular(AppRadius.sm),
+      borderRadius: AppRadius.borderRadiusLg,
       child: Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.md,
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.lg,
         ),
         decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(color: colorScheme.outlineVariant),
+          color: colorScheme.brightness == Brightness.dark
+              ? colorScheme.surfaceContainer
+              : Colors.white,
+          borderRadius: AppRadius.borderRadiusLg,
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.8),
+          ),
         ),
         child: Row(
           children: [
@@ -652,8 +674,8 @@ class _RoleCard extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: roleColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppRadius.xs),
+                color: roleColor.withValues(alpha: 0.12),
+                borderRadius: AppRadius.borderRadiusMd,
               ),
               child: Icon(
                 isAdmin ? Icons.star_rounded : Icons.person_rounded,
@@ -721,89 +743,55 @@ class _SkillSelector extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Container(
+      padding: const EdgeInsets.all(AppSpacing.xs),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: colorScheme.brightness == Brightness.dark
+            ? colorScheme.surfaceContainer
+            : Colors.white,
+        borderRadius: AppRadius.borderRadiusLg,
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.8),
+        ),
       ),
-      child: Column(
+      child: Row(
         children: List.generate(skillOptions.length, (i) {
           final opt = skillOptions[i];
           final isSelected = opt.value == selected;
           final color = _skillColor(opt.value);
-          final isLast = i == skillOptions.length - 1;
 
-          return InkWell(
-            onTap: saving ? null : () => onChanged(opt.value),
-            borderRadius: BorderRadius.vertical(
-              top: i == 0 ? const Radius.circular(AppRadius.sm) : Radius.zero,
-              bottom: isLast
-                  ? const Radius.circular(AppRadius.sm)
-                  : Radius.zero,
-            ),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.md,
-              ),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? color.withValues(alpha: 0.08)
-                    : Colors.transparent,
-                border: isLast
-                    ? null
-                    : Border(
-                        bottom: BorderSide(
-                          color: colorScheme.outlineVariant,
-                          width: 0.5,
-                        ),
-                      ),
-              ),
-              child: Row(
-                children: [
-                  // 컬러 인디케이터
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 4,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: isSelected ? color : Colors.transparent,
-                      borderRadius: BorderRadius.circular(2),
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(left: i == 0 ? 0 : AppSpacing.xs),
+              child: InkWell(
+                onTap: saving ? null : () => onChanged(opt.value),
+                borderRadius: AppRadius.borderRadiusMd,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? color.withValues(alpha: 0.14)
+                        : Colors.transparent,
+                    borderRadius: AppRadius.borderRadiusMd,
+                    border: Border.all(
+                      color: isSelected
+                          ? color.withValues(alpha: 0.32)
+                          : Colors.transparent,
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          opt.label,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: isSelected ? color : colorScheme.onSurface,
-                          ),
-                        ),
-                        Text(
-                          opt.description,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+                  child: Text(
+                    opt.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: isSelected ? color : colorScheme.onSurfaceVariant,
+                      fontWeight: isSelected
+                          ? FontWeight.w900
+                          : FontWeight.w700,
                     ),
                   ),
-                  if (isSelected)
-                    Icon(Icons.check_circle_rounded, size: 18, color: color)
-                  else
-                    Icon(
-                      Icons.radio_button_unchecked,
-                      size: 18,
-                      color: colorScheme.outlineVariant,
-                    ),
-                ],
+                ),
               ),
             ),
           );
@@ -814,95 +802,197 @@ class _SkillSelector extends StatelessWidget {
 }
 
 // ────────────────────────────────────────
-// 근무 속성 토글 카드
+// 근무 속성 · 선호 근무 compact multi segment
 // ────────────────────────────────────────
 
-class _AttrToggleCard extends StatelessWidget {
-  const _AttrToggleCard({
+class _AttrSegmentedToggle extends StatelessWidget {
+  const _AttrSegmentedToggle({required this.options});
+
+  final List<_AttrSegmentOption> options;
+
+  @override
+  Widget build(BuildContext context) {
+    return _CompactSegmentSurface(
+      children: [
+        for (var index = 0; index < options.length; index++)
+          _CompactToggleSegment(
+            icon: options[index].icon,
+            label: options[index].label,
+            color: options[index].color,
+            selected: options[index].selected,
+            disabled: options[index].disabled,
+            onTap: options[index].onTap,
+            leadingPadding: index == 0 ? 0 : AppSpacing.xs,
+          ),
+      ],
+    );
+  }
+}
+
+class _AttrSegmentOption {
+  const _AttrSegmentOption({
     required this.icon,
     required this.color,
-    required this.title,
-    required this.subtitle,
-    required this.value,
+    required this.label,
+    required this.selected,
     required this.disabled,
-    required this.onChanged,
+    required this.onTap,
   });
 
   final IconData icon;
   final Color color;
-  final String title;
-  final String subtitle;
-  final bool value;
+  final String label;
+  final bool selected;
   final bool disabled;
-  final ValueChanged<bool> onChanged;
+  final VoidCallback onTap;
+}
+
+class _ShiftPreferenceSelector extends StatelessWidget {
+  const _ShiftPreferenceSelector({
+    required this.metas,
+    required this.selectedCodes,
+    required this.allowedCodes,
+    required this.saving,
+    required this.onToggle,
+  });
+
+  final List<_ShiftMeta> metas;
+  final List<String> selectedCodes;
+  final Set<String> allowedCodes;
+  final bool saving;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return _CompactSegmentSurface(
+      children: [
+        for (var index = 0; index < metas.length; index++)
+          _CompactToggleSegment(
+            code: metas[index].code,
+            label: metas[index].label,
+            color: metas[index].color,
+            selected: selectedCodes.contains(metas[index].code),
+            disabled: saving || !allowedCodes.contains(metas[index].code),
+            onTap: () => onToggle(metas[index].code),
+            leadingPadding: index == 0 ? 0 : AppSpacing.xs,
+          ),
+      ],
+    );
+  }
+}
+
+class _CompactSegmentSurface extends StatelessWidget {
+  const _CompactSegmentSurface({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: colorScheme.brightness == Brightness.dark
+            ? colorScheme.surfaceContainer
+            : Colors.white,
+        borderRadius: AppRadius.borderRadiusLg,
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.8),
+        ),
+      ),
+      child: Row(children: children),
+    );
+  }
+}
+
+class _CompactToggleSegment extends StatelessWidget {
+  const _CompactToggleSegment({
+    required this.label,
+    required this.color,
+    required this.selected,
+    required this.disabled,
+    required this.onTap,
+    required this.leadingPadding,
+    this.icon,
+    this.code,
+  });
+
+  final IconData? icon;
+  final String? code;
+  final String label;
+  final Color color;
+  final bool selected;
+  final bool disabled;
+  final VoidCallback onTap;
+  final double leadingPadding;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final effectiveColor = disabled
-        ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
+        ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38)
         : color;
+    final textColor = selected && !disabled
+        ? color
+        : disabled
+        ? colorScheme.onSurfaceVariant.withValues(alpha: 0.42)
+        : colorScheme.onSurfaceVariant;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: value && !disabled
-            ? color.withValues(alpha: 0.07)
-            : colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(
-          color: value && !disabled
-              ? color.withValues(alpha: 0.3)
-              : colorScheme.outlineVariant,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
+    return Expanded(
+      child: Padding(
+        padding: EdgeInsets.only(left: leadingPadding),
+        child: InkWell(
+          onTap: disabled ? null : onTap,
+          borderRadius: AppRadius.borderRadiusMd,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            height: 56,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
             decoration: BoxDecoration(
-              color: effectiveColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(AppRadius.xs),
+              color: selected && !disabled
+                  ? color.withValues(alpha: 0.14)
+                  : Colors.transparent,
+              borderRadius: AppRadius.borderRadiusMd,
+              border: Border.all(
+                color: selected && !disabled
+                    ? color.withValues(alpha: 0.34)
+                    : Colors.transparent,
+              ),
             ),
-            child: Icon(icon, size: 18, color: effectiveColor),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  title,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: disabled
-                        ? colorScheme.onSurfaceVariant.withValues(alpha: 0.5)
-                        : null,
+                SizedBox(
+                  height: 19,
+                  child: Center(
+                    child: icon != null
+                        ? Icon(icon, size: 17, color: effectiveColor)
+                        : Text(
+                            code ?? '',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: effectiveColor,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                   ),
                 ),
                 Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: disabled
-                        ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
-                        : colorScheme.onSurfaceVariant,
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: textColor,
+                    fontWeight: selected && !disabled
+                        ? FontWeight.w900
+                        : FontWeight.w700,
                   ),
                 ),
               ],
             ),
           ),
-          Switch.adaptive(
-            value: value,
-            onChanged: disabled ? null : onChanged,
-            activeTrackColor: color,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -928,9 +1018,9 @@ class _SectionLabel extends StatelessWidget {
     final theme = Theme.of(context);
     return Text(
       label,
-      style: theme.textTheme.labelMedium?.copyWith(
+      style: theme.textTheme.titleSmall?.copyWith(
         color: Theme.of(context).colorScheme.onSurfaceVariant,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w800,
         letterSpacing: 0.3,
       ),
     );

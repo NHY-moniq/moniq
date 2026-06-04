@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
@@ -16,15 +15,12 @@ import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
-import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
-import 'package:moniq/presentation/screens/team/team_detail_dialogs.dart';
 import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
 import 'package:moniq/presentation/widgets/calendar/roster_panel.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
-import 'package:moniq/presentation/screens/calendar/calendar_export.dart';
 import 'package:moniq/presentation/screens/team/team_excel_import.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -71,18 +67,22 @@ class TeamScreen extends HookConsumerWidget {
 
     final favoriteTeam = favoriteTeamAsync.valueOrNull;
 
-    // 즐겨찾기 팀이 있으면 teamsAsync를 기다리지 않고 바로 캘린더 렌더링.
-    // 사용자가 팀 피커로 임시 전환한 경우 viewingTeamIdOverride를 반영한다.
-    if (favoriteTeam != null) {
-      final teams = teamsAsync.valueOrNull ?? [favoriteTeam];
-      final viewingTeamIdOverride = ref.watch(viewingTeamIdOverrideProvider);
+    final canRenderOverrideTeam =
+        viewingTeamIdOverride != null &&
+        (teamsAsync.valueOrNull?.isNotEmpty ?? false);
+
+    // 즐겨찾기 팀이 있거나 사용자가 팀 피커로 임시 전환한 경우 바로 캘린더 렌더링.
+    if (favoriteTeam != null || canRenderOverrideTeam) {
+      final teams = teamsAsync.valueOrNull ?? [favoriteTeam!];
       final viewingTeam = viewingTeamIdOverride == null
-          ? favoriteTeam
+          ? favoriteTeam!
           : teams.firstWhere(
               (t) => t.id == viewingTeamIdOverride,
-              orElse: () => favoriteTeam,
+              orElse: () => favoriteTeam ?? teams.first,
             );
-      return _TeamCalendarView(team: viewingTeam, teams: teams);
+      return viewingTeam.teamType == 'personal'
+          ? _PersonalTeamCalendarView(team: viewingTeam, teams: teams)
+          : _TeamCalendarView(team: viewingTeam, teams: teams);
     }
 
     // 즐겨찾기가 없으면 팀 목록이 필요함
@@ -767,7 +767,7 @@ class _PersonalTeamCalendarView extends HookConsumerWidget {
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
       appBar: MoniqAppBar(
         title: team.name,
-        eyebrow: 'TEAM',
+        eyebrow: team.teamType == 'personal' ? 'PRIVATE TEAM' : 'PUBLIC TEAM',
         showBack: false,
         onTitleTap: teams.length > 1
             ? () => _showTeamPickerSheet(

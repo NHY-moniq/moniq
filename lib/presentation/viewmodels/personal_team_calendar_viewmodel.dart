@@ -3,6 +3,16 @@ import 'package:moniq/data/models/personal_team_member_shift.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class PersonalTeamAppointmentSetupException implements Exception {
+  const PersonalTeamAppointmentSetupException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
 
 class PersonalTeamCalendarState {
   const PersonalTeamCalendarState({
@@ -11,6 +21,7 @@ class PersonalTeamCalendarState {
     required this.selectedDate,
     required this.viewMode,
     required this.members,
+    required this.selectedMemberIds,
     required this.monthlyData,
   });
 
@@ -19,6 +30,7 @@ class PersonalTeamCalendarState {
   final DateTime selectedDate;
   final CalendarViewMode viewMode;
   final List<PersonalTeamMember> members;
+  final Set<String> selectedMemberIds;
 
   // normalized date (midnight) → 해당 날 각 멤버의 shift (shift 없으면 포함 안 됨)
   final Map<DateTime, List<PersonalMemberShift>> monthlyData;
@@ -28,6 +40,7 @@ class PersonalTeamCalendarState {
     DateTime? selectedDate,
     CalendarViewMode? viewMode,
     List<PersonalTeamMember>? members,
+    Set<String>? selectedMemberIds,
     Map<DateTime, List<PersonalMemberShift>>? monthlyData,
   }) {
     return PersonalTeamCalendarState(
@@ -36,9 +49,20 @@ class PersonalTeamCalendarState {
       selectedDate: selectedDate ?? this.selectedDate,
       viewMode: viewMode ?? this.viewMode,
       members: members ?? this.members,
+      selectedMemberIds: selectedMemberIds ?? this.selectedMemberIds,
       monthlyData: monthlyData ?? this.monthlyData,
     );
   }
+
+  List<PersonalTeamMember> get selectedMembers {
+    if (selectedMemberIds.isEmpty) return const [];
+    return members
+        .where((member) => selectedMemberIds.contains(member.userId))
+        .toList();
+  }
+
+  bool get isAllMembersSelected =>
+      members.isNotEmpty && selectedMemberIds.length == members.length;
 
   List<PersonalMemberShift> shiftsForDate(DateTime date) {
     final key = DateTime(date.year, date.month, date.day);
@@ -70,6 +94,7 @@ class PersonalTeamCalendarViewModel
       selectedDate: selected,
       viewMode: CalendarViewMode.month,
       members: members,
+      selectedMemberIds: members.map((member) => member.userId).toSet(),
       monthlyData: data,
     );
   }
@@ -93,11 +118,16 @@ class PersonalTeamCalendarViewModel
     }
 
     final (members, data) = await _fetch(current.teamId, nextFocused);
+    final nextSelectedMemberIds = _normalizeSelectedMemberIds(
+      members: members,
+      selectedIds: current.selectedMemberIds,
+    );
     state = AsyncData(
       current.copyWith(
         focusedMonth: nextFocused,
         selectedDate: nextSelected,
         members: members,
+        selectedMemberIds: nextSelectedMemberIds,
         monthlyData: data,
       ),
     );
@@ -117,6 +147,73 @@ class PersonalTeamCalendarViewModel
     if (current.viewMode == mode) return;
     state = AsyncData(current.copyWith(viewMode: mode));
   }
+
+  void setSelectedMemberIds(Set<String> ids) {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    final validIds = current.members.map((member) => member.userId).toSet();
+    state = AsyncData(
+      current.copyWith(selectedMemberIds: ids.where(validIds.contains).toSet()),
+    );
+  }
+
+  Set<String> _normalizeSelectedMemberIds({
+    required List<PersonalTeamMember> members,
+    required Set<String> selectedIds,
+  }) {
+    if (selectedIds.isEmpty) return const <String>{};
+    final validIds = members.map((member) => member.userId).toSet();
+    final preservedIds = selectedIds.where(validIds.contains).toSet();
+    if (preservedIds.isNotEmpty) return preservedIds;
+    return validIds;
+  }
+
+  Future<void> createAppointment({
+    required DateTime date,
+    required String title,
+    required Set<String> participantIds,
+    String? startTime,
+    String? endTime,
+    String? description,
+  }) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    final validIds = current.members.map((member) => member.userId).toSet();
+    final participants = participantIds.where(validIds.contains).toList();
+    if (participants.isEmpty) {
+      throw Exception('참여자를 선택해주세요.');
+    }
+
+    final client = ref.read(supabaseClientProvider);
+    try {
+      await client.rpc(
+        'create_personal_team_appointment',
+        params: {
+          'p_team_id': current.teamId,
+          'p_event_date': _dateStr(date),
+          'p_title': title.trim(),
+          'p_participant_ids': participants,
+          'p_start_time': startTime,
+          'p_end_time': endTime,
+          'p_description': description,
+          'p_color': '#FFB800',
+        },
+      );
+    } on PostgrestException catch (e) {
+      if (e.code == 'PGRST202' ||
+          e.message.contains('create_personal_team_appointment')) {
+        throw const PersonalTeamAppointmentSetupException(
+          '약속 저장 기능이 아직 서버에 반영되지 않았습니다. Supabase 마이그레이션을 적용한 뒤 다시 시도해주세요.',
+        );
+      }
+      rethrow;
+    }
+  }
+
+  String _dateStr(DateTime dt) =>
+      '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
 
   Future<(List<PersonalTeamMember>, Map<DateTime, List<PersonalMemberShift>>)>
   _fetch(String teamId, DateTime month) async {

@@ -8,7 +8,7 @@ import 'package:moniq/presentation/viewmodels/schedule_generation_viewmodel.dart
 import 'schedule_common_widgets.dart';
 
 // ────────────────────────────────────────
-// Step 3: 발행 완료 피드백 바텀시트
+// Step 4: 발행 완료 피드백 바텀시트
 // ────────────────────────────────────────
 
 class PublishSuccessSheet extends StatefulWidget {
@@ -126,8 +126,8 @@ class PublishSuccessSheetState extends State<PublishSuccessSheet> {
           children: [
             if (widget.showSuccessHeader) ...[
               // -- 단계 표시 --
-              const ScheduleStepIndicator(currentStep: 2, totalSteps: 3),
-              const SizedBox(height: AppSpacing.xxl),
+              const ScheduleStepIndicator(currentStep: 3, totalSteps: 4),
+              const SizedBox(height: AppSpacing.xl),
 
               // -- 완료 아이콘 --
               Container(

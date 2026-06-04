@@ -11,7 +11,7 @@ import 'package:moniq/presentation/theme/app_typography.dart';
 ///
 /// Features:
 /// - 32px top radius (design system Card token)
-/// - Cream surface color
+/// - White sheet surface in light mode
 /// - 48×4 handle bar
 /// - Consistent 24px padding
 /// - Optional eyebrow + title header
@@ -36,9 +36,10 @@ Future<T?> showMoniqBottomSheet<T>({
   // Hide the app shell's floating bottom dock while the sheet is open so it
   // does not bleed through the semi-transparent barrier. The counter is
   // restored in `finally`, covering both normal dismissal and errors.
-  final notifier =
-      ProviderScope.containerOf(context, listen: false)
-          .read(bottomSheetCountProvider.notifier);
+  final notifier = ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(bottomSheetCountProvider.notifier);
   notifier.increment();
   try {
     return await showModalBottomSheet<T>(
@@ -49,11 +50,8 @@ Future<T?> showMoniqBottomSheet<T>({
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.42),
-      builder: (ctx) => MoniqBottomSheetShell(
-        title: title,
-        eyebrow: eyebrow,
-        child: child,
-      ),
+      builder: (ctx) =>
+          MoniqBottomSheetShell(title: title, eyebrow: eyebrow, child: child),
     );
   } finally {
     notifier.decrement();
@@ -78,12 +76,15 @@ class MoniqBottomSheetShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final viewInsets = MediaQuery.of(context).viewInsets;
+    final sheetColor = cs.brightness == Brightness.dark
+        ? cs.surface
+        : Colors.white;
 
     return Padding(
       padding: viewInsets,
       child: Container(
         decoration: BoxDecoration(
-          color: cs.surfaceContainerLowest,
+          color: sheetColor,
           borderRadius: const BorderRadius.vertical(
             top: Radius.circular(AppRadius.xl),
           ),
@@ -115,14 +116,12 @@ class MoniqBottomSheetShell extends StatelessWidget {
                   AppSpacing.sm,
                 ),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (eyebrow != null)
                       Text(
                         eyebrow!,
-                        style: AppTypography.captionSmall
-                            .copyWith(
+                        style: AppTypography.captionSmall.copyWith(
                           color: cs.onSurfaceVariant,
                           letterSpacing: 1.8,
                         ),
@@ -132,8 +131,7 @@ class MoniqBottomSheetShell extends StatelessWidget {
                     if (title != null)
                       Text(
                         title!,
-                        style: AppTypography.headlineLarge
-                            .copyWith(
+                        style: AppTypography.headlineLarge.copyWith(
                           color: cs.onSurface,
                           fontWeight: FontWeight.w900,
                         ),
@@ -225,8 +223,7 @@ Future<void> showMoniqInfoSheet({
             FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: cs.primary,
-                padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.md),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                 shape: RoundedRectangleBorder(
                   borderRadius: AppRadius.borderRadiusFull,
                 ),
@@ -272,59 +269,57 @@ class MoniqConfirmSheetBody extends StatelessWidget {
       children: [
         Text(
           message,
-          style: AppTypography.bodyMedium.copyWith(
-            color: cs.onSurfaceVariant,
-          ),
+          style: AppTypography.bodyMedium.copyWith(color: cs.onSurfaceVariant),
         ),
         const SizedBox(height: AppSpacing.xxl),
         IntrinsicHeight(
           child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.md),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: AppRadius.borderRadiusFull,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.md,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.borderRadiusFull,
+                    ),
+                    side: BorderSide(color: cs.outlineVariant),
                   ),
-                  side: BorderSide(color: cs.outlineVariant),
-                ),
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(
-                  cancelLabel,
-                  style: AppTypography.labelLarge.copyWith(
-                    color: cs.onSurface,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              flex: 2,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor:
-                      destructive ? cs.error : cs.primary,
-                  padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.md),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: AppRadius.borderRadiusFull,
-                  ),
-                ),
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(
-                  confirmLabel,
-                  style: AppTypography.labelLarge.copyWith(
-                    color:
-                        destructive ? cs.onError : cs.onPrimary,
-                    fontWeight: FontWeight.w900,
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(
+                    cancelLabel,
+                    style: AppTypography.labelLarge.copyWith(
+                      color: cs.onSurface,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                flex: 2,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: destructive ? cs.error : cs.primary,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.md,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.borderRadiusFull,
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(
+                    confirmLabel,
+                    style: AppTypography.labelLarge.copyWith(
+                      color: destructive ? cs.onError : cs.onPrimary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -390,9 +385,7 @@ class _MoniqDestructiveConfirmDialog extends StatelessWidget {
       backgroundColor: cs.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.borderRadiusLg,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
       insetPadding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.xxl,
         vertical: AppSpacing.xxl,
@@ -418,11 +411,7 @@ class _MoniqDestructiveConfirmDialog extends StatelessWidget {
                   borderRadius: AppRadius.borderRadiusMd,
                 ),
                 alignment: Alignment.center,
-                child: Icon(
-                  icon,
-                  size: 22,
-                  color: cs.onErrorContainer,
-                ),
+                child: Icon(icon, size: 22, color: cs.onErrorContainer),
               ),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -558,9 +547,7 @@ class _MoniqInfoConfirmDialog extends StatelessWidget {
       backgroundColor: cs.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.borderRadiusLg,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
       insetPadding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.xxl,
         vertical: AppSpacing.xxl,
@@ -586,11 +573,7 @@ class _MoniqInfoConfirmDialog extends StatelessWidget {
                   borderRadius: AppRadius.borderRadiusMd,
                 ),
                 alignment: Alignment.center,
-                child: Icon(
-                  icon,
-                  size: 24,
-                  color: cs.onPrimaryContainer,
-                ),
+                child: Icon(icon, size: 24, color: cs.onPrimaryContainer),
               ),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -717,13 +700,11 @@ class MoniqSheetOption extends StatelessWidget {
               const SizedBox(width: AppSpacing.lg),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       label,
-                      style: AppTypography.titleMedium
-                          .copyWith(
+                      style: AppTypography.titleMedium.copyWith(
                         fontWeight: FontWeight.w800,
                         color: cs.onSurface,
                       ),
@@ -732,8 +713,7 @@ class MoniqSheetOption extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         description!,
-                        style: AppTypography.caption
-                            .copyWith(
+                        style: AppTypography.caption.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
                       ),
@@ -742,10 +722,7 @@ class MoniqSheetOption extends StatelessWidget {
                 ),
               ),
               trailing ??
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: cs.onSurfaceVariant,
-                  ),
+                  Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
             ],
           ),
         ),
