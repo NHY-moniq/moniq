@@ -767,7 +767,7 @@ class _PersonalTeamCalendarView extends HookConsumerWidget {
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
       appBar: MoniqAppBar(
         title: team.name,
-        eyebrow: 'TEAM',
+        eyebrow: team.teamType == 'personal' ? 'PRIVATE TEAM' : 'PUBLIC TEAM',
         showBack: false,
         onTitleTap: teams.length > 1
             ? () => _showTeamPickerSheet(
