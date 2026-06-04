@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
-import 'package:moniq/presentation/widgets/common/moniq_stepper.dart';
 import 'package:moniq/presentation/widgets/common/moniq_date_picker_sheet.dart';
 
 // ────────────────────────────────────────
 // 공통 위젯
 // ────────────────────────────────────────
 
-/// Schedule generation 3-step progress indicator.
-/// Thin wrapper around [MoniqStepper.dots] so existing callers keep working
-/// while the visual ships from the design system.
+/// Schedule generation 4-step progress indicator.
 class ScheduleStepIndicator extends StatelessWidget {
   const ScheduleStepIndicator({
     super.key,
@@ -21,15 +18,138 @@ class ScheduleStepIndicator extends StatelessWidget {
   final int currentStep;
   final int totalSteps;
 
-  static const _labels = ['기간', '미리보기', '발행'];
+  static const _steps = [
+    _ScheduleFlowStep(label: '규칙'),
+    _ScheduleFlowStep(label: '기간'),
+    _ScheduleFlowStep(label: '미리보기'),
+    _ScheduleFlowStep(label: '발행'),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final labels = totalSteps == _labels.length
-        ? _labels
-        : List<String>.generate(totalSteps, (i) => '${i + 1}');
-    return MoniqStepper.dots(current: currentStep, labels: labels);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final steps = totalSteps == _steps.length
+        ? _steps
+        : List<_ScheduleFlowStep>.generate(
+            totalSteps,
+            (i) => _ScheduleFlowStep(label: '${i + 1}'),
+          );
+    final safeStep = currentStep.clamp(0, steps.length - 1);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.72),
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            'STEP',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.6,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Row(
+              children: steps.asMap().entries.map((entry) {
+                final index = entry.key;
+                final step = entry.value;
+                return Expanded(
+                  child: _ScheduleStepSegment(
+                    number: index + 1,
+                    label: step.label,
+                    isActive: index == safeStep,
+                    isCompleted: index < safeStep,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
   }
+}
+
+class _ScheduleStepSegment extends StatelessWidget {
+  const _ScheduleStepSegment({
+    required this.number,
+    required this.label,
+    required this.isActive,
+    required this.isCompleted,
+  });
+
+  final int number;
+  final String label;
+  final bool isActive;
+  final bool isCompleted;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final fillColor = isActive || isCompleted
+        ? colorScheme.primary
+        : colorScheme.surfaceContainerLow;
+    final textColor = isActive || isCompleted
+        ? colorScheme.onPrimary
+        : colorScheme.onSurfaceVariant;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: isActive ? 32 : 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: fillColor,
+            borderRadius: AppRadius.borderRadiusFull,
+            border: Border.all(
+              color: isActive
+                  ? colorScheme.primary
+                  : colorScheme.outlineVariant,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              '$number',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: textColor,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: isActive
+                ? colorScheme.onSurface
+                : colorScheme.onSurfaceVariant,
+            fontWeight: isActive ? FontWeight.w900 : FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ScheduleFlowStep {
+  const _ScheduleFlowStep({required this.label});
+
+  final String label;
 }
 
 class ScheduleDatePickerRow extends StatelessWidget {

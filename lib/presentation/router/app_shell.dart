@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -9,15 +10,20 @@ import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/notification_providers.dart';
+import 'package:moniq/data/providers/schedule_providers.dart';
+import 'package:moniq/data/providers/shift_providers.dart';
+import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/router/bottom_sheet_visibility_provider.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_drawer.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_export.dart';
+import 'package:moniq/presentation/screens/team/team_excel_import.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 
 class AppShell extends ConsumerWidget {
@@ -526,6 +532,9 @@ class _TeamContextItems extends ConsumerWidget {
             iconColor: AppColors.brandOrange,
             onTap: () => context.push('/teams/$teamId/announcements'),
           ),
+          // 엑셀 가져오기/샘플 양식 — 웹 + 팀 관리자 + 일반 팀에서만 노출.
+          if (kIsWeb && !isPersonalTeam)
+            _TeamExcelFlyoutTiles(teamId: teamId),
           if (isPersonalTeam)
             _FlyoutTile(
               icon: Icons.calendar_today_outlined,
@@ -754,6 +763,66 @@ class _FlyoutTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ── 팀 엑셀 가져오기/샘플 양식 (좌측 flyout, 관리자 전용) ──
+
+class _TeamExcelFlyoutTiles extends ConsumerWidget {
+  const _TeamExcelFlyoutTiles({required this.teamId});
+
+  final String teamId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isAdmin = ref
+            .watch(teamDetailViewModelProvider(teamId))
+            .valueOrNull
+            ?.isAdmin ??
+        false;
+    if (!isAdmin) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FlyoutTile(
+          icon: Icons.download_outlined,
+          label: '근무표 가져오기',
+          onTap: () => importTeamExcel(
+            context,
+            ref,
+            teamId: teamId,
+            shiftRepo: ref.read(shiftRepositoryProvider),
+            scheduleRepo: ref.read(scheduleRepositoryProvider),
+            teamRepo: ref.read(teamRepositoryProvider),
+          ),
+        ),
+        _FlyoutTile(
+          icon: Icons.upload_file_outlined,
+          label: '근무표 내보내기',
+          onTap: () {
+            final state =
+                ref.read(teamCalendarViewModelProvider(teamId)).valueOrNull;
+            if (state == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('근무표를 불러오는 중입니다')),
+              );
+              return;
+            }
+            exportTeamRosterExcel(context, ref, state: state);
+          },
+        ),
+        _FlyoutTile(
+          icon: Icons.description_outlined,
+          label: '샘플 양식 내보내기',
+          onTap: () => exportSampleTemplate(
+            context,
+            shiftRepo: ref.read(shiftRepositoryProvider),
+            teamId: teamId,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -74,8 +74,13 @@ class MoniqAppBar extends StatelessWidget
   final Widget? titleTrailing;
 
   @override
-  Size get preferredSize =>
-      Size.fromHeight(eyebrow != null ? 72 : 56);
+  Size get preferredSize => Size.fromHeight(
+        eyebrow != null
+            // 제목을 탭 가능(onTitleTap)하게 하면 InkWell 세로 패딩(상하 2px)이
+            // 더해져 72px로는 2px 오버플로우 → 그 경우만 높이를 살짝 늘린다.
+            ? (onTitleTap != null ? 76 : 72)
+            : 56,
+      );
 
   @override
   Widget build(BuildContext context) {

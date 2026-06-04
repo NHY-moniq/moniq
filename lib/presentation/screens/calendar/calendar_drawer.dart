@@ -309,7 +309,11 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
               itemBuilder: (context, index) {
                 final st = shiftTypes[index];
                 final color = parseHexColor(st.color);
-                final label = displayShiftLabel(st, shiftTypes);
+                // 사용자가 지정한 코드를 우선 표시, 없으면 파생 라벨.
+                final code = st.code.trim().toUpperCase();
+                final label = code.isEmpty
+                    ? displayShiftLabel(st, shiftTypes)
+                    : code;
                 return Card(
                   margin:
                       const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -379,6 +383,8 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
       BuildContext context, WidgetRef ref, PersonalShiftType? existing) {
     final nameController =
         TextEditingController(text: existing?.name ?? '');
+    final codeController =
+        TextEditingController(text: existing?.code ?? '');
     TimeOfDay startTime = existing?.startTime != null
         ? _parseTimeOfDay(existing!.startTime!)
         : const TimeOfDay(hour: 7, minute: 0);
@@ -409,9 +415,12 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
           final badgeColor = parseHexColor(selectedColor);
-          final code = nameController.text.trim().isEmpty
+          final codeInput = codeController.text.trim().toUpperCase();
+          final nameFallback = nameController.text.trim().isEmpty
               ? '?'
               : nameController.text.trim().characters.first.toUpperCase();
+          // 미리보기 뱃지: 입력한 코드 우선, 비어 있으면 이름 첫 글자.
+          final code = codeInput.isEmpty ? nameFallback : codeInput;
 
           String periodLabel(TimeOfDay t) {
             if (t.hour < 6) return '새벽';
@@ -478,6 +487,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                     Expanded(
                       child: TextField(
                         controller: nameController,
+                        textInputAction: TextInputAction.next,
                         style: Theme.of(ctx)
                             .textTheme
                             .titleMedium
@@ -491,6 +501,42 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                       ),
                     ),
                   ],
+                ),
+
+                const SizedBox(height: AppSpacing.xl),
+
+                // 근무 코드
+                Text(
+                  '근무 코드',
+                  style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
+                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox(
+                    width: 96,
+                    child: TextField(
+                      controller: codeController,
+                      textCapitalization: TextCapitalization.characters,
+                      textInputAction: TextInputAction.done,
+                      maxLength: 4,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(ctx)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                      decoration: const InputDecoration(
+                        hintText: 'D',
+                        counterText: '',
+                        border: UnderlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (_) => setSheetState(() {}),
+                    ),
+                  ),
                 ),
 
                 const SizedBox(height: AppSpacing.xxl),
@@ -653,8 +699,13 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
 
                     final ds =
                         ref.read(personalShiftTypeDataSourceProvider);
-                    final autoCode =
+                    // 사용자가 입력한 코드 우선, 비어 있으면 이름 첫 글자.
+                    final autoFallback =
                         name.characters.first.toUpperCase();
+                    final inputCode =
+                        codeController.text.trim().toUpperCase();
+                    final code =
+                        inputCode.isEmpty ? autoFallback : inputCode;
 
                     String formatT(TimeOfDay t) =>
                         '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
@@ -665,7 +716,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                               .millisecondsSinceEpoch
                               .toString(),
                       name: name,
-                      code: existing?.code ?? autoCode,
+                      code: code,
                       startTime: formatT(startTime),
                       endTime: formatT(endTime),
                       color: selectedColor,

@@ -217,7 +217,7 @@ class _DateNumber extends StatelessWidget {
   }
 }
 
-/// 선택된 날짜의 멤버별 근무 상세 패널
+/// 선택된 날짜의 근무 유형별 멤버 상세 패널
 class PersonalDayDetailPanel extends StatelessWidget {
   const PersonalDayDetailPanel({
     super.key,
@@ -235,13 +235,13 @@ class PersonalDayDetailPanel extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
 
-    // 멤버별 shift map
     final shiftByUser = {for (final s in shifts) s.userId: s};
+    final groups = _buildShiftGroups(context, shiftByUser);
 
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: cs.surface,
+        color: cs.surfaceContainerLow,
         borderRadius: AppRadius.borderRadiusLg,
         boxShadow: [
           BoxShadow(
@@ -258,37 +258,141 @@ class PersonalDayDetailPanel extends StatelessWidget {
           // 날짜 헤더
           Padding(
             padding: const EdgeInsets.fromLTRB(
-              AppSpacing.xl,
-              AppSpacing.xl,
-              AppSpacing.xl,
               AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.xs,
             ),
-            child: Text(
-              _formatDate(date),
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _formatDate(date),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${members.length}명',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
-          const Divider(height: 1),
           if (members.isEmpty)
             const _EmptyMemberState()
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: members.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final member = members[index];
-                final shift = shiftByUser[member.userId];
-                return _MemberShiftRow(member: member, shift: shift);
-              },
+          else ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                0,
+                AppSpacing.md,
+                AppSpacing.md,
+              ),
+              child: Column(
+                children: [
+                  for (var i = 0; i < groups.length; i++) ...[
+                    _ShiftGroupBlock(group: groups[i]),
+                    if (i < groups.length - 1)
+                      const SizedBox(height: AppSpacing.xs),
+                  ],
+                ],
+              ),
             ),
-          const SizedBox(height: AppSpacing.sm),
+          ],
         ],
       ),
     );
+  }
+
+  List<_ShiftMemberGroup> _buildShiftGroups(
+    BuildContext context,
+    Map<String, PersonalMemberShift> shiftByUser,
+  ) {
+    final cs = Theme.of(context).colorScheme;
+    final map = <String, _ShiftMemberGroup>{};
+
+    _ShiftMemberGroup ensureGroup({
+      required String key,
+      required String label,
+      required String? code,
+      required Color color,
+      required int sortKey,
+    }) {
+      return map.putIfAbsent(
+        key,
+        () => _ShiftMemberGroup(
+          label: label,
+          code: code,
+          color: color,
+          sortKey: sortKey,
+          members: [],
+        ),
+      );
+    }
+
+    for (final member in members) {
+      final shift = shiftByUser[member.userId];
+      final codeText = (shift?.shiftCode ?? '').trim();
+      if (shift == null || codeText.isEmpty || isPersonalOffShift(shift)) {
+        ensureGroup(
+          key: 'OFF',
+          label: '오프',
+          code: null,
+          color: cs.onSurfaceVariant,
+          sortKey: 90,
+        ).members.add(member);
+        continue;
+      }
+
+      final denCode = personalShiftDenCode(shift);
+      if (denCode != null) {
+        ensureGroup(
+          key: denCode,
+          label: _denLabel(denCode),
+          code: denCode,
+          color: personalShiftColorByCode(denCode),
+          sortKey: personalShiftDenSortKey(denCode),
+        ).members.add(member);
+        continue;
+      }
+
+      final normalizedCode = codeText.toUpperCase();
+      ensureGroup(
+        key: 'CUSTOM_$normalizedCode',
+        label: (shift.shiftName ?? '').trim().isNotEmpty
+            ? shift.shiftName!.trim()
+            : normalizedCode,
+        code: normalizedCode,
+        color: resolvePersonalShiftColor(context, shift),
+        sortKey: 50,
+      ).members.add(member);
+    }
+
+    final groups = map.values.toList()
+      ..sort((a, b) {
+        final sort = a.sortKey.compareTo(b.sortKey);
+        if (sort != 0) return sort;
+        return a.label.compareTo(b.label);
+      });
+    return groups;
+  }
+
+  String _denLabel(String code) {
+    switch (code) {
+      case 'D':
+        return '데이';
+      case 'E':
+        return '이브닝';
+      case 'N':
+        return '나이트';
+      default:
+        return code;
+    }
   }
 
   String _formatDate(DateTime d) {
@@ -298,61 +402,171 @@ class PersonalDayDetailPanel extends StatelessWidget {
   }
 }
 
-class _MemberShiftRow extends StatelessWidget {
-  const _MemberShiftRow({required this.member, this.shift});
+class _ShiftMemberGroup {
+  _ShiftMemberGroup({
+    required this.label,
+    required this.code,
+    required this.color,
+    required this.sortKey,
+    required this.members,
+  });
 
-  final PersonalTeamMember member;
-  final PersonalMemberShift? shift;
+  final String label;
+  final String? code;
+  final Color color;
+  final int sortKey;
+  final List<PersonalTeamMember> members;
+}
+
+class _ShiftGroupBlock extends StatelessWidget {
+  const _ShiftGroupBlock({required this.group});
+
+  final _ShiftMemberGroup group;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
-    final hasShift = shift != null && shift!.shiftCode != null;
+    final isOff = group.code == null;
 
-    return Padding(
+    return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.xl,
-        vertical: AppSpacing.md,
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: isOff
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.32)
+            : group.color.withValues(alpha: 0.07),
+        borderRadius: AppRadius.borderRadiusMd,
+        border: Border.all(
+          color: isOff
+              ? cs.outlineVariant.withValues(alpha: 0.4)
+              : group.color.withValues(alpha: 0.24),
+        ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 아바타
-          _MemberAvatar(member: member),
-          const SizedBox(width: AppSpacing.md),
-          // 이름
-          Expanded(
+          SizedBox(
+            width: 92,
+            child: Row(
+              children: [
+                if (group.code != null)
+                  _GroupCodeBadge(code: group.code!, color: group.color)
+                else
+                  _GroupCodeBadge(code: 'O', color: group.color),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: Text(
+                    group.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLowest,
+              borderRadius: AppRadius.borderRadiusFull,
+            ),
             child: Text(
-              member.displayName,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+              '${group.members.length}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w900,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          // shift chip
-          if (hasShift)
-            _ShiftChip(shift: shift!)
-          else
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: 4,
-              ),
-              decoration: BoxDecoration(
-                color: cs.onSurfaceVariant.withValues(alpha: 0.1),
-                borderRadius: AppRadius.borderRadiusFull,
-              ),
-              child: Text(
-                '근무 없음',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: cs.onSurfaceVariant,
-                ),
+          Expanded(
+            child: Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: 4,
+              children: [
+                for (final member in group.members)
+                  _GroupedMemberChip(member: member),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupCodeBadge extends StatelessWidget {
+  const _GroupCodeBadge({required this.code, required this.color});
+
+  final String code;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 28,
+      height: 22,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.18),
+        borderRadius: AppRadius.borderRadiusFull,
+        border: Border.all(color: color.withValues(alpha: 0.42)),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        code,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupedMemberChip extends StatelessWidget {
+  const _GroupedMemberChip({required this.member});
+
+  final PersonalTeamMember member;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.only(left: 4, right: 7, top: 3, bottom: 3),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLowest,
+        borderRadius: AppRadius.borderRadiusFull,
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _MemberAvatar(member: member, radius: 10),
+          const SizedBox(width: AppSpacing.xs),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 76),
+            child: Text(
+              member.displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w800,
               ),
             ),
+          ),
         ],
       ),
     );
@@ -360,9 +574,10 @@ class _MemberShiftRow extends StatelessWidget {
 }
 
 class _MemberAvatar extends StatelessWidget {
-  const _MemberAvatar({required this.member});
+  const _MemberAvatar({required this.member, this.radius = 16});
 
   final PersonalTeamMember member;
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
@@ -372,7 +587,7 @@ class _MemberAvatar extends StatelessWidget {
 
     if (avatarUrl != null && avatarUrl.isNotEmpty) {
       return CircleAvatar(
-        radius: 16,
+        radius: radius,
         backgroundColor: cs.primaryContainer,
         backgroundImage: NetworkImage(avatarUrl),
         onBackgroundImageError: (_, __) {},
@@ -381,12 +596,12 @@ class _MemberAvatar extends StatelessWidget {
     }
 
     return CircleAvatar(
-      radius: 16,
+      radius: radius,
       backgroundColor: cs.primaryContainer,
       child: Text(
         initials,
         style: TextStyle(
-          fontSize: 10,
+          fontSize: radius <= 12 ? 8 : 10,
           fontWeight: FontWeight.w700,
           color: cs.onPrimaryContainer,
         ),
@@ -402,37 +617,6 @@ class _MemberAvatar extends StatelessWidget {
       return trimmed.substring(0, 1).toUpperCase();
     }
     return trimmed.toUpperCase();
-  }
-}
-
-class _ShiftChip extends StatelessWidget {
-  const _ShiftChip({required this.shift});
-
-  final PersonalMemberShift shift;
-
-  @override
-  Widget build(BuildContext context) {
-    final chipColor = resolvePersonalShiftColor(context, shift);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        color: chipColor.withValues(alpha: 0.15),
-        borderRadius: AppRadius.borderRadiusFull,
-        border: Border.all(color: chipColor.withValues(alpha: 0.4), width: 1),
-      ),
-      child: Text(
-        shift.shiftCode ?? '',
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: chipColor,
-        ),
-      ),
-    );
   }
 }
 

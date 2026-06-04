@@ -8,7 +8,7 @@ import 'package:moniq/presentation/theme/app_typography.dart';
 /// through members_widgets, team_detail_widgets, notifications_screen, etc.
 ///
 /// Two variants:
-/// - [MoniqCard] — plain content card on `surfaceContainerLowest`
+/// - [MoniqCard] — plain content card on `surfaceContainerLow`
 /// - [MoniqGroupedCard] — iOS-style grouped card for settings-type lists,
 ///   with an optional section heading and auto-dividers between children.
 class MoniqCard extends StatelessWidget {
@@ -33,21 +33,18 @@ class MoniqCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
-    // 다크 모드에서는 scaffold(surfaceContainerLow)보다 한 단계 밝은 surface를 사용해
-    // 카드가 함몰돼 보이는 현상을 방지한다. 라이트 모드는 기존 흰색 카드 유지.
-    final bg = backgroundColor ??
-        (isDark ? cs.surfaceContainer : cs.surfaceContainerLowest);
+    // 라이트 모드는 white canvas 위에 warm-tinted card를 올린다.
+    // 다크 모드는 scaffold(surfaceContainerLow)보다 한 단계 밝은 surface를
+    // 사용해 카드가 함몰돼 보이는 현상을 방지한다.
+    final bg =
+        backgroundColor ??
+        (isDark ? cs.surfaceContainer : cs.surfaceContainerLow);
 
     final decoration = BoxDecoration(
       color: bg,
       borderRadius: AppRadius.borderRadiusLg,
       border: accentBorderColor != null
-          ? Border(
-              left: BorderSide(
-                color: accentBorderColor!,
-                width: 4,
-              ),
-            )
+          ? Border(left: BorderSide(color: accentBorderColor!, width: 4))
           : null,
       boxShadow: elevated
           ? [
@@ -103,8 +100,9 @@ class MoniqGroupedCard extends StatelessWidget {
     final isDark = cs.brightness == Brightness.dark;
     // 다크 모드에서는 scaffold보다 한 단계 밝은 surface를 사용해 카드가
     // 스캐폴드 아래로 가라앉아 보이는 인버전을 방지한다.
-    final bg = backgroundColor ??
-        (isDark ? cs.surfaceContainer : cs.surfaceContainerLowest);
+    final bg =
+        backgroundColor ??
+        (isDark ? cs.surfaceContainer : cs.surfaceContainerLow);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -147,8 +145,7 @@ class MoniqGroupedCard extends StatelessWidget {
     );
   }
 
-  List<Widget> _withDividers(
-      BuildContext context, List<Widget> items) {
+  List<Widget> _withDividers(BuildContext context, List<Widget> items) {
     if (items.length <= 1) return items;
     final cs = Theme.of(context).colorScheme;
     final out = <Widget>[];
@@ -157,9 +154,7 @@ class MoniqGroupedCard extends StatelessWidget {
       if (i != items.length - 1) {
         out.add(
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.xl,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
             child: Divider(
               height: 1,
               thickness: 1,
@@ -204,21 +199,18 @@ class MoniqCardRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
-    final color =
-        destructive ? cs.error : cs.onSurface;
+    final color = destructive ? cs.error : cs.onSurface;
     // 카드 surface가 다크에서 surfaceContainer로 바뀌었으므로, 그 위에 놓이는
     // 아이콘 타일은 한 단계 더 밝은 surfaceContainerHigh로 띄운다.
     final iconTileColor = destructive
         ? cs.error.withValues(alpha: 0.1)
-        : (isDark ? cs.surfaceContainerHigh : cs.surfaceContainerLow);
+        : (isDark ? cs.surfaceContainerHigh : cs.surfaceContainer);
 
-    final trailingWidget = trailing ??
+    final trailingWidget =
+        trailing ??
         (valuePill != null
             ? _ValuePill(text: valuePill!)
-            : Icon(
-                Icons.chevron_right_rounded,
-                color: cs.onSurfaceVariant,
-              ));
+            : Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant));
 
     return Material(
       color: Colors.transparent,
@@ -244,13 +236,11 @@ class MoniqCardRow extends StatelessWidget {
               const SizedBox(width: AppSpacing.lg),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       label,
-                      style: AppTypography.bodyLarge
-                          .copyWith(
+                      style: AppTypography.bodyLarge.copyWith(
                         fontWeight: FontWeight.w700,
                         color: color,
                       ),
@@ -259,8 +249,7 @@ class MoniqCardRow extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         subtitle!,
-                        style: AppTypography.caption
-                            .copyWith(
+                        style: AppTypography.caption.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
                       ),
@@ -292,7 +281,7 @@ class _ValuePill extends StatelessWidget {
         vertical: 4,
       ),
       decoration: BoxDecoration(
-        color: isDark ? cs.surfaceContainerHigh : cs.surfaceContainerLow,
+        color: isDark ? cs.surfaceContainerHigh : cs.surfaceContainer,
         borderRadius: AppRadius.borderRadiusFull,
       ),
       child: Text(

@@ -704,6 +704,8 @@ class WantedMemberViewModel
       state = AsyncData(current.copyWith(error: '해당 원티드 요청이 없습니다'));
       return false;
     }
+    final isNightDedicatedRequest =
+        targetRequest.wantedType == 'night_dedicated';
 
     // 근무 속성 제한 검증 (shiftTypeId가 있을 때만)
     if (shiftTypeId != null && current.myMember != null) {
@@ -742,48 +744,51 @@ class WantedMemberViewModel
       } catch (_) {}
     }
 
-    // Validate P1/P2 limits from team rules
-    try {
-      final shiftRepo = ref.read(shiftRepositoryProvider);
-      final rules = await shiftRepo.getShiftRules(current.teamId);
-      final ruleMap = {for (final r in rules) r.ruleType: r.ruleValue};
-      final p1Limit =
-          ((ruleMap['wanted_p1_limit'] ?? {})['count'] as num?)?.toInt() ?? 0;
-      final p2Limit =
-          ((ruleMap['wanted_p2_limit'] ?? {})['count'] as num?)?.toInt() ?? 0;
+    // Validate P1/P2 limits from team rules.
+    // 나이트 전담 신청은 일반 원티드 우선순위 신청 수 제한과 무관하다.
+    if (!isNightDedicatedRequest) {
+      try {
+        final shiftRepo = ref.read(shiftRepositoryProvider);
+        final rules = await shiftRepo.getShiftRules(current.teamId);
+        final ruleMap = {for (final r in rules) r.ruleType: r.ruleValue};
+        final p1Limit =
+            ((ruleMap['wanted_p1_limit'] ?? {})['count'] as num?)?.toInt() ?? 0;
+        final p2Limit =
+            ((ruleMap['wanted_p2_limit'] ?? {})['count'] as num?)?.toInt() ?? 0;
 
-      final nightRequestIds = current.activeRequests
-          .where((r) => r.wantedType == 'night_dedicated')
-          .map((r) => r.id)
-          .toSet();
+        final nightRequestIds = current.activeRequests
+            .where((r) => r.wantedType == 'night_dedicated')
+            .map((r) => r.id)
+            .toSet();
 
-      for (final p in [1, 2]) {
-        final limit = p == 1 ? p1Limit : p2Limit;
-        if (limit <= 0) continue;
-        final addingCount = datesWithPriority.values
-            .where((v) => v == p)
-            .length;
-        if (addingCount == 0) continue;
-        final existingCount = current.myEntries
-            .where(
-              (e) =>
-                  e.priority == p &&
-                  !nightRequestIds.contains(e.wantedRequestId),
-            )
-            .length;
-        if (existingCount + addingCount > limit) {
-          state = AsyncData(
-            current.copyWith(
-              error:
-                  '$p순위 원티드는 최대 $limit개까지 신청할 수 있습니다 '
-                  '(현재: $existingCount개)',
-            ),
-          );
-          return false;
+        for (final p in [1, 2]) {
+          final limit = p == 1 ? p1Limit : p2Limit;
+          if (limit <= 0) continue;
+          final addingCount = datesWithPriority.values
+              .where((v) => v == p)
+              .length;
+          if (addingCount == 0) continue;
+          final existingCount = current.myEntries
+              .where(
+                (e) =>
+                    e.priority == p &&
+                    !nightRequestIds.contains(e.wantedRequestId),
+              )
+              .length;
+          if (existingCount + addingCount > limit) {
+            state = AsyncData(
+              current.copyWith(
+                error:
+                    '$p순위 원티드는 최대 $limit개까지 신청할 수 있습니다 '
+                    '(현재: $existingCount개)',
+              ),
+            );
+            return false;
+          }
         }
+      } catch (_) {
+        // 규칙 로드 실패 시 제한 없이 진행
       }
-    } catch (_) {
-      // 규칙 로드 실패 시 제한 없이 진행
     }
 
     state = AsyncData(current.copyWith(isSubmitting: true, error: null));

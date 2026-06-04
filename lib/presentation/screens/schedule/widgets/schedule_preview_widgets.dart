@@ -15,7 +15,7 @@ import 'schedule_publish_sheet.dart';
 import 'schedule_violation_widgets.dart';
 
 // ────────────────────────────────────────
-// Step 2: 미리보기 & 발행
+// Step 3: 미리보기 & 발행 준비
 // ────────────────────────────────────────
 
 class PreviewView extends HookConsumerWidget {
@@ -34,6 +34,7 @@ class PreviewView extends HookConsumerWidget {
       hasManualEdits.value = false;
       return null;
     }, [state.generatedSchedule?.id]);
+    final highlightedDay = useState<DateTime?>(null);
     final dateFormat = DateFormat('MM.dd\n(E)', 'ko');
     final shifts = state.previewShifts ?? [];
     final members = state.members
@@ -52,6 +53,36 @@ class PreviewView extends HookConsumerWidget {
           shift.shiftTypeId;
     }
     final sortedDays = grid.keys.toList()..sort();
+
+    final activeMemberIds = members.map((m) => m.userId).toSet();
+    final wantedCellStatuses = <String, _WantedCellStatus>{};
+    var wantedMatched = 0;
+    var wantedMissed = 0;
+    for (final entry in state.wantedEntries) {
+      if (!activeMemberIds.contains(entry.userId)) continue;
+      final day = DateTime(
+        entry.wantedDate.year,
+        entry.wantedDate.month,
+        entry.wantedDate.day,
+      );
+      final assignedShiftTypeId = grid[day]?[entry.userId];
+      final isSatisfied = entry.shiftTypeId != null
+          ? assignedShiftTypeId == entry.shiftTypeId
+          : assignedShiftTypeId == null;
+      if (isSatisfied) {
+        wantedMatched++;
+      } else {
+        wantedMissed++;
+      }
+
+      final key = _previewCellKey(entry.userId, day);
+      final previous = wantedCellStatuses[key];
+      wantedCellStatuses[key] = _WantedCellStatus(
+        isSatisfied: previous == null
+            ? isSatisfied
+            : previous.isSatisfied && isSatisfied,
+      );
+    }
 
     // 근무유형 맵
     final shiftTypeMap = {for (final t in state.shiftTypes) t.id: t};
@@ -103,7 +134,13 @@ class PreviewView extends HookConsumerWidget {
 
     // ── 레이아웃 상수 ──
     const double memberRowHeight = 52.0;
+    const double dateColumnWidth = 48.0;
     const double memberColWidth = 80.0;
+    const double memberNameColWidth = 64.0;
+    const double memberStatsColWidth = 62.0;
+    final fixedMemberWidth = isWideLayout
+        ? memberNameColWidth + memberStatsColWidth
+        : memberColWidth;
     const double summaryRowHeight = 56.0;
 
     // ── 멤버별 근무 횟수 집계 ──
@@ -144,8 +181,9 @@ class PreviewView extends HookConsumerWidget {
       0,
       (s, v) => s + v.length,
     );
-    final wantedPct = state.wantedTotal > 0
-        ? (state.wantedSatisfied / state.wantedTotal * 100).round()
+    final wantedTotalForPreview = wantedMatched + wantedMissed;
+    final wantedPct = wantedTotalForPreview > 0
+        ? (wantedMatched / wantedTotalForPreview * 100).round()
         : null;
 
     // ── 셀 빌더 ──
@@ -153,12 +191,18 @@ class PreviewView extends HookConsumerWidget {
       String? shiftTypeId, {
       Future<void> Function(String? nextShiftTypeId)? onPick,
       bool editable = false,
+      _WantedCellStatus? wantedStatus,
     }) {
       final type = shiftTypeId != null ? shiftTypeMap[shiftTypeId] : null;
       final color = type != null
           ? parseHexColor(type.color)
           : AppColors.shiftOff;
       final label = type != null ? canonicalCode(type) : 'O';
+      final wantedColor = wantedStatus == null
+          ? null
+          : wantedStatus.isSatisfied
+          ? AppColors.brandBlue
+          : AppColors.error;
       final cell = Container(
         width: 44,
         height: 36,
@@ -168,14 +212,32 @@ class PreviewView extends HookConsumerWidget {
           borderRadius: BorderRadius.circular(AppRadius.xs),
           border: Border.all(color: color.withValues(alpha: 0.5)),
         ),
-        child: Center(
-          child: Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
+        child: Stack(
+          children: [
+            Center(
+              child: Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-          ),
+            if (wantedColor != null)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: wantedColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colorScheme.surface, width: 1),
+                  ),
+                ),
+              ),
+          ],
         ),
       );
 
@@ -345,7 +407,7 @@ class PreviewView extends HookConsumerWidget {
     }
 
     // ── 액션 버튼 (세로 스택) ──
-    Widget actionButtons() => Padding(
+    Widget actionButtons({Widget? footer}) => Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -468,111 +530,177 @@ class PreviewView extends HookConsumerWidget {
               ),
             ],
           ),
+          if (footer != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            footer,
+          ],
         ],
       ),
     );
+
+    Widget memberStatsBlock(
+      Map<String, int> counts,
+      int workTotal,
+      int offCount, {
+      bool compact = false,
+    }) {
+      final denParts = <InlineSpan>[];
+      void addCount(String code, Color fallback) {
+        final count = counts[code] ?? 0;
+        if (count == 0) return;
+        if (denParts.isNotEmpty) denParts.add(const TextSpan(text: ' '));
+        denParts.add(
+          TextSpan(
+            text: '$code:$count',
+            style: TextStyle(
+              color: codeColors[code] ?? fallback,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        );
+      }
+
+      addCount('D', AppColors.brandYellow);
+      addCount('E', AppColors.brandOrange);
+      addCount('N', AppColors.brandBlue);
+
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (denParts.isNotEmpty)
+            Text.rich(
+              TextSpan(children: denParts),
+              style: TextStyle(fontSize: compact ? 8.5 : 9.5, height: 1),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.clip,
+            ),
+          SizedBox(height: denParts.isEmpty ? 0 : 2),
+          Text(
+            '총 $workTotal · 오프 $offCount',
+            style: TextStyle(
+              fontSize: compact ? 7.5 : 8,
+              color: colorScheme.onSurfaceVariant,
+              height: 1,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      );
+    }
 
     // ── 멤버 이름 고정 열 ──
     Widget memberColumn() => Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const SizedBox(height: 40),
+        SizedBox(
+          width: fixedMemberWidth,
+          height: 40,
+          child: Row(
+            children: [
+              SizedBox(
+                width: isWideLayout ? memberNameColWidth : fixedMemberWidth,
+                child: Text(
+                  '멤버',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (isWideLayout)
+                SizedBox(
+                  width: memberStatsColWidth,
+                  child: Text(
+                    '근무',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
         ...members.map((m) {
           final counts = memberShiftCounts[m.userId] ?? {};
-          // D/E/N 각각
-          final dCount = counts['D'] ?? 0;
-          final eCount = counts['E'] ?? 0;
-          final nCount = counts['N'] ?? 0;
-          // D/E/N 외 코드도 총합에 포함
           final workTotal = counts.values.fold(0, (s, v) => s + v);
           final offCount = sortedDays.length - workTotal;
+          final shortName = m.displayName.length > 4
+              ? m.displayName.substring(0, 4)
+              : m.displayName;
 
-          // D·E·N 중 하나라도 있으면 색상 칩으로 표시
-          final denParts = <InlineSpan>[];
-          if (dCount > 0) {
-            denParts.add(
-              TextSpan(
-                text: 'D:$dCount',
-                style: TextStyle(
-                  color: codeColors['D'] ?? AppColors.brandBlue,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            );
-          }
-          if (eCount > 0) {
-            if (denParts.isNotEmpty) {
-              denParts.add(const TextSpan(text: ' '));
-            }
-            denParts.add(
-              TextSpan(
-                text: 'E:$eCount',
-                style: TextStyle(
-                  color: codeColors['E'] ?? AppColors.brandOrange,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            );
-          }
-          if (nCount > 0) {
-            if (denParts.isNotEmpty) {
-              denParts.add(const TextSpan(text: ' '));
-            }
-            denParts.add(
-              TextSpan(
-                text: 'N:$nCount',
-                style: TextStyle(
-                  color: codeColors['N'] ?? colorScheme.primary,
-                  fontWeight: FontWeight.w700,
+          if (!isWideLayout) {
+            return SizedBox(
+              width: fixedMemberWidth,
+              height: memberRowHeight,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      shortName,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 3),
+                    memberStatsBlock(
+                      counts,
+                      workTotal,
+                      offCount,
+                      compact: true,
+                    ),
+                  ],
                 ),
               ),
             );
           }
 
           return SizedBox(
-            width: memberColWidth,
+            width: fixedMemberWidth,
             height: memberRowHeight,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    m.displayName.length > 4
-                        ? m.displayName.substring(0, 4)
-                        : m.displayName,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: memberNameColWidth,
+                  child: Text(
+                    shortName,
                     style: theme.textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w800,
                     ),
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                   ),
-                  if (denParts.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text.rich(
-                      TextSpan(children: denParts),
-                      style: const TextStyle(fontSize: 9, height: 1),
-                      textAlign: TextAlign.center,
+                ),
+                Container(
+                  width: memberStatsColWidth,
+                  height: memberRowHeight - 8,
+                  decoration: BoxDecoration(
+                    border: Border(
+                      left: BorderSide(
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.7,
+                        ),
+                      ),
                     ),
-                  ],
-                  const SizedBox(height: 1),
-                  Text(
-                    '총:$workTotal OFF:$offCount',
-                    style: TextStyle(
-                      fontSize: 8,
-                      color: colorScheme.onSurfaceVariant,
-                      height: 1,
-                    ),
-                    textAlign: TextAlign.center,
                   ),
-                ],
-              ),
+                  child: memberStatsBlock(counts, workTotal, offCount),
+                ),
+              ],
             ),
           );
         }),
         // 합계 행 레이블
         Container(
-          width: memberColWidth,
+          width: fixedMemberWidth,
           height: summaryRowHeight,
           decoration: BoxDecoration(
             border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
@@ -582,7 +710,7 @@ class PreviewView extends HookConsumerWidget {
               '합계',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -598,24 +726,50 @@ class PreviewView extends HookConsumerWidget {
         children: [
           // 날짜 헤더
           Row(
-            children: sortedDays
-                .map(
-                  (day) => SizedBox(
-                    width: 48,
-                    height: 40,
+            children: sortedDays.map((day) {
+              final isHighlighted = DateUtils.isSameDay(
+                highlightedDay.value,
+                day,
+              );
+              return SizedBox(
+                width: dateColumnWidth,
+                height: 40,
+                child: InkWell(
+                  onTap: () {
+                    highlightedDay.value = isHighlighted ? null : day;
+                  },
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: isHighlighted
+                          ? AppColors.primary.withValues(alpha: 0.14)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(AppRadius.xs),
+                      border: isHighlighted
+                          ? Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.45),
+                            )
+                          : null,
+                    ),
                     child: Center(
                       child: Text(
                         dateFormat.format(day),
                         textAlign: TextAlign.center,
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                          color: isHighlighted
+                              ? AppColors.onPrimaryContainer
+                              : colorScheme.onSurfaceVariant,
                           height: 1.2,
+                          fontWeight: isHighlighted
+                              ? FontWeight.w800
+                              : FontWeight.w500,
                         ),
                       ),
                     ),
                   ),
-                )
-                .toList(),
+                ),
+              );
+            }).toList(),
           ),
           // 멤버 행
           ...members.map(
@@ -625,42 +779,58 @@ class PreviewView extends HookConsumerWidget {
                 children: sortedDays.map((day) {
                   final canEdit = !state.isPublishing && !state.isGenerating;
                   final currentShiftTypeId = grid[day]?[m.userId];
-                  return buildCell(
-                    currentShiftTypeId,
-                    editable: canEdit,
-                    onPick: !canEdit
-                        ? null
-                        : (nextShiftTypeId) async {
-                            final success = await ref
-                                .read(
-                                  scheduleGenerationViewModelProvider(
-                                    teamId,
-                                  ).notifier,
-                                )
-                                .updatePreviewDayAssignments(
-                                  date: day,
-                                  assignmentsByUserId: {
-                                    m.userId: nextShiftTypeId,
-                                  },
-                                );
-                            if (!context.mounted) return;
-                            if (success) {
-                              hasManualEdits.value = true;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    '근무가 수정되었습니다. 필요하면 새 버전으로 저장하세요.',
+                  final isHighlighted = DateUtils.isSameDay(
+                    highlightedDay.value,
+                    day,
+                  );
+                  return Container(
+                    width: dateColumnWidth,
+                    height: memberRowHeight,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: isHighlighted
+                          ? AppColors.primary.withValues(alpha: 0.06)
+                          : Colors.transparent,
+                    ),
+                    child: buildCell(
+                      currentShiftTypeId,
+                      editable: canEdit,
+                      wantedStatus:
+                          wantedCellStatuses[_previewCellKey(m.userId, day)],
+                      onPick: !canEdit
+                          ? null
+                          : (nextShiftTypeId) async {
+                              final success = await ref
+                                  .read(
+                                    scheduleGenerationViewModelProvider(
+                                      teamId,
+                                    ).notifier,
+                                  )
+                                  .updatePreviewDayAssignments(
+                                    date: day,
+                                    assignmentsByUserId: {
+                                      m.userId: nextShiftTypeId,
+                                    },
+                                  );
+                              if (!context.mounted) return;
+                              if (success) {
+                                hasManualEdits.value = true;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      '근무가 수정되었습니다. 필요하면 새 버전으로 저장하세요.',
+                                    ),
                                   ),
-                                ),
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('근무 수정에 실패했습니다. 다시 시도해주세요.'),
-                                ),
-                              );
-                            }
-                          },
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('근무 수정에 실패했습니다. 다시 시도해주세요.'),
+                                  ),
+                                );
+                              }
+                            },
+                    ),
                   );
                 }).toList(),
               ),
@@ -675,6 +845,10 @@ class PreviewView extends HookConsumerWidget {
             ),
             child: Row(
               children: sortedDays.map((day) {
+                final isHighlighted = DateUtils.isSameDay(
+                  highlightedDay.value,
+                  day,
+                );
                 final counts = dayShiftCounts[day] ?? {};
                 final entries = <(String, int, Color)>[];
                 for (final code in orderedCodes) {
@@ -687,9 +861,14 @@ class PreviewView extends HookConsumerWidget {
                     ));
                   }
                 }
-                return SizedBox(
-                  width: 48,
+                return Container(
+                  width: dateColumnWidth,
                   height: summaryRowHeight,
+                  decoration: BoxDecoration(
+                    color: isHighlighted
+                        ? AppColors.primary.withValues(alpha: 0.06)
+                        : Colors.transparent,
+                  ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: entries
@@ -714,6 +893,11 @@ class PreviewView extends HookConsumerWidget {
       ),
     );
 
+    Widget previewInsightPanel() => _PreviewInsightPanel(
+      wantedMatched: wantedMatched,
+      wantedMissed: wantedMissed,
+    );
+
     // ── 웹 2-column 레이아웃 ──
     if (isWideLayout) {
       return Row(
@@ -736,8 +920,8 @@ class PreviewView extends HookConsumerWidget {
                     vertical: AppSpacing.md,
                   ),
                   child: const ScheduleStepIndicator(
-                    currentStep: 1,
-                    totalSteps: 3,
+                    currentStep: 2,
+                    totalSteps: 4,
                   ),
                 ),
                 Expanded(
@@ -748,7 +932,7 @@ class PreviewView extends HookConsumerWidget {
                       children: [
                         statusCard(),
                         const SizedBox(height: AppSpacing.lg),
-                        actionButtons(),
+                        actionButtons(footer: previewInsightPanel()),
                       ],
                     ),
                   ),
@@ -781,9 +965,13 @@ class PreviewView extends HookConsumerWidget {
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
           ),
-          child: const ScheduleStepIndicator(currentStep: 1, totalSteps: 3),
+          child: const ScheduleStepIndicator(currentStep: 2, totalSteps: 4),
         ),
         statusCard(),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          child: previewInsightPanel(),
+        ),
         Expanded(
           child: SingleChildScrollView(
             child: Column(
@@ -903,4 +1091,141 @@ class _StatChip extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PreviewInsightPanel extends StatelessWidget {
+  const _PreviewInsightPanel({
+    required this.wantedMatched,
+    required this.wantedMissed,
+  });
+
+  final int wantedMatched;
+  final int wantedMissed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _WantedLegendRow(matched: wantedMatched, missed: wantedMissed),
+        ],
+      ),
+    );
+  }
+}
+
+class _WantedLegendRow extends StatelessWidget {
+  const _WantedLegendRow({required this.matched, required this.missed});
+
+  final int matched;
+  final int missed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final total = matched + missed;
+
+    if (total == 0) {
+      return Row(
+        children: [
+          Icon(
+            Icons.favorite_border_rounded,
+            size: 16,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            '원티드 신청 없음',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.xs,
+      children: [
+        _WantedLegendItem(
+          color: AppColors.brandBlue,
+          label: '원티드 반영',
+          count: matched,
+        ),
+        _WantedLegendItem(
+          color: AppColors.error,
+          label: '원티드 미반영',
+          count: missed,
+        ),
+      ],
+    );
+  }
+}
+
+class _WantedLegendItem extends StatelessWidget {
+  const _WantedLegendItem({
+    required this.color,
+    required this.label,
+    required this.count,
+  });
+
+  final Color color;
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppRadius.full),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            '$label $count',
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WantedCellStatus {
+  const _WantedCellStatus({required this.isSatisfied});
+
+  final bool isSatisfied;
+}
+
+String _previewCellKey(String userId, DateTime day) {
+  return '$userId|${day.year}-${day.month}-${day.day}';
 }

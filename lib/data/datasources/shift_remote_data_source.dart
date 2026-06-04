@@ -36,17 +36,14 @@ class ShiftRemoteDataSource {
     final startStr = _dateStr(start);
     final endStr = _dateStr(end);
 
-    final rows = await _client
-        .from('shifts')
-        .select()
-        .eq('user_id', _userId!)
-        .gte('shift_date', startStr)
-        .lte('shift_date', endStr)
-        .order('shift_date');
-
-    final shifts = (rows as List)
-        .map((r) => ShiftModel.fromJson(r as Map<String, dynamic>))
-        .toList();
+    final shifts = await _fetchAllShifts(
+      () => _client
+          .from('shifts')
+          .select()
+          .eq('user_id', _userId!)
+          .gte('shift_date', startStr)
+          .lte('shift_date', endStr),
+    );
 
     if (shifts.isEmpty) return const [];
 
@@ -76,14 +73,18 @@ class ShiftRemoteDataSource {
     final startStr = _dateStr(start);
     final endStr = _dateStr(end);
 
-    // shifts와 published schedules 메타를 병렬 조회
-    final shiftsFuture = _client
-        .from('shifts')
-        .select()
-        .eq('team_id', teamId)
-        .gte('shift_date', startStr)
-        .lte('shift_date', endStr)
-        .order('shift_date');
+    // shifts와 published schedules 메타를 병렬 조회.
+    // shifts는 여러 번 발행하면 같은 기간에 버전별로 누적되어 PostgREST
+    // 기본 행 제한(1000)을 초과할 수 있다. 페이지네이션으로 전량을 가져와
+    // 일부 날짜(특히 owner=최신 버전)의 시프트가 잘려 누락되는 것을 막는다.
+    final shiftsFuture = _fetchAllShifts(
+      () => _client
+          .from('shifts')
+          .select()
+          .eq('team_id', teamId)
+          .gte('shift_date', startStr)
+          .lte('shift_date', endStr),
+    );
 
     // 해당 기간과 겹치는 모든 published schedule 조회
     final schedulesFuture = _client
@@ -94,10 +95,8 @@ class ShiftRemoteDataSource {
         .lte('period_start', endStr)
         .gte('period_end', startStr);
 
-    final results = await Future.wait([shiftsFuture, schedulesFuture]);
-    final shifts = (results[0] as List)
-        .map((r) => ShiftModel.fromJson(r as Map<String, dynamic>))
-        .toList();
+    final results = await Future.wait<dynamic>([shiftsFuture, schedulesFuture]);
+    final shifts = results[0] as List<ShiftModel>;
     if (shifts.isEmpty) return const [];
 
     final schedules = results[1] as List;
@@ -415,6 +414,34 @@ class ShiftRemoteDataSource {
       'rule_type': ruleType,
       'rule_value': ruleValue,
     }, onConflict: 'team_id,rule_type');
+  }
+
+  /// shifts 조회를 페이지네이션으로 전량 수집한다.
+  ///
+  /// PostgREST(Supabase)는 명시적 range/limit가 없으면 기본 1000행만 반환한다.
+  /// 같은 기간을 여러 번 발행하면 버전별 시프트가 누적되어 이 제한을 쉽게
+  /// 넘기고, 그 경우 정렬상 잘려나간 날짜(또는 그 날짜의 최신 버전 행)가
+  /// 통째로 누락되어 캘린더 일부가 비어 보이게 된다. 결정적(deterministic)
+  /// 정렬(shift_date, id)로 페이지를 돌며 전체를 가져온다.
+  Future<List<ShiftModel>> _fetchAllShifts(
+    PostgrestFilterBuilder<dynamic> Function() queryBuilder,
+  ) async {
+    const pageSize = 1000;
+    final all = <ShiftModel>[];
+    var offset = 0;
+    while (true) {
+      final rows = await queryBuilder()
+          .order('shift_date')
+          .order('id')
+          .range(offset, offset + pageSize - 1);
+      final list = rows as List;
+      all.addAll(
+        list.map((r) => ShiftModel.fromJson(r as Map<String, dynamic>)),
+      );
+      if (list.length < pageSize) break;
+      offset += pageSize;
+    }
+    return all;
   }
 
   String _dateStr(DateTime dt) =>
