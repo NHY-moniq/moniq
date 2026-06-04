@@ -30,6 +30,7 @@ class MoniqCalendar extends StatelessWidget {
     this.calendarFormat = CalendarFormat.month,
     this.onFormatChanged,
     this.markerBuilder,
+    this.cornerBadgeBuilder,
     this.startingDayOfWeek = StartingDayOfWeek.monday,
     this.previewBuilder,
     this.rowHeight = 58,
@@ -50,10 +51,12 @@ class MoniqCalendar extends StatelessWidget {
   final CalendarFormat calendarFormat;
   final void Function(CalendarFormat)? onFormatChanged;
   final Widget? Function(BuildContext, DateTime, List<dynamic>)? markerBuilder;
+  final Widget? Function(BuildContext, DateTime)? cornerBadgeBuilder;
   final StartingDayOfWeek startingDayOfWeek;
   final List<CalendarPreview> Function(DateTime day)? previewBuilder;
   final double rowHeight;
   final VoidCallback? onTodayPressed;
+
   /// 범례 항목 (null이면 기본 DAY/EVENING/NIGHT/OFF)
   final List<({Color color, String label})>? legendItems;
 
@@ -110,19 +113,18 @@ class MoniqCalendar extends StatelessWidget {
               eventLoader: eventLoader,
               startingDayOfWeek: startingDayOfWeek,
               headerVisible: false,
-          daysOfWeekHeight: 28,
-          daysOfWeekStyle: DaysOfWeekStyle(
-            weekdayStyle: Theme.of(context).textTheme.bodySmall!.copyWith(
+              daysOfWeekHeight: 28,
+              daysOfWeekStyle: DaysOfWeekStyle(
+                weekdayStyle: Theme.of(context).textTheme.bodySmall!.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                   fontSize: 10,
                   letterSpacing: 1.2,
                 ),
-            weekendStyle: Theme.of(context).textTheme.bodySmall!.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .error
-                      .withValues(alpha: 0.7),
+                weekendStyle: Theme.of(context).textTheme.bodySmall!.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.error.withValues(alpha: 0.7),
                   fontWeight: FontWeight.w600,
                   fontSize: 10,
                   letterSpacing: 1.2,
@@ -167,7 +169,6 @@ class MoniqCalendar extends StatelessWidget {
             outsideBuilder: (context, day, focusedDay) =>
                 _buildOutsideCell(context, day),
             ),
-          ),
           ),
         ],
       ),
@@ -218,8 +219,7 @@ class MoniqCalendar extends StatelessWidget {
                     : DateTime(focusedDay.year, focusedDay.month - 1, 1);
                 onPageChanged(prev);
               },
-              child:
-                  Icon(Icons.chevron_left, size: 18, color: cs.onSurface),
+              child: Icon(Icons.chevron_left, size: 18, color: cs.onSurface),
             ),
             const SizedBox(width: 6),
             _HeaderPill(
@@ -229,8 +229,7 @@ class MoniqCalendar extends StatelessWidget {
                     : DateTime(focusedDay.year, focusedDay.month + 1, 1);
                 onPageChanged(next);
               },
-              child:
-                  Icon(Icons.chevron_right, size: 18, color: cs.onSurface),
+              child: Icon(Icons.chevron_right, size: 18, color: cs.onSurface),
             ),
           ],
         ),
@@ -266,21 +265,14 @@ class MoniqCalendar extends StatelessWidget {
     (color: AppColors.shiftOff, label: 'OFF'),
   ];
 
-  Widget _legendDot(
-    BuildContext context,
-    Color color,
-    String label,
-  ) {
+  Widget _legendDot(BuildContext context, Color color, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 3),
         Text(
@@ -289,9 +281,7 @@ class MoniqCalendar extends StatelessWidget {
             fontSize: 9,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
-            color: Theme.of(context)
-                .colorScheme
-                .onSurfaceVariant,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       ],
@@ -325,7 +315,11 @@ class MoniqCalendar extends StatelessWidget {
   }
 
   Widget _buildCell(
-      BuildContext context, DateTime day, bool isToday, bool isSelected) {
+    BuildContext context,
+    DateTime day,
+    bool isToday,
+    bool isSelected,
+  ) {
     final cs = Theme.of(context).colorScheme;
     final events = eventLoader?.call(day) ?? [];
     final previews = previewBuilder?.call(day) ?? [];
@@ -357,6 +351,7 @@ class MoniqCalendar extends StatelessWidget {
     if (events.isNotEmpty && markerBuilder != null) {
       markers = markerBuilder!(context, day, events);
     }
+    final cornerBadge = cornerBadgeBuilder?.call(context, day);
 
     return SizedBox(
       width: double.infinity,
@@ -416,20 +411,17 @@ class MoniqCalendar extends StatelessWidget {
                 '${day.day}',
                 style: TextStyle(
                   color: textColor,
-                  fontWeight: isSelected
-                      ? FontWeight.w800
-                      : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.normal,
                   fontSize: 13,
                 ),
               ),
             ),
 
+          if (cornerBadge != null)
+            Positioned(top: 8, right: 13, child: cornerBadge),
+
           // 마커/미리보기 시작 y — today/non-today 동일 (밀림 방지)
-          if (markers != null)
-            Positioned(
-              top: 30,
-              child: markers,
-            ),
+          if (markers != null) Positioned(top: 30, child: markers),
 
           // Preview tags below dots — 셀 가로 폭 가득 채움
           if (previews.isNotEmpty)
@@ -442,10 +434,12 @@ class MoniqCalendar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: previews
                     .take(2)
-                    .map((p) => Padding(
-                          padding: const EdgeInsets.only(bottom: 1),
-                          child: _buildTag(context, p),
-                        ))
+                    .map(
+                      (p) => Padding(
+                        padding: const EdgeInsets.only(bottom: 1),
+                        child: _buildTag(context, p),
+                      ),
+                    )
                     .toList(),
               ),
             ),
@@ -638,10 +632,7 @@ class _HeaderPill extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
-        child: Padding(
-          padding: const EdgeInsets.all(7),
-          child: child,
-        ),
+        child: Padding(padding: const EdgeInsets.all(7), child: child),
       ),
     );
   }
@@ -649,10 +640,7 @@ class _HeaderPill extends StatelessWidget {
 
 /// 헤더 우측 월/주 segmented pill 토글.
 class _ViewModeSegmentedPill extends StatelessWidget {
-  const _ViewModeSegmentedPill({
-    required this.mode,
-    required this.onChanged,
-  });
+  const _ViewModeSegmentedPill({required this.mode, required this.onChanged});
 
   final CalendarViewMode mode;
   final ValueChanged<CalendarViewMode> onChanged;
@@ -675,10 +663,7 @@ class _ViewModeSegmentedPill extends StatelessWidget {
             onTap: () => onChanged(m),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 5,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
               decoration: BoxDecoration(
                 color: selected ? cs.primary : Colors.transparent,
                 borderRadius: BorderRadius.circular(999),
@@ -698,4 +683,3 @@ class _ViewModeSegmentedPill extends StatelessWidget {
     );
   }
 }
-

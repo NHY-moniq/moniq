@@ -81,10 +81,7 @@ class _SelfChangeEntriesSectionState
       final types = await shiftRepo.getShiftTypes(widget.teamId);
       if (!mounted) return;
       setState(() {
-        _shiftTypes = [
-          ...types.where((t) => t.isActive),
-          _offShiftType,
-        ];
+        _shiftTypes = [...types.where((t) => t.isActive), _offShiftType];
         _loading = false;
       });
     } catch (_) {
@@ -99,8 +96,10 @@ class _SelfChangeEntriesSectionState
 
     try {
       final shiftRepo = ref.read(shiftRepositoryProvider);
-      final roster =
-          await shiftRepo.getTeamRoster(teamId: widget.teamId, date: date);
+      final roster = await shiftRepo.getTeamRoster(
+        teamId: widget.teamId,
+        date: date,
+      );
 
       ShiftTypeModel? mine;
       for (final entryRoster in roster) {
@@ -227,7 +226,7 @@ class _SelfChangeEntryRow extends StatelessWidget {
         AppSpacing.lg,
       ),
       decoration: BoxDecoration(
-        color: cs.surface,
+        color: cs.surfaceContainerLow,
         borderRadius: AppRadius.borderRadiusMd,
         border: Border.all(color: cs.outlineVariant),
       ),
@@ -247,8 +246,11 @@ class _SelfChangeEntryRow extends StatelessWidget {
               const Spacer(),
               if (canRemove)
                 IconButton(
-                  icon: Icon(Icons.close_rounded,
-                      size: 18, color: cs.onSurfaceVariant),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
                   constraints: const BoxConstraints(),
@@ -262,31 +264,37 @@ class _SelfChangeEntryRow extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              // 날짜 — 멤버 컬럼이 없으므로 더 넓게 (flex 5)
-              Expanded(
-                flex: 5,
-                child: _LabeledField(
-                  label: '날짜',
-                  child: InkWell(
-                    onTap: onPickDate,
-                    child: Row(
-                      children: [
-                        Icon(Icons.calendar_today,
-                            size: 14, color: cs.onSurfaceVariant),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            entry.date != null
-                                ? DateFormat('M월 d일 (E)', 'ko_KR')
-                                    .format(entry.date!)
-                                : '선택',
-                            style: entry.date != null
-                                ? _entryFieldTextStyle(context)
-                                : _entryHintStyle(context),
-                            overflow: TextOverflow.ellipsis,
+                // 날짜 — 멤버 컬럼이 없으므로 더 넓게 (flex 5)
+                Expanded(
+                  flex: 5,
+                  child: _LabeledField(
+                    label: '날짜',
+                    child: InkWell(
+                      onTap: onPickDate,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_today,
+                            size: 14,
+                            color: cs.onSurfaceVariant,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              entry.date != null
+                                  ? DateFormat(
+                                      'M월 d일 (E)',
+                                      'ko_KR',
+                                    ).format(entry.date!)
+                                  : '선택',
+                              style: entry.date != null
+                                  ? _entryFieldTextStyle(context)
+                                  : _entryHintStyle(context),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -310,7 +318,6 @@ class _SelfChangeEntryRow extends StatelessWidget {
                     },
                   ),
                 ),
-              ),
               ],
             ),
           ),
@@ -364,8 +371,7 @@ class SwapEntriesSection extends ConsumerStatefulWidget {
   final VoidCallback onChanged;
 
   @override
-  ConsumerState<SwapEntriesSection> createState() =>
-      _SwapEntriesSectionState();
+  ConsumerState<SwapEntriesSection> createState() => _SwapEntriesSectionState();
 }
 
 class _SwapEntriesSectionState extends ConsumerState<SwapEntriesSection> {
@@ -412,8 +418,10 @@ class _SwapEntriesSectionState extends ConsumerState<SwapEntriesSection> {
 
     try {
       final shiftRepo = ref.read(shiftRepositoryProvider);
-      final roster =
-          await shiftRepo.getTeamRoster(teamId: widget.teamId, date: date);
+      final roster = await shiftRepo.getTeamRoster(
+        teamId: widget.teamId,
+        date: date,
+      );
 
       ShiftTypeModel? mine;
       ShiftTypeModel? target;
@@ -499,8 +507,7 @@ class _SwapEntriesSectionState extends ConsumerState<SwapEntriesSection> {
     if (_members.isEmpty) {
       return Text(
         '다른 팀원이 없습니다',
-        style:
-            theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+        style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
       );
     }
 
@@ -517,11 +524,9 @@ class _SwapEntriesSectionState extends ConsumerState<SwapEntriesSection> {
             shiftTypes: _shiftTypes,
             index: i,
             canRemove: widget.entries.length > 1,
-            onMemberSelected: (m) =>
-                _selectMember(widget.entries[i], m),
+            onMemberSelected: (m) => _selectMember(widget.entries[i], m),
             onPickDate: () => _pickDate(widget.entries[i]),
-            onShiftSelected: (s) =>
-                _selectShift(widget.entries[i], s),
+            onShiftSelected: (s) => _selectShift(widget.entries[i], s),
             onRemove: () => _removeEntry(i),
           ),
           if (i < widget.entries.length - 1)
@@ -574,7 +579,7 @@ class _SwapEntryRow extends StatelessWidget {
         AppSpacing.lg,
       ),
       decoration: BoxDecoration(
-        color: cs.surface,
+        color: cs.surfaceContainerLow,
         borderRadius: AppRadius.borderRadiusMd,
         border: Border.all(color: cs.outlineVariant),
       ),
@@ -594,8 +599,11 @@ class _SwapEntryRow extends StatelessWidget {
               const Spacer(),
               if (canRemove)
                 IconButton(
-                  icon: Icon(Icons.close_rounded,
-                      size: 18, color: cs.onSurfaceVariant),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
                   constraints: const BoxConstraints(),
@@ -626,33 +634,38 @@ class _SwapEntryRow extends StatelessWidget {
                     },
                   ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              // 날짜
-              Expanded(
-                flex: 4,
-                child: _LabeledField(
-                  label: '날짜',
-                  child: InkWell(
-                    onTap: onPickDate,
-                    child: Row(
-                      children: [
-                        Icon(Icons.calendar_today,
-                            size: 14, color: cs.onSurfaceVariant),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            entry.date != null
-                                ? DateFormat('M/d (E)', 'ko_KR')
-                                    .format(entry.date!)
-                                : '선택',
-                            style: entry.date != null
-                                ? _entryFieldTextStyle(context)
-                                : _entryHintStyle(context),
-                            overflow: TextOverflow.ellipsis,
+                const SizedBox(width: AppSpacing.sm),
+                // 날짜
+                Expanded(
+                  flex: 4,
+                  child: _LabeledField(
+                    label: '날짜',
+                    child: InkWell(
+                      onTap: onPickDate,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_today,
+                            size: 14,
+                            color: cs.onSurfaceVariant,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              entry.date != null
+                                  ? DateFormat(
+                                      'M/d (E)',
+                                      'ko_KR',
+                                    ).format(entry.date!)
+                                  : '선택',
+                              style: entry.date != null
+                                  ? _entryFieldTextStyle(context)
+                                  : _entryHintStyle(context),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -676,7 +689,6 @@ class _SwapEntryRow extends StatelessWidget {
                     },
                   ),
                 ),
-              ),
               ],
             ),
           ),
@@ -698,20 +710,12 @@ class _SwapEntryRow extends StatelessWidget {
 /// Entry 행에서 모든 selector(드롭다운/InkWell)가 같은 텍스트 스타일을 갖도록 통일.
 TextStyle _entryFieldTextStyle(BuildContext context) {
   final cs = Theme.of(context).colorScheme;
-  return TextStyle(
-    fontSize: 14,
-    color: cs.onSurface,
-    height: 1.2,
-  );
+  return TextStyle(fontSize: 14, color: cs.onSurface, height: 1.2);
 }
 
 TextStyle _entryHintStyle(BuildContext context) {
   final cs = Theme.of(context).colorScheme;
-  return TextStyle(
-    fontSize: 14,
-    color: cs.onSurfaceVariant,
-    height: 1.2,
-  );
+  return TextStyle(fontSize: 14, color: cs.onSurfaceVariant, height: 1.2);
 }
 
 /// 드롭다운을 대체하는 탭 가능한 선택 필드.
@@ -921,10 +925,7 @@ class _LabeledField extends StatelessWidget {
         const SizedBox(height: AppSpacing.xs),
         SizedBox(
           height: _fieldHeight,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: child,
-          ),
+          child: Align(alignment: Alignment.centerLeft, child: child),
         ),
       ],
     );
@@ -1008,8 +1009,9 @@ class _AddEntryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final fg =
-        enabled ? cs.onSurface : cs.onSurfaceVariant.withValues(alpha: 0.5);
+    final fg = enabled
+        ? cs.onSurface
+        : cs.onSurfaceVariant.withValues(alpha: 0.5);
     final border = enabled
         ? cs.outlineVariant
         : cs.outlineVariant.withValues(alpha: 0.5);

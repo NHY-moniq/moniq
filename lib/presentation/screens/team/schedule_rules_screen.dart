@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/shift_rule_model.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
+import 'package:moniq/presentation/screens/schedule/widgets/schedule_common_widgets.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/schedule_generation_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
@@ -22,10 +23,7 @@ import 'schedule_rules_widgets.dart';
 /// NOD 금지·ND·NE·ED 하드 제약은 팀 설정(team_settings_screen)에 있음.
 /// 나이트 전담 지정은 멤버 속성(members_screen)에 있음.
 class ScheduleRulesScreen extends HookConsumerWidget {
-  const ScheduleRulesScreen({
-    super.key,
-    required this.teamId,
-  });
+  const ScheduleRulesScreen({super.key, required this.teamId});
 
   final String teamId;
 
@@ -39,8 +37,7 @@ class ScheduleRulesScreen extends HookConsumerWidget {
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
           message: '규칙을 불러올 수 없습니다',
-          onRetry: () =>
-              ref.invalidate(teamDetailViewModelProvider(teamId)),
+          onRetry: () => ref.invalidate(teamDetailViewModelProvider(teamId)),
         ),
         data: (state) => _RulesBody(
           teamId: teamId,
@@ -89,23 +86,19 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
   }
 
   void _loadRules() {
-    final ruleMap = {
-      for (final r in widget.rules) r.ruleType: r.ruleValue,
-    };
+    final ruleMap = {for (final r in widget.rules) r.ruleType: r.ruleValue};
 
-    _noodAvoid =
-        ((ruleMap['avoid_nood'] ?? {})['enabled'] as bool?) ?? true;
-    _noeAvoid =
-        ((ruleMap['avoid_noe'] ?? {})['enabled'] as bool?) ?? false;
-    _eodAvoid =
-        ((ruleMap['avoid_eod'] ?? {})['enabled'] as bool?) ?? false;
+    _noodAvoid = ((ruleMap['avoid_nood'] ?? {})['enabled'] as bool?) ?? true;
+    _noeAvoid = ((ruleMap['avoid_noe'] ?? {})['enabled'] as bool?) ?? false;
+    _eodAvoid = ((ruleMap['avoid_eod'] ?? {})['enabled'] as bool?) ?? false;
 
     // 스케줄링 우선순위 복원 (새 key: scheduling_priority_order)
     // 구버전 wanted_priority_order에서 마이그레이션 지원
     final savedOrder =
         ((ruleMap['scheduling_priority_order'] ??
-                    ruleMap['wanted_priority_order'] ??
-                    {})['order'] as List?);
+                ruleMap['wanted_priority_order'] ??
+                {})['order']
+            as List?);
     final defaultOrder = [
       ScheduleRulePriorityItem(key: 'wanted', label: '원티드 반영'),
       ScheduleRulePriorityItem(key: 'avoid_pattern', label: '기피패턴 처리'),
@@ -114,9 +107,7 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
     ];
 
     if (savedOrder != null && savedOrder.isNotEmpty) {
-      final keyToDefault = {
-        for (final d in defaultOrder) d.key: d,
-      };
+      final keyToDefault = {for (final d in defaultOrder) d.key: d};
       _scoringPriorityOrder = savedOrder
           .whereType<String>()
           .where((k) => keyToDefault.containsKey(k))
@@ -144,26 +135,12 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
 
     try {
       await Future.wait([
-        notifier.upsertRule(
-          'avoid_nood',
-          {'enabled': _noodAvoid},
-        ),
-        notifier.upsertRule(
-          'avoid_noe',
-          {'enabled': _noeAvoid},
-        ),
-        notifier.upsertRule(
-          'avoid_eod',
-          {'enabled': _eodAvoid},
-        ),
-        notifier.upsertRule(
-          'scheduling_priority_order',
-          {
-            'order': _scoringPriorityOrder
-                .map((p) => p.key)
-                .toList(),
-          },
-        ),
+        notifier.upsertRule('avoid_nood', {'enabled': _noodAvoid}),
+        notifier.upsertRule('avoid_noe', {'enabled': _noeAvoid}),
+        notifier.upsertRule('avoid_eod', {'enabled': _eodAvoid}),
+        notifier.upsertRule('scheduling_priority_order', {
+          'order': _scoringPriorityOrder.map((p) => p.key).toList(),
+        }),
       ]);
 
       if (mounted) {
@@ -214,197 +191,194 @@ class _RulesBodyState extends ConsumerState<_RulesBody> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const ScheduleStepIndicator(currentStep: 0, totalSteps: 4),
+              const SizedBox(height: AppSpacing.xl),
+
               // ── 소프트 기피 패턴 ──
-            ScheduleRuleSectionHeader(
-              title: '기피 패턴 (권장)',
-              subtitle: '가능하면 피하지만, 인력 부족 시 허용됩니다',
-            ),
-            const SizedBox(height: AppSpacing.md),
-            ScheduleRuleCard(
-              children: [
-                ScheduleRulePatternToggleRow(
-                  pattern: 'NOOD',
-                  description: '나이트 → 오프 → 오프 → 데이 기피',
-                  value: _noodAvoid,
-                  isHard: false,
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _noodAvoid = v);
-                    _markDirty();
-                  },
-                ),
-                const Divider(height: 1),
-                ScheduleRulePatternToggleRow(
-                  pattern: 'NOE',
-                  description: '나이트 → 오프 → 이브닝 기피',
-                  value: _noeAvoid,
-                  isHard: false,
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _noeAvoid = v);
-                    _markDirty();
-                  },
-                ),
-                const Divider(height: 1),
-                ScheduleRulePatternToggleRow(
-                  pattern: 'EOD',
-                  description: '이브닝 → 오프 → 데이 기피',
-                  value: _eodAvoid,
-                  isHard: false,
-                  readOnly: readOnly,
-                  onChanged: (v) {
-                    setState(() => _eodAvoid = v);
-                    _markDirty();
-                  },
-                ),
-              ],
-            ),
-
-            const SizedBox(height: AppSpacing.xxl),
-
-            // ── 스케줄링 우선순위 ──
-            ScheduleRuleSectionHeader(
-              title: '스케줄링 우선순위',
-              subtitle: readOnly
-                  ? '1번이 가장 높은 우선순위'
-                  : '드래그하여 순위 조정 (1번 = 최우선)',
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            if (readOnly)
-              ScheduleRuleCard(
-                children: [
-                  ..._scoringPriorityOrder.asMap().entries.map((e) {
-                    final rank = e.key + 1;
-                    return ScheduleRulePriorityReadRow(
-                      rank: rank,
-                      label: e.value.label,
-                    );
-                  }),
-                ],
-              )
-            else
-              ScheduleRulePriorityReorderCard(
-                items: _scoringPriorityOrder,
-                onReorder: (oldIndex, newIndex) {
-                  setState(() {
-                    if (newIndex > oldIndex) newIndex -= 1;
-                    final item =
-                        _scoringPriorityOrder.removeAt(oldIndex);
-                    _scoringPriorityOrder.insert(newIndex, item);
-                  });
-                  _markDirty();
-                },
-              ),
-
-            const SizedBox(height: AppSpacing.xxl),
-
-            // ── 커스텀 규칙 진입 ──
-            ScheduleRuleSectionHeader(
-              title: '커스텀 규칙',
-              subtitle: '자연어로 팀 전용 규칙을 추가합니다',
-            ),
-            const SizedBox(height: AppSpacing.md),
-            ScheduleRuleCard(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.xs,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.rule_rounded,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.tertiary,
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: Text(
-                          '커스텀 규칙 관리',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => context.push(
-                          '/teams/${widget.teamId}/custom-rules',
-                        ),
-                        child: const Text('보기 →'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: AppSpacing.xxl),
-
-            // 저장 에러
-            if (_saveError != null) ...[
-              SelectableText.rich(
-                TextSpan(
-                  text: _saveError,
-                  style: TextStyle(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
+              ScheduleRuleSectionHeader(
+                title: '기피 패턴 (권장)',
+                subtitle: '가능하면 피하지만, 인력 부족 시 허용됩니다',
               ),
               const SizedBox(height: AppSpacing.md),
-            ],
-
-            // 저장 버튼
-            if (widget.isAdmin)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _saving || !_isDirty ? null : _save,
-                  child: _saving
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : Text(_isDirty ? '저장' : '변경사항 없음'),
-                ),
+              ScheduleRuleCard(
+                children: [
+                  ScheduleRulePatternToggleRow(
+                    pattern: 'NOOD',
+                    description: '나이트 → 오프 → 오프 → 데이 기피',
+                    value: _noodAvoid,
+                    isHard: false,
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _noodAvoid = v);
+                      _markDirty();
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ScheduleRulePatternToggleRow(
+                    pattern: 'NOE',
+                    description: '나이트 → 오프 → 이브닝 기피',
+                    value: _noeAvoid,
+                    isHard: false,
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _noeAvoid = v);
+                      _markDirty();
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ScheduleRulePatternToggleRow(
+                    pattern: 'EOD',
+                    description: '이브닝 → 오프 → 데이 기피',
+                    value: _eodAvoid,
+                    isHard: false,
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _eodAvoid = v);
+                      _markDirty();
+                    },
+                  ),
+                ],
               ),
 
-            if (!widget.isAdmin)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Text(
-                    '관리자만 설정을 수정할 수 있습니다',
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+              const SizedBox(height: AppSpacing.xxl),
+
+              // ── 스케줄링 우선순위 ──
+              ScheduleRuleSectionHeader(
+                title: '스케줄링 우선순위',
+                subtitle: readOnly
+                    ? '1번이 가장 높은 우선순위'
+                    : '드래그하여 순위 조정 (1번 = 최우선)',
+              ),
+              const SizedBox(height: AppSpacing.md),
+
+              if (readOnly)
+                ScheduleRuleCard(
+                  children: [
+                    ..._scoringPriorityOrder.asMap().entries.map((e) {
+                      final rank = e.key + 1;
+                      return ScheduleRulePriorityReadRow(
+                        rank: rank,
+                        label: e.value.label,
+                      );
+                    }),
+                  ],
+                )
+              else
+                ScheduleRulePriorityReorderCard(
+                  items: _scoringPriorityOrder,
+                  onReorder: (oldIndex, newIndex) {
+                    setState(() {
+                      if (newIndex > oldIndex) newIndex -= 1;
+                      final item = _scoringPriorityOrder.removeAt(oldIndex);
+                      _scoringPriorityOrder.insert(newIndex, item);
+                    });
+                    _markDirty();
+                  },
+                ),
+
+              const SizedBox(height: AppSpacing.xxl),
+
+              // ── 커스텀 규칙 진입 ──
+              ScheduleRuleSectionHeader(
+                title: '커스텀 규칙',
+                subtitle: '자연어로 팀 전용 규칙을 추가합니다',
+              ),
+              const SizedBox(height: AppSpacing.md),
+              ScheduleRuleCard(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.xs,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.rule_rounded,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.tertiary,
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Text(
+                            '커스텀 규칙 관리',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => context.push(
+                            '/teams/${widget.teamId}/custom-rules',
+                          ),
+                          child: const Text('보기 →'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: AppSpacing.xxl),
+
+              // 저장 에러
+              if (_saveError != null) ...[
+                SelectableText.rich(
+                  TextSpan(
+                    text: _saveError,
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
+
+              // 저장 버튼
+              if (widget.isAdmin)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _saving || !_isDirty ? null : _save,
+                    child: _saving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(_isDirty ? '저장' : '변경사항 없음'),
+                  ),
+                ),
+
+              if (!widget.isAdmin)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Text(
+                      '관리자만 설정을 수정할 수 있습니다',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
+
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _saving
+                      ? null
+                      : () async {
+                          if (_isDirty && widget.isAdmin) await _save();
+                          if (!context.mounted) return;
+                          ref.invalidate(
+                            scheduleGenerationViewModelProvider(widget.teamId),
+                          );
+                          context.push(
+                            '/teams/${widget.teamId}/schedule/generate',
+                          );
+                        },
+                  label: const Text('생성 규칙 확정하기'),
+                ),
               ),
 
-            const SizedBox(height: AppSpacing.md),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _saving
-                    ? null
-                    : () async {
-                        if (_isDirty && widget.isAdmin) await _save();
-                        if (!mounted) return;
-                        ref.invalidate(scheduleGenerationViewModelProvider(
-                          widget.teamId,
-                        ));
-                        context.push(
-                          '/teams/${widget.teamId}/schedule/generate',
-                        );
-                      },
-                label: const Text('생성 규칙 확정하기'),
-              ),
-            ),
-
-            const SizedBox(height: AppSpacing.xxxl),
+              const SizedBox(height: AppSpacing.xxxl),
             ],
           ),
         ),

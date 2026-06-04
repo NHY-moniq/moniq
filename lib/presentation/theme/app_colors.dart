@@ -21,11 +21,13 @@ abstract final class AppColors {
   static const tertiary = Color(0xFF2196F3);
   static const tertiaryContainer = Color(0xFFB3E5FC);
 
-  // Surface - Warm Cream
+  // Surface - warm white canvas + tinted cards
   static const surface = Color(0xFFFFFDF7);
-  static const surfaceContainer = Color(0xFFF9F6E5);
-  static const surfaceContainerLow = Color(0xFFFFF8E1);
-  static const surfaceContainerHigh = Color(0xFFF2ECD9);
+  static const surfaceContainerLowest = Color(0xFFFFFDF7);
+  static const surfaceContainerLow = Color(0xFFFFF6EA);
+  static const surfaceContainer = Color(0xFFFFF1E2);
+  static const surfaceContainerHigh = Color(0xFFF7EAD6);
+  static const surfaceContainerHighest = Color(0xFFF2DEC2);
   static const onSurface = Color(0xFF373830);
   static const onSurfaceVariant = Color(0xFF64655C);
 
@@ -38,6 +40,7 @@ abstract final class AppColors {
   static const surfaceContainerDark = Color(0xFF1E1E1E);
   static const surfaceContainerLowDark = Color(0xFF181818);
   static const surfaceContainerHighDark = Color(0xFF282828);
+  static const surfaceContainerHighestDark = Color(0xFF333333);
   static const primaryContainerDark = Color(0xFF332B00);
   static const onPrimaryContainerDark = Color(0xFFFFECB3);
   static const secondaryContainerDark = Color(0xFF422E11);
