@@ -20,6 +20,17 @@ final customRulesProvider = FutureProvider.autoDispose
           ref.watch(customRuleRepositoryProvider).fetchRules(teamId),
     );
 
+/// 팀당 커스텀 규칙 "생성 시도" 누적 한도 (무료 버전 비용 보호).
+/// 저장 개수가 아니라 누적 시도 횟수라, 삭제→추가를 반복해도 한도를 우회할 수 없다.
+const kMaxCustomRuleAttempts = 20;
+
+/// 팀의 누적 생성 시도 횟수 (한도 표시/차단용).
+final customRuleAttemptsProvider = FutureProvider.autoDispose
+    .family<int, String>(
+      (ref, teamId) =>
+          ref.watch(customRuleRepositoryProvider).getParseAttempts(teamId),
+    );
+
 // ──────────────────────────────────────────────
 // Body
 // ──────────────────────────────────────────────
@@ -42,6 +53,7 @@ class CustomRulesBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
+        const _RuleGuideBanner(),
         Expanded(
           child: rules.isEmpty
               ? CustomRulesEmptyState(onAdd: () => _showAddSheet(context, ref))
@@ -93,10 +105,24 @@ class CustomRulesBody extends ConsumerWidget {
             ),
             child: SizedBox(
               width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => _showAddSheet(context, ref),
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('규칙 추가'),
+              child: Builder(
+                builder: (context) {
+                  final attempts =
+                      ref.watch(customRuleAttemptsProvider(teamId)).valueOrNull ??
+                      0;
+                  final atLimit = attempts >= kMaxCustomRuleAttempts;
+                  return FilledButton.icon(
+                    onPressed: atLimit
+                        ? null
+                        : () => _showAddSheet(context, ref),
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(
+                      atLimit
+                          ? '생성 한도 도달 (최대 $kMaxCustomRuleAttempts회)'
+                          : '규칙 추가',
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -118,6 +144,103 @@ class CustomRulesBody extends ConsumerWidget {
         shiftTypes: shiftTypes,
         members: members,
         onSaved: () => ref.invalidate(customRulesProvider(teamId)),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────
+// 규칙 분류 안내 배너 (접기/펼치기)
+// ──────────────────────────────────────────────
+
+class _RuleGuideBanner extends StatefulWidget {
+  const _RuleGuideBanner();
+
+  @override
+  State<_RuleGuideBanner> createState() => _RuleGuideBannerState();
+}
+
+class _RuleGuideBannerState extends State<_RuleGuideBanner> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final bodyStyle = theme.textTheme.labelSmall?.copyWith(
+      color: cs.onPrimaryContainer,
+      height: 1.5,
+    );
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        0,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(Icons.auto_awesome_rounded, size: 15, color: cs.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'AI가 규칙을 분석해 자동으로 분류해요',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: cs.onPrimaryContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Icon(
+                  _expanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  size: 18,
+                  color: cs.onPrimaryContainer.withValues(alpha: 0.7),
+                ),
+              ],
+            ),
+          ),
+          if (_expanded) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              '• 내부 유형(근무 금지·동시 배정 금지·함께 배정·날짜 오프·'
+              '나이트 후 오프·숙련도 조건·숙련도 균형)으로 분류돼요. '
+              '해당 없으면 ‘자유형’(소프트 전용).',
+              style: bodyStyle,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '• 자유형은 자동 반영되지 않아요. 발행 후 ‘AI 분석’에서 적용 방안을 제안해요.',
+              style: bodyStyle,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '• 하드: 최우선 적용(일부 위반 가능) / 소프트: 가능한 한 맞추는 선호',
+              style: bodyStyle,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '• 추가되었으면 하는 더 좋은 유형이 있다면 언제든 문의해주세요.',
+              style: bodyStyle,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -195,10 +318,12 @@ class CustomRuleCard extends StatelessWidget {
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 6),
-          child: Row(
+          child: Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               CustomRuleTypeBadge(ruleType: rule.ruleType),
-              const SizedBox(width: AppSpacing.sm),
               _PriorityToggle(
                 priority: rule.priority,
                 onToggle: onTogglePriority,
@@ -453,6 +578,20 @@ class _CustomRuleAddSheetState extends ConsumerState<CustomRuleAddSheet> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    final repo = ref.read(customRuleRepositoryProvider);
+
+    // 비용 보호: 돈이 드는 AI 파싱 전에 누적 "생성 시도" 한도를 확인한다.
+    // (저장 개수가 아니라 누적 시도라 삭제→추가로 우회 불가)
+    final attempts = await repo.getParseAttempts(widget.teamId);
+    if (attempts >= kMaxCustomRuleAttempts) {
+      setState(() {
+        _error =
+            '무료 버전은 팀당 규칙 생성 $kMaxCustomRuleAttempts회까지예요.\n'
+            '(삭제 후 재추가를 포함한 누적 횟수)';
+      });
+      return;
+    }
+
     setState(() {
       _loading = true;
       _error = null;
@@ -461,11 +600,13 @@ class _CustomRuleAddSheetState extends ConsumerState<CustomRuleAddSheet> {
     try {
       final client = ref.read(supabaseClientProvider);
 
-      // Edge Function 호출 -- 자연어 -> DSL 파싱
+      // Edge Function 호출 -- 자연어 -> DSL 파싱.
+      // 누적 호출수 증가/한도 검사는 서버(Edge Function)에서 처리한다(우회 방지).
       final response = await client.functions.invoke(
         'parse-custom-rule',
         body: {
           'text': text,
+          'teamId': widget.teamId,
           'teamMembers': widget.members
               .map((m) => {'id': m.userId, 'name': m.displayName})
               .toList(),
@@ -475,8 +616,20 @@ class _CustomRuleAddSheetState extends ConsumerState<CustomRuleAddSheet> {
         },
       );
 
+      // 서버가 카운터를 증가시켰으니 표시값 갱신
+      ref.invalidate(customRuleAttemptsProvider(widget.teamId));
+
       final data = response.data as Map<String, dynamic>;
 
+      if (data['error'] == 'limit_reached') {
+        setState(() {
+          _loading = false;
+          _error =
+              '무료 버전은 팀당 규칙 생성 $kMaxCustomRuleAttempts회까지예요.\n'
+              '(삭제 후 재추가를 포함한 누적 횟수)';
+        });
+        return;
+      }
       if (data.containsKey('error')) {
         throw Exception(data['error']);
       }
@@ -628,8 +781,9 @@ class _CustomRuleAddSheetState extends ConsumerState<CustomRuleAddSheet> {
   }
 
   static const _examples = [
+    '데이에 올드 1명 필수',
+    '신규끼리만 같은 근무 서지 않게 해주세요',
     '나이트 3연속이면 2일 쉬어야 해요',
     'A와 B는 같은 나이트를 서지 않게 해주세요',
-    '신규가 있는 근무에는 올드 한 명은 꼭 있어야 해요',
   ];
 }

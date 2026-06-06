@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:moniq/data/models/personal_team_member_shift.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/calendar/shift_member_group_block.dart';
 
 const personalShiftDayColor = Color(0xFFF0C040);
 const personalShiftEveningColor = Color(0xFFE8923A);
@@ -425,198 +426,18 @@ class _ShiftGroupBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
-    final isOff = group.code == null;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: isOff
-            ? cs.surfaceContainerHighest.withValues(alpha: 0.32)
-            : group.color.withValues(alpha: 0.07),
-        borderRadius: AppRadius.borderRadiusMd,
-        border: Border.all(
-          color: isOff
-              ? cs.outlineVariant.withValues(alpha: 0.4)
-              : group.color.withValues(alpha: 0.24),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 92,
-            child: Row(
-              children: [
-                if (group.code != null)
-                  _GroupCodeBadge(code: group.code!, color: group.color)
-                else
-                  _GroupCodeBadge(code: 'O', color: group.color),
-                const SizedBox(width: AppSpacing.xs),
-                Expanded(
-                  child: Text(
-                    group.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: cs.onSurface,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    return ShiftMemberGroupBlock(
+      code: group.code,
+      label: group.label,
+      color: group.color,
+      members: [
+        for (final member in group.members)
+          ShiftMemberChipData(
+            displayName: member.displayName,
+            avatarUrl: member.avatarUrl,
           ),
-          const SizedBox(width: AppSpacing.xs),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerLowest,
-              borderRadius: AppRadius.borderRadiusFull,
-            ),
-            child: Text(
-              '${group.members.length}',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: cs.onSurfaceVariant,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: 4,
-              children: [
-                for (final member in group.members)
-                  _GroupedMemberChip(member: member),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
-  }
-}
-
-class _GroupCodeBadge extends StatelessWidget {
-  const _GroupCodeBadge({required this.code, required this.color});
-
-  final String code;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 28,
-      height: 22,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
-        borderRadius: AppRadius.borderRadiusFull,
-        border: Border.all(color: color.withValues(alpha: 0.42)),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        code,
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _GroupedMemberChip extends StatelessWidget {
-  const _GroupedMemberChip({required this.member});
-
-  final PersonalTeamMember member;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.only(left: 4, right: 7, top: 3, bottom: 3),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLowest,
-        borderRadius: AppRadius.borderRadiusFull,
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _MemberAvatar(member: member, radius: 10),
-          const SizedBox(width: AppSpacing.xs),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 76),
-            child: Text(
-              member.displayName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: cs.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MemberAvatar extends StatelessWidget {
-  const _MemberAvatar({required this.member, this.radius = 16});
-
-  final PersonalTeamMember member;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final initials = _initials(member.displayName);
-    final avatarUrl = member.avatarUrl;
-
-    if (avatarUrl != null && avatarUrl.isNotEmpty) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundColor: cs.primaryContainer,
-        backgroundImage: NetworkImage(avatarUrl),
-        onBackgroundImageError: (_, __) {},
-        child: null,
-      );
-    }
-
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: cs.primaryContainer,
-      child: Text(
-        initials,
-        style: TextStyle(
-          fontSize: radius <= 12 ? 8 : 10,
-          fontWeight: FontWeight.w700,
-          color: cs.onPrimaryContainer,
-        ),
-      ),
-    );
-  }
-
-  String _initials(String name) {
-    final trimmed = name.trim();
-    if (trimmed.isEmpty) return '?';
-    // 한글 이름이면 마지막 글자, 영어면 첫 글자
-    if (trimmed.length >= 2) {
-      return trimmed.substring(0, 1).toUpperCase();
-    }
-    return trimmed.toUpperCase();
   }
 }
 

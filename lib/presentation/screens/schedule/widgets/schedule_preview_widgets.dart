@@ -543,6 +543,7 @@ class PreviewView extends HookConsumerWidget {
       int workTotal,
       int offCount, {
       bool compact = false,
+      required double width,
     }) {
       final denParts = <InlineSpan>[];
       void addCount(String code, Color fallback) {
@@ -564,28 +565,44 @@ class PreviewView extends HookConsumerWidget {
       addCount('E', AppColors.brandOrange);
       addCount('N', AppColors.brandBlue);
 
+      // FittedBox(scaleDown)로 폭에 맞춰 자동 축소 — 글자 크기와 무관하게
+      // D/E/N · 총/오프가 항상 한 줄에 모두 보이도록 보장한다.
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
           if (denParts.isNotEmpty)
-            Text.rich(
-              TextSpan(children: denParts),
-              style: TextStyle(fontSize: compact ? 8.5 : 9.5, height: 1),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.clip,
+            SizedBox(
+              width: width,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text.rich(
+                  TextSpan(children: denParts),
+                  style: TextStyle(
+                    fontSize: compact ? 11 : 12,
+                    height: 1,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  maxLines: 1,
+                ),
+              ),
             ),
           SizedBox(height: denParts.isEmpty ? 0 : 2),
-          Text(
-            '총 $workTotal · 오프 $offCount',
-            style: TextStyle(
-              fontSize: compact ? 7.5 : 8,
-              color: colorScheme.onSurfaceVariant,
-              height: 1,
-              fontWeight: FontWeight.w600,
+          SizedBox(
+            width: width,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '총 $workTotal · 오프 $offCount',
+                style: TextStyle(
+                  fontSize: compact ? 9.5 : 10.5,
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+              ),
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       );
@@ -605,7 +622,7 @@ class PreviewView extends HookConsumerWidget {
                 child: Text(
                   '멤버',
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.labelSmall?.copyWith(
+                  style: theme.textTheme.labelMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w700,
                   ),
@@ -617,7 +634,7 @@ class PreviewView extends HookConsumerWidget {
                   child: Text(
                     '근무',
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.labelSmall?.copyWith(
+                    style: theme.textTheme.labelMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
                     ),
@@ -638,27 +655,32 @@ class PreviewView extends HookConsumerWidget {
             return SizedBox(
               width: fixedMemberWidth,
               height: memberRowHeight,
+              // 큰 글자 배율에서도 행 높이를 넘지 않도록 셀 전체를 축소 처리.
               child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      shortName,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        shortName,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
                       ),
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 3),
-                    memberStatsBlock(
-                      counts,
-                      workTotal,
-                      offCount,
-                      compact: true,
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+                      memberStatsBlock(
+                        counts,
+                        workTotal,
+                        offCount,
+                        compact: true,
+                        width: fixedMemberWidth,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -673,7 +695,7 @@ class PreviewView extends HookConsumerWidget {
                   width: memberNameColWidth,
                   child: Text(
                     shortName,
-                    style: theme.textTheme.labelSmall?.copyWith(
+                    style: theme.textTheme.labelMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -692,7 +714,12 @@ class PreviewView extends HookConsumerWidget {
                       ),
                     ),
                   ),
-                  child: memberStatsBlock(counts, workTotal, offCount),
+                  child: memberStatsBlock(
+                    counts,
+                    workTotal,
+                    offCount,
+                    width: memberStatsColWidth - 2,
+                  ),
                 ),
               ],
             ),
@@ -708,7 +735,7 @@ class PreviewView extends HookConsumerWidget {
           child: Center(
             child: Text(
               '합계',
-              style: theme.textTheme.labelSmall?.copyWith(
+              style: theme.textTheme.labelMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
               ),

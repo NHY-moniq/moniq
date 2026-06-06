@@ -19,6 +19,9 @@ interface AnalyzeRequest {
   activeRules: string[];
   memberSchedules: Record<string, Record<string, string>>;
   hardRules: string[];
+  // 자유형(freeform) 규칙 원문 — 스케줄링 엔진에 자동 반영되지 않으므로
+  // AI가 적용/완화 방안을 제안하도록 전달한다.
+  freeformRules?: string[];
 }
 
 type ScheduleTable = Record<string, Record<string, string>>;
@@ -522,6 +525,15 @@ function buildDeterministicFallback(params: {
     }
   }
 
+  const freeform = body.freeformRules ?? [];
+  if (freeform.length > 0) {
+    lines.push('자유형 규칙(엔진 자동 반영 안 됨 — 수동 검토 필요):');
+    for (const r of freeform.slice(0, 5)) {
+      lines.push(`- "${r}" → 내부 유형(근무 금지/동시 배정 금지/함께 배정/날짜 오프/` +
+        '나이트 후 오프/숙련도 조건/숙련도 균형)으로 다시 입력하면 자동 반영됩니다.');
+    }
+  }
+
   lines.push('즉시 실행 순서:');
   lines.push('1) 위 교체안 1순위 적용');
   lines.push('2) 적용 후 하드 위반/인원 부족 재검증');
@@ -582,7 +594,9 @@ serve(async (req) => {
       (body.hardViolations?.length ?? 0) +
       (body.understaffedCount ?? 0) +
       totalSoftCount +
-      customViol.length;
+      customViol.length +
+      // 자유형 규칙이 있으면 위반이 없어도 적용 방안 제안을 위해 AI를 실행한다.
+      (body.freeformRules?.length ?? 0);
 
     if (totalIssues === 0) {
       return new Response(JSON.stringify({ analysis: fallbackReport }), {
@@ -621,6 +635,11 @@ serve(async (req) => {
           .join('\n')
       : '없음';
 
+    const freeformRules = body.freeformRules ?? [];
+    const freeformSummary = freeformRules.length > 0
+      ? freeformRules.map((r, idx) => `${idx + 1}) ${r}`).join('\n')
+      : '없음';
+
     const systemPrompt = `당신은 병원 3교대 스케줄 QA 분석가다.
 목표: 하드룰을 어기지 않는, 실행 가능한 조치안만 제시한다.
 중요 규칙:
@@ -656,15 +675,24 @@ ${(body.hardViolations ?? []).slice(0, 12).map((v) => `- ${v}`).join('\n') || '-
 
 [배정표]
 ${scheduleLines}
-ㄹ
+
 [검증 통과 교체 후보(이 목록에서만 선택)]
 ${validatedCandidatesSummary}
+
+[자유형 규칙(엔진 자동 반영 안 됨 — 적용 방안 제안 필요)]
+${freeformSummary}
 
 [작성 형식]
 1) 종합 평가 (2~3문장)
 2) 심각 이슈 상세 (하드 위반 중심, 근거 날짜/멤버 포함)
 3) 실행 가능한 조치안 (최대 3개, 반드시 후보 목록에서 선택)
-4) 실행 순서 (번호 1~3)
+4) 자유형 규칙 적용 방안 (위 자유형 규칙이 있을 때만 작성)
+   - 각 규칙별로: ① 의도 해석 ② 현재 배정표에서 어긋나는 부분(날짜/멤버 근거)
+     ③ 위 교체 후보나 수동 조정으로 가까워지는 구체적 방법
+     ④ 기존 내부 유형(근무 금지/동시 배정 금지/함께 배정/날짜 오프/나이트 후 오프/
+        숙련도 조건/숙련도 균형) 중 무엇으로 다시 입력하면 자동 반영되는지 제안
+   - 자유형 규칙이 없으면 이 항목은 생략.
+5) 실행 순서 (번호 1~3)
 
 후보가 없으면 "가능한 교환 방안을 찾지 못했습니다"라고 명시.`;
 

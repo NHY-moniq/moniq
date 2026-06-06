@@ -1171,7 +1171,7 @@ class _ActiveBanner extends StatelessWidget {
             children: [
               const _EntryStatusPill(
                 label: '수집 중',
-                color: AppColors.success,
+                color: AppColors.brandOrange,
                 icon: Icons.circle,
               ),
               const Spacer(),
@@ -1190,35 +1190,28 @@ class _ActiveBanner extends StatelessWidget {
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          // 근무 기간 _InfoRow
-          _InfoRow(
-            label: '근무 기간',
-            value:
-                '${dateFormat.format(displayRequest.periodStart)}'
-                ' ~ ${dateFormat.format(displayRequest.periodEnd)}',
-          ),
-          // 마감 _InfoRow
-          if (displayRequest.deadline != null)
-            _InfoRow(
-              label: '마감',
-              value: dateFormat.format(displayRequest.deadline!),
-              valueColor: (daysLeft != null && daysLeft! <= 3)
-                  ? AppColors.brandOrange
-                  : null,
+          const SizedBox(height: AppSpacing.xs),
+          // 근무 기간
+          Text(
+            '${dateFormat.format(displayRequest.periodStart)} ~ '
+            '${dateFormat.format(displayRequest.periodEnd)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
-          // 구분선
-          if (!isNightView) ...[
+          ),
+          // 마감 칩
+          if (displayRequest.deadline != null) ...[
             const SizedBox(height: AppSpacing.md),
-            // 범례
-            const Wrap(
+            Wrap(
               spacing: AppSpacing.sm,
-              crossAxisAlignment: WrapCrossAlignment.center,
+              runSpacing: AppSpacing.sm,
               children: [
-                _PriorityLegendDot(label: '1순위 필수', color: AppColors.error),
-                _PriorityLegendDot(
-                  label: '2순위 희망',
-                  color: AppColors.brandOrange,
+                _EntryMetricChip(
+                  icon: Icons.event_available_rounded,
+                  label: '마감 ${dateFormat.format(displayRequest.deadline!)}',
+                  color: (daysLeft != null && daysLeft! <= 3)
+                      ? AppColors.brandOrange
+                      : null,
                 ),
               ],
             ),
@@ -1512,34 +1505,45 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
   }
 }
 
-// ─── _PriorityLegendDot ────────────────────────────────────────────────────────
+// ─── _EntryMetricChip ──────────────────────────────────────────────────────────
 
-class _PriorityLegendDot extends StatelessWidget {
-  const _PriorityLegendDot({required this.label, required this.color});
+class _EntryMetricChip extends StatelessWidget {
+  const _EntryMetricChip({required this.icon, required this.label, this.color});
 
+  final IconData icon;
   final String label;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 3),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: color.withValues(alpha: 0.85),
-            fontWeight: FontWeight.w500,
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final resolvedColor = color ?? colorScheme.onSurfaceVariant;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.72),
+        borderRadius: AppRadius.borderRadiusFull,
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: resolvedColor),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: resolvedColor,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1610,48 +1614,6 @@ class _ShiftCodeBadge extends StatelessWidget {
           color: color,
           height: 1,
         ),
-      ),
-    );
-  }
-}
-
-// ─── _InfoRow (P1-1) ──────────────────────────────────────────────────────────
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value, this.valueColor});
-
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 52,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: valueColor ?? cs.onSurface,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
