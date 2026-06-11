@@ -1127,7 +1127,6 @@ class _TeamDrawer extends HookConsumerWidget {
                   ),
                   _TeamDrawerNavItem(
                     icon: Icons.campaign_outlined,
-                    iconColor: AppColors.brandOrange,
                     label: '팀 공지사항',
                     onTap: () {
                       Navigator.pop(context);

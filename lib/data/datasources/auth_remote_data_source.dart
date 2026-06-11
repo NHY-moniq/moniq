@@ -1,5 +1,10 @@
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthRemoteDataSource {
@@ -77,6 +82,81 @@ class AuthRemoteDataSource {
     );
   }
 
+  // Apple Sign-In
+  // 네이티브(iOS/macOS)는 Apple 자격증명을 직접 받아 nonce 검증과 함께
+  // Supabase signInWithIdToken으로 교환한다. 웹은 OAuth 리다이렉트 사용.
+  Future<AuthResponse> signInWithApple() async {
+    if (kIsWeb) {
+      final launched = await _auth.signInWithOAuth(
+        OAuthProvider.apple,
+        redirectTo: '${Uri.base.origin}/login',
+      );
+
+      if (!launched) {
+        throw const AuthException('Apple 로그인 페이지를 열 수 없습니다');
+      }
+
+      // 웹 OAuth는 리다이렉트 기반이므로 결과는 authStateChanges에서 반영된다.
+      return AuthResponse(
+        session: _auth.currentSession,
+        user: _auth.currentUser,
+      );
+    }
+
+    // raw nonce를 만들고, Apple에는 SHA-256 해시를 전달한다.
+    final rawNonce = _generateRawNonce();
+    final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+
+    final credential = await SignInWithApple.getAppleIDCredential(
+      scopes: [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+      nonce: hashedNonce,
+    );
+
+    final idToken = credential.identityToken;
+    if (idToken == null) {
+      throw const AuthException('Apple ID 토큰을 가져올 수 없습니다');
+    }
+
+    final response = await _auth.signInWithIdToken(
+      provider: OAuthProvider.apple,
+      idToken: idToken,
+      nonce: rawNonce,
+    );
+
+    // 계정 삭제 시 Apple 토큰 폐기를 위해 refresh token을 서버에 저장한다.
+    // (저장 실패가 로그인 자체를 막지 않도록 best-effort 처리)
+    final authCode = credential.authorizationCode;
+    if (authCode.isNotEmpty) {
+      try {
+        await _client.functions.invoke(
+          'apple-account',
+          body: {
+            'action': 'store',
+            'authorizationCode': authCode,
+            'appleSub': credential.userIdentifier,
+          },
+        );
+      } catch (_) {
+        // ignore
+      }
+    }
+
+    return response;
+  }
+
+  String _generateRawNonce([int length = 32]) {
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(
+      length,
+      (_) => charset[random.nextInt(charset.length)],
+    ).join();
+  }
+
   // Kakao Sign-In (via Edge Function)
   // Supabase OAuth 기반. 실제 동작에는 Supabase Dashboard의 Kakao provider 설정이 필요하다.
   Future<void> signInWithKakao() async {
@@ -99,6 +179,18 @@ class AuthRemoteDataSource {
 
   // Account deletion
   Future<void> deleteAccount() async {
+    // Apple 로그인 사용자는 삭제 전에 Apple 토큰을 폐기한다.
+    // (refresh token 조회에 유효한 세션이 필요하므로 계정 삭제보다 먼저 수행)
+    // Apple 미사용자는 Edge Function이 no-op으로 통과한다.
+    try {
+      await _client.functions.invoke(
+        'apple-account',
+        body: {'action': 'revoke'},
+      );
+    } catch (_) {
+      // 폐기 실패가 계정 삭제를 막지 않도록 한다.
+    }
+
     await _client.rpc('delete_my_account');
     try {
       await _auth.signOut();
