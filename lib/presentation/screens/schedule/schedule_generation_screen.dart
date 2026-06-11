@@ -639,8 +639,9 @@ void _showMembersDialog(
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 420),
+            // 고정 높이 대신 Flexible — 셸 최대 높이 캡 안에서 스크롤되어
+            // 작은 화면에서도 오버플로우가 발생하지 않는다.
+            Flexible(
               child: ListView.separated(
                 shrinkWrap: true,
                 separatorBuilder: (_, __) =>
@@ -986,37 +987,31 @@ void _showRulesDialog(BuildContext context, ScheduleGenerationState state) {
           )
         : StatefulBuilder(
             builder: (ctx, setSheetState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 520),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: ruleGroups.length,
-                      itemBuilder: (_, index) {
-                        final group = ruleGroups[index];
-                        final isExpanded = expandedGroupKeys.contains(
-                          group.spec.key,
-                        );
-                        return _RuleCategoryCard(
-                          group: group,
-                          isExpanded: isExpanded,
-                          onToggle: () {
-                            setSheetState(() {
-                              if (isExpanded) {
-                                expandedGroupKeys.remove(group.spec.key);
-                              } else {
-                                expandedGroupKeys.add(group.spec.key);
-                              }
-                            });
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
+              // 고정 높이 대신 shrinkWrap 리스트 — 셸의 최대 높이 캡 안에서
+              // 스크롤되어 작은 화면에서도 오버플로우가 발생하지 않는다.
+              return ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: ruleGroups.length,
+                itemBuilder: (_, index) {
+                  final group = ruleGroups[index];
+                  final isExpanded = expandedGroupKeys.contains(
+                    group.spec.key,
+                  );
+                  return _RuleCategoryCard(
+                    group: group,
+                    isExpanded: isExpanded,
+                    onToggle: () {
+                      setSheetState(() {
+                        if (isExpanded) {
+                          expandedGroupKeys.remove(group.spec.key);
+                        } else {
+                          expandedGroupKeys.add(group.spec.key);
+                        }
+                      });
+                    },
+                  );
+                },
               );
             },
           ),

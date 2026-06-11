@@ -11,6 +11,7 @@ import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/announcement/announcement_filter_sheet.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
@@ -202,31 +203,25 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
   }
 
   Future<String?> _pickTeam(BuildContext context, List<TeamModel> teams) {
-    return showModalBottomSheet<String>(
+    // 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+    return showMoniqBottomSheet<String>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Text(
-                '공지를 작성할 팀 선택',
-                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ),
-            const Divider(height: 1),
-            ...teams.map(
-              (t) => ListTile(
-                leading: const Icon(Icons.groups_outlined),
-                title: Text(t.name),
-                onTap: () => Navigator.pop(ctx, t.id),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-          ],
+      eyebrow: 'TEAM',
+      title: '공지를 작성할 팀 선택',
+      child: Builder(
+        builder: (ctx) => SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final t in teams)
+                MoniqSheetOption(
+                  icon: Icons.groups_outlined,
+                  label: t.name,
+                  onTap: () => Navigator.pop(ctx, t.id),
+                ),
+            ],
+          ),
         ),
       ),
     );

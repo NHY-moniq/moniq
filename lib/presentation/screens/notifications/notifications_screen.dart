@@ -337,14 +337,17 @@ class _NotificationFilterHeader extends StatelessWidget {
       child: Row(
         children: [
           if (teams.length > 1)
-            InkWell(
-              onTap: () => _openTeamFilterSheet(context),
-              borderRadius: BorderRadius.circular(999),
-              child: _Chip(
-                icon: Icons.groups_outlined,
-                label: teamLabel,
-                trailing: Icons.expand_more_rounded,
-                cs: cs,
+            Flexible(
+              child: InkWell(
+                onTap: () => _openTeamFilterSheet(context),
+                borderRadius: BorderRadius.circular(999),
+                child: _Chip(
+                  icon: Icons.groups_outlined,
+                  label: teamLabel,
+                  trailing: Icons.expand_more_rounded,
+                  cs: cs,
+                  flexible: true,
+                ),
               ),
             ),
           if (teams.length > 1) const SizedBox(width: AppSpacing.sm),
@@ -369,13 +372,14 @@ class _NotificationFilterHeader extends StatelessWidget {
       context: context,
       title: '팀 선택',
       eyebrow: 'FILTER',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          MoniqSheetOption(
-            icon: Icons.all_inbox_outlined,
-            label: '전체 보기',
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            MoniqSheetOption(
+              icon: Icons.all_inbox_outlined,
+              label: '전체 보기',
             description: '모든 팀의 알림을 표시해요',
             onTap: () {
               onTeamSelect(null);
@@ -404,6 +408,7 @@ class _NotificationFilterHeader extends StatelessWidget {
                   : null,
             ),
         ],
+        ),
       ),
     );
   }
@@ -416,6 +421,7 @@ class _Chip extends StatelessWidget {
     required this.cs,
     this.trailing,
     this.active = false,
+    this.flexible = false,
   });
 
   final IconData icon;
@@ -423,6 +429,8 @@ class _Chip extends StatelessWidget {
   final IconData? trailing;
   final ColorScheme cs;
   final bool active;
+  // true면 라벨이 가용 너비를 넘을 때 말줄임 처리(부모 Row가 너비를 제한해야 함).
+  final bool flexible;
 
   @override
   Widget build(BuildContext context) {
@@ -452,14 +460,28 @@ class _Chip extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: fg),
           const SizedBox(width: AppSpacing.xs),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: fg,
+          if (flexible)
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: fg,
+                ),
+              ),
+            )
+          else
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: fg,
+              ),
             ),
-          ),
           if (trailing != null) ...[
             const SizedBox(width: 2),
             Icon(trailing, size: 16, color: cs.onSurfaceVariant),

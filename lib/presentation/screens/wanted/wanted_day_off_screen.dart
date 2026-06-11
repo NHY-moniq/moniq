@@ -377,7 +377,7 @@ class _EntryView extends HookConsumerWidget {
           margin: EdgeInsets.zero,
           clipBehavior: Clip.antiAlias,
           elevation: 0,
-          color: AppColors.surfaceContainerLow,
+          color: colorScheme.surfaceContainerLow,
           shadowColor: entryColor.withValues(alpha: 0.15),
           shape: RoundedRectangleBorder(
             borderRadius: AppRadius.borderRadiusLg,
@@ -687,11 +687,13 @@ class _EntryView extends HookConsumerWidget {
       context: context,
       title: '원티드 추가',
       eyebrow: 'WANTED',
+      maxHeightFactor: 0.95,
       child: StatefulBuilder(
         builder: (ctx, setSheetState) {
-          final sheetHeight = (MediaQuery.of(ctx).size.height * 0.72)
-              .clamp(520.0, 680.0)
-              .toDouble();
+          // 키보드(viewInsets)를 반영해 높이를 줄여 사유 입력 시 오버플로우 방지.
+          final media = MediaQuery.of(ctx);
+          final avail = media.size.height - media.viewInsets.bottom;
+          final sheetHeight = (avail * 0.7).clamp(300.0, 640.0).toDouble();
           // 교육 등 비 D/E/N 근무 유형 선택 여부
           final selectedType = currentShiftTypeId != null
               ? shiftTypes.cast<ShiftTypeModel?>().firstWhere(
@@ -757,7 +759,7 @@ class _EntryView extends HookConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerLow,
+                    color: Theme.of(ctx).colorScheme.surfaceContainerLow,
                     borderRadius: AppRadius.borderRadiusMd,
                     border: Border.all(
                       color: Theme.of(ctx).colorScheme.outlineVariant,
@@ -970,7 +972,7 @@ class _EntryView extends HookConsumerWidget {
                   child: Container(
                     padding: const EdgeInsets.all(AppSpacing.sm),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerLow,
+                      color: Theme.of(ctx).colorScheme.surfaceContainerLow,
                       borderRadius: AppRadius.borderRadiusLg,
                       border: Border.all(
                         color: Theme.of(ctx).colorScheme.outlineVariant,
@@ -1160,7 +1162,7 @@ class _ActiveBanner extends StatelessWidget {
         AppSpacing.xxl,
       ),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
+        color: colorScheme.surfaceContainerLow,
         border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       child: Column(
@@ -1438,7 +1440,7 @@ class _MultiDateCalendarState extends State<_MultiDateCalendar> {
                           color: isSelected
                               ? Colors.white
                               : isExisting
-                              ? AppColors.onSurfaceVariant
+                              ? colorScheme.onSurfaceVariant
                               : isInPeriod
                               ? null
                               : colorScheme.onSurface.withValues(alpha: 0.25),
@@ -1526,7 +1528,7 @@ class _EntryMetricChip extends StatelessWidget {
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
         borderRadius: AppRadius.borderRadiusFull,
         border: Border.all(color: colorScheme.outlineVariant),
       ),

@@ -504,31 +504,17 @@ class _ShiftTypeGroup extends ConsumerWidget {
         <ShiftTypeModel>[];
     final currentShiftTypeId = entry.shiftType.id;
 
-    showModalBottomSheet(
+    // 로그아웃 등 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+    showMoniqBottomSheet<void>(
       context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: AppSpacing.xxl,
-          right: AppSpacing.xxl,
-          top: AppSpacing.xxl,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xxl,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('근무 변경 요청',
-                style: Theme.of(ctx)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: AppSpacing.sm),
+      eyebrow: 'REQUEST',
+      title: '근무 변경 요청',
+      child: Builder(
+        builder: (ctx) => SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             Text('$dateStr · $workerName',
                 style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                       color: AppColors.onSurfaceVariant,
@@ -605,7 +591,8 @@ class _ShiftTypeGroup extends ConsumerWidget {
                   );
                 }).toList(),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -630,67 +617,15 @@ class _ShiftTypeGroup extends ConsumerWidget {
       );
       ref.invalidate(requestListViewModelProvider(tid));
       if (!context.mounted) return;
-      if (!context.mounted) return;
-      await showDialog<void>(
+      // 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+      await showMoniqInfoSheet(
         context: context,
-        builder: (dctx) {
-          final dtheme = Theme.of(dctx);
-          final dcs = dtheme.colorScheme;
-          return Dialog(
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.white,
-            elevation: 8,
-            shape: RoundedRectangleBorder(
-              borderRadius: AppRadius.borderRadiusLg,
-            ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 360),
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.check_circle_rounded,
-                          color: AppColors.success,
-                          size: 22,
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Text(
-                          '요청 접수 완료',
-                          style: dtheme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      '${DateFormat('M월 d일', 'ko_KR').format(date)} 근무를 '
-                      '"${requestedShiftType.name}"(으)로 변경하는 요청이 접수되었습니다.\n'
-                      '관리자 승인 후 반영됩니다.',
-                      style: dtheme.textTheme.bodyMedium?.copyWith(
-                        color: dcs.onSurfaceVariant,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(dctx),
-                        child: const Text('확인'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
+        eyebrow: 'REQUEST',
+        title: '요청 접수 완료',
+        message:
+            '${DateFormat('M월 d일', 'ko_KR').format(date)} 근무를 '
+            '"${requestedShiftType.name}"(으)로 변경하는 요청이 접수되었습니다.\n'
+            '관리자 승인 후 반영됩니다.',
       );
     } catch (e) {
       if (!context.mounted) return;
@@ -810,7 +745,8 @@ class _ShiftTypeGroup extends ConsumerWidget {
       title: '내 근무 추가',
       eyebrow: 'ADMIN',
       child: Builder(
-        builder: (ctx) => Column(
+        builder: (ctx) => SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -880,6 +816,7 @@ class _ShiftTypeGroup extends ConsumerWidget {
               ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -906,7 +843,8 @@ class _ShiftTypeGroup extends ConsumerWidget {
       title: '근무 수정',
       eyebrow: 'ADMIN',
       child: Builder(
-        builder: (ctx) => Column(
+        builder: (ctx) => SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1005,6 +943,7 @@ class _ShiftTypeGroup extends ConsumerWidget {
               },
             ),
           ],
+        ),
         ),
       ),
     );

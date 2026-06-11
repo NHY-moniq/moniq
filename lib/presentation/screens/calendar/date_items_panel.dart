@@ -558,24 +558,29 @@ class DateItemsPanel extends ConsumerWidget {
     // 반복 일정이면 선택 다이얼로그
     if (event.recurrence != null && event.recurrence != 'none') {
       final ctx = context;
-      final choice = await showDialog<String>(
+      final choice = await showMoniqBottomSheet<String>(
         context: ctx,
-        builder: (dCtx) => SimpleDialog(
-          title: const Text('반복 일정 삭제'),
-          children: [
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(dCtx, 'single'),
-              child: const Text('해당 일자 반복일정만 삭제'),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(dCtx, 'future'),
-              child: const Text('해당일정 이후 일정 모두 삭제'),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(dCtx, 'cancel'),
-              child: const Text('취소'),
-            ),
-          ],
+        eyebrow: 'DELETE',
+        title: '반복 일정 삭제',
+        child: Builder(
+          builder: (sheetCtx) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              MoniqSheetOption(
+                icon: Icons.event_busy_outlined,
+                label: '이 날짜만 삭제',
+                description: '선택한 날짜의 반복 일정만 삭제해요',
+                onTap: () => Navigator.pop(sheetCtx, 'single'),
+              ),
+              MoniqSheetOption(
+                icon: Icons.clear_all_rounded,
+                label: '이후 일정 모두 삭제',
+                description: '이 날짜 이후의 모든 반복 일정을 삭제해요',
+                onTap: () => Navigator.pop(sheetCtx, 'future'),
+              ),
+            ],
+          ),
         ),
       );
 

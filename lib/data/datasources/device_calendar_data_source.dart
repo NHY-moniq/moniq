@@ -79,34 +79,16 @@ class DeviceCalendarDataSource {
     return cal;
   }
 
-  /// 기본 캘린더 + 공휴일 캘린더 반환
+  /// 기기의 모든 캘린더 반환.
+  /// 기본 캘린더만 가져오면 구글/업무/공유 캘린더 등 다른 캘린더의 일정이
+  /// 누락되므로(“일부만 가져와지는” 문제), 전체 캘린더를 대상으로 한다.
   Future<List<Calendar>> getImportCalendars() async {
     final calendars = await getCalendars();
     if (calendars.isEmpty) return [];
 
-    final result = <Calendar>[];
-
-    // 기본 캘린더
-    final defaultCal = calendars.firstWhere(
-      (c) => c.isDefault == true,
-      orElse: () => calendars.first,
-    );
-    result.add(defaultCal);
-
-    // 공휴일 캘린더 (대한민국 공휴일, Holidays 등)
-    for (final c in calendars) {
-      if (c.id == defaultCal.id) continue;
-      final name = (c.name ?? '').toLowerCase();
-      if (name.contains('holiday') ||
-          name.contains('공휴일') ||
-          name.contains('holidays') ||
-          name.contains('대한민국')) {
-        result.add(c);
-      }
-    }
-
-    dev.log('[DeviceCalendar] importCalendars: ${result.map((c) => c.name).toList()}');
-    return result;
+    dev.log('[DeviceCalendar] importCalendars(all): '
+        '${calendars.map((c) => c.name).toList()}');
+    return calendars;
   }
 
   Future<List<DeviceCalendarEvent>> getEventsForMonth(DateTime month) async {

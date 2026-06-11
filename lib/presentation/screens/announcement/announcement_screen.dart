@@ -193,14 +193,12 @@ class AnnouncementScreen extends HookConsumerWidget {
   }
 
   void _showCreateSheet(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
+    // 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+    showMoniqBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => _AnnouncementCreateSheet(teamId: teamId),
+      eyebrow: 'ANNOUNCE',
+      title: '공지사항 작성',
+      child: _AnnouncementCreateSheet(teamId: teamId),
     );
   }
 

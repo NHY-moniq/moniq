@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:moniq/data/models/team_member_with_user.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 
 // ── 멤버 타일 ──
@@ -24,24 +25,29 @@ class MemberTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final m = member.member;
+    // 다크모드 호환: 고정 파스텔 색 대신 accent 색의 반투명 배경 + accent 글자색.
+    final isDark = colorScheme.brightness == Brightness.dark;
     final workAttributeTags = <Widget>[
       if (m.nightDedicated)
-        const MemberInfoTag(
+        MemberInfoTag(
           label: '나이트전담',
-          backgroundColor: Color(0xFFB3E5FC),
-          foregroundColor: Color(0xFF2196F3),
+          backgroundColor:
+              AppColors.shiftNight.withValues(alpha: isDark ? 0.24 : 0.18),
+          foregroundColor: AppColors.shiftNight,
         ),
       if (m.nightExempt)
-        const MemberInfoTag(
+        MemberInfoTag(
           label: '나이트제외',
-          backgroundColor: Color(0xFFFFE5C2),
-          foregroundColor: Color(0xFFB65F00),
+          backgroundColor:
+              AppColors.brandOrange.withValues(alpha: isDark ? 0.24 : 0.18),
+          foregroundColor: AppColors.brandOrange,
         ),
       if (m.dayOnly)
-        const MemberInfoTag(
+        MemberInfoTag(
           label: '데이전용',
-          backgroundColor: Color(0xFFFFECB3),
-          foregroundColor: Color(0xFF5B4B00),
+          backgroundColor:
+              AppColors.shiftDay.withValues(alpha: isDark ? 0.28 : 0.22),
+          foregroundColor: isDark ? AppColors.shiftDay : const Color(0xFF8A6D00),
         ),
     ];
 

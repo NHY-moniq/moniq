@@ -813,44 +813,16 @@ void showNoteForm(BuildContext context, WidgetRef ref,
     hasText.value = controller.text.trim().isNotEmpty;
   });
 
-  showModalBottomSheet(
+  showMoniqBottomSheet<void>(
     context: context,
-    useRootNavigator: true,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-    ),
-    builder: (ctx) => Padding(
-      padding: EdgeInsets.only(
-        left: AppSpacing.lg,
-        right: AppSpacing.lg,
-        top: AppSpacing.lg,
-        bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-              decoration: BoxDecoration(
-                color: Theme.of(ctx).colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          Text(
-            index == null ? '메모 추가' : '메모 수정',
-            style: Theme.of(ctx)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: AppSpacing.lg),
+    eyebrow: 'NOTE',
+    title: index == null ? '메모 추가' : '메모 수정',
+    child: Builder(
+      builder: (ctx) => SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           TextField(
             controller: controller,
             autofocus: true,
@@ -897,6 +869,7 @@ void showNoteForm(BuildContext context, WidgetRef ref,
             ),
           ),
         ],
+        ),
       ),
     ),
   );

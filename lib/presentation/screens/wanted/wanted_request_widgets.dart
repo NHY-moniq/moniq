@@ -467,7 +467,7 @@ class WantedRequestActiveView extends HookConsumerWidget {
         AppSpacing.xxl,
       ),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
+        color: colorScheme.surfaceContainerLow,
         border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       child: Column(
@@ -746,7 +746,7 @@ class WantedRequestActiveView extends HookConsumerWidget {
                         return Card(
                           margin: const EdgeInsets.only(bottom: AppSpacing.sm),
                           elevation: 0,
-                          color: AppColors.surfaceContainerLow,
+                          color: colorScheme.surfaceContainerLow,
                           shape: RoundedRectangleBorder(
                             borderRadius: AppRadius.borderRadiusMd,
                             side: BorderSide(color: colorScheme.outlineVariant),
@@ -758,7 +758,8 @@ class WantedRequestActiveView extends HookConsumerWidget {
                               children: [
                                 Container(
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.52),
+                                    color: colorScheme.surfaceContainerHighest
+                                        .withValues(alpha: 0.5),
                                     borderRadius: AppRadius.borderRadiusMd,
                                   ),
                                   child: InkWell(
@@ -992,7 +993,7 @@ class WantedRequestClosedView extends HookConsumerWidget {
         AppSpacing.xxl,
       ),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
+        color: colorScheme.surfaceContainerLow,
         border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       child: Column(
@@ -1121,7 +1122,7 @@ class WantedRequestClosedView extends HookConsumerWidget {
               return Card(
                 margin: const EdgeInsets.only(bottom: AppSpacing.lg),
                 elevation: 0,
-                color: AppColors.surfaceContainerLow,
+                color: colorScheme.surfaceContainerLow,
                 shape: RoundedRectangleBorder(
                   borderRadius: AppRadius.borderRadiusLg,
                   side: BorderSide(color: colorScheme.outlineVariant),
@@ -1133,7 +1134,7 @@ class WantedRequestClosedView extends HookConsumerWidget {
                     children: [
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.52),
+                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                           borderRadius: AppRadius.borderRadiusMd,
                         ),
                         child: InkWell(
@@ -1365,26 +1366,32 @@ class _NightDedicatedSelector extends HookConsumerWidget {
               color: const Color(0xFF0061A4).withValues(alpha: 0.14),
             ),
           ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.nightlight_round,
-                size: 16,
-                color: const Color(0xFF0061A4),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  hasExistingApproval
-                      ? '기존 확정 상태를 불러왔습니다.\n체크를 변경해 나이트 전담 인원을 수정할 수 있습니다.'
-                      : '확정할 나이트 전담 인원을 선택하세요.\n선택된 인원의 나이트 전담 속성이 활성화됩니다.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF0061A4),
+          child: Builder(builder: (context) {
+            // 다크모드에서는 대비를 위해 밝은 블루를 쓴다.
+            final nightInk = colorScheme.brightness == Brightness.dark
+                ? const Color(0xFF7FB7E8)
+                : const Color(0xFF0061A4);
+            return Row(
+              children: [
+                Icon(
+                  Icons.nightlight_round,
+                  size: 16,
+                  color: nightInk,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    hasExistingApproval
+                        ? '기존 확정 상태를 불러왔습니다.\n체크를 변경해 나이트 전담 인원을 수정할 수 있습니다.'
+                        : '확정할 나이트 전담 인원을 선택하세요.\n선택된 인원의 나이트 전담 속성이 활성화됩니다.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: nightInk,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            );
+          }),
         ),
 
         // 전체 선택 / 카운터
@@ -1403,7 +1410,7 @@ class _NightDedicatedSelector extends HookConsumerWidget {
               AppSpacing.sm,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colorScheme.surface,
               borderRadius: AppRadius.borderRadiusMd,
               border: Border.all(color: colorScheme.outlineVariant),
             ),
@@ -1447,7 +1454,7 @@ class _NightDedicatedSelector extends HookConsumerWidget {
               return Card(
                 margin: const EdgeInsets.only(bottom: AppSpacing.sm),
                 elevation: 0,
-                color: Colors.white,
+                color: colorScheme.surface,
                 shape: RoundedRectangleBorder(
                   borderRadius: AppRadius.borderRadiusMd,
                   side: BorderSide(color: colorScheme.outlineVariant),
@@ -1686,7 +1693,7 @@ class WantedModeTabs extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xs),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: AppRadius.borderRadiusFull,
         border: Border.all(color: colorScheme.outlineVariant),
       ),
@@ -1990,7 +1997,7 @@ class _WantedMetricChip extends StatelessWidget {
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
         borderRadius: AppRadius.borderRadiusFull,
         border: Border.all(color: colorScheme.outlineVariant),
       ),

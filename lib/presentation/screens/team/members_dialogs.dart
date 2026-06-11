@@ -98,13 +98,15 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
     return {'D', 'E', 'N'};
   }
 
+  // 속성 토글은 로컬 상태로 즉시 반영하고 백그라운드 저장한다.
+  // 전역 _saving 으로 모든 컨트롤을 dim 처리하면 한 속성을 바꿀 때 다른 속성들이
+  // 함께 깜빡이므로, 여기서는 _saving 을 건드리지 않는다.
   Future<void> _saveAttrs({
     required bool nightExempt,
     required bool dayOnly,
     required bool nightDedicated,
     List<String>? preferredShifts,
   }) async {
-    setState(() => _saving = true);
     try {
       await ref
           .read(teamDetailViewModelProvider(widget.teamId).notifier)
@@ -117,8 +119,6 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
           );
     } catch (e) {
       if (mounted) _showError('저장 중 오류가 발생했습니다: $e');
-    } finally {
-      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -196,18 +196,14 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
   }
 
   Future<void> _changeSkillLevel(String? skillLevel) async {
-    setState(() {
-      _skillLevel = skillLevel;
-      _saving = true;
-    });
+    // 즉시 로컬 반영 + 백그라운드 저장 (다른 속성 깜빡임 방지).
+    setState(() => _skillLevel = skillLevel);
     try {
       await ref
           .read(teamDetailViewModelProvider(widget.teamId).notifier)
           .updateMemberSkillLevel(widget.member.userId, skillLevel);
     } catch (e) {
       if (mounted) _showError('숙련도 변경 중 오류가 발생했습니다: $e');
-    } finally {
-      if (mounted) setState(() => _saving = false);
     }
   }
 

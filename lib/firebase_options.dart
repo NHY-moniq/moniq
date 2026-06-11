@@ -55,7 +55,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '480510198299',
     projectId: 'onoroff-f4607',
     storageBucket: 'onoroff-f4607.firebasestorage.app',
-    iosBundleId: 'com.onoroff.onoroff',
+    iosBundleId: 'com.moniq.onoroff',
   );
 
   static const FirebaseOptions android = FirebaseOptions(

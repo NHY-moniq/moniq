@@ -218,23 +218,27 @@ class TeamListScreen extends HookConsumerWidget {
   }
 
   void _showAddOptions(BuildContext context) {
-    showModalBottomSheet(
+    // 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+    showMoniqBottomSheet<void>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
+      eyebrow: 'TEAM',
+      title: '팀 추가',
+      child: Builder(
+        builder: (ctx) => Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ListTile(
-              leading: const Icon(Icons.add_circle_outline),
-              title: const Text('팀 만들기'),
+            MoniqSheetOption(
+              icon: Icons.add_circle_outline,
+              label: '팀 만들기',
               onTap: () {
                 Navigator.pop(ctx);
                 context.push('/teams/create');
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.vpn_key_outlined),
-              title: const Text('초대 코드로 참여'),
+            MoniqSheetOption(
+              icon: Icons.vpn_key_outlined,
+              label: '초대 코드로 참여',
               onTap: () {
                 Navigator.pop(ctx);
                 context.push('/teams/join');

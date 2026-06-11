@@ -383,15 +383,11 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
       '#FF8A65',
     ];
 
-    showModalBottomSheet(
+    showMoniqBottomSheet<void>(
       context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => StatefulBuilder(
+      eyebrow: 'SHIFT',
+      title: existing == null ? '근무 유형 추가' : '근무 유형 수정',
+      child: StatefulBuilder(
         builder: (ctx, setSheetState) {
           final badgeColor = parseHexColor(selectedColor);
           final codeInput = codeController.text.trim().toUpperCase();
@@ -411,37 +407,11 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
           String formatTime(TimeOfDay t) =>
               '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
-          return Padding(
-            padding: EdgeInsets.only(
-              left: AppSpacing.lg,
-              right: AppSpacing.lg,
-              top: AppSpacing.xl,
-              bottom:
-                  MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xl,
-            ),
+          return SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Theme.of(ctx).colorScheme.outlineVariant,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Text(
-                  existing == null ? '근무 유형 추가' : '근무 유형 수정',
-                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-
                 // 뱃지 + 이름
                 Row(
                   children: [

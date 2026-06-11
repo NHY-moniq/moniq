@@ -9,6 +9,7 @@ import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
@@ -392,64 +393,13 @@ void _showTeamPickerSheet(
   required String currentTeamId,
   String? favoriteTeamId,
 }) {
-  showModalBottomSheet<void>(
+  // 로그아웃 등 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+  showMoniqBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    // ShellRoute의 BottomNavigation을 가리도록 root Navigator 사용
-    useRootNavigator: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-    ),
-    builder: (ctx) {
-      final theme = Theme.of(ctx);
-      final cs = theme.colorScheme;
-      return SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            0,
-            AppSpacing.lg,
-            AppSpacing.lg,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header — eyebrow caption + large title for clear hierarchy.
-              // 상단 공백 축소 (drag handle 바로 아래)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.xs,
-                  0,
-                  AppSpacing.xs,
-                  AppSpacing.md,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'TEAM',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      '팀 선택',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Flexible(
-                child: Builder(
-                  builder: (_) {
+    eyebrow: 'TEAM',
+    title: '팀 선택',
+    child: Builder(
+      builder: (ctx) {
                     // 조직(public) / 개인(private) 그룹핑
                     // 조직 팀: 즐겨찾기를 가장 상단으로
                     final orgTeams = teams
@@ -522,14 +472,8 @@ void _showTeamPickerSheet(
                         ],
                       ],
                     );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
+      },
+    ),
   );
 }
 

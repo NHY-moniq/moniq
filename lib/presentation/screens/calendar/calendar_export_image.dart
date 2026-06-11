@@ -149,7 +149,11 @@ Future<Uint8List> _renderCalendarBytes(
         canvas, Offset(x + (cellW - dayPainter.width) / 2, dayTextY));
 
     // 미리보기 태그들 (근무 우선, 최대 4개)
-    double tagY = dayTextY + 28;
+    // 화면 캘린더와 비슷하게 글씨를 키운다(개인 캘린더는 셀당 일정 수가 적음).
+    const tagFontSize = 16.0;
+    const tagHeight = 28.0;
+    const tagStep = 32.0;
+    double tagY = dayTextY + 30;
     int tagCount = 0;
 
     // 근무 일정 태그
@@ -159,8 +163,8 @@ Future<Uint8List> _renderCalendarBytes(
         final shiftColor = parseHexColor(s.shiftType.color);
         drawPreviewTag(
             canvas, x, tagY, cellW, s.shiftType.name, shiftColor,
-            isWork: true);
-        tagY += 22;
+            isWork: true, fontSize: tagFontSize, tagHeight: tagHeight);
+        tagY += tagStep;
         tagCount++;
       }
     }
@@ -173,8 +177,8 @@ Future<Uint8List> _renderCalendarBytes(
             ? parseHexColor(e.color!)
             : const Color(0xFF38A169);
         drawPreviewTag(canvas, x, tagY, cellW, e.title, eventColor,
-            isWork: false);
-        tagY += 22;
+            isWork: false, fontSize: tagFontSize, tagHeight: tagHeight);
+        tagY += tagStep;
         tagCount++;
       }
     }
@@ -189,8 +193,8 @@ Future<Uint8List> _renderCalendarBytes(
 /// 내보내기 이미지용 미리보기 태그 그리기
 void drawPreviewTag(Canvas canvas, double x, double y, double cellW,
     String text, Color color,
-    {required bool isWork}) {
-  const tagH = 20.0;
+    {required bool isWork, double fontSize = 12, double tagHeight = 20}) {
+  final tagH = tagHeight;
   const hPad = 6.0;
   final tagW = cellW - 8;
   final tagX = x + 4;
@@ -218,7 +222,7 @@ void drawPreviewTag(Canvas canvas, double x, double y, double cellW,
     text: TextSpan(
       text: text,
       style: TextStyle(
-        fontSize: 12,
+        fontSize: fontSize,
         color: color,
         fontWeight: isWork ? FontWeight.w700 : FontWeight.w500,
       ),

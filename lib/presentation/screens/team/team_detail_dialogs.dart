@@ -365,7 +365,11 @@ void showEditTeamSheet({
                           pickedImageBytes!,
                           fileOptions: const FileOptions(upsert: true),
                         );
-                    iconUrl = client.storage.from('avatars').getPublicUrl(path);
+                    final publicUrl =
+                        client.storage.from('avatars').getPublicUrl(path);
+                    // 팀 아이콘 이미지 형식: "image|<url>"
+                    // (TeamIconData.parse가 이 프리픽스로 이미지를 인식한다).
+                    iconUrl = 'image|$publicUrl';
                   } catch (_) {}
                 }
 
