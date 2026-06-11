@@ -14,6 +14,7 @@ import 'package:moniq/presentation/viewmodels/request_viewmodel.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
 class RosterPanel extends ConsumerWidget {
   const RosterPanel({
@@ -365,71 +366,64 @@ class _ShiftTypeGroup extends ConsumerWidget {
     required Color targetShiftColor,
     required bool isMe,
   }) {
-    showModalBottomSheet(
+    showMoniqBottomSheet<void>(
       context: context,
-      useRootNavigator: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: AppSpacing.md),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.borderLight,
-                borderRadius: BorderRadius.circular(2),
+      eyebrow: 'ACTIONS',
+      title: '근무 수정',
+      child: Builder(
+        builder: (ctx) {
+          final cs = Theme.of(ctx).colorScheme;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 대상 근무자 컨텍스트
+              Text(
+                '$targetName · $targetShiftType',
+                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              '$targetName · $targetShiftType',
-              style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            // 근무 수정
-            ListTile(
-              leading: const Icon(Icons.edit_outlined,
-                  color: AppColors.primary),
-              title: const Text('근무 수정'),
-              subtitle: const Text('근무 유형 변경 또는 삭제 (관리자)'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showAdminEditSheet(
-                  context,
-                  ref,
-                  shiftId: shiftId,
-                  workerName: targetName,
-                );
-              },
-            ),
-            // 근무 교환 (본인 제외)
-            if (!isMe)
-              ListTile(
-                leading: const Icon(Icons.swap_horiz,
-                    color: AppColors.tertiary),
-                title: const Text('근무 교환 요청'),
-                subtitle: const Text('본인 근무와 교환 요청 제출'),
+              const SizedBox(height: AppSpacing.lg),
+              // 근무 수정
+              _AdminActionRow(
+                icon: Icons.edit_outlined,
+                label: '근무 수정',
+                subLabel: '근무 유형 변경 또는 삭제 (관리자)',
                 onTap: () {
                   Navigator.pop(ctx);
-                  _showSwapSheet(
+                  _showAdminEditSheet(
                     context,
                     ref,
-                    targetUserId: targetUser.id,
-                    targetName: targetName,
-                    targetShiftType: targetShiftType,
-                    targetShiftColor: targetShiftColor,
+                    shiftId: shiftId,
+                    workerName: targetName,
                   );
                 },
               ),
-            const SizedBox(height: AppSpacing.sm),
-          ],
-        ),
+              // 근무 교환 (본인 제외)
+              if (!isMe) ...[
+                const SizedBox(height: 6),
+                _AdminActionRow(
+                  icon: Icons.swap_horiz,
+                  label: '근무 교환 요청',
+                  subLabel: '본인 근무와 교환 요청 제출',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showSwapSheet(
+                      context,
+                      ref,
+                      targetUserId: targetUser.id,
+                      targetName: targetName,
+                      targetShiftType: targetShiftType,
+                      targetShiftColor: targetShiftColor,
+                    );
+                  },
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -963,30 +957,15 @@ class _ShiftTypeGroup extends ConsumerWidget {
             .toList() ??
         <ShiftTypeModel>[];
 
-    showModalBottomSheet(
+    showMoniqBottomSheet<void>(
       context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: AppSpacing.xxl,
-          right: AppSpacing.xxl,
-          top: AppSpacing.xxl,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xxl,
-        ),
-        child: Column(
+      title: '근무 수정',
+      eyebrow: 'ADMIN',
+      child: Builder(
+        builder: (ctx) => Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('근무 수정 (관리자)',
-                style: Theme.of(ctx)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: AppSpacing.sm),
             Text('$dateStr · $workerName',
                 style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                       color: AppColors.onSurfaceVariant,
@@ -1055,24 +1034,11 @@ class _ShiftTypeGroup extends ConsumerWidget {
               icon: const Icon(Icons.delete_outline),
               label: const Text('이 근무 삭제'),
               onPressed: () async {
-                final confirm = await showDialog<bool>(
+                final confirm = await showMoniqDestructiveConfirm(
                   context: ctx,
-                  builder: (dctx) => AlertDialog(
-                    title: const Text('근무 삭제'),
-                    content: Text('$workerName의 $dateStr 근무를 삭제하시겠습니까?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(dctx, false),
-                        child: const Text('취소'),
-                      ),
-                      TextButton(
-                        style: TextButton.styleFrom(
-                            foregroundColor: AppColors.error),
-                        onPressed: () => Navigator.pop(dctx, true),
-                        child: const Text('삭제'),
-                      ),
-                    ],
-                  ),
+                  title: '근무 삭제',
+                  message: '$workerName의 $dateStr 근무를 삭제하시겠습니까?',
+                  confirmLabel: '삭제',
                 );
                 if (confirm != true) return;
                 if (ctx.mounted) Navigator.pop(ctx);
@@ -2269,5 +2235,77 @@ class _MultiDateSwapSheetState extends ConsumerState<_MultiDateSwapSheet> {
   String _dow(DateTime d) {
     const labels = ['월', '화', '수', '목', '금', '토', '일'];
     return labels[d.weekday - 1];
+  }
+}
+
+/// 표준 액션 시트 행 — `date_items_panel.dart`의 `_ActionSheetTile`
+/// (rounded filled 카드 + 아이콘 원형 칩) 모양을 본떠 제목/부제를 더한 행.
+class _AdminActionRow extends StatelessWidget {
+  const _AdminActionRow({
+    required this.icon,
+    required this.label,
+    required this.subLabel,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String subLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Material(
+      color: cs.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(icon, size: 18, color: cs.onSurface),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subLabel,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

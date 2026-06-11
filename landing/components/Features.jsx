@@ -58,81 +58,50 @@ const FeatureTeamCalendar = () => (
             boxShadow: '0 6px 16px rgba(49,47,35,.06)',
           }}>팀 캘린더</div>
         </div>
-        {/* 연동 인디케이터 — 근무 칩이 팀→개인 캘린더로 흘러감 */}
+        {/* 연동 인디케이터 — 빙글빙글 sync 아이콘 */}
         <div style={{
-          position: 'relative', width: 138, height: 210,
-          margin: '0 -12px 36px', alignSelf: 'center', zIndex: 5,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          width: 100, margin: '0 -8px 36px', alignSelf: 'center', zIndex: 5, gap: 10,
           flexShrink: 0,
         }}>
-          {/* 곡선 path */}
-          <svg width="138" height="210" style={{ position: 'absolute', inset: 0, overflow: 'visible' }}>
-            <path d="M4,128 C46,128 90,82 134,82" fill="none"
-              stroke="rgba(224,120,0,.4)" strokeWidth="2.5"
-              strokeDasharray="3 6" strokeLinecap="round" />
-          </svg>
-          {/* 흐르는 근무 칩 — 팀에서 개인으로 */}
-          {[
-            { c: 'D', bg: '#FFD54F', fg: '#312F23', d: 0 },
-            { c: 'E', bg: '#FF8C00', fg: '#fff', d: 1.4 },
-            { c: 'N', bg: '#5C6BC0', fg: '#fff', d: 2.8 },
-          ].map(s => (
-            <span key={s.c} className="sync-flow-chip"
-              style={{ background: s.bg, color: s.fg, animationDelay: `${s.d}s` }}>
-              {s.c}
-            </span>
-          ))}
-          {/* 중앙 sync 배지 + 펄스 ring */}
-          <div style={{ position: 'absolute', left: '50%', top: 105, transform: 'translate(-50%,-50%)' }}>
-            <div className="sync-pulse" />
-            <div style={{
-              position: 'relative',
-              width: 44, height: 44, borderRadius: '50%',
+          <div style={{ position: 'relative', width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="tc-sync-pulse" />
+            <div className="tc-sync-icon" style={{
+              width: 56, height: 56, borderRadius: '50%',
               background: 'linear-gradient(135deg, #FFD700, #FF8C00)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 10px 22px rgba(255,140,0,.4)',
+              boxShadow: '0 12px 28px rgba(255,140,0,.45)',
               border: '3px solid #F7F1DC',
+              position: 'relative', zIndex: 1,
             }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 22, color: '#fff', fontVariationSettings: "'FILL' 1" }}>sync_alt</span>
+              <span className="material-symbols-outlined" style={{ fontSize: 28, color: '#fff', fontVariationSettings: "'FILL' 1" }}>sync</span>
             </div>
           </div>
-          {/* 라벨 */}
           <div style={{
-            position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
             background: '#312F23', color: '#FCF6E3',
             padding: '6px 12px', borderRadius: 9999,
             font: '800 10px/1 var(--font-family)', whiteSpace: 'nowrap',
             boxShadow: '0 8px 18px rgba(49,47,35,.25)',
-          }}>근무 자동 연동</div>
+          }}>자동 연동</div>
         </div>
         <style>{`
-          @keyframes syncFlow {
-            0%   { offset-distance: 0%;   opacity: 0; }
-            14%  { opacity: 1; }
-            86%  { opacity: 1; }
-            100% { offset-distance: 100%; opacity: 0; }
+          @keyframes tcSyncSpin {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
           }
-          .sync-flow-chip {
-            position: absolute; width: 26px; height: 26px; border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
-            font: 900 12px/1 var(--font-family);
-            box-shadow: 0 5px 12px rgba(49,47,35,.28);
-            offset-path: path('M4,128 C46,128 90,82 134,82');
-            offset-rotate: 0deg;
-            animation: syncFlow 4.2s linear infinite;
+          .tc-sync-icon span { animation: tcSyncSpin 2.8s linear infinite; display: block; }
+          @keyframes tcSyncPulse {
+            0%,100% { transform: scale(1); opacity: .45; }
+            50%     { transform: scale(1.9); opacity: 0; }
           }
-          @keyframes syncPulse {
-            0%,100% { transform: scale(1); opacity: .5; }
-            50%     { transform: scale(1.7); opacity: 0; }
-          }
-          .sync-pulse {
-            position: absolute; left: 50%; top: 50%;
-            width: 44px; height: 44px; margin: -22px 0 0 -22px;
-            border-radius: 50%; background: rgba(255,140,0,.4);
-            animation: syncPulse 2.4s ease-out infinite;
+          .tc-sync-pulse {
+            position: absolute; width: 56px; height: 56px;
+            border-radius: 50%; background: rgba(255,140,0,.35);
+            animation: tcSyncPulse 2.6s ease-out infinite;
           }
           @media (prefers-reduced-motion: reduce) {
-            .sync-flow-chip, .sync-pulse { animation: none; }
-            .sync-flow-chip { opacity: 1; }
+            .tc-sync-icon span { animation: none; }
+            .tc-sync-pulse { animation: none; }
           }
         `}</style>
         {/* 개인 캘린더 — 보조. 표준 폰을 scale로 축소해 보더·콘텐츠 비율 유지 */}
@@ -158,7 +127,7 @@ const FeatureTeamCalendar = () => (
           팀 캘린더 자동 연동으로<br />근무를 쉽고 빠르게 파악할 수 있어요.
         </h2>
         <p style={{ font: '500 18px/1.55 var(--font-family)', color: '#5F5C4D', marginTop: 22, maxWidth: 520 }}>
-          병동이든 식당이든, 함께 일하는 사람이라면 팀이 돼요.<br />
+          병동이든, 함께 일하는 사람이라면 팀이 돼요.<br />
           한 화면에서 누가 언제 들어오고 누가 쉬는지 한눈에 확인해요.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 32 }}>
@@ -509,8 +478,8 @@ const FeatureCustomRules = () => {
           maxWidth: 640, margin: '24px auto 0',
           textWrap: 'balance',
         }}>
-          정해진 옵션 밖의 규칙도 자연어로 입력해요.<br />
-          AI가 의미를 파악해서 근무표에 반영하고, 하드·소프트 우선순위까지 자동 분류해요.
+          규칙을 자연어로 직접 입력하고,<br />
+          반드시 지킬 규칙(하드)과 가급적 지킬 규칙(소프트)의 우선순위를 직접 설정해요.
         </p>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center', marginTop: 32, position: 'relative' }}>
@@ -615,7 +584,7 @@ const FeatureCustomRules = () => {
                   <span style={{ background: 'rgba(176,37,0,.12)', color: '#B02500', padding: '5px 10px', borderRadius: 9999, font: '800 11px/1 var(--font-family)' }}>하드 2</span>
                   <span style={{ background: 'rgba(255,193,7,.2)', color: '#6B5300', padding: '5px 10px', borderRadius: 9999, font: '800 11px/1 var(--font-family)' }}>소프트 3</span>
                 </div>
-                <div style={{ font: '600 11px/1.45 var(--font-family)', color: '#5F5C4D', marginTop: 10 }}>입력한 규칙을 하드·소프트로 자동 분류해요</div>
+                <div style={{ font: '600 11px/1.45 var(--font-family)', color: '#5F5C4D', marginTop: 10 }}>하드(필수)·소프트(권장) 우선순위를 직접 설정해요</div>
               </div>
             </FloatingPanel>
           </div>

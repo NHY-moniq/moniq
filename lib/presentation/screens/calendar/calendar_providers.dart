@@ -3,9 +3,12 @@ import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_note_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_shift_override_remote_data_source.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
+import 'package:moniq/data/models/shift_type_model.dart';
+import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
+import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 
 // ── Providers ──
 
@@ -54,6 +57,19 @@ final personalShiftTypeDataSourceProvider =
 final personalShiftTypesProvider = Provider<List<PersonalShiftType>>(
   (ref) => ref.watch(personalShiftTypeDataSourceProvider).getAll(),
 );
+
+/// 즐겨찾기 팀이 있으면 그 팀의 근무 유형을, 없으면 빈 리스트를 반환.
+/// 개인 캘린더의 "근무 추가/변경"과 셀 코드 미리보기에서 팀/개인 분기에 사용.
+final favoriteTeamShiftTypesProvider =
+    FutureProvider<List<ShiftTypeModel>>((ref) async {
+  final fav = await ref.watch(favoriteTeamProvider.future);
+  if (fav == null) return const <ShiftTypeModel>[];
+  try {
+    return await ref.watch(shiftRepositoryProvider).getShiftTypes(fav.id);
+  } catch (_) {
+    return const <ShiftTypeModel>[];
+  }
+});
 
 final personalShiftOverrideRemoteProvider =
     Provider<PersonalShiftOverrideRemoteDataSource>(

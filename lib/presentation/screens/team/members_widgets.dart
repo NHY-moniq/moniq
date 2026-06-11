@@ -74,10 +74,24 @@ class MemberTile extends StatelessWidget {
           ),
           if (isSelf) ...[
             const SizedBox(width: AppSpacing.xs),
-            Text(
-              '(나)',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xxs,
+              ),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withValues(alpha: 0.16),
+                borderRadius: AppRadius.borderRadiusFull,
+                border: Border.all(
+                  color: colorScheme.primary.withValues(alpha: 0.32),
+                ),
+              ),
+              child: Text(
+                '(나)',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
           ],

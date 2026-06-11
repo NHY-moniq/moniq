@@ -1,6 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/datasources/announcement_remote_data_source.dart';
 import 'package:moniq/data/models/announcement_model.dart';
+import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/repositories/announcement_repository.dart';
 
@@ -52,6 +53,36 @@ final teamAnnouncementsProvider =
   final repo = ref.watch(announcementRepositoryProvider);
   return repo.getByTeam(teamId);
 });
+
+/// 개인 핀 고정 공지 ID 집합 — SharedPreferences에 로컬 저장.
+/// 각 유저가 자신의 기기에서 공지를 상단 고정할 수 있다.
+final pinnedAnnouncementIdsProvider =
+    NotifierProvider<_PinnedAnnouncementNotifier, Set<String>>(
+  _PinnedAnnouncementNotifier.new,
+);
+
+class _PinnedAnnouncementNotifier extends Notifier<Set<String>> {
+  static const _key = 'pinned_announcement_ids';
+
+  @override
+  Set<String> build() {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    final raw = prefs.getStringList(_key) ?? [];
+    return raw.toSet();
+  }
+
+  void toggle(String id) {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final next = {...state};
+    if (next.contains(id)) {
+      next.remove(id);
+    } else {
+      next.add(id);
+    }
+    prefs.setStringList(_key, next.toList());
+    state = next;
+  }
+}
 
 /// 특정 공지의 댓글
 final announcementCommentsProvider = FutureProvider.family<

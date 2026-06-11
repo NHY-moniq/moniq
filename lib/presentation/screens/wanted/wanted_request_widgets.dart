@@ -4,6 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/data/datasources/push_service.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/models/team_member_with_user.dart';
 import 'package:moniq/data/models/wanted_request_model.dart';
@@ -318,6 +319,9 @@ class WantedRequestActiveView extends HookConsumerWidget {
     final shiftTypeMap = {
       for (final t in (shiftTypesAsync.valueOrNull ?? [])) t.id: t,
     };
+    final membersAsync = ref.watch(_requestWidgetsTeamMembersProvider(teamId));
+    final teamMembers =
+        membersAsync.valueOrNull ?? const <TeamMemberWithUser>[];
 
     // 팀원별 엔트리 그루핑
     final groupedByUser = <String, WantedRequestUserEntryGroup>{};
@@ -345,13 +349,22 @@ class WantedRequestActiveView extends HookConsumerWidget {
     }
     final userGroups = groupedByUser.values.toList();
     final activeGroupSeed = userGroups.map((g) => g.userId).join(',');
-    final expandedActiveUserIds = useState<Set<String>>(
-      userGroups.map((g) => g.userId).toSet(),
-    );
+    final expandedActiveUserIds = useState<Set<String>>({});
     useEffect(() {
-      expandedActiveUserIds.value = userGroups.map((g) => g.userId).toSet();
+      expandedActiveUserIds.value = {};
       return null;
     }, [activeGroupSeed, isNight]);
+    final respondedUserIds = groupedByUser.keys.toSet();
+    final totalMemberCount = teamMembers.length;
+    final respondedCount = userGroups.length;
+    final missingMembers =
+        teamMembers
+            .where((member) => !respondedUserIds.contains(member.userId))
+            .toList()
+          ..sort((a, b) => a.displayName.compareTo(b.displayName));
+    final responseLabel = totalMemberCount > 0
+        ? '$totalMemberCount명 중 $respondedCount명 응답'
+        : '$respondedCount명 응답';
 
     // 엔트리 칩 빌더 (shiftTypeId 기반: null=오프/회색, non-null=근무 유형 색)
     Widget entryChip(WantedEntryDisplayItem item) {
@@ -365,28 +378,15 @@ class WantedRequestActiveView extends HookConsumerWidget {
         chipColor = AppColors.shiftOff;
         avatarLabel = 'O';
       }
-      final chip = Chip(
-        avatar: CircleAvatar(
-          backgroundColor: chipColor.withValues(alpha: 0.25),
-          child: Text(
-            avatarLabel,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-              color: chipColor,
-            ),
-          ),
-        ),
+      final chip = WantedEntryPill(
+        color: chipColor,
+        avatarLabel: avatarLabel,
         label: Text(
           '${dateFormat.format(item.date)} · ${item.priority}순위',
           style: theme.textTheme.labelSmall?.copyWith(
             fontWeight: FontWeight.w600,
           ),
         ),
-        visualDensity: VisualDensity.compact,
-        backgroundColor: chipColor.withValues(alpha: 0.08),
-        side: BorderSide(color: chipColor.withValues(alpha: 0.2)),
-        padding: EdgeInsets.zero,
       );
       final hasReason = item.reason != null && item.reason!.isNotEmpty;
       if (!hasReason) return chip;
@@ -406,6 +406,30 @@ class WantedRequestActiveView extends HookConsumerWidget {
       return '마감일 지남';
     }
 
+    Color daysLeftColor(DateTime deadline) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final deadlineDay = DateTime(deadline.year, deadline.month, deadline.day);
+      final days = deadlineDay.difference(today).inDays;
+      if (days < 0) return colorScheme.error;
+      if (days <= 3) return AppColors.brandOrange;
+      return colorScheme.onSurfaceVariant;
+    }
+
+    Future<void> showMissingMembersSheet() async {
+      await showMoniqBottomSheet<void>(
+        context: context,
+        title: '미응답자',
+        eyebrow: 'WANTED',
+        child: _WantedMissingMembersSheet(
+          teamId: teamId,
+          teamName: teamName,
+          request: request,
+          missingMembers: missingMembers,
+        ),
+      );
+    }
+
     // 타입 전환 칩: 나이트 전담과 원티드가 모두 있을 때만 표시
     final hasNight = state.activeRequests.any(
       (r) => r.wantedType == 'night_dedicated',
@@ -419,24 +443,16 @@ class WantedRequestActiveView extends HookConsumerWidget {
               horizontal: AppSpacing.lg,
               vertical: AppSpacing.md,
             ),
-            child: Wrap(
-              spacing: AppSpacing.sm,
-              children: [
-                ChoiceChip(
-                  label: const Text('원티드'),
-                  selected: !isNight,
-                  onSelected: (_) => ref
-                      .read(wantedAdminViewModelProvider(teamId).notifier)
-                      .selectType('day_off'),
-                ),
-                ChoiceChip(
-                  label: const Text('나이트 전담'),
-                  selected: isNight,
-                  onSelected: (_) => ref
-                      .read(wantedAdminViewModelProvider(teamId).notifier)
-                      .selectType('night_dedicated'),
-                ),
-              ],
+            child: Center(
+              child: WantedModeTabs(
+                isNight: isNight,
+                onWanted: () => ref
+                    .read(wantedAdminViewModelProvider(teamId).notifier)
+                    .selectType('day_off'),
+                onNight: () => ref
+                    .read(wantedAdminViewModelProvider(teamId).notifier)
+                    .selectType('night_dedicated'),
+              ),
             ),
           )
         : const SizedBox.shrink();
@@ -444,53 +460,39 @@ class WantedRequestActiveView extends HookConsumerWidget {
     // 상태 배너 (공통)
     Widget statusBanner() => Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      color: colorScheme.primary.withValues(alpha: 0.08),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xxl,
+        AppSpacing.lg,
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.brandOrange.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                  border: Border.all(
-                    color: AppColors.brandOrange.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.circle, size: 8, color: AppColors.brandOrange),
-                    const SizedBox(width: 4),
-                    Text(
-                      '수집 중',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.brandOrange,
-                      ),
-                    ),
-                  ],
-                ),
+              const _WantedStatusPill(
+                label: '수집 중',
+                color: AppColors.brandOrange,
+                icon: Icons.circle,
               ),
               const Spacer(),
               if (request.deadline != null)
-                Text(
-                  dDayText(),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                _WantedStatusPill(
+                  label: dDayText(),
+                  color: daysLeftColor(request.deadline!),
                 ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.md),
           Text(
-            '원티드 수집 진행 중',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
+            isNight ? '나이트 전담 수집 진행 중' : '원티드 수집 진행 중',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
@@ -501,26 +503,27 @@ class WantedRequestActiveView extends HookConsumerWidget {
               color: colorScheme.onSurfaceVariant,
             ),
           ),
-          if (request.deadline != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              '마감: ${DateFormat('yyyy.MM.dd').format(request.deadline!)}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.sm),
-          Row(
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
             children: [
-              Icon(Icons.people_outline, size: 14, color: colorScheme.primary),
-              const SizedBox(width: 4),
-              Text(
-                '${userGroups.length}명 응답 · ${state.allEntries.length}건',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w600,
+              if (request.deadline != null)
+                _WantedMetricChip(
+                  icon: Icons.event_available_rounded,
+                  label:
+                      '마감 ${DateFormat('yyyy.MM.dd').format(request.deadline!)}',
                 ),
+              _WantedMetricChip(
+                icon: Icons.groups_rounded,
+                label: responseLabel,
+                color: colorScheme.primary,
+                onTap: showMissingMembersSheet,
+              ),
+              _WantedMetricChip(
+                icon: Icons.checklist_rounded,
+                label: '${state.allEntries.length}건',
+                color: AppColors.brandOrange,
               ),
             ],
           ),
@@ -528,35 +531,37 @@ class WantedRequestActiveView extends HookConsumerWidget {
       ),
     );
 
+    Widget closeRequestButton() => SizedBox(
+      width: double.infinity,
+      child: FilledButton.tonalIcon(
+        style: FilledButton.styleFrom(
+          backgroundColor: colorScheme.errorContainer,
+          foregroundColor: colorScheme.onErrorContainer,
+        ),
+        onPressed: () async {
+          final confirm = await showMoniqConfirmSheet(
+            context: context,
+            title: '수집 마감',
+            message: '원티드 수집을 마감하시겠습니까?',
+            confirmLabel: '마감',
+            destructive: true,
+          );
+          if (confirm == true) {
+            await ref
+                .read(wantedAdminViewModelProvider(teamId).notifier)
+                .closeRequest();
+          }
+        },
+        icon: const Icon(Icons.check_circle_outline),
+        label: const Text('수집 마감'),
+      ),
+    );
+
     // 하단 버튼 (공통)
     Widget bottomButtons() => SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
-        child: SizedBox(
-          width: double.infinity,
-          child: FilledButton.tonalIcon(
-            style: FilledButton.styleFrom(
-              backgroundColor: colorScheme.errorContainer,
-              foregroundColor: colorScheme.onErrorContainer,
-            ),
-            onPressed: () async {
-              final confirm = await showMoniqConfirmSheet(
-                context: context,
-                title: '수집 마감',
-                message: '원티드 수집을 마감하시겠습니까?',
-                confirmLabel: '마감',
-                destructive: true,
-              );
-              if (confirm == true) {
-                await ref
-                    .read(wantedAdminViewModelProvider(teamId).notifier)
-                    .closeRequest();
-              }
-            },
-            icon: const Icon(Icons.check_circle_outline),
-            label: const Text('수집 마감'),
-          ),
-        ),
+        child: closeRequestButton(),
       ),
     );
 
@@ -680,6 +685,7 @@ class WantedRequestActiveView extends HookConsumerWidget {
               teamId: teamId,
               entries: state.allEntries,
               isActive: true,
+              footerButton: closeRequestButton(),
             ),
           )
         else
@@ -738,72 +744,82 @@ class WantedRequestActiveView extends HookConsumerWidget {
                             ? group.displayName[0].toUpperCase()
                             : '?';
                         return Card(
-                          margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                          margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          elevation: 0,
+                          color: AppColors.surfaceContainerLow,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: AppRadius.borderRadiusMd,
+                            side: BorderSide(color: colorScheme.outlineVariant),
+                          ),
                           child: Padding(
-                            padding: const EdgeInsets.all(AppSpacing.lg),
+                            padding: const EdgeInsets.all(AppSpacing.md),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                InkWell(
-                                  borderRadius: BorderRadius.circular(
-                                    AppRadius.md,
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.52),
+                                    borderRadius: AppRadius.borderRadiusMd,
                                   ),
-                                  onTap: () {
-                                    final next = Set<String>.from(
-                                      expandedActiveUserIds.value,
-                                    );
-                                    if (isExpanded) {
-                                      next.remove(group.userId);
-                                    } else {
-                                      next.add(group.userId);
-                                    }
-                                    expandedActiveUserIds.value = next;
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: AppSpacing.xs,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 18,
-                                          backgroundColor: colorScheme.primary
-                                              .withValues(alpha: 0.12),
-                                          child: Text(
-                                            initial,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w700,
-                                              color: colorScheme.primary,
+                                  child: InkWell(
+                                    borderRadius: AppRadius.borderRadiusMd,
+                                    onTap: () {
+                                      final next = Set<String>.from(
+                                        expandedActiveUserIds.value,
+                                      );
+                                      if (isExpanded) {
+                                        next.remove(group.userId);
+                                      } else {
+                                        next.add(group.userId);
+                                      }
+                                      expandedActiveUserIds.value = next;
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(
+                                        AppSpacing.sm,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 17,
+                                            backgroundColor: colorScheme.primary
+                                                .withValues(alpha: 0.14),
+                                            child: Text(
+                                              initial,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w900,
+                                                color: colorScheme.primary,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: AppSpacing.md),
-                                        Expanded(
-                                          child: Text(
-                                            group.displayName,
-                                            style: theme.textTheme.titleSmall
+                                          const SizedBox(width: AppSpacing.sm),
+                                          Expanded(
+                                            child: Text(
+                                              group.displayName,
+                                              style: theme.textTheme.titleSmall
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w800,
+                                                  ),
+                                            ),
+                                          ),
+                                          Text(
+                                            '${group.items.length}건',
+                                            style: theme.textTheme.bodySmall
                                                 ?.copyWith(
-                                                  fontWeight: FontWeight.w600,
+                                                  color: colorScheme.primary,
+                                                  fontWeight: FontWeight.w900,
                                                 ),
                                           ),
-                                        ),
-                                        Text(
-                                          '${group.items.length}건',
-                                          style: theme.textTheme.bodySmall
-                                              ?.copyWith(
-                                                color: colorScheme.primary,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                        ),
-                                        const SizedBox(width: AppSpacing.xs),
-                                        Icon(
-                                          isExpanded
-                                              ? Icons.keyboard_arrow_up
-                                              : Icons.keyboard_arrow_down,
-                                          color: colorScheme.onSurfaceVariant,
-                                        ),
-                                      ],
+                                          const SizedBox(width: AppSpacing.xs),
+                                          Icon(
+                                            isExpanded
+                                                ? Icons.keyboard_arrow_up
+                                                : Icons.keyboard_arrow_down,
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -811,11 +827,11 @@ class WantedRequestActiveView extends HookConsumerWidget {
                                   firstChild: const SizedBox.shrink(),
                                   secondChild: Padding(
                                     padding: const EdgeInsets.only(
-                                      top: AppSpacing.md,
+                                      top: AppSpacing.sm,
                                     ),
                                     child: Wrap(
-                                      spacing: AppSpacing.sm,
-                                      runSpacing: AppSpacing.sm,
+                                      spacing: AppSpacing.xs,
+                                      runSpacing: AppSpacing.xs,
                                       children: group.items
                                           .map(entryChip)
                                           .toList(),
@@ -835,7 +851,7 @@ class WantedRequestActiveView extends HookConsumerWidget {
             ),
           ),
 
-        bottomButtons(),
+        if (!isNight) bottomButtons(),
       ],
     );
   }
@@ -928,18 +944,9 @@ class WantedRequestClosedView extends HookConsumerWidget {
             : AppColors.success;
         avatarLabel = '${item.priority}';
       }
-      final chip = Chip(
-        avatar: CircleAvatar(
-          backgroundColor: chipColor.withValues(alpha: 0.25),
-          child: Text(
-            avatarLabel,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-              color: chipColor,
-            ),
-          ),
-        ),
+      final chip = WantedEntryPill(
+        color: chipColor,
+        avatarLabel: avatarLabel,
         label: Text(
           !isNight
               ? '${DateFormat('MM.dd').format(item.date)} · ${item.priority}순위'
@@ -948,10 +955,6 @@ class WantedRequestClosedView extends HookConsumerWidget {
             context,
           ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
-        visualDensity: VisualDensity.compact,
-        backgroundColor: chipColor.withValues(alpha: 0.08),
-        side: BorderSide(color: chipColor.withValues(alpha: 0.2)),
-        padding: EdgeInsets.zero,
       );
       final hasReason = item.reason != null && item.reason!.isNotEmpty;
       if (!hasReason) return chip;
@@ -965,24 +968,16 @@ class WantedRequestClosedView extends HookConsumerWidget {
               horizontal: AppSpacing.lg,
               vertical: AppSpacing.md,
             ),
-            child: Wrap(
-              spacing: AppSpacing.sm,
-              children: [
-                ChoiceChip(
-                  label: const Text('원티드'),
-                  selected: !isNight,
-                  onSelected: (_) => ref
-                      .read(wantedAdminViewModelProvider(teamId).notifier)
-                      .selectClosedType('day_off'),
-                ),
-                ChoiceChip(
-                  label: const Text('나이트 전담'),
-                  selected: isNight,
-                  onSelected: (_) => ref
-                      .read(wantedAdminViewModelProvider(teamId).notifier)
-                      .selectClosedType('night_dedicated'),
-                ),
-              ],
+            child: Center(
+              child: WantedModeTabs(
+                isNight: isNight,
+                onWanted: () => ref
+                    .read(wantedAdminViewModelProvider(teamId).notifier)
+                    .selectClosedType('day_off'),
+                onNight: () => ref
+                    .read(wantedAdminViewModelProvider(teamId).notifier)
+                    .selectClosedType('night_dedicated'),
+              ),
             ),
           )
         : const SizedBox.shrink();
@@ -990,49 +985,29 @@ class WantedRequestClosedView extends HookConsumerWidget {
     // 마감 배너
     Widget closedBanner() => Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      color: colorScheme.surfaceContainerHigh,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xxl,
+        AppSpacing.lg,
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                  border: Border.all(
-                    color: colorScheme.outline.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.check_circle_outline,
-                      size: 10,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '수집 마감',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          _WantedStatusPill(
+            label: '수집 마감',
+            color: colorScheme.onSurfaceVariant,
+            icon: Icons.check_circle_outline,
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.md),
           Text(
             isNight ? '나이트 전담 수집 결과' : '원티드 수집 결과',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
@@ -1043,21 +1018,18 @@ class WantedRequestClosedView extends HookConsumerWidget {
               color: colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
             children: [
-              Icon(
-                Icons.people_outline,
-                size: 14,
-                color: colorScheme.onSurfaceVariant,
+              _WantedMetricChip(
+                icon: Icons.groups_rounded,
+                label: '${userGroups.length}명 응답',
               ),
-              const SizedBox(width: 4),
-              Text(
-                '${userGroups.length}명 응답 · ${state.lastClosedEntries.length}건',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
+              _WantedMetricChip(
+                icon: Icons.checklist_rounded,
+                label: '${state.lastClosedEntries.length}건',
               ),
             ],
           ),
@@ -1147,69 +1119,79 @@ class WantedRequestClosedView extends HookConsumerWidget {
                   ? group.displayName[0].toUpperCase()
                   : '?';
               return Card(
-                margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+                elevation: 0,
+                color: AppColors.surfaceContainerLow,
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.borderRadiusLg,
+                  side: BorderSide(color: colorScheme.outlineVariant),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      InkWell(
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                        onTap: () {
-                          final next = Set<String>.from(
-                            expandedClosedUserIds.value,
-                          );
-                          if (isExpanded) {
-                            next.remove(group.userId);
-                          } else {
-                            next.add(group.userId);
-                          }
-                          expandedClosedUserIds.value = next;
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: AppSpacing.xs,
-                          ),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 18,
-                                backgroundColor:
-                                    colorScheme.surfaceContainerHigh,
-                                child: Text(
-                                  closedInitial,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: colorScheme.onSurfaceVariant,
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.52),
+                          borderRadius: AppRadius.borderRadiusMd,
+                        ),
+                        child: InkWell(
+                          borderRadius: AppRadius.borderRadiusMd,
+                          onTap: () {
+                            final next = Set<String>.from(
+                              expandedClosedUserIds.value,
+                            );
+                            if (isExpanded) {
+                              next.remove(group.userId);
+                            } else {
+                              next.add(group.userId);
+                            }
+                            expandedClosedUserIds.value = next;
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor:
+                                      colorScheme.surfaceContainerHigh,
+                                  child: Text(
+                                    closedInitial,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w900,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: AppSpacing.md),
-                              Expanded(
-                                child: Text(
-                                  group.displayName,
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
+                                const SizedBox(width: AppSpacing.md),
+                                Expanded(
+                                  child: Text(
+                                    group.displayName,
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              if (!isNight)
-                                Text(
-                                  '${group.items.length}건',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
+                                if (!isNight)
+                                  Text(
+                                    '${group.items.length}건',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w900,
+                                    ),
                                   ),
+                                const SizedBox(width: AppSpacing.xs),
+                                Icon(
+                                  isExpanded
+                                      ? Icons.keyboard_arrow_up
+                                      : Icons.keyboard_arrow_down,
+                                  color: colorScheme.onSurfaceVariant,
                                 ),
-                              const SizedBox(width: AppSpacing.xs),
-                              Icon(
-                                isExpanded
-                                    ? Icons.keyboard_arrow_up
-                                    : Icons.keyboard_arrow_down,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -1277,10 +1259,12 @@ class _NightDedicatedSelector extends HookConsumerWidget {
     required this.teamId,
     required this.entries,
     required this.isActive,
+    this.footerButton,
   });
 
   final String teamId;
   final List<WantedEntryWithUser> entries;
+  final Widget? footerButton;
 
   /// true: 활성 수집 중 (수집 마감 버튼도 표시), false: 마감 후 결과 보기
   final bool isActive;
@@ -1364,11 +1348,23 @@ class _NightDedicatedSelector extends HookConsumerWidget {
         // 안내 배너
         Container(
           width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.sm,
+          ),
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
           ),
-          color: const Color(0xFF0061A4).withValues(alpha: 0.08),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0061A4).withValues(alpha: 0.08),
+            borderRadius: AppRadius.borderRadiusMd,
+            border: Border.all(
+              color: const Color(0xFF0061A4).withValues(alpha: 0.14),
+            ),
+          ),
           child: Row(
             children: [
               Icon(
@@ -1393,91 +1389,119 @@ class _NightDedicatedSelector extends HookConsumerWidget {
 
         // 전체 선택 / 카운터
         Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
-            vertical: AppSpacing.sm,
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            AppSpacing.sm,
           ),
-          child: Row(
-            children: [
-              Text(
-                '$approvedCount명 ${hasExistingApproval ? '선택됨' : '확정 예정'} / 전체 $totalCount명',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.sm,
+              AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: AppRadius.borderRadiusMd,
+              border: Border.all(color: colorScheme.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  '$approvedCount명 ${hasExistingApproval ? '선택됨' : '확정 예정'} / 전체 $totalCount명',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () {
-                  if (selected.value.length == totalCount) {
-                    selected.value = {};
-                  } else {
-                    selected.value = Set.from(applicantIds);
-                  }
-                },
-                child: Text(
-                  selected.value.length == totalCount ? '전체 해제' : '전체 선택',
+                const Spacer(),
+                TextButton(
+                  onPressed: () {
+                    if (selected.value.length == totalCount) {
+                      selected.value = {};
+                    } else {
+                      selected.value = Set.from(applicantIds);
+                    }
+                  },
+                  child: Text(
+                    selected.value.length == totalCount ? '전체 해제' : '전체 선택',
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-
-        const Divider(height: 1),
 
         // 신청자 체크박스 목록
         Expanded(
           child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             itemCount: applicantIds.length,
             itemBuilder: (context, index) {
               final uid = applicantIds[index];
               final name = applicantsMap[uid]!;
               final isChecked = selected.value.contains(uid);
 
-              return CheckboxListTile(
-                value: isChecked,
-                onChanged: (_) {
-                  final next = Set<String>.from(selected.value);
-                  if (isChecked) {
-                    next.remove(uid);
-                  } else {
-                    next.add(uid);
-                  }
-                  selected.value = next;
-                },
-                title: Text(
-                  name,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
+              return Card(
+                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                elevation: 0,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.borderRadiusMd,
+                  side: BorderSide(color: colorScheme.outlineVariant),
+                ),
+                child: CheckboxListTile(
+                  value: isChecked,
+                  onChanged: (_) {
+                    final next = Set<String>.from(selected.value);
+                    if (isChecked) {
+                      next.remove(uid);
+                    } else {
+                      next.add(uid);
+                    }
+                    selected.value = next;
+                  },
+                  title: Text(
+                    name,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  subtitle: loadedFromDb
+                      ? Text(
+                          approvedStatusMap[uid] == true ? '현재 확정됨' : '현재 미확정',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        )
+                      : null,
+                  secondary: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: isChecked
+                          ? const Color(0xFF0061A4).withValues(alpha: 0.12)
+                          : colorScheme.surfaceContainerHigh,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.nightlight_round,
+                      size: 18,
+                      color: isChecked
+                          ? const Color(0xFF0061A4)
+                          : colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  activeColor: const Color(0xFF0061A4),
+                  checkColor: Colors.white,
+                  controlAffinity: ListTileControlAffinity.trailing,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.xs,
                   ),
                 ),
-                subtitle: loadedFromDb
-                    ? Text(
-                        approvedStatusMap[uid] == true ? '현재 확정됨' : '현재 미확정',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      )
-                    : null,
-                secondary: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: isChecked
-                        ? const Color(0xFF0061A4).withValues(alpha: 0.12)
-                        : colorScheme.surfaceContainerHigh,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.nightlight_round,
-                    size: 18,
-                    color: isChecked
-                        ? const Color(0xFF0061A4)
-                        : colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                  ),
-                ),
-                activeColor: const Color(0xFF0061A4),
-                checkColor: Colors.white,
               );
             },
           ),
@@ -1487,67 +1511,78 @@ class _NightDedicatedSelector extends HookConsumerWidget {
         SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF0061A4),
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: isConfirming.value
-                    ? null
-                    : () async {
-                        final confirm = await showMoniqConfirmSheet(
-                          context: context,
-                          title: hasExistingApproval
-                              ? '나이트 전담 수정'
-                              : '나이트 전담 확정',
-                          message: selected.value.isEmpty
-                              ? '선택된 인원이 없습니다. 모든 신청자의 나이트 전담을 해제하시겠습니까?'
-                              : '${selected.value.length}명을 나이트 전담으로 ${hasExistingApproval ? '수정' : '확정'}하시겠습니까?\n'
-                                    '선택하지 않은 인원은 나이트 전담이 자동으로 해제됩니다.',
-                          confirmLabel: hasExistingApproval ? '수정' : '확정',
-                        );
-                        if (confirm != true) return;
-                        isConfirming.value = true;
-                        final ok = await ref
-                            .read(wantedAdminViewModelProvider(teamId).notifier)
-                            .confirmNightDedicated(
-                              approvedUserIds: selected.value.toList(),
-                              allApplicantUserIds: applicantIds,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF0061A4),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: isConfirming.value
+                        ? null
+                        : () async {
+                            final confirm = await showMoniqConfirmSheet(
+                              context: context,
+                              title: hasExistingApproval
+                                  ? '나이트 전담 수정'
+                                  : '나이트 전담 확정',
+                              message: selected.value.isEmpty
+                                  ? '선택된 인원이 없습니다. 모든 신청자의 나이트 전담을 해제하시겠습니까?'
+                                  : '${selected.value.length}명을 나이트 전담으로 ${hasExistingApproval ? '수정' : '확정'}하시겠습니까?\n'
+                                        '선택하지 않은 인원은 나이트 전담이 자동으로 해제됩니다.',
+                              confirmLabel: hasExistingApproval ? '수정' : '확정',
                             );
-                        isConfirming.value = false;
-                        if (ok && context.mounted) {
-                          ref.invalidate(
-                            _requestWidgetsTeamMembersProvider(teamId),
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                hasExistingApproval
-                                    ? '나이트 전담이 수정되었습니다'
-                                    : '나이트 전담이 확정되었습니다',
-                              ),
+                            if (confirm != true) return;
+                            isConfirming.value = true;
+                            final ok = await ref
+                                .read(
+                                  wantedAdminViewModelProvider(teamId).notifier,
+                                )
+                                .confirmNightDedicated(
+                                  approvedUserIds: selected.value.toList(),
+                                  allApplicantUserIds: applicantIds,
+                                );
+                            isConfirming.value = false;
+                            if (ok && context.mounted) {
+                              ref.invalidate(
+                                _requestWidgetsTeamMembersProvider(teamId),
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    hasExistingApproval
+                                        ? '나이트 전담이 수정되었습니다'
+                                        : '나이트 전담이 확정되었습니다',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                    icon: isConfirming.value
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
                             ),
-                          );
-                        }
-                      },
-                icon: isConfirming.value
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.nightlight_round),
-                label: Text(
-                  isConfirming.value
-                      ? '처리 중...'
-                      : '나이트 전담 ${hasExistingApproval ? '수정' : '확정'} ($approvedCount명)',
+                          )
+                        : const Icon(Icons.nightlight_round),
+                    label: Text(
+                      isConfirming.value
+                          ? '처리 중...'
+                          : '나이트 전담 ${hasExistingApproval ? '수정' : '확정'} ($approvedCount명)',
+                    ),
+                  ),
                 ),
-              ),
+                if (footerButton != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  footerButton!,
+                ],
+              ],
             ),
           ),
         ),
@@ -1578,6 +1613,411 @@ class WantedRequestUserEntryGroup {
   final String userId;
   final String displayName;
   final List<WantedEntryDisplayItem> items;
+}
+
+class WantedEntryPill extends StatelessWidget {
+  const WantedEntryPill({
+    super.key,
+    required this.color,
+    required this.avatarLabel,
+    required this.label,
+  });
+
+  final Color color;
+  final String avatarLabel;
+  final Widget label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.fromLTRB(2, 2, AppSpacing.md, 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: AppRadius.borderRadiusFull,
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.22),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              avatarLabel,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          label,
+        ],
+      ),
+    );
+  }
+}
+
+class WantedModeTabs extends StatelessWidget {
+  const WantedModeTabs({
+    super.key,
+    required this.isNight,
+    required this.onWanted,
+    required this.onNight,
+  });
+
+  final bool isNight;
+  final VoidCallback onWanted;
+  final VoidCallback onNight;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: AppRadius.borderRadiusFull,
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _WantedModeTabButton(
+            label: '원티드',
+            icon: Icons.check_rounded,
+            selected: !isNight,
+            onTap: onWanted,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          _WantedModeTabButton(
+            label: '나이트 전담',
+            icon: Icons.nightlight_round,
+            selected: isNight,
+            onTap: onNight,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WantedModeTabButton extends StatelessWidget {
+  const _WantedModeTabButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final foreground = selected
+        ? AppColors.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.borderRadiusFull,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primaryContainer : Colors.transparent,
+          borderRadius: AppRadius.borderRadiusFull,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: foreground),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              label,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: foreground,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WantedStatusPill extends StatelessWidget {
+  const _WantedStatusPill({
+    required this.label,
+    required this.color,
+    this.icon,
+  });
+
+  final String label;
+  final Color color;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.13),
+        borderRadius: AppRadius.borderRadiusFull,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 10, color: color),
+            const SizedBox(width: AppSpacing.xs),
+          ],
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WantedMissingMembersSheet extends StatefulWidget {
+  const _WantedMissingMembersSheet({
+    required this.teamId,
+    required this.teamName,
+    required this.request,
+    required this.missingMembers,
+  });
+
+  final String teamId;
+  final String teamName;
+  final WantedRequestModel request;
+  final List<TeamMemberWithUser> missingMembers;
+
+  @override
+  State<_WantedMissingMembersSheet> createState() =>
+      _WantedMissingMembersSheetState();
+}
+
+class _WantedMissingMembersSheetState
+    extends State<_WantedMissingMembersSheet> {
+  bool _isSending = false;
+
+  Future<void> _sendReminder() async {
+    if (_isSending || widget.missingMembers.isEmpty) return;
+    setState(() => _isSending = true);
+
+    await PushService.instance.sendToUsers(
+      userIds: widget.missingMembers.map((member) => member.userId).toList(),
+      title: '원티드 입력 요청',
+      body: '${widget.teamName} 원티드 수집에 아직 응답하지 않았습니다. 마감 전 입력해주세요.',
+      data: {
+        'type': 'wanted_request',
+        'teamId': widget.teamId,
+        'requestId': widget.request.id,
+      },
+    );
+
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isSending = false);
+    Navigator.of(context).pop();
+    messenger.showSnackBar(const SnackBar(content: Text('미응답자에게 알림을 보냈습니다')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final dateFormat = DateFormat('yyyy.MM.dd');
+    final deadline = widget.request.deadline;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          deadline == null
+              ? '아직 응답하지 않은 팀원입니다.'
+              : '마감 ${dateFormat.format(deadline)} 전까지 입력이 필요합니다.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        if (widget.missingMembers.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.successLight.withValues(alpha: 0.45),
+              borderRadius: AppRadius.borderRadiusMd,
+            ),
+            child: Text(
+              '모든 팀원이 응답했습니다',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.success,
+                fontWeight: FontWeight.w800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          )
+        else
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: widget.missingMembers.length,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(height: AppSpacing.xs),
+              itemBuilder: (context, index) {
+                final member = widget.missingMembers[index];
+                final initial = member.displayName.isNotEmpty
+                    ? member.displayName[0]
+                    : '?';
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerLowest,
+                    borderRadius: AppRadius.borderRadiusMd,
+                    border: Border.all(color: colorScheme.outlineVariant),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: colorScheme.primary.withValues(
+                          alpha: 0.14,
+                        ),
+                        child: Text(
+                          initial,
+                          style: TextStyle(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          member.displayName,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        const SizedBox(height: AppSpacing.lg),
+        FilledButton.icon(
+          onPressed: widget.missingMembers.isEmpty || _isSending
+              ? null
+              : _sendReminder,
+          icon: _isSending
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.notifications_active_outlined),
+          label: Text(
+            _isSending
+                ? '알림 보내는 중...'
+                : '미응답자에게 알림 보내기 (${widget.missingMembers.length}명)',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WantedMetricChip extends StatelessWidget {
+  const _WantedMetricChip({
+    required this.icon,
+    required this.label,
+    this.color,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color? color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final resolvedColor = color ?? colorScheme.onSurfaceVariant;
+
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.72),
+        borderRadius: AppRadius.borderRadiusFull,
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: resolvedColor),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: resolvedColor,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (onTap == null) return chip;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.borderRadiusFull,
+      child: chip,
+    );
+  }
 }
 
 Future<DateTime?> _showWantedReopenSheet(BuildContext context) {

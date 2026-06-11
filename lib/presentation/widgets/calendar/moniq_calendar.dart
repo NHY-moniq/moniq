@@ -4,6 +4,7 @@ import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/app_typography.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 // Shift colors are mode-invariant, kept from AppColors.
@@ -24,10 +25,12 @@ class MoniqCalendar extends StatelessWidget {
     required this.selectedDay,
     required this.onDaySelected,
     required this.onPageChanged,
+    this.onDayLongPressed,
     this.eventLoader,
     this.calendarFormat = CalendarFormat.month,
     this.onFormatChanged,
     this.markerBuilder,
+    this.cornerBadgeBuilder,
     this.startingDayOfWeek = StartingDayOfWeek.monday,
     this.previewBuilder,
     this.rowHeight = 58,
@@ -41,14 +44,19 @@ class MoniqCalendar extends StatelessWidget {
   final DateTime selectedDay;
   final void Function(DateTime selectedDay, DateTime focusedDay) onDaySelected;
   final void Function(DateTime focusedDay) onPageChanged;
+
+  /// 날짜를 길게 누르면 호출 (선택과 별개 제스처).
+  final void Function(DateTime day, DateTime focusedDay)? onDayLongPressed;
   final List<dynamic> Function(DateTime day)? eventLoader;
   final CalendarFormat calendarFormat;
   final void Function(CalendarFormat)? onFormatChanged;
   final Widget? Function(BuildContext, DateTime, List<dynamic>)? markerBuilder;
+  final Widget? Function(BuildContext, DateTime)? cornerBadgeBuilder;
   final StartingDayOfWeek startingDayOfWeek;
   final List<CalendarPreview> Function(DateTime day)? previewBuilder;
   final double rowHeight;
   final VoidCallback? onTodayPressed;
+
   /// 범례 항목 (null이면 기본 DAY/EVENING/NIGHT/OFF)
   final List<({Color color, String label})>? legendItems;
 
@@ -69,23 +77,20 @@ class MoniqCalendar extends StatelessWidget {
           _buildExternalHeader(context),
           const SizedBox(height: AppSpacing.md),
 
-          // Calendar card — 라이트: 부드러운 shadow / 다크: 1px outline
+          // Calendar card — 팀 관리 페이지(MoniqCard)와 동일한 표면 톤으로 통일.
+          // Scaffold 배경(surfaceContainerLow) 위에 카드가 한 단계 대비되는 표면으로
+          // 떠 보이도록: 라이트=흰색(surfaceContainerLowest), 다크=surfaceContainer + soft shadow.
           Container(
             decoration: BoxDecoration(
-              color: isDark ? cs.surfaceContainerHigh : cs.surface,
+              color: isDark ? cs.surfaceContainer : cs.surfaceContainerLowest,
               borderRadius: BorderRadius.circular(AppRadius.lg),
-              border: isDark
-                  ? Border.all(color: cs.outlineVariant, width: 1)
-                  : null,
-              boxShadow: isDark
-                  ? null
-                  : [
-                      BoxShadow(
-                        color: cs.shadow.withValues(alpha: 0.06),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+              boxShadow: [
+                BoxShadow(
+                  color: cs.shadow.withValues(alpha: isDark ? 0.3 : 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             padding: const EdgeInsets.only(bottom: 8, top: 8),
             child: TableCalendar<dynamic>(
@@ -95,6 +100,7 @@ class MoniqCalendar extends StatelessWidget {
               focusedDay: focusedDay,
               selectedDayPredicate: (day) => isSameDay(selectedDay, day),
               onDaySelected: onDaySelected,
+              onDayLongPressed: onDayLongPressed,
               onPageChanged: onPageChanged,
               calendarFormat: calendarFormat,
               availableGestures: AvailableGestures.horizontalSwipe,
@@ -107,61 +113,63 @@ class MoniqCalendar extends StatelessWidget {
               eventLoader: eventLoader,
               startingDayOfWeek: startingDayOfWeek,
               headerVisible: false,
-          daysOfWeekHeight: 28,
-          daysOfWeekStyle: DaysOfWeekStyle(
-            weekdayStyle: Theme.of(context).textTheme.bodySmall!.copyWith(
+              daysOfWeekHeight: 28,
+              daysOfWeekStyle: DaysOfWeekStyle(
+                weekdayStyle: Theme.of(context).textTheme.bodySmall!.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                   fontSize: 10,
                   letterSpacing: 1.2,
                 ),
-            weekendStyle: Theme.of(context).textTheme.bodySmall!.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .error
-                      .withValues(alpha: 0.7),
+                weekendStyle: Theme.of(context).textTheme.bodySmall!.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.error.withValues(alpha: 0.7),
                   fontWeight: FontWeight.w600,
                   fontSize: 10,
                   letterSpacing: 1.2,
                 ),
-          ),
-          calendarStyle: const CalendarStyle(
-            outsideDaysVisible: false,
-            cellMargin: EdgeInsets.all(1),
-            markersMaxCount: 0,
-          ),
-          calendarBuilders: CalendarBuilders<dynamic>(
-            dowBuilder: (context, day) {
-              final cs = Theme.of(context).colorScheme;
-              final text = _dowLabel(day.weekday).toUpperCase();
-              Color color;
-              if (day.weekday == DateTime.sunday) {
-                color = cs.error.withValues(alpha: 0.7);
-              } else if (day.weekday == DateTime.saturday) {
-                color = cs.tertiary;
-              } else {
-                color = cs.onSurfaceVariant;
-              }
-              return Center(
-                child: Text(
-                  text,
-                  style: Theme.of(context).textTheme.bodySmall!.copyWith(
+              ),
+              calendarStyle: const CalendarStyle(
+                outsideDaysVisible: true,
+                cellMargin: EdgeInsets.all(1),
+                markersMaxCount: 0,
+              ),
+              calendarBuilders: CalendarBuilders<dynamic>(
+                dowBuilder: (context, day) {
+                  final cs = Theme.of(context).colorScheme;
+                  final text = _dowLabel(day.weekday).toUpperCase();
+                  Color color;
+                  if (day.weekday == DateTime.sunday) {
+                    color = cs.error.withValues(alpha: 0.7);
+                  } else if (day.weekday == DateTime.saturday) {
+                    color = cs.tertiary;
+                  } else {
+                    color = cs.onSurfaceVariant;
+                  }
+                  return Center(
+                    child: Text(
+                      text,
+                      style: Theme.of(context).textTheme.bodySmall!.copyWith(
                         color: color,
                         fontWeight: FontWeight.w600,
                         fontSize: 10,
                         letterSpacing: 1.2,
                       ),
-                ),
-              );
-            },
-            defaultBuilder: (context, day, focusedDay) =>
-                _buildCell(context, day, false, false),
-            todayBuilder: (context, day, focusedDay) =>
-                _buildCell(context, day, true, false),
-            selectedBuilder: (context, day, focusedDay) =>
-                _buildCell(context, day, false, true),
+                    ),
+                  );
+                },
+                defaultBuilder: (context, day, focusedDay) =>
+                    _buildCell(context, day, false, false),
+                todayBuilder: (context, day, focusedDay) =>
+                    _buildCell(context, day, true, false),
+                selectedBuilder: (context, day, focusedDay) =>
+                    _buildCell(context, day, false, true),
+                // 이전달·다음달 미리보기 — 날짜 숫자만 회색으로 표시
+                outsideBuilder: (context, day, focusedDay) =>
+                    _buildOutsideCell(context, day),
+              ),
             ),
-          ),
           ),
         ],
       ),
@@ -212,8 +220,7 @@ class MoniqCalendar extends StatelessWidget {
                     : DateTime(focusedDay.year, focusedDay.month - 1, 1);
                 onPageChanged(prev);
               },
-              child:
-                  Icon(Icons.chevron_left, size: 18, color: cs.onSurface),
+              child: Icon(Icons.chevron_left, size: 18, color: cs.onSurface),
             ),
             const SizedBox(width: 6),
             _HeaderPill(
@@ -223,8 +230,7 @@ class MoniqCalendar extends StatelessWidget {
                     : DateTime(focusedDay.year, focusedDay.month + 1, 1);
                 onPageChanged(next);
               },
-              child:
-                  Icon(Icons.chevron_right, size: 18, color: cs.onSurface),
+              child: Icon(Icons.chevron_right, size: 18, color: cs.onSurface),
             ),
           ],
         ),
@@ -260,21 +266,14 @@ class MoniqCalendar extends StatelessWidget {
     (color: AppColors.shiftOff, label: 'OFF'),
   ];
 
-  Widget _legendDot(
-    BuildContext context,
-    Color color,
-    String label,
-  ) {
+  Widget _legendDot(BuildContext context, Color color, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 3),
         Text(
@@ -283,18 +282,44 @@ class MoniqCalendar extends StatelessWidget {
             fontSize: 9,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
-            color: Theme.of(context)
-                .colorScheme
-                .onSurfaceVariant,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       ],
     );
   }
 
+  /// 이전달·다음달 날짜 — 숫자만 흐린 회색으로 미리보기 표시 (근무/일정은 숨김).
+  Widget _buildOutsideCell(BuildContext context, DateTime day) {
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: double.infinity,
+      height: rowHeight,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          Positioned(
+            top: 8,
+            child: Text(
+              '${day.day}',
+              style: TextStyle(
+                color: cs.onSurface.withValues(alpha: 0.28),
+                fontWeight: FontWeight.normal,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildCell(
-      BuildContext context, DateTime day, bool isToday, bool isSelected) {
+    BuildContext context,
+    DateTime day,
+    bool isToday,
+    bool isSelected,
+  ) {
     final cs = Theme.of(context).colorScheme;
     final events = eventLoader?.call(day) ?? [];
     final previews = previewBuilder?.call(day) ?? [];
@@ -326,6 +351,7 @@ class MoniqCalendar extends StatelessWidget {
     if (events.isNotEmpty && markerBuilder != null) {
       markers = markerBuilder!(context, day, events);
     }
+    final cornerBadge = cornerBadgeBuilder?.call(context, day);
 
     return SizedBox(
       width: double.infinity,
@@ -385,20 +411,17 @@ class MoniqCalendar extends StatelessWidget {
                 '${day.day}',
                 style: TextStyle(
                   color: textColor,
-                  fontWeight: isSelected
-                      ? FontWeight.w800
-                      : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.normal,
                   fontSize: 13,
                 ),
               ),
             ),
 
+          if (cornerBadge != null)
+            Positioned(top: 8, right: 13, child: cornerBadge),
+
           // 마커/미리보기 시작 y — today/non-today 동일 (밀림 방지)
-          if (markers != null)
-            Positioned(
-              top: 30,
-              child: markers,
-            ),
+          if (markers != null) Positioned(top: 30, child: markers),
 
           // Preview tags below dots — 셀 가로 폭 가득 채움
           if (previews.isNotEmpty)
@@ -411,10 +434,12 @@ class MoniqCalendar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: previews
                     .take(2)
-                    .map((p) => Padding(
-                          padding: const EdgeInsets.only(bottom: 1),
-                          child: _buildTag(context, p),
-                        ))
+                    .map(
+                      (p) => Padding(
+                        padding: const EdgeInsets.only(bottom: 1),
+                        child: _buildTag(context, p),
+                      ),
+                    )
                     .toList(),
               ),
             ),
@@ -477,57 +502,18 @@ class MoniqCalendar extends StatelessWidget {
   void _showYearMonthPicker(BuildContext context, DateTime day) async {
     DateTime selected = DateTime(day.year, day.month);
 
-    final result = await showModalBottomSheet<DateTime>(
+    final result = await showMoniqBottomSheet<DateTime>(
       context: context,
-      useRootNavigator: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) {
-        final theme = Theme.of(ctx);
-        final cs = theme.colorScheme;
-        return SizedBox(
-          height: 350,
-          child: Column(
+      title: '연월 선택',
+      child: Builder(
+        builder: (ctx) {
+          final cs = Theme.of(ctx).colorScheme;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.md,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('취소'),
-                    ),
-                    Text(
-                      '연월 선택',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(
-                        ctx,
-                        DateTime(selected.year, selected.month, 1),
-                      ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: cs.primary,
-                      ),
-                      child: const Text(
-                        '이동',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(
+              SizedBox(
+                height: 216,
                 child: CupertinoDatePicker(
                   mode: CupertinoDatePickerMode.monthYear,
                   initialDateTime: selected,
@@ -536,10 +522,33 @@ class MoniqCalendar extends StatelessWidget {
                   },
                 ),
               ),
+              const SizedBox(height: AppSpacing.xl),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: AppRadius.borderRadiusFull,
+                  ),
+                ),
+                onPressed: () => Navigator.pop(
+                  ctx,
+                  DateTime(selected.year, selected.month, 1),
+                ),
+                child: Text(
+                  '이동',
+                  style: AppTypography.labelLarge.copyWith(
+                    color: cs.onPrimary,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
             ],
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
 
     if (result != null) {
@@ -621,10 +630,7 @@ class _HeaderPill extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
-        child: Padding(
-          padding: const EdgeInsets.all(7),
-          child: child,
-        ),
+        child: Padding(padding: const EdgeInsets.all(7), child: child),
       ),
     );
   }
@@ -632,10 +638,7 @@ class _HeaderPill extends StatelessWidget {
 
 /// 헤더 우측 월/주 segmented pill 토글.
 class _ViewModeSegmentedPill extends StatelessWidget {
-  const _ViewModeSegmentedPill({
-    required this.mode,
-    required this.onChanged,
-  });
+  const _ViewModeSegmentedPill({required this.mode, required this.onChanged});
 
   final CalendarViewMode mode;
   final ValueChanged<CalendarViewMode> onChanged;
@@ -658,10 +661,7 @@ class _ViewModeSegmentedPill extends StatelessWidget {
             onTap: () => onChanged(m),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 5,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
               decoration: BoxDecoration(
                 color: selected ? cs.primary : Colors.transparent,
                 borderRadius: BorderRadius.circular(999),
@@ -681,4 +681,3 @@ class _ViewModeSegmentedPill extends StatelessWidget {
     );
   }
 }
-

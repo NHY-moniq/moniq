@@ -15,48 +15,109 @@ import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 
-class NotificationsScreen extends HookConsumerWidget {
+class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+  // 접힌 카테고리 집합 (기본 모두 펼침)
+  final Set<String> _collapsed = {};
+  // 선택 모드
+  bool _selectionMode = false;
+  final Set<String> _selected = {};
+
+  void _enterSelectionMode(String id) {
+    setState(() {
+      _selectionMode = true;
+      _selected.add(id);
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _selectionMode = false;
+      _selected.clear();
+    });
+  }
+
+  void _toggleSelect(String id) {
+    setState(() {
+      if (_selected.contains(id)) {
+        _selected.remove(id);
+        if (_selected.isEmpty) _selectionMode = false;
+      } else {
+        _selected.add(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final ids = List<String>.from(_selected);
+    final repo = ref.read(notificationRepositoryProvider);
+    for (final id in ids) {
+      await repo.delete(id);
+    }
+    ref.invalidate(myNotificationsProvider);
+    ref.invalidate(unreadNotificationCountProvider);
+    _exitSelectionMode();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final listAsync = ref.watch(filteredNotificationsProvider);
     final teamsAsync = ref.watch(teamViewModelProvider);
-    final selectedTeamId =
-        ref.watch(selectedNotificationTeamFilterProvider);
+    final selectedTeamId = ref.watch(selectedNotificationTeamFilterProvider);
     final unreadOnly = ref.watch(notificationUnreadOnlyProvider);
     final teams = teamsAsync.valueOrNull ?? const [];
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: cs.surfaceContainerLow,
-      appBar: MoniqAppBar(
-        title: '알림함',
-        eyebrow: 'NOTIFICATIONS',
-        trailing: MoniqAppBarAction(
-          icon: Icons.done_all_rounded,
-          label: '모두 읽음',
-          onTap: () async {
-            final repo = ref.read(notificationRepositoryProvider);
-            await repo.markAllAsRead();
-            ref.invalidate(myNotificationsProvider);
-            ref.invalidate(unreadNotificationCountProvider);
-          },
-        ),
-      ),
+      appBar: _selectionMode
+          ? MoniqAppBar(
+              title: '${_selected.length}개 선택됨',
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _exitSelectionMode,
+              ),
+              trailing: MoniqAppBarAction(
+                icon: Icons.delete_outline_rounded,
+                tint: cs.error,
+                onTap: _deleteSelected,
+              ),
+            )
+          : MoniqAppBar(
+              title: '알림함',
+              eyebrow: 'NOTIFICATIONS',
+              trailing: MoniqAppBarAction(
+                icon: Icons.done_all_rounded,
+                label: '모두 읽음',
+                onTap: () async {
+                  final repo = ref.read(notificationRepositoryProvider);
+                  await repo.markAllAsRead();
+                  ref.invalidate(myNotificationsProvider);
+                  ref.invalidate(unreadNotificationCountProvider);
+                },
+              ),
+            ),
       body: Column(
         children: [
-          _NotificationFilterHeader(
-            teams: teams,
-            selectedTeamId: selectedTeamId,
-            unreadOnly: unreadOnly,
-            onTeamSelect: (id) => ref
-                .read(selectedNotificationTeamFilterProvider.notifier)
-                .state = id,
-            onToggleUnread: () => ref
-                .read(notificationUnreadOnlyProvider.notifier)
-                .update((v) => !v),
-          ),
+          if (!_selectionMode)
+            _NotificationFilterHeader(
+              teams: teams,
+              selectedTeamId: selectedTeamId,
+              unreadOnly: unreadOnly,
+              onTeamSelect: (id) => ref
+                  .read(selectedNotificationTeamFilterProvider.notifier)
+                  .state = id,
+              onToggleUnread: () => ref
+                  .read(notificationUnreadOnlyProvider.notifier)
+                  .update((v) => !v),
+            ),
           Expanded(
             child: listAsync.when(
               loading: () => const MoniqLoadingView(),
@@ -76,47 +137,167 @@ class NotificationsScreen extends HookConsumerWidget {
                     message: '30일 이내 알림만 표시돼요',
                   );
                 }
+
+                // 카테고리별 그룹핑
+                final grouped = _groupByCategory(items);
+                final categoryOrder = [
+                  '근무 변경',
+                  '요청',
+                  '공지',
+                  '원티드',
+                  '기타',
+                ];
+
                 return RefreshIndicator(
                   onRefresh: () async {
                     ref.invalidate(myNotificationsProvider);
                     ref.invalidate(unreadNotificationCountProvider);
                   },
-                  child: ListView.separated(
+                  child: ListView(
                     padding: AppSpacing.screenAll,
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: AppSpacing.sm),
-                    itemBuilder: (context, index) {
-                      return _NotificationTile(
-                        item: items[index],
-                        onTap: () async {
-                          final n = items[index];
-                          if (!n.isRead) {
-                            final repo =
-                                ref.read(notificationRepositoryProvider);
-                            await repo.markAsRead(n.id);
-                            ref.invalidate(myNotificationsProvider);
-                            ref.invalidate(unreadNotificationCountProvider);
-                          }
-                          if (!context.mounted) return;
-                          await _navigateForNotification(context, ref, n);
-                        },
-                        onDelete: () async {
-                          final n = items[index];
-                          final repo =
-                              ref.read(notificationRepositoryProvider);
-                          await repo.delete(n.id);
-                          ref.invalidate(myNotificationsProvider);
-                          ref.invalidate(unreadNotificationCountProvider);
-                        },
-                      );
-                    },
+                    children: [
+                      for (final category in categoryOrder)
+                        if (grouped.containsKey(category)) ...[
+                          _GroupHeader(
+                            category: category,
+                            count: grouped[category]!.length,
+                            isExpanded: !_collapsed.contains(category),
+                            onToggle: () => setState(() {
+                              if (_collapsed.contains(category)) {
+                                _collapsed.remove(category);
+                              } else {
+                                _collapsed.add(category);
+                              }
+                            }),
+                          ),
+                          if (!_collapsed.contains(category))
+                            ...grouped[category]!.map((n) {
+                              final isSelected = _selected.contains(n.id);
+                              return Padding(
+                                padding: const EdgeInsets.only(
+                                    bottom: AppSpacing.sm),
+                                child: _NotificationTile(
+                                  item: n,
+                                  isSelected: isSelected,
+                                  selectionMode: _selectionMode,
+                                  onTap: () async {
+                                    if (_selectionMode) {
+                                      _toggleSelect(n.id);
+                                      return;
+                                    }
+                                    if (!n.isRead) {
+                                      final repo = ref.read(
+                                          notificationRepositoryProvider);
+                                      await repo.markAsRead(n.id);
+                                      ref.invalidate(myNotificationsProvider);
+                                      ref.invalidate(
+                                          unreadNotificationCountProvider);
+                                    }
+                                    if (!context.mounted) return;
+                                    await _navigateForNotification(
+                                        context, ref, n);
+                                  },
+                                  onLongPress: () {
+                                    if (!_selectionMode) {
+                                      _enterSelectionMode(n.id);
+                                    }
+                                  },
+                                  onDelete: () async {
+                                    final repo = ref
+                                        .read(notificationRepositoryProvider);
+                                    await repo.delete(n.id);
+                                    ref.invalidate(myNotificationsProvider);
+                                    ref.invalidate(
+                                        unreadNotificationCountProvider);
+                                  },
+                                ),
+                              );
+                            }),
+                          const SizedBox(height: AppSpacing.xs),
+                        ],
+                    ],
                   ),
                 );
               },
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Map<String, List<NotificationModel>> _groupByCategory(
+      List<NotificationModel> items) {
+    final Map<String, List<NotificationModel>> result = {};
+    for (final n in items) {
+      final category = _categoryLabel(_classifyNotification(n));
+      result.putIfAbsent(category, () => []).add(n);
+    }
+    return result;
+  }
+
+  String _categoryLabel(_NotifTarget target) {
+    switch (target) {
+      case _NotifTarget.teamCalendar:
+        return '근무 변경';
+      case _NotifTarget.requests:
+        return '요청';
+      case _NotifTarget.announcements:
+        return '공지';
+      case _NotifTarget.wanted:
+        return '원티드';
+      case _NotifTarget.none:
+        return '기타';
+    }
+  }
+}
+
+class _GroupHeader extends StatelessWidget {
+  const _GroupHeader({
+    required this.category,
+    required this.count,
+    required this.isExpanded,
+    required this.onToggle,
+  });
+
+  final String category;
+  final int count;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onToggle,
+      borderRadius: AppRadius.borderRadiusSm,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          vertical: AppSpacing.sm,
+          horizontal: AppSpacing.xs,
+        ),
+        child: Row(
+          children: [
+            Text(
+              '$category  ($count건)',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+              ),
+            ),
+            const Spacer(),
+            Icon(
+              isExpanded
+                  ? Icons.expand_more_rounded
+                  : Icons.chevron_right_rounded,
+              size: 18,
+              color: cs.onSurfaceVariant,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -293,11 +474,17 @@ class _NotificationTile extends StatelessWidget {
     required this.item,
     required this.onTap,
     required this.onDelete,
+    this.onLongPress,
+    this.isSelected = false,
+    this.selectionMode = false,
   });
 
   final NotificationModel item;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback? onLongPress;
+  final bool isSelected;
+  final bool selectionMode;
 
   @override
   Widget build(BuildContext context) {
@@ -307,13 +494,27 @@ class _NotificationTile extends StatelessWidget {
     final isUnread = !item.isRead;
     final dateLabel = _formatRelative(item.createdAt);
 
-    // 설정 페이지(MoniqCard)와 동일한 카드 surface 토큰을 사용해 톤을 통일.
     final readSurface =
         isDark ? cs.surfaceContainer : cs.surfaceContainerLowest;
 
+    Color bgColor;
+    Color borderColor;
+    if (isSelected) {
+      bgColor = cs.primary.withValues(alpha: 0.12);
+      borderColor = cs.primary.withValues(alpha: 0.5);
+    } else if (isUnread) {
+      bgColor = cs.primaryContainer.withValues(alpha: 0.2);
+      borderColor = cs.primary.withValues(alpha: 0.3);
+    } else {
+      bgColor = readSurface;
+      borderColor = cs.outlineVariant.withValues(alpha: 0.3);
+    }
+
     return Dismissible(
       key: ValueKey(item.id),
-      direction: DismissDirection.endToStart,
+      direction: selectionMode
+          ? DismissDirection.none
+          : DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
@@ -326,24 +527,31 @@ class _NotificationTile extends StatelessWidget {
       onDismissed: (_) => onDelete(),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: AppRadius.borderRadiusMd,
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
-            color: isUnread
-                ? cs.primaryContainer.withValues(alpha: 0.2)
-                : readSurface,
+            color: bgColor,
             borderRadius: AppRadius.borderRadiusMd,
-            border: Border.all(
-              color: isUnread
-                  ? cs.primary.withValues(alpha: 0.3)
-                  : cs.outlineVariant.withValues(alpha: 0.3),
-            ),
+            border: Border.all(color: borderColor),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (isUnread)
+              if (selectionMode)
+                Padding(
+                  padding:
+                      const EdgeInsets.only(top: 2, right: AppSpacing.sm),
+                  child: Icon(
+                    isSelected
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked,
+                    size: 20,
+                    color: isSelected ? cs.primary : cs.onSurfaceVariant,
+                  ),
+                )
+              else if (isUnread)
                 Container(
                   margin: const EdgeInsets.only(
                     top: 6,
@@ -368,7 +576,11 @@ class _NotificationTile extends StatelessWidget {
                             style: theme.textTheme.bodyLarge?.copyWith(
                               fontWeight: isUnread
                                   ? FontWeight.w700
-                                  : FontWeight.w600,
+                                  : FontWeight.w500,
+                              color: isUnread
+                                  ? cs.onSurface
+                                  : cs.onSurface
+                                      .withValues(alpha: 0.55),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -387,7 +599,9 @@ class _NotificationTile extends StatelessWidget {
                     Text(
                       item.body,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurface,
+                        color: isUnread
+                            ? cs.onSurface
+                            : cs.onSurface.withValues(alpha: 0.5),
                       ),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,

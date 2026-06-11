@@ -19,6 +19,28 @@ List<TeamMemberWithUser> _sortedMembers(
   return [...me, ...others];
 }
 
+String _normalizeMemberSearchText(String value) =>
+    value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '');
+
+bool _matchesMemberName(TeamMemberWithUser member, String query) {
+  final normalizedQuery = _normalizeMemberSearchText(query);
+  if (normalizedQuery.isEmpty) return true;
+  return _normalizeMemberSearchText(
+    member.displayName,
+  ).contains(normalizedQuery);
+}
+
+List<TeamMemberWithUser> _filteredSortedMembers(
+  List<TeamMemberWithUser> members,
+  String currentUserId,
+  String nameQuery,
+) {
+  return _sortedMembers(
+    members,
+    currentUserId,
+  ).where((member) => _matchesMemberName(member, nameQuery)).toList();
+}
+
 class MembersScreen extends ConsumerStatefulWidget {
   const MembersScreen({super.key, required this.teamId});
 
@@ -30,6 +52,14 @@ class MembersScreen extends ConsumerStatefulWidget {
 
 class _MembersScreenState extends ConsumerState<MembersScreen> {
   TeamMemberWithUser? _selectedMember;
+  final _searchController = TextEditingController();
+  String _nameQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,13 +94,20 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   teamId: widget.teamId,
                   state: state,
                   selectedMember: _selectedMember,
+                  searchController: _searchController,
+                  nameQuery: _nameQuery,
+                  onSearchChanged: _updateNameQuery,
+                  onClearSearch: _clearNameQuery,
                   onSelectMember: (m) => setState(() => _selectedMember = m),
                 )
               : _MobileLayout(
                   teamId: widget.teamId,
                   state: state,
-                  onTapMember: (m) =>
-                      _showMemberSheet(context, ref, state, m),
+                  searchController: _searchController,
+                  nameQuery: _nameQuery,
+                  onSearchChanged: _updateNameQuery,
+                  onClearSearch: _clearNameQuery,
+                  onTapMember: (m) => _showMemberSheet(context, ref, state, m),
                 );
         },
       ),
@@ -88,9 +125,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       clipBehavior: Clip.antiAlias,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.42),
       builder: (ctx) => DraggableScrollableSheet(
         initialChildSize: 0.7,
         minChildSize: 0.4,
@@ -106,6 +142,161 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       ),
     );
   }
+
+  void _updateNameQuery(String value) {
+    setState(() {
+      _nameQuery = value;
+      if (_selectedMember != null &&
+          !_matchesMemberName(_selectedMember!, value)) {
+        _selectedMember = null;
+      }
+    });
+  }
+
+  void _clearNameQuery() {
+    _searchController.clear();
+    _updateNameQuery('');
+  }
+}
+
+class _MemberSearchFilter extends StatelessWidget {
+  const _MemberSearchFilter({
+    required this.controller,
+    required this.query,
+    required this.totalCount,
+    required this.resultCount,
+    required this.onChanged,
+    required this.onClear,
+  });
+
+  final TextEditingController controller;
+  final String query;
+  final int totalCount;
+  final int resultCount;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final hasQuery = query.trim().isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text(
+                '필터: 이름',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                hasQuery ? '$resultCount/$totalCount명' : '전체 $totalCount명',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: hasQuery
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            controller: controller,
+            onChanged: onChanged,
+            textCapitalization: TextCapitalization.none,
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: '이름으로 검색',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: hasQuery
+                  ? IconButton(
+                      onPressed: onClear,
+                      icon: const Icon(Icons.close_rounded),
+                    )
+                  : null,
+              isDense: true,
+              filled: true,
+              fillColor: colorScheme.surfaceContainerLow,
+              border: OutlineInputBorder(
+                borderRadius: AppRadius.borderRadiusFull,
+                borderSide: BorderSide(color: colorScheme.outlineVariant),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: AppRadius.borderRadiusFull,
+                borderSide: BorderSide(color: colorScheme.outlineVariant),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: AppRadius.borderRadiusFull,
+                borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoMemberSearchResult extends StatelessWidget {
+  const _NoMemberSearchResult({required this.query});
+
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xxl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.person_search_rounded,
+              size: 44,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.36),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              '검색 결과가 없습니다',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '"${query.trim()}" 이름과 일치하는 멤버가 없어요',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ────────────────────────────────────────
@@ -116,36 +307,58 @@ class _MobileLayout extends StatelessWidget {
   const _MobileLayout({
     required this.teamId,
     required this.state,
+    required this.searchController,
+    required this.nameQuery,
+    required this.onSearchChanged,
+    required this.onClearSearch,
     required this.onTapMember,
   });
 
   final String teamId;
   final TeamDetailState state;
+  final TextEditingController searchController;
+  final String nameQuery;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onClearSearch;
   final ValueChanged<TeamMemberWithUser> onTapMember;
 
   @override
   Widget build(BuildContext context) {
-    final sorted = _sortedMembers(state.members, state.currentUserId);
+    final sorted = _filteredSortedMembers(
+      state.members,
+      state.currentUserId,
+      nameQuery,
+    );
 
     return Column(
       children: [
+        _MemberSearchFilter(
+          controller: searchController,
+          query: nameQuery,
+          totalCount: state.members.length,
+          resultCount: sorted.length,
+          onChanged: onSearchChanged,
+          onClear: onClearSearch,
+        ),
         Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-            itemCount: sorted.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (_, i) {
-              final m = sorted[i];
-              return MemberTile(
-                member: m,
-                isSelf: m.userId == state.currentUserId,
-                isAdmin: state.isAdmin,
-                onTap: (state.isAdmin || m.userId == state.currentUserId)
-                    ? () => onTapMember(m)
-                    : null,
-              );
-            },
-          ),
+          child: sorted.isEmpty
+              ? _NoMemberSearchResult(query: nameQuery)
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                  itemCount: sorted.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final m = sorted[i];
+                    return MemberTile(
+                      member: m,
+                      isSelf: m.userId == state.currentUserId,
+                      isAdmin: state.isAdmin,
+                      onTap: (state.isAdmin || m.userId == state.currentUserId)
+                          ? () => onTapMember(m)
+                          : null,
+                    );
+                  },
+                ),
         ),
         if (state.team.inviteCode != null)
           MemberInviteCodeBar(inviteCode: state.team.inviteCode!),
@@ -163,19 +376,31 @@ class _WebLayout extends StatelessWidget {
     required this.teamId,
     required this.state,
     required this.selectedMember,
+    required this.searchController,
+    required this.nameQuery,
+    required this.onSearchChanged,
+    required this.onClearSearch,
     required this.onSelectMember,
   });
 
   final String teamId;
   final TeamDetailState state;
   final TeamMemberWithUser? selectedMember;
+  final TextEditingController searchController;
+  final String nameQuery;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onClearSearch;
   final ValueChanged<TeamMemberWithUser?> onSelectMember;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final sorted = _sortedMembers(state.members, state.currentUserId);
+    final sorted = _filteredSortedMembers(
+      state.members,
+      state.currentUserId,
+      nameQuery,
+    );
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,33 +415,42 @@ class _WebLayout extends StatelessWidget {
           ),
           child: Column(
             children: [
+              _MemberSearchFilter(
+                controller: searchController,
+                query: nameQuery,
+                totalCount: state.members.length,
+                resultCount: sorted.length,
+                onChanged: onSearchChanged,
+                onClear: onClearSearch,
+              ),
               Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.sm),
-                  itemCount: sorted.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    final m = sorted[i];
-                    final isSelected =
-                        selectedMember?.userId == m.userId;
-                    return _SelectableMemberTile(
-                      member: m,
-                      isSelf: m.userId == state.currentUserId,
-                      isAdmin: state.isAdmin,
-                      isSelected: isSelected,
-                      onTap: (state.isAdmin || m.userId == state.currentUserId)
-                          ? () => onSelectMember(
-                                isSelected ? null : m,
-                              )
-                          : null,
-                    );
-                  },
-                ),
+                child: sorted.isEmpty
+                    ? _NoMemberSearchResult(query: nameQuery)
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.sm,
+                        ),
+                        itemCount: sorted.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (_, i) {
+                          final m = sorted[i];
+                          final isSelected = selectedMember?.userId == m.userId;
+                          return _SelectableMemberTile(
+                            member: m,
+                            isSelf: m.userId == state.currentUserId,
+                            isAdmin: state.isAdmin,
+                            isSelected: isSelected,
+                            onTap:
+                                (state.isAdmin ||
+                                    m.userId == state.currentUserId)
+                                ? () => onSelectMember(isSelected ? null : m)
+                                : null,
+                          );
+                        },
+                      ),
               ),
               if (state.team.inviteCode != null)
-                MemberInviteCodeBar(
-                    inviteCode: state.team.inviteCode!),
+                MemberInviteCodeBar(inviteCode: state.team.inviteCode!),
             ],
           ),
         ),
@@ -231,8 +465,9 @@ class _WebLayout extends StatelessWidget {
                       Icon(
                         Icons.person_outline_rounded,
                         size: 48,
-                        color: colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.3),
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.3,
+                        ),
                       ),
                       const SizedBox(height: AppSpacing.md),
                       Text(
@@ -280,9 +515,7 @@ class _SelectableMemberTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      color: isSelected
-          ? colorScheme.primary.withValues(alpha: 0.08)
-          : null,
+      color: isSelected ? colorScheme.primary.withValues(alpha: 0.08) : null,
       child: MemberTile(
         member: member,
         isSelf: isSelf,
@@ -316,7 +549,7 @@ class _MemberSidePanel extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(color: colorScheme.outlineVariant),
         boxShadow: [
