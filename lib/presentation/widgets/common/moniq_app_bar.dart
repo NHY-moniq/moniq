@@ -86,6 +86,10 @@ class MoniqAppBar extends StatelessWidget
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final hasEyebrow = eyebrow != null && eyebrow!.isNotEmpty;
+    // 앱바는 고정 높이(preferredSize)라 글자 배율이 커지면 오버플로우 난다.
+    // 헤더(크롬)는 배율을 살짝 제한해 항상 높이 안에 들어오게 한다.
+    final mediaQuery = MediaQuery.of(context);
+    final clampedTextScaler = mediaQuery.textScaler.clamp(maxScaleFactor: 1.2);
 
     Widget? resolvedLeading = leading;
     if (resolvedLeading == null && showBack &&
@@ -95,7 +99,9 @@ class MoniqAppBar extends StatelessWidget
       );
     }
 
-    return Material(
+    return MediaQuery(
+      data: mediaQuery.copyWith(textScaler: clampedTextScaler),
+      child: Material(
       color: backgroundColor ?? Colors.transparent,
       child: SafeArea(
         bottom: false,
@@ -178,6 +184,7 @@ class MoniqAppBar extends StatelessWidget
             ],
           ),
         ),
+      ),
       ),
     );
   }

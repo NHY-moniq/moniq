@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:moniq/data/datasources/push_service.dart';
 import 'package:moniq/data/models/personal_team_member_shift.dart';
+import 'package:moniq/data/providers/appointment_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
+import 'package:moniq/data/providers/supabase_providers.dart';
+import 'package:moniq/presentation/screens/team/appointment_management_screen.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_dialogs.dart'
@@ -38,6 +42,7 @@ class PersonalTeamCalendarScreen extends ConsumerWidget {
             context.go('/teams');
           }
         },
+        trailing: _AppointmentBarAction(teamId: teamId),
       ),
       body: stateAsync.when(
         loading: () => const MoniqLoadingView(),
@@ -47,6 +52,26 @@ class PersonalTeamCalendarScreen extends ConsumerWidget {
               ref.invalidate(personalTeamCalendarViewModelProvider(teamId)),
         ),
         data: (state) => _CalendarBody(state: state, teamId: teamId),
+      ),
+    );
+  }
+}
+
+/// AppBar 약속 진입 버튼.
+class _AppointmentBarAction extends StatelessWidget {
+  const _AppointmentBarAction({required this.teamId});
+
+  final String teamId;
+
+  @override
+  Widget build(BuildContext context) {
+    return MoniqAppBarAction(
+      icon: Icons.event_note_rounded,
+      // 루트 네비게이터로 띄워 하단 dock 위에 풀스크린으로 표시.
+      onTap: () => Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute<void>(
+          builder: (_) => AppointmentManagementScreen(teamId: teamId),
+        ),
       ),
     );
   }
@@ -65,6 +90,8 @@ class _CalendarBody extends ConsumerStatefulWidget {
 class _CalendarBodyState extends ConsumerState<_CalendarBody> {
   bool _includeDay = false;
   bool _isOverlapCardExpanded = false;
+  // 과반수 이상만 표시(false) ↔ 전체 겹침 표시(true) 토글
+  bool _showAllOverlaps = false;
 
   static const int _offInsightMinCount = 1;
 
@@ -130,7 +157,8 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
         members: selectedMembers,
         dayShifts: dayShifts,
       );
-      if (count > 0) {
+      // 겹침은 2명 이상부터 의미가 있으므로 1명은 제외한다.
+      if (count >= 2) {
         summaries.add(_OverlapDaySummary(date: date, count: count));
       }
     }
@@ -463,6 +491,9 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
         ? StartingDayOfWeek.sunday
         : StartingDayOfWeek.monday;
     final selectedMembers = state.selectedMembers;
+    // 1명만 선택하면 개인 캘린더처럼 날짜별 근무 코드(D/E/N/오프)를 표시한다.
+    final isSingleMember = selectedMembers.length == 1;
+    final singleMemberId = isSingleMember ? selectedMembers.first.userId : null;
     final selectedShifts = _filterShiftsByMembers(
       state.shiftsForDate(state.selectedDate),
       state.selectedMemberIds,
@@ -475,7 +506,9 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
     final majorityOverlapDays = allOverlapDays
         .where((d) => d.count >= majorityThreshold)
         .toList();
-    final showMajorityDays = majorityOverlapDays.isNotEmpty;
+    // 과반수 이상 겹치는 날이 있으면 기본은 그것만, 토글 시 전체 표시.
+    final hasMajorityDays = majorityOverlapDays.isNotEmpty;
+    final showMajorityDays = hasMajorityDays && !_showAllOverlaps;
     final overlapDays = showMajorityDays ? majorityOverlapDays : allOverlapDays;
     final highlightedOverlapCountByDate = {
       for (final summary in overlapDays) summary.date: summary.count,
@@ -555,24 +588,23 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
                     children: [
                       _OverlapControlChip(
                         icon: Icons.people_alt_outlined,
-                        label: state.isAllMembersSelected
-                            ? '전체 ${state.members.length}명'
-                            : '${selectedMembers.length}명 선택',
+                        label: '${selectedMembers.length}명',
                         onTap: () =>
                             _showMemberSelectionSheet(context, state, vm),
                       ),
-                      FilterChip(
+                      _OverlapControlChip(
+                        label: '데이 포함',
                         selected: _includeDay,
-                        label: const Text('데이 포함'),
-                        avatar: Icon(
-                          _includeDay ? Icons.check_rounded : Icons.add_rounded,
-                          size: 16,
-                        ),
-                        onSelected: (selected) {
-                          setState(() => _includeDay = selected);
-                        },
-                        visualDensity: VisualDensity.compact,
+                        onTap: () =>
+                            setState(() => _includeDay = !_includeDay),
                       ),
+                      // 과반수 이상 겹치는 날이 있을 때만 노출 — 전체/과반수만 2분할 토글
+                      if (hasMajorityDays)
+                        _OverlapScopeToggle(
+                          showAll: _showAllOverlaps,
+                          onChanged: (v) =>
+                              setState(() => _showAllOverlaps = v),
+                        ),
                     ],
                   ),
                   if (!_isOverlapCardExpanded) ...[
@@ -670,10 +702,17 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
             // eventLoader가 있어야 markerBuilder가 호출됨
             eventLoader: (day) {
               final key = _dateKey(day);
-              return _filterShiftsByMembers(
+              final dayShifts = _filterShiftsByMembers(
                 state.monthlyData[key] ?? const <PersonalMemberShift>[],
                 state.selectedMemberIds,
               );
+              // 1명 모드: 오프 날도 'O'를 렌더링하도록 빈 날엔 오프 센티넬 주입.
+              if (isSingleMember && dayShifts.isEmpty) {
+                return [
+                  PersonalMemberShift(userId: singleMemberId!, date: day),
+                ];
+              }
+              return dayShifts;
             },
             cornerBadgeBuilder: (context, date) {
               final key = _dateKey(date);
@@ -689,6 +728,11 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
                   .whereType<PersonalMemberShift>()
                   .toList();
               if (dayShifts.isEmpty) return null;
+
+              // 1명 모드: 개인 캘린더처럼 단일 근무 코드 셀(D/E/N/오프) 표시.
+              if (isSingleMember) {
+                return _SingleMemberDayCell(shift: dayShifts.first);
+              }
 
               final typeCount = <String, int>{};
               for (final shift in dayShifts) {
@@ -841,8 +885,24 @@ class _AppointmentSheetContentState
         startTime: _timeParam(_startTime),
         endTime: _timeParam(_endTime),
       );
+      // 생성자 본인 캘린더는 RPC가 즉시 반영 → 본인 것만 새로고침.
       await ref.read(personalEventDataSourceProvider).pullFromRemote();
       ref.read(eventRefreshProvider.notifier).state++;
+      // 약속 목록/배지 갱신
+      ref.invalidate(teamAppointmentsProvider(widget.state.teamId));
+      // 참여자(생성자 제외)에게 알림 — 각자 약속 관리에서 직접 추가
+      final myId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+      final targets = _participantIds.where((id) => id != myId).toList();
+      if (targets.isNotEmpty) {
+        await PushService.instance.sendToUsers(
+          userIds: targets,
+          title: 'OnorOff',
+          body:
+              "'${_titleController.text.trim()}' 약속에 초대받았어요 · "
+              '${_fullDateLabel(widget.state.selectedDate)}',
+          data: {'type': 'appointment', 'teamId': widget.state.teamId},
+        );
+      }
       if (!mounted) return;
       Navigator.pop(context);
       widget.onSaved();
@@ -872,6 +932,24 @@ class _AppointmentSheetContentState
   String _fullDateLabel(DateTime date) {
     const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
     return '${date.year}년 ${date.month}월 ${date.day}일 (${weekdays[date.weekday - 1]})';
+  }
+
+  Widget _participantTile(int index) {
+    final member = widget.state.members[index];
+    final selected = _participantIds.contains(member.userId);
+    return _MemberSelectionTile(
+      member: member,
+      selected: selected,
+      onTap: () {
+        final nextIds = Set<String>.of(_participantIds);
+        if (selected) {
+          nextIds.remove(member.userId);
+        } else {
+          nextIds.add(member.userId);
+        }
+        setState(() => _participantIds = nextIds);
+      },
+    );
   }
 
   @override
@@ -1010,32 +1088,24 @@ class _AppointmentSheetContentState
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          for (var index = 0; index < widget.state.members.length; index++)
-            Builder(
-              builder: (context) {
-                final member = widget.state.members[index];
-                final selected = _participantIds.contains(member.userId);
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: index == widget.state.members.length - 1
-                        ? 0
-                        : AppSpacing.sm,
-                  ),
-                  child: _MemberSelectionTile(
-                    member: member,
-                    selected: selected,
-                    onTap: () {
-                      final nextIds = Set<String>.of(_participantIds);
-                      if (selected) {
-                        nextIds.remove(member.userId);
-                      } else {
-                        nextIds.add(member.userId);
-                      }
-                      setState(() => _participantIds = nextIds);
-                    },
-                  ),
-                );
-              },
+          // 참여자 카드 — 한 줄에 2명씩 배치해 시트가 길어지지 않게.
+          for (var index = 0; index < widget.state.members.length; index += 2)
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: index + 2 >= widget.state.members.length
+                    ? 0
+                    : AppSpacing.sm,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _participantTile(index)),
+                  const SizedBox(width: AppSpacing.sm),
+                  index + 1 < widget.state.members.length
+                      ? Expanded(child: _participantTile(index + 1))
+                      : const Spacer(),
+                ],
+              ),
             ),
           if (_errorMessage != null) ...[
             const SizedBox(height: AppSpacing.md),
@@ -1056,7 +1126,7 @@ class _AppointmentSheetContentState
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('개인 캘린더에 추가'),
+                : const Text('약속 추가'),
           ),
         ],
       ),
@@ -1387,6 +1457,49 @@ class _AppointmentTimeButton extends StatelessWidget {
   }
 }
 
+/// 1명 선택 시: 개인 캘린더처럼 그 날의 근무 코드(D/E/N/기타) 또는 오프(O)를
+/// 색 알약으로 표시한다.
+class _SingleMemberDayCell extends StatelessWidget {
+  const _SingleMemberDayCell({required this.shift});
+
+  final PersonalMemberShift shift;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final rawCode = (shift.shiftCode ?? '').trim();
+    final isOff = rawCode.isEmpty || isPersonalOffShift(shift);
+    final denCode = personalShiftDenCode(shift); // D/E/N 또는 null
+
+    final label = isOff ? 'O' : rawCode.toUpperCase();
+    final color = isOff
+        ? cs.onSurfaceVariant
+        : (denCode != null
+              ? personalShiftColorByCode(denCode)
+              : resolvePersonalShiftColor(context, shift));
+
+    // 개인 캘린더와 동일하게 셀 폭에 가까운 넓은 띠로 표시.
+    return Container(
+      width: 44,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isOff ? 0.12 : 0.18),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          color: isOff ? cs.onSurfaceVariant : color,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
 class _PersonalCalendarMarker extends StatelessWidget {
   const _PersonalCalendarMarker({
     required this.sortedCodes,
@@ -1458,18 +1571,28 @@ class _OverlapCornerDot extends StatelessWidget {
 
 class _OverlapControlChip extends StatelessWidget {
   const _OverlapControlChip({
-    required this.icon,
+    this.icon,
     required this.label,
     required this.onTap,
+    this.selected = false,
   });
 
-  final IconData icon;
+  final IconData? icon;
   final String label;
   final VoidCallback onTap;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final bg = selected
+        ? cs.primaryContainer.withValues(alpha: 0.55)
+        : cs.surfaceContainerLow;
+    final borderColor = selected
+        ? cs.primary.withValues(alpha: 0.5)
+        : cs.outlineVariant.withValues(alpha: 0.8);
+    final iconColor = selected ? cs.primary : cs.onSurfaceVariant;
+    final fg = selected ? cs.onPrimaryContainer : cs.onSurface;
 
     return Material(
       color: Colors.transparent,
@@ -1482,26 +1605,82 @@ class _OverlapControlChip extends StatelessWidget {
             vertical: AppSpacing.sm,
           ),
           decoration: BoxDecoration(
-            color: cs.surfaceContainerLow,
+            color: bg,
             borderRadius: AppRadius.borderRadiusFull,
-            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.8)),
+            border: Border.all(color: borderColor),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: cs.onSurfaceVariant),
-              const SizedBox(width: AppSpacing.xs),
+              if (icon != null) ...[
+                Icon(icon, size: 16, color: iconColor),
+                const SizedBox(width: AppSpacing.xs),
+              ],
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: cs.onSurface,
+                  color: fg,
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 전체 / 과반수만 2분할 토글 — "누르는 것"임을 직관적으로 보여준다.
+class _OverlapScopeToggle extends StatelessWidget {
+  const _OverlapScopeToggle({required this.showAll, required this.onChanged});
+
+  final bool showAll;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    Widget seg(String label, bool selected, VoidCallback onTap) {
+      return GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: 6,
+          ),
+          decoration: BoxDecoration(
+            color: selected ? cs.primary : Colors.transparent,
+            borderRadius: AppRadius.borderRadiusFull,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: AppRadius.borderRadiusFull,
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.8)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          seg('과반수', !showAll, () => onChanged(false)),
+          seg('전체', showAll, () => onChanged(true)),
+        ],
       ),
     );
   }
@@ -1582,12 +1761,15 @@ class _MemberSelectionTile extends StatelessWidget {
         borderRadius: AppRadius.borderRadiusLg,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.sm,
+          ),
           decoration: BoxDecoration(
             color: selected
                 ? cs.primaryContainer.withValues(alpha: 0.16)
                 : cs.surface,
-            borderRadius: AppRadius.borderRadiusLg,
+            borderRadius: AppRadius.borderRadiusMd,
             border: Border.all(
               color: selected
                   ? cs.primary.withValues(alpha: 0.38)
@@ -1597,23 +1779,23 @@ class _MemberSelectionTile extends StatelessWidget {
           child: Row(
             children: [
               _MemberSelectionAvatar(member: member),
-              const SizedBox(width: AppSpacing.md),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
                   member.displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyLarge?.copyWith(
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: cs.onSurface,
                   ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
+              const SizedBox(width: AppSpacing.xs),
               AnimatedContainer(
                 duration: const Duration(milliseconds: 160),
-                width: 28,
-                height: 28,
+                width: 22,
+                height: 22,
                 decoration: BoxDecoration(
                   color: selected ? cs.primary : cs.surfaceContainerHighest,
                   shape: BoxShape.circle,
@@ -1622,7 +1804,7 @@ class _MemberSelectionTile extends StatelessWidget {
                   ),
                 ),
                 child: selected
-                    ? Icon(Icons.check_rounded, size: 18, color: cs.onPrimary)
+                    ? Icon(Icons.check_rounded, size: 15, color: cs.onPrimary)
                     : null,
               ),
             ],
@@ -1645,7 +1827,7 @@ class _MemberSelectionAvatar extends StatelessWidget {
 
     if (avatarUrl != null && avatarUrl.isNotEmpty) {
       return CircleAvatar(
-        radius: 18,
+        radius: 14,
         backgroundColor: cs.primaryContainer,
         backgroundImage: NetworkImage(avatarUrl),
         onBackgroundImageError: (_, __) {},
@@ -1653,7 +1835,7 @@ class _MemberSelectionAvatar extends StatelessWidget {
     }
 
     return CircleAvatar(
-      radius: 18,
+      radius: 14,
       backgroundColor: cs.primaryContainer.withValues(alpha: 0.72),
       child: Text(
         _initials(member.displayName),

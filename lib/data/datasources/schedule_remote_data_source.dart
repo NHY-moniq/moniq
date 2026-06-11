@@ -81,6 +81,27 @@ class ScheduleRemoteDataSource {
         .toList();
   }
 
+  /// 팀의 특정 날짜 범위(양 끝 포함) 시프트 조회 — 이전 달 마지막 주 시드 등에 사용.
+  Future<List<ShiftModel>> getTeamShiftsInRange({
+    required String teamId,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    String fmt(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final rows = await _client
+        .from('shifts')
+        .select()
+        .eq('team_id', teamId)
+        .gte('shift_date', fmt(start))
+        .lte('shift_date', fmt(end))
+        .order('shift_date');
+
+    return (rows as List)
+        .map((r) => ShiftModel.fromJson(r as Map<String, dynamic>))
+        .toList();
+  }
+
   /// 팀의 스케줄 목록
   Future<List<ScheduleModel>> getSchedules(String teamId) async {
     final rows = await _client

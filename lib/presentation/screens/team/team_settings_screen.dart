@@ -206,9 +206,19 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
         (t.name as String).contains('저녁') ||
         (t.name as String).contains('나이트') ||
         (t.name as String).contains('야간');
-    final activeShiftTypes = widget.shiftTypes
-        .where((t) => t.isActive && isDen(t))
-        .toList();
+    // 데이(D) → 이브닝(E) → 나이트(N) 순으로 정렬해 표시.
+    int denRank(t) {
+      final c = (t.code as String).toUpperCase();
+      final n = t.name as String;
+      if (c == 'D' || n.contains('데이') || n.contains('주간')) return 0;
+      if (c == 'E' || n.contains('이브닝') || n.contains('저녁')) return 1;
+      if (c == 'N' || n.contains('나이트') || n.contains('야간')) return 2;
+      return 3;
+    }
+
+    final activeShiftTypes =
+        widget.shiftTypes.where((t) => t.isActive && isDen(t)).toList()
+          ..sort((a, b) => denRank(a).compareTo(denRank(b)));
 
     return PopScope(
       canPop: !_isDirty,

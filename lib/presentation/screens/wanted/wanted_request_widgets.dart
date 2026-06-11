@@ -497,8 +497,8 @@ class WantedRequestActiveView extends HookConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            '${dateFormat.format(request.periodStart)} ~ '
-            '${dateFormat.format(request.periodEnd)}',
+            '${DateFormat('yyyy.MM.dd').format(request.periodStart)} ~ '
+            '${DateFormat('yyyy.MM.dd').format(request.periodEnd)}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
@@ -1012,8 +1012,8 @@ class WantedRequestClosedView extends HookConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            '${dateFormat.format(request.periodStart)} ~ '
-            '${dateFormat.format(request.periodEnd)}',
+            '${DateFormat('yyyy.MM.dd').format(request.periodStart)} ~ '
+            '${DateFormat('yyyy.MM.dd').format(request.periodEnd)}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),

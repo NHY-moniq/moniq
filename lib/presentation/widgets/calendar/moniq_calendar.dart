@@ -418,7 +418,7 @@ class MoniqCalendar extends StatelessWidget {
             ),
 
           if (cornerBadge != null)
-            Positioned(top: 8, right: 13, child: cornerBadge),
+            Positioned(top: 3, right: 5, child: cornerBadge),
 
           // 마커/미리보기 시작 y — today/non-today 동일 (밀림 방지)
           if (markers != null) Positioned(top: 30, child: markers),
