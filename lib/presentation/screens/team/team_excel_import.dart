@@ -382,6 +382,7 @@ Future<void> exportSampleTemplate(
       month: target.month,
       title: '$sheetName 근무표 (샘플 양식)',
       perDay: perDay,
+      typeHeaderLabels: typeNames.toSet(),
     );
     if (bytes.isEmpty) throw Exception('파일 생성 실패');
 
