@@ -14,10 +14,7 @@ import 'calendar_providers.dart';
 // ── 홈 드로어 ──
 
 class CalendarDrawer extends HookConsumerWidget {
-  const CalendarDrawer({
-    super.key,
-    required this.onImportCalendar,
-  });
+  const CalendarDrawer({super.key, required this.onImportCalendar});
 
   final VoidCallback onImportCalendar;
 
@@ -167,24 +164,19 @@ class _DrawerNavItem extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.badge,
-    this.isActive = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final String? badge;
-  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final textColor =
-        isActive ? cs.primary : cs.onSurfaceVariant;
-    final iconColor =
-        isActive ? cs.primaryContainer : cs.onSurfaceVariant;
-    final bgColor =
-        isActive ? cs.surfaceContainerHighest : Colors.transparent;
+    final textColor = cs.onSurfaceVariant;
+    final iconColor = cs.onSurfaceVariant;
+    const bgColor = Colors.transparent;
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -210,10 +202,7 @@ class _DrawerNavItem extends StatelessWidget {
                 Expanded(
                   child: Text(
                     label,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.copyWith(
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: textColor,
                     ),
@@ -231,9 +220,7 @@ class _DrawerNavItem extends StatelessWidget {
                     ),
                     child: Text(
                       badge!,
-                      style:
-                          Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: cs.onPrimaryContainer,
                         fontWeight: FontWeight.w700,
                       ),
@@ -309,12 +296,14 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                         borderRadius: AppRadius.borderRadiusSm,
                       ),
                       child: Center(
-                        child: Text(label,
-                            style: TextStyle(
-                              color: color,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                            )),
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ),
                     title: Text(st.name),
@@ -324,10 +313,8 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                     trailing: PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert, size: 18),
                       itemBuilder: (_) => [
-                        const PopupMenuItem(
-                            value: 'edit', child: Text('수정')),
-                        const PopupMenuItem(
-                            value: 'delete', child: Text('삭제')),
+                        const PopupMenuItem(value: 'edit', child: Text('수정')),
+                        const PopupMenuItem(value: 'delete', child: Text('삭제')),
                       ],
                       onSelected: (action) {
                         if (action == 'edit') {
@@ -354,16 +341,20 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
   }
 
   void _showEditShiftTypeForm(
-      BuildContext context, WidgetRef ref, PersonalShiftType existing) {
+    BuildContext context,
+    WidgetRef ref,
+    PersonalShiftType existing,
+  ) {
     _showShiftTypeForm(context, ref, existing);
   }
 
   void _showShiftTypeForm(
-      BuildContext context, WidgetRef ref, PersonalShiftType? existing) {
-    final nameController =
-        TextEditingController(text: existing?.name ?? '');
-    final codeController =
-        TextEditingController(text: existing?.code ?? '');
+    BuildContext context,
+    WidgetRef ref,
+    PersonalShiftType? existing,
+  ) {
+    final nameController = TextEditingController(text: existing?.name ?? '');
+    final codeController = TextEditingController(text: existing?.code ?? '');
     TimeOfDay startTime = existing?.startTime != null
         ? _parseTimeOfDay(existing!.startTime!)
         : const TimeOfDay(hour: 7, minute: 0);
@@ -437,10 +428,9 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                       child: TextField(
                         controller: nameController,
                         textInputAction: TextInputAction.next,
-                        style: Theme.of(ctx)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
+                        style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                         decoration: const InputDecoration(
                           hintText: '근무 이름 입력',
                           border: UnderlineInputBorder(),
@@ -458,9 +448,9 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                 Text(
                   '근무 코드',
                   style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
-                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Align(
@@ -473,10 +463,9 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                       textInputAction: TextInputAction.done,
                       maxLength: 4,
                       textAlign: TextAlign.center,
-                      style: Theme.of(ctx)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                       decoration: const InputDecoration(
                         hintText: 'D',
                         counterText: '',
@@ -494,9 +483,9 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                 Text(
                   '근무 시간',
                   style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
-                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Row(
@@ -514,28 +503,36 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              vertical: AppSpacing.md,
-                              horizontal: AppSpacing.lg),
+                            vertical: AppSpacing.md,
+                            horizontal: AppSpacing.lg,
+                          ),
                           decoration: BoxDecoration(
                             borderRadius: AppRadius.borderRadiusMd,
                             border: Border.all(
-                                color: badgeColor.withValues(alpha: 0.25)),
+                              color: badgeColor.withValues(alpha: 0.25),
+                            ),
                             color: badgeColor.withValues(alpha: 0.05),
                           ),
                           child: Column(
                             children: [
-                              Text(periodLabel(startTime),
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: badgeColor,
-                                      fontWeight: FontWeight.w600)),
+                              Text(
+                                periodLabel(startTime),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: badgeColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                               const SizedBox(height: AppSpacing.xxs),
-                              Text(formatTime(startTime),
-                                  style: TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w700,
-                                      color: badgeColor,
-                                      letterSpacing: 1)),
+                              Text(
+                                formatTime(startTime),
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                  color: badgeColor,
+                                  letterSpacing: 1,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -543,11 +540,15 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md),
-                      child: Icon(Icons.arrow_forward_rounded,
-                          size: 18,
-                          color: Theme.of(ctx).colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.5)),
+                        horizontal: AppSpacing.md,
+                      ),
+                      child: Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 18,
+                        color: Theme.of(
+                          ctx,
+                        ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
                     ),
                     // 종료
                     Expanded(
@@ -556,34 +557,41 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                           _showTimePicker(
                             context: ctx,
                             initial: endTime,
-                            onChanged: (t) =>
-                                setSheetState(() => endTime = t),
+                            onChanged: (t) => setSheetState(() => endTime = t),
                           );
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              vertical: AppSpacing.md,
-                              horizontal: AppSpacing.lg),
+                            vertical: AppSpacing.md,
+                            horizontal: AppSpacing.lg,
+                          ),
                           decoration: BoxDecoration(
                             borderRadius: AppRadius.borderRadiusMd,
                             border: Border.all(
-                                color: badgeColor.withValues(alpha: 0.25)),
+                              color: badgeColor.withValues(alpha: 0.25),
+                            ),
                             color: badgeColor.withValues(alpha: 0.05),
                           ),
                           child: Column(
                             children: [
-                              Text(periodLabel(endTime),
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: badgeColor,
-                                      fontWeight: FontWeight.w600)),
+                              Text(
+                                periodLabel(endTime),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: badgeColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                               const SizedBox(height: AppSpacing.xxs),
-                              Text(formatTime(endTime),
-                                  style: TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w700,
-                                      color: badgeColor,
-                                      letterSpacing: 1)),
+                              Text(
+                                formatTime(endTime),
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                  color: badgeColor,
+                                  letterSpacing: 1,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -598,9 +606,9 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                 Text(
                   '색상',
                   style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
-                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Row(
@@ -609,8 +617,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                     final isSelected = c == selectedColor;
                     final color = parseHexColor(c);
                     return GestureDetector(
-                      onTap: () =>
-                          setSheetState(() => selectedColor = c),
+                      onTap: () => setSheetState(() => selectedColor = c),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
                         width: isSelected ? 32 : 28,
@@ -624,14 +631,18 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                           boxShadow: isSelected
                               ? [
                                   BoxShadow(
-                                      color: Theme.of(ctx).colorScheme.onSurface,
-                                      blurRadius: 8)
+                                    color: Theme.of(ctx).colorScheme.onSurface,
+                                    blurRadius: 8,
+                                  ),
                                 ]
                               : null,
                         ),
                         child: isSelected
-                            ? const Icon(Icons.check_rounded,
-                                color: Colors.white, size: 16)
+                            ? const Icon(
+                                Icons.check_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              )
                             : null,
                       ),
                     );
@@ -646,24 +657,19 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                     final name = nameController.text.trim();
                     if (name.isEmpty) return;
 
-                    final ds =
-                        ref.read(personalShiftTypeDataSourceProvider);
+                    final ds = ref.read(personalShiftTypeDataSourceProvider);
                     // 사용자가 입력한 코드 우선, 비어 있으면 이름 첫 글자.
-                    final autoFallback =
-                        name.characters.first.toUpperCase();
-                    final inputCode =
-                        codeController.text.trim().toUpperCase();
-                    final code =
-                        inputCode.isEmpty ? autoFallback : inputCode;
+                    final autoFallback = name.characters.first.toUpperCase();
+                    final inputCode = codeController.text.trim().toUpperCase();
+                    final code = inputCode.isEmpty ? autoFallback : inputCode;
 
                     String formatT(TimeOfDay t) =>
                         '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
                     final st = PersonalShiftType(
-                      id: existing?.id ??
-                          DateTime.now()
-                              .millisecondsSinceEpoch
-                              .toString(),
+                      id:
+                          existing?.id ??
+                          DateTime.now().millisecondsSinceEpoch.toString(),
                       name: name,
                       code: code,
                       startTime: formatT(startTime),
@@ -680,10 +686,10 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                     Navigator.pop(ctx);
                   },
                   style: FilledButton.styleFrom(
-                    backgroundColor:
-                        Theme.of(ctx).colorScheme.primary,
+                    backgroundColor: Theme.of(ctx).colorScheme.primary,
                     padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.md),
+                      vertical: AppSpacing.md,
+                    ),
                   ),
                   child: Text(existing == null ? '추가' : '저장'),
                 ),
@@ -698,10 +704,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
 
   TimeOfDay _parseTimeOfDay(String timeStr) {
     final parts = timeStr.split(':');
-    return TimeOfDay(
-      hour: int.parse(parts[0]),
-      minute: int.parse(parts[1]),
-    );
+    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
   }
 
   void _showTimePicker({
@@ -714,8 +717,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
       builder: (ctx) => SizedBox(
         height: 280,
@@ -723,7 +725,9 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -746,8 +750,13 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
               child: CupertinoDatePicker(
                 mode: CupertinoDatePickerMode.time,
                 use24hFormat: false,
-                initialDateTime:
-                    DateTime(2000, 1, 1, initial.hour, initial.minute),
+                initialDateTime: DateTime(
+                  2000,
+                  1,
+                  1,
+                  initial.hour,
+                  initial.minute,
+                ),
                 onDateTimeChanged: (dt) {
                   selected = TimeOfDay(hour: dt.hour, minute: dt.minute);
                 },

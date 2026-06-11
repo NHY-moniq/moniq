@@ -30,10 +30,9 @@ class DateItemsPanel extends ConsumerWidget {
   final List<ShiftWithType> shifts;
   final List<PersonalEvent> events;
   final List<PersonalNote> notes;
+
   /// 이번 달에 팀 근무 스케줄이 존재하는지 (true면 근무 없는 날 = 오프)
   final bool hasTeamSchedule;
-
-  static const _weekdays = ['\uC6D4', '\uD654', '\uC218', '\uBAA9', '\uAE08', '\uD1A0', '\uC77C'];
 
   /// 개인 일정 정렬: 종일(startTime null) 우선, 그다음 시간순.
   List<PersonalEvent> get _sortedEvents {
@@ -60,11 +59,11 @@ class DateItemsPanel extends ConsumerWidget {
     // 팀 스케줄이 있는데 이 날 근무가 없으면 오프로 간주 (숨김 모드면 무시)
     final isTeamOff =
         !hideTeamShifts && hasTeamSchedule && visibleShifts.isEmpty;
-    final hasItems = visibleShifts.isNotEmpty ||
+    final hasItems =
+        visibleShifts.isNotEmpty ||
         isTeamOff ||
         events.isNotEmpty ||
         notes.isNotEmpty;
-    final weekday = _weekdays[date.weekday - 1];
     final offCount = isTeamOff ? 1 : 0;
     final totalItems =
         visibleShifts.length + offCount + events.length + notes.length;
@@ -76,8 +75,12 @@ class DateItemsPanel extends ConsumerWidget {
         .watch(personalShiftTypesProvider)
         .map((st) => st.name)
         .toSet();
-    final shiftEvents = events.where((e) => shiftTypeNames.contains(e.title)).toList();
-    final normalEvents = events.where((e) => !shiftTypeNames.contains(e.title)).toList();
+    final shiftEvents = events
+        .where((e) => shiftTypeNames.contains(e.title))
+        .toList();
+    final normalEvents = events
+        .where((e) => !shiftTypeNames.contains(e.title))
+        .toList();
 
     return Padding(
       padding: AppSpacing.screenHorizontal,
@@ -93,9 +96,8 @@ class DateItemsPanel extends ConsumerWidget {
                 shape: const StadiumBorder(),
                 child: InkWell(
                   customBorder: const StadiumBorder(),
-                  onTap: () => ref
-                      .read(dateExpandedProvider.notifier)
-                      .state = !isExpanded,
+                  onTap: () => ref.read(dateExpandedProvider.notifier).state =
+                      !isExpanded,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.md,
@@ -159,9 +161,8 @@ class DateItemsPanel extends ConsumerWidget {
               ),
             // 서버 근무 (원격 오버라이드 적용)
             ...visibleShifts.map((s) {
-              final overrides = ref
-                      .watch(personalShiftOverridesProvider)
-                      .valueOrNull ??
+              final overrides =
+                  ref.watch(personalShiftOverridesProvider).valueOrNull ??
                   const <String, PersonalShiftOverrideRemote>{};
               final override = overrides[s.shift.id];
               final code = override?.code ?? s.shiftType.code;
@@ -191,8 +192,7 @@ class DateItemsPanel extends ConsumerWidget {
                       _ItemAction(
                         icon: Icons.restart_alt_rounded,
                         label: '팀 근무로 복원',
-                        onTap: () =>
-                            _resetShiftOverride(ref, s.shift.id, date),
+                        onTap: () => _resetShiftOverride(ref, s.shift.id, date),
                       ),
                   ],
                 ),
@@ -222,14 +222,18 @@ class DateItemsPanel extends ConsumerWidget {
                       icon: Icons.edit_outlined,
                       label: '\uC218\uC815',
                       onTap: () => showEventForm(
-                          context, ref, date, originalIndex, event),
+                        context,
+                        ref,
+                        date,
+                        originalIndex,
+                        event,
+                      ),
                     ),
                     _ItemAction(
                       icon: Icons.delete_outline_rounded,
                       label: '\uC0AD\uC81C',
                       destructive: true,
-                      onTap: () =>
-                          _deleteEvent(context, ref, originalIndex),
+                      onTap: () => _deleteEvent(context, ref, originalIndex),
                     ),
                   ],
                 ),
@@ -249,7 +253,13 @@ class DateItemsPanel extends ConsumerWidget {
                   ? parseHexColor(event.color!)
                   : AppColors.success;
               return _buildEventCard(
-                  theme, ref, context, event, eventColor, originalIndex);
+                theme,
+                ref,
+                context,
+                event,
+                eventColor,
+                originalIndex,
+              );
             }),
           ],
 
@@ -265,9 +275,9 @@ class DateItemsPanel extends ConsumerWidget {
               final isNoteExpanded = ref.watch(noteExpandedProvider(noteKey));
 
               return GestureDetector(
-                onTap: () => ref
-                    .read(noteExpandedProvider(noteKey).notifier)
-                    .state = !isNoteExpanded,
+                onTap: () =>
+                    ref.read(noteExpandedProvider(noteKey).notifier).state =
+                        !isNoteExpanded,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -292,18 +302,24 @@ class DateItemsPanel extends ConsumerWidget {
                       Icon(
                         Icons.push_pin_rounded,
                         size: 14,
-                        color: theme.colorScheme.secondary.withValues(alpha: 0.6),
+                        color: theme.colorScheme.secondary.withValues(
+                          alpha: 0.6,
+                        ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text(
                           note.content,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.8,
+                            ),
                             height: 1.4,
                           ),
                           maxLines: isNoteExpanded ? null : 1,
-                          overflow: isNoteExpanded ? null : TextOverflow.ellipsis,
+                          overflow: isNoteExpanded
+                              ? null
+                              : TextOverflow.ellipsis,
                         ),
                       ),
                       _CardActionButton(
@@ -315,7 +331,12 @@ class DateItemsPanel extends ConsumerWidget {
                             icon: Icons.edit_outlined,
                             label: '\uC218\uC815',
                             onTap: () => showNoteForm(
-                                context, ref, date, index, note.content),
+                              context,
+                              ref,
+                              date,
+                              index,
+                              note.content,
+                            ),
                           ),
                           _ItemAction(
                             icon: Icons.delete_outline_rounded,
@@ -363,9 +384,7 @@ class DateItemsPanel extends ConsumerWidget {
           ],
         ),
         borderRadius: AppRadius.borderRadiusMd,
-        border: Border.all(
-          color: shiftColor.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: shiftColor.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -386,7 +405,8 @@ class DateItemsPanel extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
-                        color: ThemeData.estimateBrightnessForColor(shiftColor) ==
+                        color:
+                            ThemeData.estimateBrightnessForColor(shiftColor) ==
                                 Brightness.dark
                             ? Colors.white
                             : Colors.black87,
@@ -406,7 +426,9 @@ class DateItemsPanel extends ConsumerWidget {
                 if (startTime != null) ...[
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm, vertical: 2),
+                      horizontal: AppSpacing.sm,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: shiftColor.withValues(alpha: 0.12),
                       borderRadius: AppRadius.borderRadiusSm,
@@ -461,8 +483,14 @@ class DateItemsPanel extends ConsumerWidget {
   }
 
   /// Full event card — same structure as shift card for alignment
-  Widget _buildEventCard(ThemeData theme, WidgetRef ref,
-      BuildContext context, PersonalEvent event, Color eventColor, int index) {
+  Widget _buildEventCard(
+    ThemeData theme,
+    WidgetRef ref,
+    BuildContext context,
+    PersonalEvent event,
+    Color eventColor,
+    int index,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.symmetric(
@@ -472,9 +500,7 @@ class DateItemsPanel extends ConsumerWidget {
       decoration: BoxDecoration(
         color: eventColor.withValues(alpha: 0.06),
         borderRadius: AppRadius.borderRadiusMd,
-        border: Border.all(
-          color: eventColor.withValues(alpha: 0.15),
-        ),
+        border: Border.all(color: eventColor.withValues(alpha: 0.15)),
       ),
       child: Row(
         children: [
@@ -498,15 +524,18 @@ class DateItemsPanel extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     event.title,
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(fontWeight: FontWeight.w600),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm, vertical: 2),
+                    horizontal: AppSpacing.sm,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: eventColor.withValues(alpha: 0.12),
                     borderRadius: AppRadius.borderRadiusSm,
@@ -516,11 +545,14 @@ class DateItemsPanel extends ConsumerWidget {
                     children: [
                       Icon(Icons.access_time, size: 12, color: eventColor),
                       const SizedBox(width: 3),
-                      Text(event.timeRange,
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: eventColor)),
+                      Text(
+                        event.timeRange,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: eventColor,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -609,19 +641,19 @@ class DateItemsPanel extends ConsumerWidget {
   }
 
   Future<void> _resetShiftOverride(
-      WidgetRef ref, String shiftId, DateTime date) async {
+    WidgetRef ref,
+    String shiftId,
+    DateTime date,
+  ) async {
     await ref.read(personalShiftOverrideRemoteProvider).remove(shiftId);
     refreshAll(ref, date);
   }
 }
 
-
 /// 근무 카드 라벨용 — OFF는 'O', 교육(ED)은 그대로, 그 외 2글자 이상 코드는 첫 글자만.
 String _displayShiftCode(String code, String name) {
   final c = code.toUpperCase();
-  if (c == 'OFF' ||
-      name.contains('오프') ||
-      name.toLowerCase().contains('off')) {
+  if (c == 'OFF' || name.contains('오프') || name.toLowerCase().contains('off')) {
     return 'O';
   }
   // 교육(ED/EDU 등)은 단일 문자로 줄이지 않고 코드를 그대로 노출한다.

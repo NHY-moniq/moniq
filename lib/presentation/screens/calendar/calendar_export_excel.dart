@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:excel/excel.dart' as xl;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:moniq/core/utils/shift_code_utils.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
@@ -11,29 +12,36 @@ import 'calendar_providers.dart';
 
 /// 개인 캘린더 Excel bytes (웹 내보내기용 — 파일 I/O 없음)
 Future<List<int>> generateExcelBytes(
-    HomeCalendarState state, WidgetRef ref) async {
+  HomeCalendarState state,
+  WidgetRef ref,
+) async {
   return _buildPersonalExcelBytes(state, ref);
 }
 
 /// 개인 캘린더 Excel 파일 생성 (모바일)
-Future<File> generateExcelFile(
-    HomeCalendarState state, WidgetRef ref) async {
+Future<File> generateExcelFile(HomeCalendarState state, WidgetRef ref) async {
   final bytes = await _buildPersonalExcelBytes(state, ref);
   final focusedMonth = state.focusedMonth;
   final dir = await getTemporaryDirectory();
   final file = File(
-      '${dir.path}/onoroff_${focusedMonth.year}_${focusedMonth.month}.xlsx');
+    '${dir.path}/onoroff_${focusedMonth.year}_${focusedMonth.month}.xlsx',
+  );
   await file.writeAsBytes(bytes);
   return file;
 }
 
 /// 개인 캘린더 Excel 빌드 (bytes 반환 — dart:io 없음)
 Future<List<int>> _buildPersonalExcelBytes(
-    HomeCalendarState state, WidgetRef ref) async {
+  HomeCalendarState state,
+  WidgetRef ref,
+) async {
   final focusedMonth = state.focusedMonth;
   final eventDs = ref.read(personalEventDataSourceProvider);
-  final daysInMonth =
-      DateTime(focusedMonth.year, focusedMonth.month + 1, 0).day;
+  final daysInMonth = DateTime(
+    focusedMonth.year,
+    focusedMonth.month + 1,
+    0,
+  ).day;
 
   final excel = xl.Excel.createExcel();
   final sheetName = '${focusedMonth.year}년 ${focusedMonth.month}월';
@@ -48,9 +56,11 @@ Future<List<int>> _buildPersonalExcelBytes(
 
   // -- 타이틀 행 (병합) --
   final titleCell = sheet.cell(
-      xl.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0));
+    xl.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0),
+  );
   titleCell.value = xl.TextCellValue(
-      '${focusedMonth.year}년 ${focusedMonth.month}월 근무표');
+    '${focusedMonth.year}년 ${focusedMonth.month}월 근무표',
+  );
   titleCell.cellStyle = xl.CellStyle(
     bold: true,
     fontSize: 16,
@@ -76,15 +86,18 @@ Future<List<int>> _buildPersonalExcelBytes(
   const dayNames = ['월', '화', '수', '목', '금', '토', '일'];
   for (int i = 0; i < 7; i++) {
     final cell = sheet.cell(
-        xl.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 1));
+      xl.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 1),
+    );
     cell.value = xl.TextCellValue(dayNames[i]);
     cell.cellStyle = i == 5
         ? headerStyle.copyWith(
-            fontColorHexVal: xl.ExcelColor.fromHexString('#5A8BB5'))
+            fontColorHexVal: xl.ExcelColor.fromHexString('#5A8BB5'),
+          )
         : i == 6
-            ? headerStyle.copyWith(
-                fontColorHexVal: xl.ExcelColor.fromHexString('#E53E3E'))
-            : headerStyle;
+        ? headerStyle.copyWith(
+            fontColorHexVal: xl.ExcelColor.fromHexString('#E53E3E'),
+          )
+        : headerStyle;
   }
   sheet.setRowHeight(1, 25);
 
@@ -135,7 +148,8 @@ Future<List<int>> _buildPersonalExcelBytes(
     }
 
     final cell = sheet.cell(
-        xl.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: excelRow));
+      xl.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: excelRow),
+    );
     cell.value = xl.TextCellValue(items.join('\n'));
     cell.cellStyle = (col == 5 || col == 6) ? weekendStyle : dateCellStyle;
   }
@@ -145,7 +159,8 @@ Future<List<int>> _buildPersonalExcelBytes(
     for (int c = 0; c < 7; c++) {
       final excelRow = r + 2;
       final cell = sheet.cell(
-          xl.CellIndex.indexByColumnRow(columnIndex: c, rowIndex: excelRow));
+        xl.CellIndex.indexByColumnRow(columnIndex: c, rowIndex: excelRow),
+      );
       if (cell.value == null) {
         cell.value = xl.TextCellValue('');
         cell.cellStyle = dateCellStyle;
@@ -156,11 +171,11 @@ Future<List<int>> _buildPersonalExcelBytes(
   return excel.encode() ?? [];
 }
 
-
-
 /// 팀 캘린더 Excel bytes 생성 (ref 사용, 웹 다운로드용)
 Future<List<int>> generateTeamExcelBytes(
-    TeamCalendarState state, WidgetRef ref) async {
+  TeamCalendarState state,
+  WidgetRef ref,
+) async {
   final teamRepo = ref.read(teamRepositoryProvider);
   final members = await teamRepo.getTeamMembersWithUsers(state.teamId);
   final memberNames = <String, String>{};
@@ -172,7 +187,9 @@ Future<List<int>> generateTeamExcelBytes(
 
 /// 팀 캘린더 Excel 생성 (ref 사용)
 Future<File> generateTeamExcelFile(
-    TeamCalendarState state, WidgetRef ref) async {
+  TeamCalendarState state,
+  WidgetRef ref,
+) async {
   final teamRepo = ref.read(teamRepositoryProvider);
   final members = await teamRepo.getTeamMembersWithUsers(state.teamId);
   final memberNames = <String, String>{};
@@ -184,30 +201,42 @@ Future<File> generateTeamExcelFile(
 
 /// 팀 캘린더 Excel 생성 (멤버 이름 맵 직접 전달)
 Future<File> generateTeamExcelWithNames(
-    TeamCalendarState state, Map<String, String> memberNames) async {
+  TeamCalendarState state,
+  Map<String, String> memberNames,
+) async {
   final bytes = await _buildTeamExcelBytes(state, memberNames);
   final dir = await getTemporaryDirectory();
   final file = File(
-      '${dir.path}/team_${state.teamId}_${state.focusedMonth.year}_${state.focusedMonth.month}.xlsx');
+    '${dir.path}/team_${state.teamId}_${state.focusedMonth.year}_${state.focusedMonth.month}.xlsx',
+  );
   await file.writeAsBytes(bytes);
   return file;
 }
 
 /// 근무 유형 정렬 순서: 데이(0) → 이브닝(1) → 나이트(2) → 기타(3)
 int shiftTypeOrder(String code, String name) {
-  final c = code.toUpperCase();
-  final n = name.toLowerCase();
-  if (c == 'D' || name.contains('데이') || n.contains('day')) return 0;
-  if (c == 'E' || name.contains('이브닝') || n.contains('eve')) return 1;
-  if (c == 'N' || name.contains('나이트') || n.contains('night')) return 2;
-  return 3;
+  switch (canonicalShiftCode(code, name)) {
+    case 'D':
+      return 0;
+    case 'E':
+      return 1;
+    case 'N':
+      return 2;
+    default:
+      return 3;
+  }
 }
 
 Future<List<int>> _buildTeamExcelBytes(
-    TeamCalendarState state, Map<String, String> memberNames) async {
+  TeamCalendarState state,
+  Map<String, String> memberNames,
+) async {
   final focusedMonth = state.focusedMonth;
-  final daysInMonth =
-      DateTime(focusedMonth.year, focusedMonth.month + 1, 0).day;
+  final daysInMonth = DateTime(
+    focusedMonth.year,
+    focusedMonth.month + 1,
+    0,
+  ).day;
 
   // 각 날짜 셀 목록: 근무유형 헤더(예: '데이') 다음에 이름들이 이어진다.
   final perDay = <int, List<String>>{};
@@ -218,7 +247,8 @@ Future<List<int>> _buildTeamExcelBytes(
     final list = <String>[];
     if (shifts != null) {
       // 데이 → 이브닝 → 나이트 → 기타 순, 같은 유형끼리 묶고 이름순으로 정렬
-      final sorted = [...shifts]..sort((a, b) {
+      final sorted = [...shifts]
+        ..sort((a, b) {
           final oa = shiftTypeOrder(a.shiftType.code, a.shiftType.name);
           final ob = shiftTypeOrder(b.shiftType.code, b.shiftType.name);
           if (oa != ob) return oa.compareTo(ob);
@@ -275,9 +305,7 @@ String _shiftHeaderBgHex(String name) {
   if (n.contains('나이트') || n.contains('야간') || lower.contains('night')) {
     return '#7FB1E3'; // 파랑
   }
-  if (n.contains('교육') ||
-      lower.contains('edu') ||
-      lower.contains('train')) {
+  if (n.contains('교육') || lower.contains('edu') || lower.contains('train')) {
     return '#B794D9'; // 보라
   }
   return '#F2F2F2'; // 기타: 회색
@@ -305,7 +333,8 @@ List<int> buildCalendarGridExcelBytes({
 
   // 타이틀
   final titleCell = sheet.cell(
-      xl.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0));
+    xl.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0),
+  );
   titleCell.value = xl.TextCellValue(title);
   titleCell.cellStyle = xl.CellStyle(
     bold: true,
@@ -332,7 +361,8 @@ List<int> buildCalendarGridExcelBytes({
   const dayNames = ['월', '화', '수', '목', '금', '토', '일'];
   for (int i = 0; i < 7; i++) {
     final cell = sheet.cell(
-        xl.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 1));
+      xl.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 1),
+    );
     cell.value = xl.TextCellValue(dayNames[i]);
     cell.cellStyle = headerStyle;
   }
@@ -380,8 +410,9 @@ List<int> buildCalendarGridExcelBytes({
     if (text.isNotEmpty && typeHeaderLabels.contains(text)) {
       return staffStyle.copyWith(
         boldVal: true,
-        backgroundColorHexVal:
-            xl.ExcelColor.fromHexString(_shiftHeaderBgHex(text)),
+        backgroundColorHexVal: xl.ExcelColor.fromHexString(
+          _shiftHeaderBgHex(text),
+        ),
       );
     }
     return weekend ? staffWeekendStyle : staffStyle;
@@ -397,7 +428,8 @@ List<int> buildCalendarGridExcelBytes({
     for (int col = 0; col < 7; col++) {
       final dayNumber = w * 7 + col - firstWeekday + 1;
       final cell = sheet.cell(
-          xl.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: dateRow));
+        xl.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: dateRow),
+      );
       if (dayNumber >= 1 && dayNumber <= daysInMonth) {
         cell.value = xl.TextCellValue('$dayNumber일');
         final count = perDay[dayNumber]?.length ?? 0;
@@ -405,8 +437,9 @@ List<int> buildCalendarGridExcelBytes({
       } else {
         cell.value = xl.TextCellValue('');
       }
-      cell.cellStyle =
-          isWeekendCol(col) ? dateHeaderWeekendStyle : dateHeaderStyle;
+      cell.cellStyle = isWeekendCol(col)
+          ? dateHeaderWeekendStyle
+          : dateHeaderStyle;
     }
     sheet.setRowHeight(dateRow, 20);
 
@@ -416,7 +449,8 @@ List<int> buildCalendarGridExcelBytes({
       for (int col = 0; col < 7; col++) {
         final dayNumber = w * 7 + col - firstWeekday + 1;
         final cell = sheet.cell(
-            xl.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: r));
+          xl.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: r),
+        );
         var text = '';
         if (dayNumber >= 1 && dayNumber <= daysInMonth) {
           final list = perDay[dayNumber];
