@@ -137,17 +137,22 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
     try {
       final data = await _loadFavoriteTeamData(month);
 
+      // 빠른 연속 이동 시 오래된 응답이 최신 화면(다른 달)을 덮어쓰지 않도록 가드.
+      final latest = state.valueOrNull;
+      if (latest == null ||
+          latest.focusedMonth.year != month.year ||
+          latest.focusedMonth.month != month.month) {
+        return;
+      }
       state = AsyncData(
-        current.copyWith(
-          focusedMonth: month,
-          selectedDate: selectedDate,
+        latest.copyWith(
           monthlyShifts: data.mine,
-          selectedDateShifts: data.mine[selectedDate],
+          selectedDateShifts: data.mine[latest.selectedDate],
           teamScheduledDates: data.coverage,
         ),
       );
-    } catch (e, st) {
-      state = AsyncError(e, st);
+    } catch (_) {
+      // 이동 중 실패는 화면을 깨뜨리지 않도록 조용히 무시(이미 즉시 반영됨).
     }
   }
 
