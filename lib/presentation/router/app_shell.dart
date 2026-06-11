@@ -9,29 +9,65 @@ import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/notification_providers.dart';
+import 'package:moniq/data/providers/schedule_providers.dart';
+import 'package:moniq/data/providers/shift_providers.dart';
+import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/router/bottom_sheet_visibility_provider.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_drawer.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_export.dart';
+import 'package:moniq/presentation/screens/team/team_excel_import.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    // 백그라운드 동안 서버에서 바뀐 역할/멤버십/즐겨찾기를 다시 불러온다.
+    // 실시간 구독이 없어, 권한(관리자) 변경 등이 재로그인 없이 반영되도록 함.
+    ref.invalidate(teamViewModelProvider);
+    ref.invalidate(teamDetailViewModelProvider);
+    ref.invalidate(favoriteTeamProvider);
+    ref.invalidate(homeViewModelProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final shiftTheme = ref.watch(todayShiftThemeProvider);
 
     if (AdaptiveLayout.isWide(context)) {
       return _WebShell(
-        navigationShell: navigationShell,
+        navigationShell: widget.navigationShell,
         shiftTheme: shiftTheme,
       );
     }
@@ -40,7 +76,7 @@ class AppShell extends ConsumerWidget {
     final sheetOpen = ref.watch(bottomSheetOpenProvider);
 
     return Scaffold(
-      body: navigationShell,
+      body: widget.navigationShell,
       extendBody: true,
       bottomNavigationBar: AnimatedSwitcher(
         duration: const Duration(milliseconds: 220),
@@ -55,11 +91,11 @@ class AppShell extends ConsumerWidget {
             ? const SizedBox.shrink(key: ValueKey('dock-hidden'))
             : _FloatingNavBar(
                 key: const ValueKey('dock-visible'),
-                currentIndex: navigationShell.currentIndex,
-                onTap: (index) => navigationShell.goBranch(
+                currentIndex: widget.navigationShell.currentIndex,
+                onTap: (index) => widget.navigationShell.goBranch(
                   index,
                   initialLocation:
-                      index == navigationShell.currentIndex,
+                      index == widget.navigationShell.currentIndex,
                 ),
                 shiftTheme: shiftTheme,
               ),
@@ -382,18 +418,12 @@ class _CalendarContextItems extends ConsumerWidget {
         _FlyoutTile(
           icon: Icons.schedule_outlined,
           label: '내 근무 유형 설정',
-          onTap: () {
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(AppRadius.xl),
-                ),
-              ),
-              builder: (_) => const PersonalShiftTypeSheet(),
-            );
-          },
+          onTap: () => showMoniqBottomSheet<void>(
+            context: context,
+            title: '근무 유형 설정',
+            eyebrow: 'SHIFT TYPE',
+            child: const PersonalShiftTypeSheet(),
+          ),
         ),
         _FlyoutTile(
           icon: Icons.calendar_month_outlined,
@@ -509,6 +539,9 @@ class _TeamContextItems extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (currentTeam != null) _FlyoutTeamHeader(team: currentTeam),
+
+        // 팀
+        const _FlyoutSectionLabel(label: '팀'),
         _FlyoutTile(
           icon: Icons.groups_outlined,
           label: '팀 목록',
@@ -526,6 +559,9 @@ class _TeamContextItems extends ConsumerWidget {
             iconColor: AppColors.brandOrange,
             onTap: () => context.push('/teams/$teamId/announcements'),
           ),
+
+          // 근무
+          const _FlyoutSectionLabel(label: '근무'),
           if (isPersonalTeam)
             _FlyoutTile(
               icon: Icons.calendar_today_outlined,
@@ -542,6 +578,30 @@ class _TeamContextItems extends ConsumerWidget {
               icon: Icons.swap_horiz,
               label: '근무 변경 요청',
               onTap: () => context.push('/teams/$teamId/requests'),
+            ),
+
+            // 내보내기/가져오기 (맨 아래)
+            const _FlyoutSectionLabel(label: '내보내기/가져오기'),
+            _FlyoutTile(
+              icon: Icons.upload_file_outlined,
+              label: '엑셀로 가져오기',
+              onTap: () => importTeamExcel(
+                context,
+                ref,
+                teamId: teamId,
+                shiftRepo: ref.read(shiftRepositoryProvider),
+                scheduleRepo: ref.read(scheduleRepositoryProvider),
+                teamRepo: ref.read(teamRepositoryProvider),
+              ),
+            ),
+            _FlyoutTile(
+              icon: Icons.description_outlined,
+              label: '샘플 양식 다운로드',
+              onTap: () => exportSampleTemplate(
+                context,
+                shiftRepo: ref.read(shiftRepositoryProvider),
+                teamId: teamId,
+              ),
             ),
           ],
         ],
@@ -980,24 +1040,14 @@ class _DropdownMenu extends StatelessWidget {
     onClose();
     if (!mountedContext.mounted) return;
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showMoniqConfirmSheet(
       context: mountedContext,
-      builder: (ctx) => AlertDialog(
-        title: const Text('로그아웃'),
-        content: const Text('정말 로그아웃 하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('로그아웃', style: TextStyle(color: AppColors.error)),
-          ),
-        ],
-      ),
+      title: '로그아웃할까요?',
+      eyebrow: 'SIGN OUT',
+      message: '언제든 다시 로그인하실 수 있어요.',
+      confirmLabel: '로그아웃',
     );
-    if (confirmed != true || !mountedContext.mounted) return;
+    if (!confirmed || !mountedContext.mounted) return;
 
     try {
       await onSignOut();

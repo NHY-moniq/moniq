@@ -7,6 +7,7 @@ import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dar
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
 import 'calendar_providers.dart';
 
@@ -148,16 +149,11 @@ class CalendarDrawer extends HookConsumerWidget {
   }
 
   void _showPersonalShiftTypeManager(BuildContext context) {
-    showModalBottomSheet(
+    showMoniqBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
-      // ShellRoute의 BottomNavigation 위로 띄움.
-      useRootNavigator: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => const PersonalShiftTypeSheet(),
+      title: '근무 유형 설정',
+      eyebrow: 'SHIFT TYPE',
+      child: const PersonalShiftTypeSheet(),
     );
   }
 }
@@ -258,111 +254,65 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final shiftTypes = ref.watch(personalShiftTypesProvider);
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.4,
-      maxChildSize: 0.9,
-      expand: false,
-      builder: (ctx, scrollController) => Column(
-        children: [
-          // 핸들
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(
-                  top: AppSpacing.md, bottom: AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+    // 제목/핸들은 MoniqBottomSheet 셸이 제공한다 (로그아웃 모달과 동일 포맷).
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () => _showAddShiftTypeForm(context, ref),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('추가'),
           ),
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: Row(
-              children: [
-                Text('근무 유형 설정',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w600)),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () =>
-                      _showAddShiftTypeForm(context, ref),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('추가'),
-                ),
-              ],
-            ),
-          ),
-          const Divider(),
-          Expanded(
-            child: ListView.builder(
-              controller: scrollController,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg),
-              itemCount: shiftTypes.length,
-              itemBuilder: (context, index) {
-                final st = shiftTypes[index];
-                final color = parseHexColor(st.color);
-                final label = displayShiftLabel(st, shiftTypes);
-                return Card(
-                  margin:
-                      const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: ListTile(
-                    leading: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.15),
-                        borderRadius: AppRadius.borderRadiusSm,
-                      ),
-                      child: Center(
-                        child: Text(label,
-                            style: TextStyle(
-                              color: color,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                            )),
-                      ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Flexible(
+          child: ListView.builder(
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            itemCount: shiftTypes.length,
+            itemBuilder: (context, index) {
+              final st = shiftTypes[index];
+              final color = parseHexColor(st.color);
+              final label = displayShiftLabel(st, shiftTypes);
+              return Card(
+                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: ListTile(
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.15),
+                      borderRadius: AppRadius.borderRadiusSm,
                     ),
-                    title: Text(st.name),
-                    subtitle: st.startTime != null
-                        ? Text(
-                            '${st.startTime} ~ ${st.endTime ?? ''}')
-                        : null,
-                    trailing: PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert, size: 18),
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(
-                            value: 'edit', child: Text('수정')),
-                        const PopupMenuItem(
-                            value: 'delete', child: Text('삭제')),
-                      ],
-                      onSelected: (action) {
-                        if (action == 'edit') {
-                          _showEditShiftTypeForm(
-                              context, ref, st);
-                        } else if (action == 'delete') {
-                          ref
-                              .read(
-                                  personalShiftTypeDataSourceProvider)
-                              .remove(st.id);
-                          ref.invalidate(personalShiftTypesProvider);
-                        }
-                      },
+                    child: Center(
+                      child: Text(label,
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          )),
                     ),
                   ),
-                );
-              },
-            ),
+                  title: Text(st.name),
+                  subtitle: st.startTime != null
+                      ? Text('${st.startTime} ~ ${st.endTime ?? ''}')
+                      : null,
+                  trailing: IconButton(
+                    icon: const Icon(Icons.more_vert, size: 18),
+                    onPressed: () =>
+                        _showShiftTypeActions(context, ref, st),
+                  ),
+                ),
+              );
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -373,6 +323,49 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
   void _showEditShiftTypeForm(
       BuildContext context, WidgetRef ref, PersonalShiftType existing) {
     _showShiftTypeForm(context, ref, existing);
+  }
+
+  /// 근무 유형 항목의 수정/삭제 액션 시트 (PopupMenu 대체).
+  void _showShiftTypeActions(
+      BuildContext context, WidgetRef ref, PersonalShiftType st) {
+    showMoniqBottomSheet<void>(
+      context: context,
+      title: st.name,
+      eyebrow: 'SHIFT TYPE',
+      child: Builder(
+        builder: (sheetCtx) {
+          final cs = Theme.of(sheetCtx).colorScheme;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              MoniqSheetOption(
+                icon: Icons.edit_outlined,
+                label: '수정',
+                trailing: const SizedBox.shrink(),
+                onTap: () {
+                  Navigator.of(sheetCtx, rootNavigator: true).pop();
+                  _showEditShiftTypeForm(context, ref, st);
+                },
+              ),
+              MoniqSheetOption(
+                icon: Icons.delete_outline,
+                label: '삭제',
+                accentColor: cs.error,
+                trailing: const SizedBox.shrink(),
+                onTap: () {
+                  Navigator.of(sheetCtx, rootNavigator: true).pop();
+                  ref
+                      .read(personalShiftTypeDataSourceProvider)
+                      .remove(st.id);
+                  ref.invalidate(personalShiftTypesProvider);
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   void _showShiftTypeForm(

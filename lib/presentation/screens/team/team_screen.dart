@@ -15,6 +15,7 @@ import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
@@ -237,6 +238,10 @@ void _showTeamPickerSheet(
     showDragHandle: true,
     // ShellRoute의 BottomNavigation을 가리도록 root Navigator 사용
     useRootNavigator: true,
+    // 공용 바텀시트(멤버 선택 등)와 동일하게 최대 높이를 화면의 70%로 제한.
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.of(context).size.height * 0.7,
+    ),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
     ),
@@ -306,10 +311,36 @@ void _showTeamPickerSheet(
                     Widget tileFor(TeamModel t) {
                       final selected = t.id == currentTeamId;
                       final isFavorite = t.id == favoriteTeamId;
+                      // 개인 팀은 즐겨찾기 대상이 아님 → 별 토글 미노출.
+                      final canFavorite = t.teamType != 'personal';
                       return _TeamPickerTile(
                         team: t,
                         selected: selected,
                         isFavorite: isFavorite,
+                        onFavorite: !canFavorite || isFavorite
+                            ? null
+                            : () async {
+                                final teamRepo =
+                                    ref.read(teamRepositoryProvider);
+                                await teamRepo.setFavoriteTeam(t.id);
+                                ref.invalidate(favoriteTeamProvider);
+                                ref.invalidate(teamViewModelProvider);
+                                ref.invalidate(homeViewModelProvider);
+                                // 즐겨찾기를 바꾸면 그 팀을 기본 뷰로 전환.
+                                ref
+                                    .read(viewingTeamIdOverrideProvider.notifier)
+                                    .state = null;
+                                if (ctx.mounted) Navigator.pop(ctx);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '${t.name}을(를) 즐겨찾기 팀으로 설정했어요',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
                         onTap: selected
                             ? () => Navigator.pop(ctx)
                             : () {
@@ -429,12 +460,17 @@ class _TeamPickerTile extends StatelessWidget {
     required this.selected,
     required this.isFavorite,
     required this.onTap,
+    this.onFavorite,
   });
 
   final TeamModel team;
   final bool selected;
   final bool isFavorite;
   final VoidCallback onTap;
+
+  /// 즐겨찾기로 설정하는 콜백. null이면 별 토글을 노출하지 않는다
+  /// (개인 팀이거나 이미 즐겨찾기인 경우).
+  final VoidCallback? onFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -480,9 +516,21 @@ class _TeamPickerTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (isFavorite) ...[
+                if (onFavorite != null) ...[
+                  const SizedBox(width: AppSpacing.xs),
+                  IconButton(
+                    onPressed: onFavorite,
+                    visualDensity: VisualDensity.compact,
+                    tooltip: '즐겨찾기로 설정',
+                    icon: Icon(
+                      Icons.star_outline_rounded,
+                      size: 20,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ] else if (isFavorite) ...[
                   const SizedBox(width: AppSpacing.sm),
-                  Icon(Icons.star_rounded, size: 16, color: cs.secondary),
+                  Icon(Icons.star_rounded, size: 18, color: cs.secondary),
                 ],
               ],
             ),
@@ -990,11 +1038,13 @@ class _TeamDrawer extends HookConsumerWidget {
               ),
             ),
 
-            // ── 네비게이션 ──
+            // ── 네비게이션 (메뉴 / 근무 / 엑셀) ──
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                 children: [
+                  // 팀
+                  const _TeamDrawerSectionLabel(label: '팀'),
                   _TeamDrawerNavItem(
                     icon: Icons.groups_outlined,
                     label: '팀 목록',
@@ -1013,6 +1063,9 @@ class _TeamDrawer extends HookConsumerWidget {
                       context.push('/teams/$currentTeamId/announcements');
                     },
                   ),
+
+                  // 근무
+                  const _TeamDrawerSectionLabel(label: '근무'),
                   if (isPersonalTeam)
                     _TeamDrawerNavItem(
                       icon: Icons.calendar_today_outlined,
@@ -1040,6 +1093,7 @@ class _TeamDrawer extends HookConsumerWidget {
                       },
                     ),
                   ],
+                  // 엑셀(내보내기/가져오기)은 웹뷰 전용 — 모바일 드로어에는 노출하지 않음.
                 ],
               ),
             ),
@@ -1129,6 +1183,34 @@ class _TeamDrawerNavItem extends StatelessWidget {
   }
 }
 
+/// 팀 드로어 섹션 구분 라벨 (메뉴 / 근무 / 엑셀).
+class _TeamDrawerSectionLabel extends StatelessWidget {
+  const _TeamDrawerSectionLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.md,
+        AppSpacing.xl,
+        AppSpacing.xs,
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.4,
+        ),
+      ),
+    );
+  }
+}
+
 class _ShiftTypeInfo {
   _ShiftTypeInfo({
     required this.code,
@@ -1206,6 +1288,7 @@ class _ExcelImportMenuButton extends ConsumerWidget {
         if (value == 'import') {
           importTeamExcel(
             context,
+            ref,
             teamId: teamId,
             shiftRepo: shiftRepo,
             scheduleRepo: scheduleRepo,

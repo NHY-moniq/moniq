@@ -8,6 +8,7 @@ import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/character_blob.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
@@ -207,6 +208,8 @@ class TeamListScreen extends HookConsumerWidget {
     }
     ref.invalidate(favoriteTeamProvider);
     ref.invalidate(teamViewModelProvider);
+    // 즐겨찾기 팀 근무가 개인(홈) 캘린더에 즉시 반영되도록 강제 reload.
+    ref.invalidate(homeViewModelProvider);
   }
 
   void _showAddOptions(BuildContext context) {

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +8,7 @@ import 'package:moniq/data/models/team_member_with_user.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
 /// 한 건의 "내 근무 변경" 요청 (다중 등록용).
 ///
@@ -122,9 +124,9 @@ class _SelfChangeEntriesSectionState
 
   Future<void> _pickDate(SelfChangeEntry entry) async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: entry.date ?? now,
+    final picked = await _showDatePickerSheet(
+      context,
+      initial: entry.date ?? now,
       firstDate: now,
       lastDate: now.add(const Duration(days: 90)),
     );
@@ -294,61 +296,17 @@ class _SelfChangeEntryRow extends StatelessWidget {
                 flex: 5,
                 child: _LabeledField(
                   label: '변경 근무',
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      isDense: true,
-                      style: _entryFieldTextStyle(context),
-                      hint: Text('선택', style: _entryHintStyle(context)),
-                      value: entry.desiredShiftType?.id,
-                      // 선택된 값은 날짜 필드와 동일한 좌측 정렬 텍스트로
-                      // 표시한다 (색상 박스는 메뉴 항목 안에서만 노출).
-                      selectedItemBuilder: (_) => shiftTypes
-                          .map((t) => Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  t.name,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: _entryFieldTextStyle(context),
-                                ),
-                              ))
-                          .toList(),
-                      items: shiftTypes.map((t) {
-                        final color = parseHexColor(t.color);
-                        return DropdownMenuItem<String>(
-                          value: t.id,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  t.name,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: _entryFieldTextStyle(context),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: entry.date != null
-                          ? (id) {
-                              final s = id == null
-                                  ? null
-                                  : shiftTypes
-                                      .firstWhere((t) => t.id == id);
-                              onShiftSelected(s);
-                            }
-                          : null,
-                    ),
+                  child: _SelectorTrigger(
+                    text: entry.desiredShiftType?.name,
+                    enabled: entry.date != null,
+                    onTap: () async {
+                      final picked = await _showShiftPickerSheet(
+                        context,
+                        shiftTypes,
+                        entry.desiredShiftType?.id,
+                      );
+                      if (picked != null) onShiftSelected(picked);
+                    },
                   ),
                 ),
               ),
@@ -479,9 +437,9 @@ class _SwapEntriesSectionState extends ConsumerState<SwapEntriesSection> {
 
   Future<void> _pickDate(SwapEntry entry) async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: entry.date ?? now,
+    final picked = await _showDatePickerSheet(
+      context,
+      initial: entry.date ?? now,
       firstDate: now,
       lastDate: now.add(const Duration(days: 90)),
     );
@@ -654,30 +612,17 @@ class _SwapEntryRow extends StatelessWidget {
                 flex: 4,
                 child: _LabeledField(
                   label: '팀원',
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      isDense: true,
-                      style: _entryFieldTextStyle(context),
-                      hint: Text('선택', style: _entryHintStyle(context)),
-                      value: entry.userId,
-                      items: members
-                          .map((m) => DropdownMenuItem<String>(
-                                value: m.userId,
-                                child: Text(
-                                  m.displayName,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: _entryFieldTextStyle(context),
-                                ),
-                              ))
-                          .toList(),
-                      onChanged: (id) {
-                        final m = id == null
-                            ? null
-                            : members.firstWhere((m) => m.userId == id);
-                        onMemberSelected(m);
-                      },
-                    ),
+                  child: _SelectorTrigger(
+                    text: entry.userName,
+                    enabled: true,
+                    onTap: () async {
+                      final picked = await _showMemberPickerSheet(
+                        context,
+                        members,
+                        entry.userId,
+                      );
+                      if (picked != null) onMemberSelected(picked);
+                    },
                   ),
                 ),
               ),
@@ -717,61 +662,17 @@ class _SwapEntryRow extends StatelessWidget {
                 flex: 4,
                 child: _LabeledField(
                   label: '변경 근무',
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      isDense: true,
-                      style: _entryFieldTextStyle(context),
-                      hint: Text('선택', style: _entryHintStyle(context)),
-                      value: entry.desiredShiftType?.id,
-                      // 선택된 값은 팀원 드롭다운과 동일하게 텍스트만 좌측 정렬로
-                      // 표시한다 (색상 박스는 메뉴 항목 안에서만 노출).
-                      selectedItemBuilder: (_) => shiftTypes
-                          .map((t) => Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  t.name,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: _entryFieldTextStyle(context),
-                                ),
-                              ))
-                          .toList(),
-                      items: shiftTypes.map((t) {
-                        final color = parseHexColor(t.color);
-                        return DropdownMenuItem<String>(
-                          value: t.id,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  t.name,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: _entryFieldTextStyle(context),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: entry.userId != null && entry.date != null
-                          ? (id) {
-                              final s = id == null
-                                  ? null
-                                  : shiftTypes
-                                      .firstWhere((t) => t.id == id);
-                              onShiftSelected(s);
-                            }
-                          : null,
-                    ),
+                  child: _SelectorTrigger(
+                    text: entry.desiredShiftType?.name,
+                    enabled: entry.userId != null && entry.date != null,
+                    onTap: () async {
+                      final picked = await _showShiftPickerSheet(
+                        context,
+                        shiftTypes,
+                        entry.desiredShiftType?.id,
+                      );
+                      if (picked != null) onShiftSelected(picked);
+                    },
                   ),
                 ),
               ),
@@ -846,6 +747,199 @@ class _LabeledField extends StatelessWidget {
       ],
     );
   }
+}
+
+/// 드롭다운 대신 사용하는 선택 트리거 — 선택값(또는 '선택') + 아래 화살표.
+/// 탭하면 바텀시트가 열린다.
+class _SelectorTrigger extends StatelessWidget {
+  const _SelectorTrigger({
+    required this.text,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String? text;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              text ?? '선택',
+              style: text != null
+                  ? _entryFieldTextStyle(context)
+                  : _entryHintStyle(context),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 18,
+            color: enabled
+                ? cs.onSurfaceVariant
+                : cs.onSurfaceVariant.withValues(alpha: 0.4),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 날짜 선택 바텀시트 — 휠(CupertinoDatePicker) + 취소/확인.
+Future<DateTime?> _showDatePickerSheet(
+  BuildContext context, {
+  required DateTime initial,
+  required DateTime firstDate,
+  required DateTime lastDate,
+}) {
+  final minDate = DateTime(firstDate.year, firstDate.month, firstDate.day);
+  final maxDate = DateTime(lastDate.year, lastDate.month, lastDate.day);
+  var init = DateTime(initial.year, initial.month, initial.day);
+  if (init.isBefore(minDate)) init = minDate;
+  if (init.isAfter(maxDate)) init = maxDate;
+  var selected = init;
+
+  return showMoniqBottomSheet<DateTime>(
+    context: context,
+    title: '날짜 선택',
+    eyebrow: 'DATE',
+    child: Builder(
+      builder: (sheetCtx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 200,
+            child: CupertinoDatePicker(
+              mode: CupertinoDatePickerMode.date,
+              initialDateTime: init,
+              minimumDate: minDate,
+              maximumDate: maxDate,
+              onDateTimeChanged: (d) =>
+                  selected = DateTime(d.year, d.month, d.day),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () =>
+                      Navigator.of(sheetCtx, rootNavigator: true).pop(),
+                  child: const Text('취소'),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => Navigator.of(sheetCtx, rootNavigator: true)
+                      .pop(selected),
+                  child: const Text('확인'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// 변경 근무(근무 유형) 선택 바텀시트.
+Future<ShiftTypeModel?> _showShiftPickerSheet(
+  BuildContext context,
+  List<ShiftTypeModel> shiftTypes,
+  String? selectedId,
+) {
+  return showMoniqBottomSheet<ShiftTypeModel>(
+    context: context,
+    title: '변경 근무 선택',
+    eyebrow: 'SHIFT',
+    child: Builder(
+      builder: (sheetCtx) {
+        final cs = Theme.of(sheetCtx).colorScheme;
+        return ListView(
+          shrinkWrap: true,
+          children: shiftTypes.map((t) {
+            final color = parseHexColor(t.color);
+            final selected = t.id == selectedId;
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  t.code,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              title: Text(t.name),
+              trailing: selected
+                  ? Icon(Icons.check_rounded, color: cs.primary)
+                  : null,
+              onTap: () =>
+                  Navigator.of(sheetCtx, rootNavigator: true).pop(t),
+            );
+          }).toList(),
+        );
+      },
+    ),
+  );
+}
+
+/// 팀원 선택 바텀시트.
+Future<TeamMemberWithUser?> _showMemberPickerSheet(
+  BuildContext context,
+  List<TeamMemberWithUser> members,
+  String? selectedId,
+) {
+  return showMoniqBottomSheet<TeamMemberWithUser>(
+    context: context,
+    title: '팀원 선택',
+    eyebrow: 'MEMBER',
+    child: Builder(
+      builder: (sheetCtx) {
+        final cs = Theme.of(sheetCtx).colorScheme;
+        return ListView(
+          shrinkWrap: true,
+          children: members.map((m) {
+            final selected = m.userId == selectedId;
+            final initial = m.displayName.isNotEmpty
+                ? m.displayName.characters.first
+                : '?';
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(
+                backgroundColor: cs.primaryContainer,
+                foregroundColor: cs.onPrimaryContainer,
+                child: Text(initial),
+              ),
+              title: Text(m.displayName),
+              trailing: selected
+                  ? Icon(Icons.check_rounded, color: cs.primary)
+                  : null,
+              onTap: () =>
+                  Navigator.of(sheetCtx, rootNavigator: true).pop(m),
+            );
+          }).toList(),
+        );
+      },
+    ),
+  );
 }
 
 /// 현재 등록된 본인 근무를 한 줄로 컴팩트하게 표시.

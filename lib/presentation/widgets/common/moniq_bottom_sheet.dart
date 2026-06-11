@@ -77,11 +77,17 @@ class MoniqBottomSheetShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final viewInsets = MediaQuery.of(context).viewInsets;
+    final media = MediaQuery.of(context);
+    final viewInsets = media.viewInsets;
+    // 시트가 화면을 가득 채우지 않도록 최대 높이를 제한한다.
+    // (멤버 목록 등 항목이 많아도 시트가 과도하게 길어지지 않게 함)
+    final maxHeight = media.size.height * 0.7;
 
     return Padding(
       padding: viewInsets,
-      child: Container(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Container(
         decoration: BoxDecoration(
           color: cs.surfaceContainerLowest,
           borderRadius: const BorderRadius.vertical(
@@ -154,6 +160,7 @@ class MoniqBottomSheetShell extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

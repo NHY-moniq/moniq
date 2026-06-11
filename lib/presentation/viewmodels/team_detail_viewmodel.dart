@@ -9,6 +9,7 @@ import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/data/repositories/shift_repository.dart';
 import 'package:moniq/data/repositories/team_repository.dart';
+import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 
 part 'team_detail_viewmodel.freezed.dart';
 
@@ -106,6 +107,8 @@ class TeamDetailViewModel extends FamilyAsyncNotifier<TeamDetailState, String> {
 
     await _teamRepository.updateMemberRole(current.teamId, userId, role);
     ref.invalidateSelf();
+    // 팀 목록 등 역할/관리자 상태에 의존하는 다른 화면도 즉시 갱신.
+    ref.invalidate(teamViewModelProvider);
   }
 
   Future<void> updateMemberSkillLevel(

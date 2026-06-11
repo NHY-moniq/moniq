@@ -39,11 +39,12 @@ class PersonalShiftType {
 }
 
 /// 근무 유형 이름에서 1글자 표준 라벨을 추출.
-/// 데이→D, 이브닝→E, 나이트→N, 오프→O, 그 외 → 이름 첫 글자(대문자).
+/// 데이→D, 이브닝→E, 나이트→N, 오프→O, 교육→ED, 그 외 → 이름 첫 글자(대문자).
 String _baseLetter(String name) {
   if (name.contains('데이') || name.toLowerCase().contains('day')) return 'D';
   if (name.contains('이브닝')) return 'E';
   if (name.contains('나이트')) return 'N';
+  if (name.contains('교육')) return 'ED';
   if (name.contains('오프')) return 'O';
   if (name.isEmpty) return '?';
   return name[0].toUpperCase();
@@ -53,6 +54,7 @@ bool _isKoreanStandardName(String name) =>
     name.contains('데이') ||
     name.contains('이브닝') ||
     name.contains('나이트') ||
+    name.contains('교육') ||
     name.contains('오프');
 
 /// 다른 shift type과 같은 1글자 라벨이 충돌하면 이름 앞 2글자를 반환.
@@ -80,11 +82,13 @@ class PersonalShiftTypeLocalDataSource {
     required String userId,
   })  : _prefs = prefs,
         _key = 'personal_shift_types:$userId',
-        _initKey = 'personal_shift_types_initialized:$userId';
+        _initKey = 'personal_shift_types_initialized:$userId',
+        _eduMigrationKey = 'personal_shift_types_edu_migrated:$userId';
 
   final SharedPreferences _prefs;
   final String _key;
   final String _initKey;
+  final String _eduMigrationKey;
 
   List<PersonalShiftType> getAll() {
     // 사용자가 한 번이라도 초기화를 끝냈으면 빈 리스트도 그대로 존중
@@ -95,10 +99,33 @@ class PersonalShiftTypeLocalDataSource {
       return _defaults();
     }
     if (raw == null) return const [];
-    return raw
+    final list = raw
         .map((s) =>
             PersonalShiftType.fromJson(jsonDecode(s) as Map<String, dynamic>))
         .toList();
+
+    // 1회 마이그레이션: 교육(ED) 기본 유형이 없던 기존 사용자에게 한 번만 추가.
+    // (이후 사용자가 삭제하면 다시 복구하지 않도록 플래그로 1회만 수행)
+    final eduMigrated = _prefs.getBool(_eduMigrationKey) ?? false;
+    if (!eduMigrated) {
+      _prefs.setBool(_eduMigrationKey, true);
+      final hasEdu = list.any((t) =>
+          t.id == 'education' ||
+          t.code.toUpperCase() == 'ED' ||
+          t.name.contains('교육'));
+      if (!hasEdu) {
+        list.add(PersonalShiftType(
+          id: 'education',
+          name: '교육',
+          code: 'ED',
+          startTime: '09:00',
+          endTime: '18:00',
+          color: '#9F7AEA',
+        ));
+        save(list);
+      }
+    }
+    return list;
   }
 
   Future<void> save(List<PersonalShiftType> types) async {
@@ -143,6 +170,10 @@ class PersonalShiftTypeLocalDataSource {
       PersonalShiftType(
         id: 'night', name: '나이트', code: 'N',
         startTime: '23:00', endTime: '07:00', color: '#0061A4',
+      ),
+      PersonalShiftType(
+        id: 'education', name: '교육', code: 'ED',
+        startTime: '09:00', endTime: '18:00', color: '#9F7AEA',
       ),
     ];
     save(defaults);

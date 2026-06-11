@@ -316,7 +316,9 @@ class CalendarScreen extends HookConsumerWidget {
                       if (c.isEmpty) {
                         return name.isEmpty ? '?' : name[0].toUpperCase();
                       }
-                      return c.length > 1 ? c[0] : c;
+                      // 교육(ED) 등 2글자 코드는 그대로 노출. 첫 글자만
+                      // 잘라내면 "ED"가 "E"로 표시되는 버그가 발생함.
+                      return c.length > 2 ? c.substring(0, 2) : c;
                     }
 
                     // 1) 서버 근무: 컬러 박스로 단문자 표시

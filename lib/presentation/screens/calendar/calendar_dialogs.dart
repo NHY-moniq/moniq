@@ -33,87 +33,62 @@ String formatTime(TimeOfDay time) =>
 void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
   final shiftTypes = ref.read(personalShiftTypesProvider);
 
-  showModalBottomSheet(
+  showMoniqBottomSheet<void>(
     context: context,
-    useRootNavigator: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-    ),
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-              decoration: BoxDecoration(
-                color: Theme.of(ctx).colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // 근무 일정 빠른 추가 (근무 유형 칩) — 하루 최대 1개
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: Builder(
-                builder: (innerCtx) {
-                  final existingEvents = ref.read(dateEventsProvider(date));
-                  final hasShift = existingEvents.any((e) =>
-                      shiftTypes.any((st) =>
-                          st.name == e.title && st.color == e.color));
+    title: '추가',
+    eyebrow: 'NEW',
+    child: Builder(
+      builder: (ctx) {
+        final existingEvents = ref.read(dateEventsProvider(date));
+        final hasShift = existingEvents.any((e) => shiftTypes
+            .any((st) => st.name == e.title && st.color == e.color));
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('근무 일정 추가',
-                          style: Theme.of(ctx)
-                              .textTheme
-                              .titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w600)),
-                      if (hasShift) ...[
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          '이미 등록된 근무가 있습니다 (1일 1개)',
-                          style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                                color: AppColors.error,
-                              ),
-                        ),
-                      ],
-                      const SizedBox(height: AppSpacing.sm),
-                      Opacity(
-                        opacity: hasShift ? 0.4 : 1.0,
-                        child: Wrap(
-                          spacing: AppSpacing.sm,
-                          runSpacing: AppSpacing.sm,
-                          children: shiftTypes.map((st) {
-                            final color = parseHexColor(st.color);
-                            return ActionChip(
-                              avatar: CircleAvatar(
-                                backgroundColor: color,
-                                radius: 8,
-                              ),
-                              label: Text(st.name),
-                              onPressed: hasShift
-                                  ? null
-                                  : () {
-                                      Navigator.pop(ctx);
-                                      addShiftEvent(ref, date, st);
-                                    },
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ],
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 근무 일정 빠른 추가 (근무 유형 칩) — 하루 최대 1개
+            Text('근무 일정 추가',
+                style: Theme.of(ctx)
+                    .textTheme
+                    .titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w600)),
+            if (hasShift) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '이미 등록된 근무가 있습니다 (1일 1개)',
+                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                      color: AppColors.error,
+                    ),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.sm),
+            Opacity(
+              opacity: hasShift ? 0.4 : 1.0,
+              child: Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: shiftTypes.map((st) {
+                  final color = parseHexColor(st.color);
+                  return ActionChip(
+                    avatar: CircleAvatar(
+                      backgroundColor: color,
+                      radius: 8,
+                    ),
+                    label: Text(st.name),
+                    onPressed: hasShift
+                        ? null
+                        : () {
+                            Navigator.pop(ctx);
+                            addShiftEvent(ref, date, st);
+                          },
                   );
-                },
+                }).toList(),
               ),
             ),
             const Divider(height: AppSpacing.xxl),
             ListTile(
+              contentPadding: EdgeInsets.zero,
               leading: Container(
                 width: 40,
                 height: 40,
@@ -121,8 +96,7 @@ void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
                   color: AppColors.success.withValues(alpha: 0.12),
                   borderRadius: AppRadius.borderRadiusMd,
                 ),
-                child:
-                    const Icon(Icons.event, color: AppColors.success),
+                child: const Icon(Icons.event, color: AppColors.success),
               ),
               title: const Text('일정 추가'),
               subtitle: const Text('시간, 색상, 설명을 포함한 일정'),
@@ -132,11 +106,15 @@ void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
               },
             ),
             ListTile(
+              contentPadding: EdgeInsets.zero,
               leading: Container(
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: Theme.of(ctx).colorScheme.tertiary.withValues(alpha: 0.12),
+                  color: Theme.of(ctx)
+                      .colorScheme
+                      .tertiary
+                      .withValues(alpha: 0.12),
                   borderRadius: AppRadius.borderRadiusMd,
                 ),
                 child: Icon(Icons.edit_note,
@@ -150,8 +128,8 @@ void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
               },
             ),
           ],
-        ),
-      ),
+        );
+      },
     ),
   );
 }
@@ -190,6 +168,8 @@ void showEventForm(
       existing?.startTime != null ? parseTime(existing!.startTime!) : null;
   TimeOfDay? endTime =
       existing?.endTime != null ? parseTime(existing!.endTime!) : null;
+  // 시작 시간이 없으면 종일 일정으로 간주. (약속잡기 종일 UI)
+  bool isAllDay = startTime == null;
   String selectedColor = existing?.color ?? '#38A169';
   String selectedRecurrence = existing?.recurrence ?? 'none';
 
@@ -211,59 +191,19 @@ void showEventForm(
     '#A0AEC0',
   ];
 
-  showModalBottomSheet(
+  showMoniqBottomSheet<void>(
     context: context,
-    useRootNavigator: true,
-    isScrollControlled: true,
-    backgroundColor: Theme.of(context).colorScheme.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-    ),
-    builder: (ctx) {
-      final cs = Theme.of(ctx).colorScheme;
-      final tt = Theme.of(ctx).textTheme;
-
-      return StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: AppSpacing.lg,
-            right: AppSpacing.lg,
-            top: AppSpacing.md,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg,
-          ),
-          child: SingleChildScrollView(
+    title: index == null ? '일정 추가' : '일정 수정',
+    eyebrow: 'SCHEDULE',
+    child: StatefulBuilder(
+      builder: (ctx, setSheetState) {
+        final cs = Theme.of(ctx).colorScheme;
+        final tt = Theme.of(ctx).textTheme;
+        return SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Drag handle
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-                    decoration: BoxDecoration(
-                      color: cs.outlineVariant,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                // Header — stronger weight, more breathing room
-                Padding(
-                  padding: const EdgeInsets.only(
-                    top: AppSpacing.xs,
-                    bottom: AppSpacing.lg,
-                  ),
-                  child: Text(
-                    index == null ? '일정 추가' : '일정 수정',
-                    style: tt.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: cs.onSurface,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                ),
                 // Title input
                 TextField(
                   controller: titleController,
@@ -310,54 +250,98 @@ void showEventForm(
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                // Start / End time cards
-                Row(
-                  children: [
-                    Expanded(
-                      child: _TimeFieldCard(
-                        label: '시작',
-                        value: startTime != null
-                            ? formatTime(startTime!)
-                            : '종일',
-                        isPlaceholder: startTime == null,
-                        onTap: () {
-                          showCupertinoTimePicker(
-                            context: ctx,
-                            initialHour: startTime?.hour ?? 9,
-                            initialMinute: startTime?.minute ?? 0,
-                            onChanged: (h, m) {
-                              setSheetState(() => startTime =
-                                  TimeOfDay(hour: h, minute: m));
-                            },
-                          );
-                        },
+                // 종일 토글 — 켜면 시간 선택을 숨기고, 끄면 시작/종료 시간 노출
+                Container(
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHigh,
+                    borderRadius: AppRadius.borderRadiusLg,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.xs,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.event_available_outlined,
+                          color: cs.onSurfaceVariant, size: 20),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Text(
+                          '종일',
+                          style: tt.bodyLarge?.copyWith(color: cs.onSurface),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: _TimeFieldCard(
-                        label: '종료',
-                        value:
-                            endTime != null ? formatTime(endTime!) : '-',
-                        isPlaceholder: endTime == null,
-                        onTap: () {
-                          showCupertinoTimePicker(
-                            context: ctx,
-                            initialHour: endTime?.hour ??
-                                (startTime?.hour ?? 9) + 1,
-                            initialMinute: endTime?.minute ??
-                                startTime?.minute ??
-                                0,
-                            onChanged: (h, m) {
-                              setSheetState(() => endTime =
-                                  TimeOfDay(hour: h, minute: m));
-                            },
-                          );
-                        },
+                      Checkbox(
+                        value: isAllDay,
+                        activeColor: cs.primary,
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize:
+                            MaterialTapTargetSize.shrinkWrap,
+                        onChanged: (v) => setSheetState(() {
+                          isAllDay = v ?? false;
+                          if (isAllDay) {
+                            startTime = null;
+                            endTime = null;
+                          } else {
+                            startTime = const TimeOfDay(hour: 9, minute: 0);
+                            endTime = const TimeOfDay(hour: 10, minute: 0);
+                          }
+                        }),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                // Start / End time cards (종일이 아닐 때만)
+                if (!isAllDay) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _TimeFieldCard(
+                          label: '시작',
+                          value: startTime != null
+                              ? formatTime(startTime!)
+                              : '종일',
+                          isPlaceholder: startTime == null,
+                          onTap: () {
+                            showCupertinoTimePicker(
+                              context: ctx,
+                              initialHour: startTime?.hour ?? 9,
+                              initialMinute: startTime?.minute ?? 0,
+                              onChanged: (h, m) {
+                                setSheetState(() => startTime =
+                                    TimeOfDay(hour: h, minute: m));
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: _TimeFieldCard(
+                          label: '종료',
+                          value:
+                              endTime != null ? formatTime(endTime!) : '-',
+                          isPlaceholder: endTime == null,
+                          onTap: () {
+                            showCupertinoTimePicker(
+                              context: ctx,
+                              initialHour: endTime?.hour ??
+                                  (startTime?.hour ?? 9) + 1,
+                              initialMinute: endTime?.minute ??
+                                  startTime?.minute ??
+                                  0,
+                              onChanged: (h, m) {
+                                setSheetState(() => endTime =
+                                    TimeOfDay(hour: h, minute: m));
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.lg),
                 // Color picker row
                 Padding(
@@ -498,10 +482,9 @@ void showEventForm(
                 ),
               ],
             ),
-          ),
-        ),
-      );
-    },
+          );
+        },
+      ),
   );
 }
 
@@ -515,44 +498,15 @@ void showNoteForm(BuildContext context, WidgetRef ref,
     hasText.value = controller.text.trim().isNotEmpty;
   });
 
-  showModalBottomSheet(
+  showMoniqBottomSheet<void>(
     context: context,
-    useRootNavigator: true,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-    ),
-    builder: (ctx) => Padding(
-      padding: EdgeInsets.only(
-        left: AppSpacing.lg,
-        right: AppSpacing.lg,
-        top: AppSpacing.lg,
-        bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg,
-      ),
-      child: Column(
+    title: index == null ? '메모 추가' : '메모 수정',
+    eyebrow: 'NOTE',
+    child: Builder(
+      builder: (ctx) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-              decoration: BoxDecoration(
-                color: Theme.of(ctx).colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          Text(
-            index == null ? '메모 추가' : '메모 수정',
-            style: Theme.of(ctx)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: AppSpacing.lg),
           TextField(
             controller: controller,
             autofocus: true,
