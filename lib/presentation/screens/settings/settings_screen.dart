@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/auth_error_utils.dart';
@@ -14,6 +15,7 @@ import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_card.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Refactored Settings screen.
 ///
@@ -547,7 +549,18 @@ class _InfoSection extends ConsumerWidget {
         MoniqCardRow(
           icon: Icons.privacy_tip_outlined,
           label: '개인정보 처리방침',
-          onTap: () {},
+          onTap: () => _openExternalUrl(
+            context,
+            'https://onoroff.notion.site/37c4dc2094dd80649df6eea031d388ac',
+          ),
+        ),
+        MoniqCardRow(
+          icon: Icons.description_outlined,
+          label: '이용약관',
+          onTap: () => _openExternalUrl(
+            context,
+            'https://onoroff.notion.site/OnorOff-37c4dc2094dd80d1b788d31396f89a2c',
+          ),
         ),
         const MoniqCardRow(
           icon: Icons.info_outline_rounded,
@@ -556,5 +569,20 @@ class _InfoSection extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  /// 외부 링크(Notion 등)를 기본 브라우저로 열기. 실패 시 클립보드에 복사.
+  Future<void> _openExternalUrl(BuildContext context, String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: url));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('링크를 열 수 없어 클립보드에 복사했어요')),
+      );
+    }
   }
 }

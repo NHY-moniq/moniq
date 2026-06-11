@@ -362,13 +362,13 @@ Future<void> exportSampleTemplate(
         ? sortedTypes.map((t) => t.name).toList()
         : <String>['데이', '이브닝', '나이트'];
 
-    // 각 날짜 동일 템플릿: 근무유형 헤더 + '■ 팀원명' 4칸씩
+    // 각 날짜 동일 템플릿: 근무유형 헤더 + '팀원명' 4칸씩
     const placeholdersPerType = 4;
     final dayTemplate = <String>[];
     for (final typeName in typeNames) {
       dayTemplate.add(typeName);
       for (int i = 0; i < placeholdersPerType; i++) {
-        dayTemplate.add('■ 팀원명');
+        dayTemplate.add('팀원명');
       }
     }
 
@@ -382,6 +382,7 @@ Future<void> exportSampleTemplate(
       month: target.month,
       title: '$sheetName 근무표 (샘플 양식)',
       perDay: perDay,
+      typeHeaderLabels: typeNames.toSet(),
     );
     if (bytes.isEmpty) throw Exception('파일 생성 실패');
 

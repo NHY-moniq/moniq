@@ -11,7 +11,6 @@ import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/repositories/team_repository.dart';
 
 import 'calendar_providers.dart';
-import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
@@ -502,39 +501,76 @@ Future<void> _exportCalendarWeb(
 }
 
 Future<String?> _showWebExportDialog(BuildContext context) {
+  final theme = Theme.of(context);
+  final cs = theme.colorScheme;
   return showDialog<String>(
     context: context,
-    builder: (ctx) => SimpleDialog(
-      title: const Text('내보내기'),
-      children: [
-        SimpleDialogOption(
-          onPressed: () => Navigator.pop(ctx, 'clipboard'),
-          child: const ListTile(
-            leading: Icon(Icons.content_copy_outlined, color: AppColors.primary),
-            title: Text('클립보드에 복사'),
-            subtitle: Text('캘린더 이미지를 클립보드에 복사'),
-            contentPadding: EdgeInsets.zero,
+    builder: (ctx) => Dialog(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.borderRadiusLg,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xs,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'EXPORT',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.primary,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      '내보내기',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              _ExportOptionTile(
+                icon: Icons.content_copy_outlined,
+                title: '클립보드에 복사',
+                subtitle: '캘린더 이미지를 클립보드에 복사',
+                onTap: () => Navigator.pop(ctx, 'clipboard'),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              _ExportOptionTile(
+                icon: Icons.image_outlined,
+                title: '이미지 저장',
+                subtitle: 'PNG 파일로 다운로드',
+                onTap: () => Navigator.pop(ctx, 'image'),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              _ExportOptionTile(
+                icon: Icons.table_chart_outlined,
+                title: '엑셀로 내보내기',
+                subtitle: '엑셀/구글 스프레드시트용 .xlsx 파일',
+                onTap: () => Navigator.pop(ctx, 'excel'),
+              ),
+            ],
           ),
         ),
-        SimpleDialogOption(
-          onPressed: () => Navigator.pop(ctx, 'image'),
-          child: const ListTile(
-            leading: Icon(Icons.image_outlined, color: AppColors.tertiary),
-            title: Text('이미지 저장'),
-            subtitle: Text('PNG 파일로 다운로드'),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        SimpleDialogOption(
-          onPressed: () => Navigator.pop(ctx, 'excel'),
-          child: const ListTile(
-            leading: Icon(Icons.table_chart_outlined, color: Color(0xFF217346)),
-            title: Text('엑셀로 내보내기'),
-            subtitle: Text('엑셀/구글 스프레드시트용 .xlsx 파일'),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      ],
+      ),
     ),
   );
 }

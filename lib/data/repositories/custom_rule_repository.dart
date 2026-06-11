@@ -34,4 +34,6 @@ class CustomRuleRepository {
       _ds.updatePriority(ruleId, priority: priority);
 
   Future<void> deleteRule(String ruleId) => _ds.deleteRule(ruleId);
+
+  Future<int> getParseAttempts(String teamId) => _ds.getParseAttempts(teamId);
 }

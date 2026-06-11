@@ -25,6 +25,7 @@ import 'package:moniq/presentation/screens/team/team_excel_import.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
+import 'package:moniq/presentation/screens/team/appointment_management_screen.dart';
 import 'package:moniq/presentation/screens/team/personal_team_calendar_widgets.dart';
 import 'package:moniq/presentation/viewmodels/personal_team_calendar_viewmodel.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -1191,7 +1192,7 @@ class _TeamDrawer extends HookConsumerWidget {
                       context.push('/teams/$currentTeamId/announcements');
                     },
                   ),
-                  if (isPersonalTeam)
+                  if (isPersonalTeam) ...[
                     _TeamDrawerNavItem(
                       icon: Icons.calendar_today_outlined,
                       label: '멤버 근무 현황',
@@ -1200,6 +1201,21 @@ class _TeamDrawer extends HookConsumerWidget {
                         context.push('/teams/$currentTeamId/personal-calendar');
                       },
                     ),
+                    _TeamDrawerNavItem(
+                      icon: Icons.event_note_rounded,
+                      label: '약속 관리',
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.of(context, rootNavigator: true).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => AppointmentManagementScreen(
+                              teamId: currentTeamId,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                   if (!isPersonalTeam) ...[
                     _TeamDrawerNavItem(
                       icon: Icons.edit_calendar_outlined,

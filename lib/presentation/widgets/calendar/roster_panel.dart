@@ -14,6 +14,7 @@ import 'package:moniq/presentation/viewmodels/request_viewmodel.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
+import 'package:moniq/presentation/widgets/calendar/shift_member_group_block.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
 class RosterPanel extends ConsumerWidget {
@@ -96,12 +97,39 @@ class RosterPanel extends ConsumerWidget {
               ),
             )
           else if (isExpanded)
-            ...(_sortedRoster(rosterEntries)).map(
-              (entry) => _ShiftTypeGroup(
-                entry: entry,
-                date: date,
-                teamId: teamId,
-                allEntries: rosterEntries,
+            // 개인 팀 day detail과 동일한 카드 + 좁은 행 간격(xs).
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLow,
+                borderRadius: AppRadius.borderRadiusLg,
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.colorScheme.shadow.withValues(alpha: 0.06),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Builder(
+                builder: (context) {
+                  final sorted = _sortedRoster(rosterEntries);
+                  return Column(
+                    children: [
+                      for (var i = 0; i < sorted.length; i++) ...[
+                        _ShiftTypeGroup(
+                          entry: sorted[i],
+                          date: date,
+                          teamId: teamId,
+                          allEntries: rosterEntries,
+                        ),
+                        if (i < sorted.length - 1)
+                          const SizedBox(height: AppSpacing.xs),
+                      ],
+                    ],
+                  );
+                },
               ),
             ),
           const SizedBox(height: AppSpacing.lg),
@@ -158,7 +186,6 @@ class _ShiftTypeGroup extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final color = parseHexColor(entry.shiftType.color);
     final currentUser = ref.watch(currentUserProvider);
     final myUserId = currentUser?.id;
@@ -169,190 +196,98 @@ class _ShiftTypeGroup extends ConsumerWidget {
                 ?.isAdmin ??
             false)
         : false;
+    final isOff = entry.shiftType.code.toUpperCase() == 'OFF';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        // 그라디언트는 데이(따뜻) → 나이트(차가움) 색상에서 모두 자연스럽도록
-        // 수평 대신 왼쪽 상단 → 오른쪽 하단으로 은은하게 흐르게 함.
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withValues(alpha: 0.14),
-            color.withValues(alpha: 0.04),
-          ],
-        ),
-        borderRadius: AppRadius.borderRadiusMd,
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 그룹 헤더
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: AppRadius.borderRadiusSm,
-                ),
-                child: Center(
-                  child: Text(
-                    entry.shiftType.code.toUpperCase() == 'OFF'
-                        ? 'O'
-                        : entry.shiftType.code,
-                    style: TextStyle(
-                      color: ThemeData.estimateBrightnessForColor(color) ==
-                              Brightness.dark
-                          ? Colors.white
-                          : Colors.black87,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
-                      height: 1,
+    // 개인 팀과 동일한 간결 레이아웃 — 칩은 기본 한 줄, 넘치면 +N으로 펼침.
+    // 칩 탭 시 기존 근무 교환/수정/요청 흐름은 그대로 유지한다.
+    // 행 간격은 바깥 Column에서 처리(개인 팀과 동일).
+    return ShiftMemberGroupBlock(
+      code: isOff ? null : entry.shiftType.code,
+      label: entry.shiftType.name,
+      color: color,
+      members: [
+        for (final worker in entry.workers)
+          ShiftMemberChipData(
+            // '(나)' 접미사는 제거하되, 본인 강조(색)는 유지.
+            displayName: worker.user.displayName ?? worker.user.email,
+            avatarUrl: worker.user.avatarUrl,
+            highlighted: worker.user.id == myUserId,
+            onTap: teamId == null
+                ? null
+                : () => _onWorkerTap(
+                      context,
+                      ref,
+                      worker: worker,
+                      isMe: worker.user.id == myUserId,
+                      isAdmin: isAdmin,
+                      color: color,
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  entry.shiftType.name,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xxs,
-                ),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: AppRadius.borderRadiusFull,
-                ),
-                child: Text(
-                  '${entry.workers.length}명',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-            ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          // 근무자 목록
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.xs,
-            children: entry.workers.map((worker) {
-              final name = worker.user.displayName ?? worker.user.email;
-              final isMe = worker.user.id == myUserId;
-
-              return GestureDetector(
-                onTap: teamId == null
-                    ? null
-                    : () {
-                        // 본인 근무: 관리자면 직접 수정, 아니면 변경 요청 흐름
-                        if (isMe) {
-                          if (worker.shiftId != null) {
-                            if (isAdmin) {
-                              _showSelfActionSheet(
-                                context,
-                                ref,
-                                shiftId: worker.shiftId!,
-                                workerName: name,
-                              );
-                            } else {
-                              _showSelfRequestSheet(
-                                context,
-                                ref,
-                                shiftId: worker.shiftId!,
-                                workerName: name,
-                              );
-                            }
-                          } else {
-                            // OFF 상태 → 새 근무 추가 시트
-                            _showAddSelfShiftSheet(
-                              context,
-                              ref,
-                              workerName: name,
-                            );
-                          }
-                          return;
-                        }
-                        if (isAdmin && worker.shiftId != null) {
-                          // 관리자: 수정 / 교환 선택 액션시트
-                          _showAdminActionSheet(
-                            context,
-                            ref,
-                            shiftId: worker.shiftId!,
-                            targetUser: worker.user,
-                            targetName: name,
-                            targetShiftType: entry.shiftType.name,
-                            targetShiftColor: color,
-                            isMe: isMe,
-                          );
-                        } else {
-                          _showSwapSheet(
-                            context,
-                            ref,
-                            targetUserId: worker.user.id,
-                            targetName: name,
-                            targetShiftType: entry.shiftType.name,
-                            targetShiftColor: color,
-                          );
-                        }
-                      },
-                child: Chip(
-                  label: Text(
-                    isMe ? '$name (나)' : name,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: isMe ? color : theme.colorScheme.onSurface,
-                      fontWeight: isMe ? FontWeight.w700 : FontWeight.w500,
-                      height: 1.2,
-                    ),
-                  ),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  labelPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                  ),
-                  backgroundColor: isMe
-                      ? color.withValues(alpha: 0.18)
-                      : theme.colorScheme.surface.withValues(alpha: 0.6),
-                  side: BorderSide(
-                    color: isMe
-                        ? color.withValues(alpha: 0.35)
-                        : theme.colorScheme.outlineVariant
-                            .withValues(alpha: 0.4),
-                    width: isMe ? 1 : 0.5,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: AppRadius.borderRadiusFull,
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
+      ],
     );
+  }
+
+  /// 근무자 칩 탭 — 본인/관리자 여부에 따라 수정·요청·교환 시트를 연다.
+  void _onWorkerTap(
+    BuildContext context,
+    WidgetRef ref, {
+    required RosterWorker worker,
+    required bool isMe,
+    required bool isAdmin,
+    required Color color,
+  }) {
+    final name = worker.user.displayName ?? worker.user.email;
+    // 본인 근무: 관리자면 직접 수정, 아니면 변경 요청 흐름
+    if (isMe) {
+      if (worker.shiftId != null) {
+        if (isAdmin) {
+          // 본인 근무도 팀원과 동일한 액션 시트로 통일하되, 교환 요청은 제외(isMe).
+          _showAdminActionSheet(
+            context,
+            ref,
+            shiftId: worker.shiftId!,
+            targetUser: worker.user,
+            targetName: name,
+            targetShiftType: entry.shiftType.name,
+            targetShiftColor: color,
+            isMe: true,
+          );
+        } else {
+          _showSelfRequestSheet(
+            context,
+            ref,
+            shiftId: worker.shiftId!,
+            workerName: name,
+          );
+        }
+      } else {
+        // OFF 상태 → 새 근무 추가 시트
+        _showAddSelfShiftSheet(context, ref, workerName: name);
+      }
+      return;
+    }
+    if (isAdmin && worker.shiftId != null) {
+      // 관리자: 수정 / 교환 선택 액션시트
+      _showAdminActionSheet(
+        context,
+        ref,
+        shiftId: worker.shiftId!,
+        targetUser: worker.user,
+        targetName: name,
+        targetShiftType: entry.shiftType.name,
+        targetShiftColor: color,
+        isMe: isMe,
+      );
+    } else {
+      _showSwapSheet(
+        context,
+        ref,
+        targetUserId: worker.user.id,
+        targetName: name,
+        targetShiftType: entry.shiftType.name,
+        targetShiftColor: color,
+      );
+    }
   }
 
   /// 관리자: 근무자 칩 탭 시 "근무 수정" + "근무 교환" 중 선택
@@ -551,20 +486,6 @@ class _ShiftTypeGroup extends ConsumerWidget {
 
   /// 본인 근무 칩 탭 시 — 바로 수정 시트로 진입.
   /// (1:N 추천 / 여러 날짜 일괄 교환은 변경 요청 화면에서 진입)
-  void _showSelfActionSheet(
-    BuildContext context,
-    WidgetRef ref, {
-    required String shiftId,
-    required String workerName,
-  }) {
-    _showAdminEditSheet(
-      context,
-      ref,
-      shiftId: shiftId,
-      workerName: workerName,
-    );
-  }
-
   /// 비관리자: 본인 근무 변경 시 shift_change 변경 요청을 생성하고 모달 표시.
   void _showSelfRequestSheet(
     BuildContext context,
@@ -709,29 +630,67 @@ class _ShiftTypeGroup extends ConsumerWidget {
       );
       ref.invalidate(requestListViewModelProvider(tid));
       if (!context.mounted) return;
+      if (!context.mounted) return;
       await showDialog<void>(
         context: context,
-        builder: (dctx) => AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.check_circle_rounded,
-                  color: AppColors.success, size: 22),
-              const SizedBox(width: AppSpacing.sm),
-              const Text('요청 접수 완료'),
-            ],
-          ),
-          content: Text(
-            '${DateFormat('M월 d일', 'ko_KR').format(date)} 근무를 '
-            '"${requestedShiftType.name}"(으)로 변경하는 요청이 접수되었습니다.\n'
-            '관리자 승인 후 반영됩니다.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dctx),
-              child: const Text('확인'),
+        builder: (dctx) {
+          final dtheme = Theme.of(dctx);
+          final dcs = dtheme.colorScheme;
+          return Dialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: AppRadius.borderRadiusLg,
             ),
-          ],
-        ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 360),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle_rounded,
+                          color: AppColors.success,
+                          size: 22,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(
+                          '요청 접수 완료',
+                          style: dtheme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      '${DateFormat('M월 d일', 'ko_KR').format(date)} 근무를 '
+                      '"${requestedShiftType.name}"(으)로 변경하는 요청이 접수되었습니다.\n'
+                      '관리자 승인 후 반영됩니다.',
+                      style: dtheme.textTheme.bodyMedium?.copyWith(
+                        color: dcs.onSurfaceVariant,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(dctx),
+                        child: const Text('확인'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       );
     } catch (e) {
       if (!context.mounted) return;
@@ -845,31 +804,16 @@ class _ShiftTypeGroup extends ConsumerWidget {
         <ShiftTypeModel>[];
     final myUserId = ref.read(currentUserProvider)?.id;
 
-    showModalBottomSheet(
+    // 근무 수정 시트(_showAdminEditSheet)와 동일한 MoniqBottomSheetShell 포맷으로 통일.
+    showMoniqBottomSheet<void>(
       context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: AppSpacing.xxl,
-          right: AppSpacing.xxl,
-          top: AppSpacing.xxl,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xxl,
-        ),
-        child: Column(
+      title: '내 근무 추가',
+      eyebrow: 'ADMIN',
+      child: Builder(
+        builder: (ctx) => Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('내 근무 추가',
-                style: Theme.of(ctx)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: AppSpacing.sm),
             Text('$dateStr · $workerName',
                 style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                       color: AppColors.onSurfaceVariant,
@@ -1102,33 +1046,19 @@ class _ShiftTypeGroup extends ConsumerWidget {
     final dateStr = DateFormat('M월 d일', 'ko_KR').format(date);
     String reason = '';
 
-    showModalBottomSheet(
+    // 로그아웃 등 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+    showMoniqBottomSheet<void>(
       context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: AppSpacing.xxl,
-          right: AppSpacing.xxl,
-          top: AppSpacing.xxl,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xxl,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('근무 교환 요청',
-                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    )),
-            const SizedBox(height: AppSpacing.xxl),
-
-            // 교환 정보 카드 — theme-aware로 다크모드 텍스트 대비 확보
-            Builder(builder: (ctx) {
+      eyebrow: 'SWAP',
+      title: '근무 교환 요청',
+      child: Builder(
+        builder: (ctx) => SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 교환 정보 카드 — theme-aware로 다크모드 텍스트 대비 확보
+              Builder(builder: (ctx) {
               final cs = Theme.of(ctx).colorScheme;
               return Container(
                 padding: const EdgeInsets.all(AppSpacing.lg),
@@ -1273,7 +1203,8 @@ class _ShiftTypeGroup extends ConsumerWidget {
               icon: const Icon(Icons.swap_horiz),
               label: const Text('교환 요청'),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

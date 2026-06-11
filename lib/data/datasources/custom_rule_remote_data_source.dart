@@ -61,4 +61,14 @@ class CustomRuleRemoteDataSource {
   Future<void> deleteRule(String ruleId) async {
     await _client.from('custom_rules').delete().eq('id', ruleId);
   }
+
+  /// 팀의 누적 "생성 시도" 횟수 조회 (없으면 0).
+  Future<int> getParseAttempts(String teamId) async {
+    final row = await _client
+        .from('custom_rule_usage')
+        .select('attempt_count')
+        .eq('team_id', teamId)
+        .maybeSingle();
+    return (row?['attempt_count'] as int?) ?? 0;
+  }
 }

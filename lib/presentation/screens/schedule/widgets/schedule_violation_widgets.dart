@@ -87,7 +87,7 @@ class _ViolationSheetState extends ConsumerState<ViolationSheet>
                   children: [
                     Expanded(
                       child: Text(
-                        '위반 리포트',
+                        '분석 리포트',
                         style: theme.textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
@@ -498,22 +498,31 @@ class _AiAnalysisCard extends StatelessWidget {
                     )),
               ],
             )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.auto_awesome_rounded,
-                    size: 15, color: AppColors.brandOrange),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(state.aiAnalysis!,
-                      style: theme.textTheme.bodySmall),
-                ),
-                GestureDetector(
-                  onTap: onRefresh,
-                  child: const Icon(Icons.refresh_rounded,
-                      size: 16, color: AppColors.textSecondaryLight),
-                ),
-              ],
+          // 분석 텍스트가 길어도 카드 높이를 제한하고 내부 스크롤로 처리해
+          // 바텀시트 Column이 오버플로우되지 않도록 한다.
+          : ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.28,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.auto_awesome_rounded,
+                      size: 15, color: AppColors.brandOrange),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Text(state.aiAnalysis!,
+                          style: theme.textTheme.bodySmall),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: onRefresh,
+                    child: const Icon(Icons.refresh_rounded,
+                        size: 16, color: AppColors.textSecondaryLight),
+                  ),
+                ],
+              ),
             ),
     );
   }

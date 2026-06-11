@@ -11,6 +11,7 @@ import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 import 'package:moniq/presentation/widgets/tutorial/tutorial_controller.dart';
 import 'package:moniq/presentation/widgets/tutorial/tutorial_step.dart';
 
+import 'appointment_management_screen.dart';
 import 'team_detail_dialogs.dart';
 import 'team_detail_widgets.dart';
 
@@ -224,6 +225,20 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                     subtitle: '즐겨찾기 팀 근무 · 오프 겹침 보기',
                     onTap: () => context.push(
                       '/teams/${widget.teamId}/personal-calendar',
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TeamDetailBubbleMenuCard(
+                    icon: Icons.event_note_rounded,
+                    iconColor: Theme.of(context).colorScheme.primary,
+                    title: '약속 관리',
+                    subtitle: '약속 보기 · 내 캘린더에 추가',
+                    onTap: () => Navigator.of(context, rootNavigator: true).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => AppointmentManagementScreen(
+                          teamId: widget.teamId,
+                        ),
+                      ),
                     ),
                   ),
                 ] else ...[

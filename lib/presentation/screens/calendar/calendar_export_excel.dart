@@ -209,8 +209,9 @@ Future<List<int>> _buildTeamExcelBytes(
   final daysInMonth =
       DateTime(focusedMonth.year, focusedMonth.month + 1, 0).day;
 
-  // 각 날짜 셀 목록: 근무유형 헤더(예: '데이') 다음에 '■ 이름'들이 이어진다.
+  // 각 날짜 셀 목록: 근무유형 헤더(예: '데이') 다음에 이름들이 이어진다.
   final perDay = <int, List<String>>{};
+  final typeHeaderLabels = <String>{};
   for (int d = 1; d <= daysInMonth; d++) {
     final date = DateTime(focusedMonth.year, focusedMonth.month, d);
     final shifts = state.monthlyShifts[date];
@@ -233,10 +234,11 @@ Future<List<int>> _buildTeamExcelBytes(
         if (s.shiftType.name != currentType) {
           // 근무유형 그룹 헤더
           list.add(s.shiftType.name);
+          typeHeaderLabels.add(s.shiftType.name);
           currentType = s.shiftType.name;
         }
         final name = memberNames[s.shift.userId] ?? '';
-        list.add(name.isNotEmpty ? '■ $name' : '■');
+        if (name.isNotEmpty) list.add(name);
       }
     }
     perDay[d] = list;
@@ -248,6 +250,7 @@ Future<List<int>> _buildTeamExcelBytes(
     title:
         '${state.teamName} · ${focusedMonth.year}년 ${focusedMonth.month}월 근무표',
     perDay: perDay,
+    typeHeaderLabels: typeHeaderLabels,
   );
 }
 
@@ -258,11 +261,36 @@ Future<List<int>> _buildTeamExcelBytes(
 /// [perDay]의 각 값은 셀에 위→아래로 한 칸씩 들어갈 문자열 목록이다.
 /// - 빈 문자열 또는 '■'로 시작 → 일반(이름) 셀
 /// - 그 외 비어있지 않은 문자열 → 근무유형 그룹 헤더 셀
+/// 근무유형 그룹 헤더의 배경색(헥스)을 유형 이름으로 결정한다.
+/// 데이=노랑, 이브닝=주황, 나이트=파랑, 교육=보라, 그 외=회색.
+String _shiftHeaderBgHex(String name) {
+  final n = name;
+  final lower = n.toLowerCase();
+  if (n.contains('데이') || n.contains('주간') || lower.contains('day')) {
+    return '#FFD966'; // 노랑
+  }
+  if (n.contains('이브닝') || n.contains('저녁') || lower.contains('eve')) {
+    return '#F4A460'; // 주황
+  }
+  if (n.contains('나이트') || n.contains('야간') || lower.contains('night')) {
+    return '#7FB1E3'; // 파랑
+  }
+  if (n.contains('교육') ||
+      lower.contains('edu') ||
+      lower.contains('train')) {
+    return '#B794D9'; // 보라
+  }
+  return '#F2F2F2'; // 기타: 회색
+}
+
 List<int> buildCalendarGridExcelBytes({
   required int year,
   required int month,
   required String title,
   required Map<int, List<String>> perDay,
+  // 근무유형 그룹 헤더로 표시되는 라벨 집합(예: {'데이','이브닝','나이트','교육'}).
+  // 이 집합에 속한 셀만 유형별 배경색을 칠하고, 나머지(멤버명/빈칸)는 일반 스타일.
+  Set<String> typeHeaderLabels = const <String>{},
 }) {
   final daysInMonth = DateTime(year, month + 1, 0).day;
 
@@ -342,24 +370,21 @@ List<int> buildCalendarGridExcelBytes({
     backgroundColorHexVal: xl.ExcelColor.fromHexString('#FFF5F5'),
   );
 
-  // 근무유형 그룹 헤더 셀 스타일 ('데이'/'이브닝'/'나이트')
-  final groupStyle = staffStyle.copyWith(
-    boldVal: true,
-    backgroundColorHexVal: xl.ExcelColor.fromHexString('#F2F2F2'),
-  );
-  final groupWeekendStyle = staffStyle.copyWith(
-    boldVal: true,
-    backgroundColorHexVal: xl.ExcelColor.fromHexString('#F7ECEC'),
-  );
-
   bool isWeekendCol(int col) => col == 5 || col == 6;
 
-  // 셀 내용에 따라 스타일 결정: 빈칸/'■ 이름' / 근무유형 그룹 헤더
+  // 셀 내용에 따라 스타일 결정.
+  // - 근무유형 그룹 헤더(typeHeaderLabels에 포함): 유형별 배경색 + 굵게
+  //   (데이=노랑, 이브닝=주황, 나이트=파랑, 교육=보라, 그 외=회색)
+  // - 그 외(멤버명/빈칸): 일반 스타일
   xl.CellStyle cellStyleFor(String text, bool weekend) {
-    if (text.isEmpty || text.startsWith('■')) {
-      return weekend ? staffWeekendStyle : staffStyle;
+    if (text.isNotEmpty && typeHeaderLabels.contains(text)) {
+      return staffStyle.copyWith(
+        boldVal: true,
+        backgroundColorHexVal:
+            xl.ExcelColor.fromHexString(_shiftHeaderBgHex(text)),
+      );
     }
-    return weekend ? groupWeekendStyle : groupStyle;
+    return weekend ? staffWeekendStyle : staffStyle;
   }
 
   // 주 단위로 [날짜 행] + [내용 행들]을 쌓는다.

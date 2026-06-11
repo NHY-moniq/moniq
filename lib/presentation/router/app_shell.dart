@@ -21,18 +21,50 @@ import 'package:moniq/presentation/screens/team/team_excel_import.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 앱이 포그라운드로 복귀하면 팀/멤버십 정보를 새로고침한다.
+    // 다른 관리자가 내 권한을 변경(일반멤버↔관리자)한 경우 재로그인 없이
+    // 즉시 반영되도록 한다.
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(teamViewModelProvider);
+      ref.invalidate(teamDetailViewModelProvider);
+      ref.invalidate(favoriteTeamProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final navigationShell = widget.navigationShell;
     final shiftTheme = ref.watch(todayShiftThemeProvider);
 
     if (AdaptiveLayout.isWide(context)) {
@@ -389,15 +421,12 @@ class _CalendarContextItems extends ConsumerWidget {
           icon: Icons.schedule_outlined,
           label: '내 근무 유형 설정',
           onTap: () {
-            showModalBottomSheet(
+            // 로그아웃 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+            showMoniqBottomSheet<void>(
               context: context,
-              isScrollControlled: true,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(AppRadius.xl),
-                ),
-              ),
-              builder: (_) => const PersonalShiftTypeSheet(),
+              eyebrow: 'MY SHIFT',
+              title: '근무 유형 설정',
+              child: const PersonalShiftTypeSheet(),
             );
           },
         ),
@@ -515,6 +544,8 @@ class _TeamContextItems extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (currentTeam != null) _FlyoutTeamHeader(team: currentTeam),
+        // ── 팀 ──
+        const _FlyoutSectionLabel(label: '팀'),
         _FlyoutTile(
           icon: Icons.groups_outlined,
           label: '팀 목록',
@@ -532,15 +563,13 @@ class _TeamContextItems extends ConsumerWidget {
             iconColor: AppColors.brandOrange,
             onTap: () => context.push('/teams/$teamId/announcements'),
           ),
-          // 엑셀 가져오기/샘플 양식 — 웹 + 팀 관리자 + 일반 팀에서만 노출.
-          if (kIsWeb && !isPersonalTeam)
-            _TeamExcelFlyoutTiles(teamId: teamId),
-          if (isPersonalTeam)
-            _FlyoutTile(
-              icon: Icons.calendar_today_outlined,
-              label: '멤버 근무 현황',
-              onTap: () => context.push('/teams/$teamId/personal-calendar'),
-            ),
+          // ── 근무 ──
+          const _FlyoutSectionLabel(label: '근무'),
+          _FlyoutTile(
+            icon: Icons.calendar_today_outlined,
+            label: '멤버 근무 현황',
+            onTap: () => context.push('/teams/$teamId/personal-calendar'),
+          ),
           if (!isPersonalTeam) ...[
             _FlyoutTile(
               icon: Icons.edit_calendar_outlined,
@@ -553,6 +582,9 @@ class _TeamContextItems extends ConsumerWidget {
               onTap: () => context.push('/teams/$teamId/requests'),
             ),
           ],
+          // ── 엑셀 ── (웹 + 팀 관리자 + 일반 팀에서만, 맨 아래)
+          if (kIsWeb && !isPersonalTeam)
+            _TeamExcelFlyoutTiles(teamId: teamId),
         ],
       ],
     );
@@ -786,6 +818,7 @@ class _TeamExcelFlyoutTiles extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const _FlyoutSectionLabel(label: '엑셀'),
         _FlyoutTile(
           icon: Icons.download_outlined,
           label: '근무표 가져오기',
@@ -1049,24 +1082,14 @@ class _DropdownMenu extends StatelessWidget {
     onClose();
     if (!mountedContext.mounted) return;
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showMoniqConfirmSheet(
       context: mountedContext,
-      builder: (ctx) => AlertDialog(
-        title: const Text('로그아웃'),
-        content: const Text('정말 로그아웃 하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('로그아웃', style: TextStyle(color: AppColors.error)),
-          ),
-        ],
-      ),
+      title: '로그아웃할까요?',
+      eyebrow: 'SIGN OUT',
+      message: '언제든 다시 로그인하실 수 있어요.',
+      confirmLabel: '로그아웃',
     );
-    if (confirmed != true || !mountedContext.mounted) return;
+    if (!confirmed || !mountedContext.mounted) return;
 
     try {
       await onSignOut();

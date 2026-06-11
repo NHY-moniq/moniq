@@ -518,59 +518,20 @@ void showEventForm(
     '#A0AEC0',
   ];
 
-  showModalBottomSheet(
+  // 로그아웃·근무 유형 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+  showMoniqBottomSheet<void>(
     context: context,
-    useRootNavigator: true,
-    isScrollControlled: true,
-    backgroundColor: Theme.of(context).colorScheme.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-    ),
-    builder: (ctx) {
-      final cs = Theme.of(ctx).colorScheme;
-      final tt = Theme.of(ctx).textTheme;
-
-      return StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: AppSpacing.lg,
-            right: AppSpacing.lg,
-            top: AppSpacing.md,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Drag handle
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-                    decoration: BoxDecoration(
-                      color: cs.outlineVariant,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                // Header — stronger weight, more breathing room
-                Padding(
-                  padding: const EdgeInsets.only(
-                    top: AppSpacing.xs,
-                    bottom: AppSpacing.lg,
-                  ),
-                  child: Text(
-                    index == null ? '일정 추가' : '일정 수정',
-                    style: tt.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: cs.onSurface,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                ),
+    eyebrow: 'SCHEDULE',
+    title: index == null ? '일정 추가' : '일정 수정',
+    child: StatefulBuilder(
+      builder: (ctx, setSheetState) {
+        final cs = Theme.of(ctx).colorScheme;
+        final tt = Theme.of(ctx).textTheme;
+        return SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
                 // Title input
                 TextField(
                   controller: titleController,
@@ -617,50 +578,81 @@ void showEventForm(
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                // Start / End time cards
+                // 종일 체크박스 + 시작/종료 시간 (약속잡기 UI와 동일 패턴)
                 Row(
                   children: [
-                    Expanded(
-                      child: _TimeFieldCard(
-                        label: '시작',
-                        value: startTime != null
-                            ? formatTime(startTime!)
-                            : '종일',
-                        isPlaceholder: startTime == null,
-                        onTap: () {
-                          showCupertinoTimePicker(
-                            context: ctx,
-                            initialHour: startTime?.hour ?? 9,
-                            initialMinute: startTime?.minute ?? 0,
-                            onChanged: (h, m) {
-                              setSheetState(() => startTime =
-                                  TimeOfDay(hour: h, minute: m));
-                            },
-                          );
+                    SizedBox(
+                      width: 64,
+                      height: 50,
+                      child: _EventAllDayCheckbox(
+                        selected: startTime == null && endTime == null,
+                        onChanged: (v) {
+                          setSheetState(() {
+                            if (v) {
+                              startTime = null;
+                              endTime = null;
+                            } else {
+                              startTime ??=
+                                  const TimeOfDay(hour: 9, minute: 0);
+                              endTime ??=
+                                  const TimeOfDay(hour: 10, minute: 0);
+                            }
+                          });
                         },
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
-                      child: _TimeFieldCard(
-                        label: '종료',
-                        value:
-                            endTime != null ? formatTime(endTime!) : '-',
-                        isPlaceholder: endTime == null,
-                        onTap: () {
-                          showCupertinoTimePicker(
-                            context: ctx,
-                            initialHour: endTime?.hour ??
-                                (startTime?.hour ?? 9) + 1,
-                            initialMinute: endTime?.minute ??
-                                startTime?.minute ??
-                                0,
-                            onChanged: (h, m) {
-                              setSheetState(() => endTime =
-                                  TimeOfDay(hour: h, minute: m));
-                            },
-                          );
-                        },
+                      child: SizedBox(
+                        height: 50,
+                        child: _EventTimeButton(
+                          label: '시작',
+                          value: startTime != null
+                              ? formatTime(startTime!)
+                              : '--:--',
+                          onTap: () {
+                            showCupertinoTimePicker(
+                              context: ctx,
+                              initialHour: startTime?.hour ?? 9,
+                              initialMinute: startTime?.minute ?? 0,
+                              onChanged: (h, m) {
+                                setSheetState(() {
+                                  startTime = TimeOfDay(hour: h, minute: m);
+                                  endTime ??= TimeOfDay(
+                                    hour: (h + 1) % 24,
+                                    minute: m,
+                                  );
+                                });
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: SizedBox(
+                        height: 50,
+                        child: _EventTimeButton(
+                          label: '종료',
+                          value: endTime != null
+                              ? formatTime(endTime!)
+                              : '--:--',
+                          onTap: () {
+                            showCupertinoTimePicker(
+                              context: ctx,
+                              initialHour: endTime?.hour ??
+                                  (startTime?.hour ?? 9) + 1,
+                              initialMinute: endTime?.minute ??
+                                  startTime?.minute ??
+                                  0,
+                              onChanged: (h, m) {
+                                setSheetState(() => endTime =
+                                    TimeOfDay(hour: h, minute: m));
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ],
@@ -805,11 +797,10 @@ void showEventForm(
                 ),
               ],
             ),
-          ),
-        ),
-      );
-    },
-  );
+          );
+        },
+      ),
+    );
 }
 
 void showNoteForm(BuildContext context, WidgetRef ref,
@@ -1078,69 +1069,134 @@ void showEventEditWithShiftTypes(BuildContext context,
 // ── Event form helper widgets ─────────────────────────────────────────
 
 /// 시작/종료 시간을 보여주는 카드. 탭하면 시간 선택 picker가 뜬다.
-class _TimeFieldCard extends StatelessWidget {
-  const _TimeFieldCard({
+/// 종일 체크박스 — 약속잡기 시트의 `_AllDayCheckboxButton`과 동일 스펙.
+class _EventAllDayCheckbox extends StatelessWidget {
+  const _EventAllDayCheckbox({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final bool selected;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onChanged(!selected),
+        borderRadius: AppRadius.borderRadiusMd,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: selected ? cs.primary : cs.surface,
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(
+                    color: selected
+                        ? cs.primary
+                        : cs.outlineVariant.withValues(alpha: 0.9),
+                    width: 1.4,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: selected
+                    ? Icon(Icons.check_rounded, size: 15, color: cs.onPrimary)
+                    : null,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '종일',
+                maxLines: 1,
+                style: textTheme.labelSmall?.copyWith(
+                  color: selected ? cs.primary : cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 시작/종료 시간 버튼 — 약속잡기 시트의 `_AppointmentTimeButton`과 동일 스펙.
+class _EventTimeButton extends StatelessWidget {
+  const _EventTimeButton({
     required this.label,
     required this.value,
-    required this.isPlaceholder,
     required this.onTap,
   });
 
   final String label;
   final String value;
-  final bool isPlaceholder;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
 
     return Material(
-      color: cs.surfaceContainerHigh,
-      borderRadius: AppRadius.borderRadiusLg,
-      clipBehavior: Clip.antiAlias,
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
+        borderRadius: AppRadius.borderRadiusMd,
+        child: Container(
           padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
-            vertical: AppSpacing.md,
+            horizontal: AppSpacing.sm,
+            vertical: 4,
+          ),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: AppRadius.borderRadiusMd,
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: 0.62),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                label,
-                style: tt.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
               Row(
                 children: [
                   Icon(
-                    Icons.access_time_rounded,
-                    size: 18,
+                    Icons.schedule_rounded,
+                    size: 13,
                     color: cs.onSurfaceVariant,
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      value,
-                      style: tt.bodyMedium?.copyWith(
-                        color: isPlaceholder
-                            ? cs.onSurfaceVariant
-                            : cs.onSurface,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: 3),
+                  Text(
+                    label,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: cs.onSurface,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.2,
+                ),
               ),
             ],
           ),

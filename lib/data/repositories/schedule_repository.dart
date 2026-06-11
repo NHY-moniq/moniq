@@ -40,6 +40,18 @@ class ScheduleRepository {
     return _dataSource.getSchedules(teamId);
   }
 
+  Future<List<ShiftModel>> getTeamShiftsInRange({
+    required String teamId,
+    required DateTime start,
+    required DateTime end,
+  }) {
+    return _dataSource.getTeamShiftsInRange(
+      teamId: teamId,
+      start: start,
+      end: end,
+    );
+  }
+
   Future<int> deleteSchedulesByMonth({
     required String teamId,
     required int year,

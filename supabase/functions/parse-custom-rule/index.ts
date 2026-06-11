@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,8 +7,12 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type',
 };
 
+// 무료 버전: 팀당 누적 "생성 시도" 한도. 앱 우회(함수 직접 호출)도 막는 서버측 가드.
+const MAX_ATTEMPTS_PER_TEAM = 20;
+
 interface ParseRequest {
   text: string;          // 유저가 입력한 자연어 원문 (최대 200자)
+  teamId: string;        // 비용 가드용 — 팀 누적 호출수 기준
   teamMembers: { id: string; name: string }[];
   shiftTypes: { id: string; name: string; code: string }[];
 }
@@ -40,6 +45,57 @@ serve(async (req) => {
   try {
     const body: ParseRequest = await req.json();
 
+    // ── 비용 가드 (서버측, OpenAI 호출 전) ──
+    // 팀별 누적 호출수를 원자적으로 올리고 한도 초과면 거부한다.
+    // 앱 클라이언트를 우회해 함수를 직접 호출해도 여기서 막힌다.
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    if (supabaseUrl && serviceRoleKey && anonKey) {
+      // 1) 호출자가 정말 그 팀의 멤버인지 검증한다.
+      //    (검증 없이 body.teamId를 믿으면, 임의의 teamId로 매번 새 20회 quota를
+      //     얻어 한도를 무력화할 수 있다.)
+      const authHeader = req.headers.get('Authorization') ?? '';
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: userData } = await userClient.auth.getUser();
+      const callerId = userData?.user?.id;
+
+      const admin = createClient(supabaseUrl, serviceRoleKey);
+      let isMember = false;
+      if (callerId && body.teamId) {
+        const { data: membership } = await admin
+          .from('team_members')
+          .select('user_id')
+          .eq('team_id', body.teamId)
+          .eq('user_id', callerId)
+          .eq('is_deleted', false)
+          .maybeSingle();
+        isMember = membership != null;
+      }
+      if (!isMember) {
+        return new Response(
+          JSON.stringify({ error: 'not_authorized' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      // 2) 누적 카운터 원자적 증가 + 한도 검사
+      const { data: attemptCount, error: bumpError } = await admin.rpc(
+        'bump_custom_rule_attempts_unchecked',
+        { p_team_id: body.teamId },
+      );
+      if (!bumpError && typeof attemptCount === 'number' &&
+          attemptCount > MAX_ATTEMPTS_PER_TEAM) {
+        // 클라이언트가 data.error로 읽도록 200으로 반환 (supabase invoke는 non-2xx에서 throw)
+        return new Response(
+          JSON.stringify({ error: 'limit_reached' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
+
     const apiKey = Deno.env.get('OPENAI_API_KEY');
     if (!apiKey) {
       return new Response(
@@ -68,8 +124,9 @@ ${shiftList}
 ## DSL 규칙 유형
 
 1. **member_shift_ban** — 특정 멤버 특정 근무 금지
-   rule_value: { "member_id": "<id>", "shift_code": "<code>" }
+   rule_value: { "member_id": "<id>", "shift_code": "<code 또는 null(전체 근무 금지)>" }
    예: "홍길동은 나이트 안 서요" → member_shift_ban, shift_code: "N"
+   예: "김나연은 절대 근무 서지 않아" → member_shift_ban, shift_code: null (모든 근무 금지)
 
 2. **anti_pair** — 두 멤버 같은 근무 동시 배정 금지
    rule_value: { "member_id_a": "<id>", "member_id_b": "<id>", "shift_code": "<code 또는 null(전체)>" }
