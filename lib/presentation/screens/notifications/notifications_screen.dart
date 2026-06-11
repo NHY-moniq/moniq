@@ -7,6 +7,7 @@ import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/notification_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
@@ -739,6 +740,8 @@ Future<void> _navigateForNotification(
         await ref.read(teamRepositoryProvider).setFavoriteTeam(teamId);
         ref.invalidate(favoriteTeamProvider);
         ref.invalidate(teamCalendarViewModelProvider(teamId));
+        // 개인 캘린더가 즉시 즐겨찾기 팀 근무를 반영하도록 갱신
+        ref.invalidate(homeViewModelProvider);
       } catch (_) {}
       if (!context.mounted) return;
       context.go('/teams');

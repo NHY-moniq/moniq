@@ -236,7 +236,7 @@ Future<List<int>> _buildTeamExcelBytes(
           currentType = s.shiftType.name;
         }
         final name = memberNames[s.shift.userId] ?? '';
-        list.add(name.isNotEmpty ? '■ $name' : '■');
+        if (name.isNotEmpty) list.add(name);
       }
     }
     perDay[d] = list;

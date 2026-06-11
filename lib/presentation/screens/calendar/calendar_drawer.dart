@@ -7,6 +7,7 @@ import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dar
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
 import 'calendar_providers.dart';
 
@@ -148,16 +149,12 @@ class CalendarDrawer extends HookConsumerWidget {
   }
 
   void _showPersonalShiftTypeManager(BuildContext context) {
-    showModalBottomSheet(
+    // 로그아웃 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+    showMoniqBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
-      // ShellRoute의 BottomNavigation 위로 띄움.
-      useRootNavigator: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => const PersonalShiftTypeSheet(),
+      eyebrow: 'MY SHIFT',
+      title: '근무 유형 설정',
+      child: const PersonalShiftTypeSheet(),
     );
   }
 }
@@ -261,50 +258,37 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
     final theme = Theme.of(context);
     final shiftTypes = ref.watch(personalShiftTypesProvider);
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.4,
-      maxChildSize: 0.9,
-      expand: false,
-      builder: (ctx, scrollController) => Column(
-        children: [
-          // 핸들
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(
-                  top: AppSpacing.md, bottom: AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(2),
+    // 로그아웃 시트와 동일한 MoniqBottomSheetShell 스타일로 표시되므로
+    // (핸들·eyebrow·타이틀·서피스는 셸이 담당) 여기서는 본문만 구성한다.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () => _showAddShiftTypeForm(context, ref),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('추가'),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        if (shiftTypes.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl),
+            child: Text(
+              '등록된 근무 유형이 없어요',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-          ),
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: Row(
-              children: [
-                Text('근무 유형 설정',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w600)),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () =>
-                      _showAddShiftTypeForm(context, ref),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('추가'),
-                ),
-              ],
-            ),
-          ),
-          const Divider(),
-          Expanded(
+          )
+        else
+          Flexible(
             child: ListView.builder(
-              controller: scrollController,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg),
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
               itemCount: shiftTypes.length,
               itemBuilder: (context, index) {
                 final st = shiftTypes[index];
@@ -315,8 +299,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                     ? displayShiftLabel(st, shiftTypes)
                     : code;
                 return Card(
-                  margin:
-                      const EdgeInsets.only(bottom: AppSpacing.sm),
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
                   child: ListTile(
                     leading: Container(
                       width: 36,
@@ -336,8 +319,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                     ),
                     title: Text(st.name),
                     subtitle: st.startTime != null
-                        ? Text(
-                            '${st.startTime} ~ ${st.endTime ?? ''}')
+                        ? Text('${st.startTime} ~ ${st.endTime ?? ''}')
                         : null,
                     trailing: PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert, size: 18),
@@ -349,12 +331,10 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                       ],
                       onSelected: (action) {
                         if (action == 'edit') {
-                          _showEditShiftTypeForm(
-                              context, ref, st);
+                          _showEditShiftTypeForm(context, ref, st);
                         } else if (action == 'delete') {
                           ref
-                              .read(
-                                  personalShiftTypeDataSourceProvider)
+                              .read(personalShiftTypeDataSourceProvider)
                               .remove(st.id);
                           ref.invalidate(personalShiftTypesProvider);
                         }
@@ -365,8 +345,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
               },
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
