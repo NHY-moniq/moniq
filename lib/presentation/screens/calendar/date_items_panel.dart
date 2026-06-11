@@ -611,13 +611,21 @@ class DateItemsPanel extends ConsumerWidget {
 }
 
 
-/// 근무 카드 라벨용 — OFF는 'O', 그 외 2글자 이상 코드는 첫 글자만.
+/// 근무 카드 라벨용 — OFF는 'O', 교육(ED)은 그대로, 그 외 2글자 이상 코드는 첫 글자만.
 String _displayShiftCode(String code, String name) {
   final c = code.toUpperCase();
   if (c == 'OFF' ||
       name.contains('오프') ||
       name.toLowerCase().contains('off')) {
     return 'O';
+  }
+  // 교육(ED/EDU 등)은 단일 문자로 줄이지 않고 코드를 그대로 노출한다.
+  if (c == 'ED' ||
+      c == 'EDU' ||
+      name.contains('교육') ||
+      name.toLowerCase().contains('education') ||
+      name.toLowerCase().contains('training')) {
+    return c.isEmpty ? 'ED' : c;
   }
   if (c.isEmpty) {
     return name.isEmpty ? '?' : name[0].toUpperCase();

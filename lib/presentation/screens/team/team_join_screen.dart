@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/data/providers/tutorial_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
@@ -36,6 +37,8 @@ class TeamJoinScreen extends HookConsumerWidget {
           if (favorite == null) {
             await teamRepo.setFavoriteTeam(teamId);
             ref.invalidate(favoriteTeamProvider);
+            // 개인 캘린더가 즉시 즐겨찾기 팀 근무를 반영하도록 갱신
+            ref.invalidate(homeViewModelProvider);
           }
 
           // 해당 유형의 첫 팀일 때만 튜토리얼 트리거

@@ -32,6 +32,7 @@ Future<T?> showMoniqBottomSheet<T>({
   String? eyebrow,
   bool isScrollControlled = true,
   bool useSafeArea = true,
+  double maxHeightFactor = 0.75,
 }) async {
   // Hide the app shell's floating bottom dock while the sheet is open so it
   // does not bleed through the semi-transparent barrier. The counter is
@@ -50,8 +51,12 @@ Future<T?> showMoniqBottomSheet<T>({
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.42),
-      builder: (ctx) =>
-          MoniqBottomSheetShell(title: title, eyebrow: eyebrow, child: child),
+      builder: (ctx) => MoniqBottomSheetShell(
+        title: title,
+        eyebrow: eyebrow,
+        maxHeightFactor: maxHeightFactor,
+        child: child,
+      ),
     );
   } finally {
     notifier.decrement();
@@ -66,18 +71,28 @@ class MoniqBottomSheetShell extends StatelessWidget {
     required this.child,
     this.title,
     this.eyebrow,
+    this.maxHeightFactor = 0.75,
   });
 
   final Widget child;
   final String? title;
   final String? eyebrow;
 
+  /// 시트의 최대 높이 = 화면 높이 × 이 비율. 내용이 많아도 이 높이를 넘지 않고
+  /// 내부에서 스크롤된다(예: 멤버 선택 목록이 길어 시트가 화면을 가득 채우는 문제 방지).
+  final double maxHeightFactor;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final viewInsets = MediaQuery.of(context).viewInsets;
+    final media = MediaQuery.of(context);
+    final viewInsets = media.viewInsets;
     // 내용이 적어도 시트가 너무 납작해지지 않도록 최소 높이를 보장한다.
-    final minHeight = MediaQuery.of(context).size.height * 0.28;
+    final minHeight = media.size.height * 0.28;
+    // 키보드/세이프영역을 제외한 가용 높이 기준으로 최대 높이를 제한한다.
+    final available =
+        media.size.height - viewInsets.bottom - media.padding.top;
+    final maxHeight = available * maxHeightFactor;
     final sheetColor = cs.brightness == Brightness.dark
         ? cs.surface
         : Colors.white;
@@ -85,7 +100,10 @@ class MoniqBottomSheetShell extends StatelessWidget {
     return Padding(
       padding: viewInsets,
       child: Container(
-        constraints: BoxConstraints(minHeight: minHeight),
+        constraints: BoxConstraints(
+          minHeight: minHeight > maxHeight ? maxHeight : minHeight,
+          maxHeight: maxHeight,
+        ),
         decoration: BoxDecoration(
           color: sheetColor,
           borderRadius: const BorderRadius.vertical(
