@@ -1403,10 +1403,9 @@ class _AppointmentTimeButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: AppRadius.borderRadiusMd,
         child: Container(
-          constraints: const BoxConstraints(minHeight: 50),
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.sm,
-            vertical: 6,
+            vertical: 4,
           ),
           decoration: BoxDecoration(
             color: cs.surfaceContainerLow,
@@ -1418,6 +1417,7 @@ class _AppointmentTimeButton extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
@@ -1437,7 +1437,7 @@ class _AppointmentTimeButton extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 2),
               Text(
                 value,
                 maxLines: 1,

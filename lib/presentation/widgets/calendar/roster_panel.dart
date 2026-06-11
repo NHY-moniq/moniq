@@ -241,11 +241,16 @@ class _ShiftTypeGroup extends ConsumerWidget {
     if (isMe) {
       if (worker.shiftId != null) {
         if (isAdmin) {
-          _showSelfActionSheet(
+          // 본인 근무도 팀원과 동일한 액션 시트로 통일하되, 교환 요청은 제외(isMe).
+          _showAdminActionSheet(
             context,
             ref,
             shiftId: worker.shiftId!,
-            workerName: name,
+            targetUser: worker.user,
+            targetName: name,
+            targetShiftType: entry.shiftType.name,
+            targetShiftColor: color,
+            isMe: true,
           );
         } else {
           _showSelfRequestSheet(
@@ -481,20 +486,6 @@ class _ShiftTypeGroup extends ConsumerWidget {
 
   /// 본인 근무 칩 탭 시 — 바로 수정 시트로 진입.
   /// (1:N 추천 / 여러 날짜 일괄 교환은 변경 요청 화면에서 진입)
-  void _showSelfActionSheet(
-    BuildContext context,
-    WidgetRef ref, {
-    required String shiftId,
-    required String workerName,
-  }) {
-    _showAdminEditSheet(
-      context,
-      ref,
-      shiftId: shiftId,
-      workerName: workerName,
-    );
-  }
-
   /// 비관리자: 본인 근무 변경 시 shift_change 변경 요청을 생성하고 모달 표시.
   void _showSelfRequestSheet(
     BuildContext context,
@@ -813,31 +804,16 @@ class _ShiftTypeGroup extends ConsumerWidget {
         <ShiftTypeModel>[];
     final myUserId = ref.read(currentUserProvider)?.id;
 
-    showModalBottomSheet(
+    // 근무 수정 시트(_showAdminEditSheet)와 동일한 MoniqBottomSheetShell 포맷으로 통일.
+    showMoniqBottomSheet<void>(
       context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: AppSpacing.xxl,
-          right: AppSpacing.xxl,
-          top: AppSpacing.xxl,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xxl,
-        ),
-        child: Column(
+      title: '내 근무 추가',
+      eyebrow: 'ADMIN',
+      child: Builder(
+        builder: (ctx) => Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('내 근무 추가',
-                style: Theme.of(ctx)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: AppSpacing.sm),
             Text('$dateStr · $workerName',
                 style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                       color: AppColors.onSurfaceVariant,
@@ -1070,33 +1046,19 @@ class _ShiftTypeGroup extends ConsumerWidget {
     final dateStr = DateFormat('M월 d일', 'ko_KR').format(date);
     String reason = '';
 
-    showModalBottomSheet(
+    // 로그아웃 등 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+    showMoniqBottomSheet<void>(
       context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: AppSpacing.xxl,
-          right: AppSpacing.xxl,
-          top: AppSpacing.xxl,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xxl,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('근무 교환 요청',
-                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    )),
-            const SizedBox(height: AppSpacing.xxl),
-
-            // 교환 정보 카드 — theme-aware로 다크모드 텍스트 대비 확보
-            Builder(builder: (ctx) {
+      eyebrow: 'SWAP',
+      title: '근무 교환 요청',
+      child: Builder(
+        builder: (ctx) => SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 교환 정보 카드 — theme-aware로 다크모드 텍스트 대비 확보
+              Builder(builder: (ctx) {
               final cs = Theme.of(ctx).colorScheme;
               return Container(
                 padding: const EdgeInsets.all(AppSpacing.lg),
@@ -1241,7 +1203,8 @@ class _ShiftTypeGroup extends ConsumerWidget {
               icon: const Icon(Icons.swap_horiz),
               label: const Text('교환 요청'),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
