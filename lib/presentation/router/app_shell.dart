@@ -420,6 +420,7 @@ class _CalendarContextItems extends ConsumerWidget {
         _FlyoutTile(
           icon: Icons.schedule_outlined,
           label: '내 근무 유형 설정',
+          iconColor: AppColors.brandBlue,
           onTap: () {
             // 로그아웃 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
             showMoniqBottomSheet<void>(
@@ -433,6 +434,7 @@ class _CalendarContextItems extends ConsumerWidget {
         _FlyoutTile(
           icon: Icons.calendar_month_outlined,
           label: '외부 캘린더 가져오기',
+          iconColor: AppColors.success,
           onTap: () => importDeviceCalendar(context, ref),
         ),
       ],
@@ -549,6 +551,7 @@ class _TeamContextItems extends ConsumerWidget {
         _FlyoutTile(
           icon: Icons.groups_outlined,
           label: '팀 목록',
+          iconColor: AppColors.brandBlue,
           onTap: () => context.push('/teams/list'),
         ),
         if (favoriteAsync.isLoading)
@@ -568,17 +571,20 @@ class _TeamContextItems extends ConsumerWidget {
           _FlyoutTile(
             icon: Icons.calendar_today_outlined,
             label: '멤버 근무 현황',
+            iconColor: AppColors.success,
             onTap: () => context.push('/teams/$teamId/personal-calendar'),
           ),
           if (!isPersonalTeam) ...[
             _FlyoutTile(
               icon: Icons.edit_calendar_outlined,
               label: '원티드 입력',
+              iconColor: const Color(0xFF319795),
               onTap: () => context.push('/teams/$teamId/wanted/entry'),
             ),
             _FlyoutTile(
               icon: Icons.swap_horiz,
               label: '근무 변경 요청',
+              iconColor: const Color(0xFFED64A6),
               onTap: () => context.push('/teams/$teamId/requests'),
             ),
           ],
@@ -762,7 +768,8 @@ class _FlyoutTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final color = iconColor ?? colorScheme.onSurface.withValues(alpha: 0.65);
+    // 모바일 드로어와 동일하게 — 각 항목 아이콘을 부드러운 컬러 칩에 담는다.
+    final accent = iconColor ?? colorScheme.primary;
     final disabled = onTap == null;
 
     return Opacity(
@@ -774,10 +781,19 @@ class _FlyoutTile extends StatelessWidget {
           hoverColor: colorScheme.onSurface.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(8),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
-                Icon(icon, color: color, size: 18),
+                Container(
+                  width: 30,
+                  height: 30,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.13),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: accent, size: 17),
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -822,6 +838,7 @@ class _TeamExcelFlyoutTiles extends ConsumerWidget {
         _FlyoutTile(
           icon: Icons.download_outlined,
           label: '근무표 가져오기',
+          iconColor: AppColors.brandBlue,
           onTap: () => importTeamExcel(
             context,
             ref,
@@ -834,6 +851,7 @@ class _TeamExcelFlyoutTiles extends ConsumerWidget {
         _FlyoutTile(
           icon: Icons.upload_file_outlined,
           label: '근무표 내보내기',
+          iconColor: AppColors.success,
           onTap: () {
             final state =
                 ref.read(teamCalendarViewModelProvider(teamId)).valueOrNull;
@@ -849,6 +867,7 @@ class _TeamExcelFlyoutTiles extends ConsumerWidget {
         _FlyoutTile(
           icon: Icons.description_outlined,
           label: '샘플 양식 내보내기',
+          iconColor: const Color(0xFF9F7AEA),
           onTap: () => exportSampleTemplate(
             context,
             shiftRepo: ref.read(shiftRepositoryProvider),

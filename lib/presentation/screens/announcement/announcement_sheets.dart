@@ -24,28 +24,28 @@ class _AnnouncementCreateSheetState
   }
 
   Future<void> _pickAttachment() async {
-    final choice = await showModalBottomSheet<String>(
+    final choice = await showMoniqBottomSheet<String>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
+      eyebrow: 'ATTACH',
+      title: '첨부 추가',
+      child: Builder(
+        builder: (ctx) => Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('사진 라이브러리에서 선택'),
+            MoniqSheetOption(
+              icon: Icons.photo_library_outlined,
+              label: '사진 라이브러리에서 선택',
               onTap: () => Navigator.pop(ctx, 'photo'),
             ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('카메라로 촬영'),
+            MoniqSheetOption(
+              icon: Icons.camera_alt_outlined,
+              label: '카메라로 촬영',
               onTap: () => Navigator.pop(ctx, 'camera'),
             ),
-            ListTile(
-              leading: const Icon(Icons.attach_file),
-              title: const Text('파일 선택'),
+            MoniqSheetOption(
+              icon: Icons.attach_file,
+              label: '파일 선택',
               onTap: () => Navigator.pop(ctx, 'file'),
             ),
           ],
@@ -130,23 +130,11 @@ class _AnnouncementCreateSheetState
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: AppSpacing.xxl,
-        right: AppSpacing.xxl,
-        top: AppSpacing.xxl,
-        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.xxl,
-      ),
+    return SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('공지사항 작성',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: AppSpacing.xxl),
           TextField(
             controller: _titleC,
             decoration: const InputDecoration(
@@ -220,13 +208,12 @@ Future<bool?> showAnnouncementEditSheet(
   BuildContext context,
   AnnouncementModel announcement,
 ) {
-  return showModalBottomSheet<bool>(
+  // 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+  return showMoniqBottomSheet<bool>(
     context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-    ),
-    builder: (_) => _AnnouncementEditSheet(announcement: announcement),
+    eyebrow: 'ANNOUNCE',
+    title: '공지사항 수정',
+    child: _AnnouncementEditSheet(announcement: announcement),
   );
 }
 
@@ -299,23 +286,11 @@ class _AnnouncementEditSheetState
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: AppSpacing.xxl,
-        right: AppSpacing.xxl,
-        top: AppSpacing.xxl,
-        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.xxl,
-      ),
+    return SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('공지사항 수정',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: AppSpacing.xxl),
           TextField(
             controller: _titleC,
             decoration: const InputDecoration(

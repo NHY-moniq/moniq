@@ -117,7 +117,8 @@ class AnnouncementRemoteDataSource {
         .from('announcement_comments')
         .select('*, users!inner(display_name)')
         .eq('announcement_id', announcementId)
-        .order('created_at');
+        // 오래된 댓글이 상단에 오도록 오름차순 정렬(기본값은 내림차순).
+        .order('created_at', ascending: true);
 
     return (rows as List).map((r) {
       final map = r as Map<String, dynamic>;

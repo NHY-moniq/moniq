@@ -41,6 +41,10 @@ class AuthRepository {
     return _dataSource.signInWithKakao();
   }
 
+  Future<AuthResponse> signInWithApple() {
+    return _dataSource.signInWithApple();
+  }
+
   Future<void> resendVerificationEmail(String email) {
     return _dataSource.resendVerificationEmail(email);
   }

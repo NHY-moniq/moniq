@@ -50,19 +50,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBmQQKEbbJ9X0R8GKficExAnfAIWRw339c',
-    appId: '1:480510198299:ios:714ef65a6bbf6600bc6ebe',
-    messagingSenderId: '480510198299',
-    projectId: 'onoroff-f4607',
-    storageBucket: 'onoroff-f4607.firebasestorage.app',
-    iosBundleId: 'com.onoroff.onoroff',
+    apiKey: 'AIzaSyCHQ0ZhO2YTiy4jjeDGmqxfFKbvTVIHkx0',
+    appId: '1:467877754259:ios:410f9675a38ae091b92466',
+    messagingSenderId: '467877754259',
+    projectId: 'onoroff-96389',
+    storageBucket: 'onoroff-96389.firebasestorage.app',
+    iosBundleId: 'com.maybeornot.onoroff',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCEdJ9OUEr1oWmEZPR3j_oisObKkcwyojs',
-    appId: '1:480510198299:android:945e4e79f1a79983bc6ebe',
-    messagingSenderId: '480510198299',
-    projectId: 'onoroff-f4607',
-    storageBucket: 'onoroff-f4607.firebasestorage.app',
+    apiKey: 'AIzaSyCZi-p67336MoFMGNX3ELDHuBxpBqj7Xyo',
+    appId: '1:467877754259:android:5e13069231d25b2db92466',
+    messagingSenderId: '467877754259',
+    projectId: 'onoroff-96389',
+    storageBucket: 'onoroff-96389.firebasestorage.app',
   );
 }

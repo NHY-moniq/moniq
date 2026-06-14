@@ -18,7 +18,7 @@ class CalendarPreview {
   final bool isWork;
 }
 
-class MoniqCalendar extends StatelessWidget {
+class MoniqCalendar extends StatefulWidget {
   const MoniqCalendar({
     super.key,
     required this.focusedDay,
@@ -66,6 +66,40 @@ class MoniqCalendar extends StatelessWidget {
   final ValueChanged<CalendarViewMode>? onViewModeChanged;
 
   @override
+  State<MoniqCalendar> createState() => _MoniqCalendarState();
+}
+
+class _MoniqCalendarState extends State<MoniqCalendar> {
+  // TableCalendar 내부 PageController — 화살표 버튼이 이 컨트롤러로 직접
+  // 페이지를 넘겨, 외부 focusedDay 변경에 의한 재애니메이션/이중 onPageChanged
+  // (좌우 클릭 시 캘린더가 혼자 움직이던 버그)를 방지한다.
+  PageController? _pageController;
+
+  // 기존 build/헬퍼 코드를 한 줄도 바꾸지 않고 쓰기 위한 prop forwarding getter.
+  DateTime get focusedDay => widget.focusedDay;
+  DateTime get selectedDay => widget.selectedDay;
+  void Function(DateTime, DateTime) get onDaySelected => widget.onDaySelected;
+  void Function(DateTime) get onPageChanged => widget.onPageChanged;
+  void Function(DateTime, DateTime)? get onDayLongPressed =>
+      widget.onDayLongPressed;
+  List<dynamic> Function(DateTime)? get eventLoader => widget.eventLoader;
+  CalendarFormat get calendarFormat => widget.calendarFormat;
+  void Function(CalendarFormat)? get onFormatChanged => widget.onFormatChanged;
+  Widget? Function(BuildContext, DateTime, List<dynamic>)? get markerBuilder =>
+      widget.markerBuilder;
+  Widget? Function(BuildContext, DateTime)? get cornerBadgeBuilder =>
+      widget.cornerBadgeBuilder;
+  StartingDayOfWeek get startingDayOfWeek => widget.startingDayOfWeek;
+  List<CalendarPreview> Function(DateTime)? get previewBuilder =>
+      widget.previewBuilder;
+  double get rowHeight => widget.rowHeight;
+  VoidCallback? get onTodayPressed => widget.onTodayPressed;
+  List<({Color color, String label})>? get legendItems => widget.legendItems;
+  CalendarViewMode? get viewMode => widget.viewMode;
+  ValueChanged<CalendarViewMode>? get onViewModeChanged =>
+      widget.onViewModeChanged;
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
@@ -102,6 +136,7 @@ class MoniqCalendar extends StatelessWidget {
               onDaySelected: onDaySelected,
               onDayLongPressed: onDayLongPressed,
               onPageChanged: onPageChanged,
+              onCalendarCreated: (controller) => _pageController = controller,
               calendarFormat: calendarFormat,
               availableGestures: AvailableGestures.horizontalSwipe,
               onFormatChanged: onFormatChanged,
@@ -214,21 +249,38 @@ class MoniqCalendar extends StatelessWidget {
             ],
             _HeaderPill(
               onTap: () {
-                // 주 모드: 1주 전, 월 모드: 전월 1일
-                final prev = viewMode == CalendarViewMode.week
-                    ? focusedDay.subtract(const Duration(days: 7))
-                    : DateTime(focusedDay.year, focusedDay.month - 1, 1);
-                onPageChanged(prev);
+                // 페이지 컨트롤러로 직접 한 페이지 이동(주/월 모두 동일).
+                // 이동이 끝나면 TableCalendar의 onPageChanged가 단 한 번 발화한다.
+                final pc = _pageController;
+                if (pc != null && pc.hasClients) {
+                  pc.previousPage(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOutCubic,
+                  );
+                } else {
+                  final prev = viewMode == CalendarViewMode.week
+                      ? focusedDay.subtract(const Duration(days: 7))
+                      : DateTime(focusedDay.year, focusedDay.month - 1, 1);
+                  onPageChanged(prev);
+                }
               },
               child: Icon(Icons.chevron_left, size: 18, color: cs.onSurface),
             ),
             const SizedBox(width: 6),
             _HeaderPill(
               onTap: () {
-                final next = viewMode == CalendarViewMode.week
-                    ? focusedDay.add(const Duration(days: 7))
-                    : DateTime(focusedDay.year, focusedDay.month + 1, 1);
-                onPageChanged(next);
+                final pc = _pageController;
+                if (pc != null && pc.hasClients) {
+                  pc.nextPage(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOutCubic,
+                  );
+                } else {
+                  final next = viewMode == CalendarViewMode.week
+                      ? focusedDay.add(const Duration(days: 7))
+                      : DateTime(focusedDay.year, focusedDay.month + 1, 1);
+                  onPageChanged(next);
+                }
               },
               child: Icon(Icons.chevron_right, size: 18, color: cs.onSurface),
             ),
@@ -504,6 +556,7 @@ class MoniqCalendar extends StatelessWidget {
 
     final result = await showMoniqBottomSheet<DateTime>(
       context: context,
+      eyebrow: 'SELECT',
       title: '연월 선택',
       child: Builder(
         builder: (ctx) {

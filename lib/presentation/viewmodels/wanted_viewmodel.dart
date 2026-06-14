@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/core/utils/shift_code_utils.dart';
 import 'package:moniq/data/datasources/notification_service.dart';
 import 'package:moniq/data/datasources/push_service.dart';
 import 'package:moniq/data/models/team_member_model.dart';
@@ -526,13 +527,8 @@ class WantedAdminViewModel
 }
 
 /// 근무 유형 코드를 D/E/N으로 정규화
-String _shiftCanonicalCode(String code, String name) {
-  final c = code.toUpperCase();
-  if (c == 'D' || name.contains('데이') || name.contains('주간')) return 'D';
-  if (c == 'E' || name.contains('이브닝') || name.contains('저녁')) return 'E';
-  if (c == 'N' || name.contains('야간') || name.contains('나이트')) return 'N';
-  return c;
-}
+String _shiftCanonicalCode(String code, String name) =>
+    canonicalShiftCode(code, name);
 
 /// wanted_type → 한글 라벨
 String _wantedTypeLabel(String wantedType) {

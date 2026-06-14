@@ -117,18 +117,18 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
     final current = state.valueOrNull;
     if (current == null) return;
 
-    final monthStart = DateTime(month.year, month.month, 1);
-    final today = DateTime.now();
-    final selectedDate = DateTime(
-      month.year,
-      month.month,
-      today.month == month.month && today.year == month.year ? today.day : 1,
-    );
+    // 주간 모드에서는 focused 날짜를 그대로 사용(같은 달 내 주 이동도 반영),
+    // 월간 모드에서는 1일. 팀 캘린더(team_calendar_viewmodel)와 동일한 처리.
+    final selectedDate = current.viewMode == CalendarViewMode.week
+        ? DateTime(month.year, month.month, month.day)
+        : DateTime(month.year, month.month, 1);
 
-    // focusedMonth를 즉시 업데이트 (스냅백 방지)
+    // focusedMonth/selectedDate를 즉시 업데이트 (스냅백 방지).
+    // focusedMonth를 1일로 스냅하지 않고 focused 날짜를 그대로 둬야
+    // 주간 보기에서 좌우 이동이 정상 동작한다.
     state = AsyncData(
       current.copyWith(
-        focusedMonth: monthStart,
+        focusedMonth: month,
         selectedDate: selectedDate,
         selectedDateShifts: null,
       ),
@@ -137,17 +137,22 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
     try {
       final data = await _loadFavoriteTeamData(month);
 
+      // 빠른 연속 이동 시 오래된 응답이 최신 화면(다른 달)을 덮어쓰지 않도록 가드.
+      final latest = state.valueOrNull;
+      if (latest == null ||
+          latest.focusedMonth.year != month.year ||
+          latest.focusedMonth.month != month.month) {
+        return;
+      }
       state = AsyncData(
-        current.copyWith(
-          focusedMonth: monthStart,
-          selectedDate: selectedDate,
+        latest.copyWith(
           monthlyShifts: data.mine,
-          selectedDateShifts: data.mine[selectedDate],
+          selectedDateShifts: data.mine[latest.selectedDate],
           teamScheduledDates: data.coverage,
         ),
       );
-    } catch (e, st) {
-      state = AsyncError(e, st);
+    } catch (_) {
+      // 이동 중 실패는 화면을 깨뜨리지 않도록 조용히 무시(이미 즉시 반영됨).
     }
   }
 

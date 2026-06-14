@@ -80,11 +80,13 @@ class PersonalShiftTypeLocalDataSource {
     required String userId,
   })  : _prefs = prefs,
         _key = 'personal_shift_types:$userId',
-        _initKey = 'personal_shift_types_initialized:$userId';
+        _initKey = 'personal_shift_types_initialized:$userId',
+        _eduMigrationKey = 'personal_shift_types_edu_added:$userId';
 
   final SharedPreferences _prefs;
   final String _key;
   final String _initKey;
+  final String _eduMigrationKey;
 
   List<PersonalShiftType> getAll() {
     // 사용자가 한 번이라도 초기화를 끝냈으면 빈 리스트도 그대로 존중
@@ -95,10 +97,27 @@ class PersonalShiftTypeLocalDataSource {
       return _defaults();
     }
     if (raw == null) return const [];
-    return raw
+    final list = raw
         .map((s) =>
             PersonalShiftType.fromJson(jsonDecode(s) as Map<String, dynamic>))
         .toList();
+
+    // 1회성 마이그레이션: 기존 사용자에게도 기본 '교육(ED)' 유형을 추가한다.
+    // 별도 플래그로 한 번만 실행 → 사용자가 추가/삭제한 경우 다시 건드리지 않는다.
+    if (!(_prefs.getBool(_eduMigrationKey) ?? false)) {
+      _prefs.setBool(_eduMigrationKey, true);
+      final hasEducation = list.any(
+        (t) => t.code.trim().toUpperCase() == 'ED' || t.name.contains('교육'),
+      );
+      if (!hasEducation) {
+        list.add(defaultTypes.firstWhere((t) => t.id == 'education'));
+        _prefs.setStringList(
+          _key,
+          list.map((t) => jsonEncode(t.toJson())).toList(),
+        );
+      }
+    }
+    return list;
   }
 
   Future<void> save(List<PersonalShiftType> types) async {
@@ -142,6 +161,10 @@ class PersonalShiftTypeLocalDataSource {
         PersonalShiftType(
           id: 'night', name: '나이트', code: 'N',
           startTime: '23:00', endTime: '07:00', color: '#0061A4',
+        ),
+        PersonalShiftType(
+          id: 'education', name: '교육', code: 'ED',
+          startTime: '09:00', endTime: '18:00', color: '#9F7AEA',
         ),
       ];
 

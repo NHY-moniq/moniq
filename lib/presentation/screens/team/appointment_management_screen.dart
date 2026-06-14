@@ -81,6 +81,7 @@ class _AppointmentManagementScreenState
   Future<void> _delete(AppointmentModel a) async {
     final ok = await showMoniqConfirmSheet(
       context: context,
+      eyebrow: 'DELETE',
       title: '약속 삭제',
       message: '이 약속을 삭제하면 참여자 전원의 캘린더에서도 제거돼요.',
       confirmLabel: '삭제',

@@ -100,7 +100,7 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
           // Step 1: 요청 유형
           Text('요청 유형',
               style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600)),
+                  ?.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
@@ -171,6 +171,15 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
             child: ElevatedButton(
               onPressed: _canSubmit ? () => _submit(context) : null,
               style: ElevatedButton.styleFrom(
+                minimumSize: const Size(0, 52),
+                elevation: _canSubmit ? 2 : 0,
+                shadowColor: theme.colorScheme.primary.withValues(alpha: 0.3),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.full),
+                ),
+                textStyle: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
                 disabledBackgroundColor: theme.colorScheme.surfaceContainerHigh,
                 disabledForegroundColor: theme.colorScheme.onSurfaceVariant
                     .withValues(alpha: 0.7),
@@ -287,19 +296,24 @@ class _CategoryChip extends StatelessWidget {
     final bg = selected ? cs.primaryContainer : cs.surface;
     final fg = selected ? cs.onPrimaryContainer : cs.onSurface;
     final borderColor = selected
-        ? cs.primary.withValues(alpha: 0.4)
+        ? cs.primary.withValues(alpha: 0.55)
         : cs.outlineVariant;
 
     return Material(
       color: bg,
-      shape: StadiumBorder(side: BorderSide(color: borderColor)),
+      // 선택된 칩만 은은하게 떠 보이도록 그림자를 준다.
+      elevation: selected ? 2 : 0,
+      shadowColor: cs.primary.withValues(alpha: 0.28),
+      shape: StadiumBorder(
+        side: BorderSide(color: borderColor, width: selected ? 1.4 : 1),
+      ),
       child: InkWell(
         customBorder: const StadiumBorder(),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm + 2,
+            vertical: AppSpacing.md,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,

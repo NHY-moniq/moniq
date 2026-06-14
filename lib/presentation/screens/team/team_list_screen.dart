@@ -218,23 +218,27 @@ class TeamListScreen extends HookConsumerWidget {
   }
 
   void _showAddOptions(BuildContext context) {
-    showModalBottomSheet(
+    // 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+    showMoniqBottomSheet<void>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
+      eyebrow: 'TEAM',
+      title: '팀 추가',
+      child: Builder(
+        builder: (ctx) => Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ListTile(
-              leading: const Icon(Icons.add_circle_outline),
-              title: const Text('팀 만들기'),
+            MoniqSheetOption(
+              icon: Icons.add_circle_outline,
+              label: '팀 만들기',
               onTap: () {
                 Navigator.pop(ctx);
                 context.push('/teams/create');
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.vpn_key_outlined),
-              title: const Text('초대 코드로 참여'),
+            MoniqSheetOption(
+              icon: Icons.vpn_key_outlined,
+              label: '초대 코드로 참여',
               onTap: () {
                 Navigator.pop(ctx);
                 context.push('/teams/join');
@@ -266,6 +270,7 @@ class TeamListScreen extends HookConsumerWidget {
       if (!context.mounted) return;
       await showMoniqInfoSheet(
         context: context,
+        eyebrow: 'NOTICE',
         title: '팀에 혼자 남으셨어요',
         message: '팀 나가기 대신 팀을 제거해주세요.',
       );
@@ -282,6 +287,7 @@ class TeamListScreen extends HookConsumerWidget {
         if (!context.mounted) return;
         final goToMembers = await showMoniqConfirmSheet(
           context: context,
+          eyebrow: 'NOTICE',
           title: '관리자를 먼저 지정해주세요',
           message:
               '팀에 관리자가 최소 1명 필요해요. 다른 멤버를 관리자로 지정한 후 나갈 수 있어요.',
@@ -299,6 +305,7 @@ class TeamListScreen extends HookConsumerWidget {
     if (!context.mounted) return;
     final ok = await showMoniqConfirmSheet(
       context: context,
+      eyebrow: 'LEAVE TEAM',
       title: '${team.name} 팀에서 나갈까요?',
       message: '나가면 팀의 근무표·요청에 더 이상 접근할 수 없어요.',
       confirmLabel: '나가기',
@@ -338,14 +345,24 @@ class _TeamListSectionHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
-        AppSpacing.md,
         AppSpacing.lg,
-        AppSpacing.xs,
+        AppSpacing.lg,
+        AppSpacing.sm,
       ),
       child: Row(
         children: [
-          Icon(icon, size: 14, color: cs.onSurfaceVariant),
-          const SizedBox(width: AppSpacing.xs),
+          // 아이콘을 은은한 칩에 담아 헤더에 무게감을 준다.
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHigh,
+              borderRadius: AppRadius.borderRadiusSm,
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 13, color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(width: AppSpacing.sm),
           Text(
             label,
             style: theme.textTheme.labelLarge?.copyWith(
@@ -355,9 +372,11 @@ class _TeamListSectionHeader extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.xs),
           Text(
-            subLabel,
+            subLabel.toUpperCase(),
             style: theme.textTheme.labelSmall?.copyWith(
               color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.2,
             ),
           ),
         ],
@@ -379,18 +398,28 @@ class _FavoriteInfoBanner extends StatelessWidget {
         AppSpacing.lg,
         0,
       ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: cs.primaryContainer.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(10),
+        color: cs.primaryContainer.withValues(alpha: 0.4),
+        borderRadius: AppRadius.borderRadiusMd,
+        border: Border.all(
+          color: cs.primary.withValues(alpha: 0.18),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.star_rounded, size: 15, color: cs.primary),
+          // 별 아이콘을 작은 흰 칩에 담아 포인트를 준다.
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: AppRadius.borderRadiusSm,
+            ),
+            alignment: Alignment.center,
+            child: Icon(Icons.star_rounded, size: 15, color: cs.primary),
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
@@ -427,67 +456,139 @@ class _TeamSlidableTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Slidable(
-      endActionPane: ActionPane(
-        motion: const BehindMotion(),
-        extentRatio: 0.4,
-        children: [
-          SlidableAction(
-            onPressed: (_) => onDetail(),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            foregroundColor: Theme.of(context).colorScheme.onPrimary,
-            icon: Icons.settings_outlined,
-            label: '설정',
-          ),
-          SlidableAction(
-            onPressed: (_) => onLeave(),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            foregroundColor: Theme.of(context).colorScheme.onError,
-            icon: Icons.exit_to_app,
-            label: '나가기',
-          ),
-        ],
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final hasDesc =
+        team.description != null && team.description!.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.xs,
+        AppSpacing.lg,
+        AppSpacing.xs,
       ),
-      child: ListTile(
-        leading: TeamProfileAvatar(
-          icon: team.icon,
-          radius: 20,
-        ),
-        title: Text(team.name),
-        subtitle: team.description != null &&
-                team.description!.isNotEmpty
-            ? Text(
-                team.description!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              )
-            : null,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (team.teamType != 'personal')
-              GestureDetector(
-                onTap: onFavorite,
-                child: Icon(
-                  isFavorite ? Icons.star : Icons.star_border,
+      child: ClipRRect(
+        // 카드와 슬라이드 액션의 모서리를 맞춰 둥근 느낌을 유지.
+        borderRadius: AppRadius.borderRadiusLg,
+        child: Slidable(
+          endActionPane: ActionPane(
+            motion: const BehindMotion(),
+            extentRatio: 0.4,
+            children: [
+              SlidableAction(
+                onPressed: (_) => onDetail(),
+                backgroundColor: cs.primary,
+                foregroundColor: cs.onPrimary,
+                icon: Icons.settings_outlined,
+                label: '설정',
+              ),
+              SlidableAction(
+                onPressed: (_) => onLeave(),
+                backgroundColor: cs.error,
+                foregroundColor: cs.onError,
+                icon: Icons.exit_to_app,
+                label: '나가기',
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onDetail,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm + 2,
+                ),
+                decoration: BoxDecoration(
+                  // 즐겨찾기 팀은 primary 틴트 + 보더로 또렷하게 강조.
                   color: isFavorite
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.outline,
-                  size: 20,
+                      ? cs.primaryContainer.withValues(alpha: 0.32)
+                      : cs.surfaceContainerLow,
+                  borderRadius: AppRadius.borderRadiusLg,
+                  border: Border.all(
+                    color: isFavorite
+                        ? cs.primary.withValues(alpha: 0.55)
+                        : cs.outlineVariant.withValues(alpha: 0.6),
+                    width: isFavorite ? 1.4 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    // 아바타 — 은은한 링으로 입체감.
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: cs.outlineVariant.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: TeamProfileAvatar(icon: team.icon, radius: 22),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            team.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                          if (hasDesc) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              team.description!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    if (team.teamType != 'personal')
+                      GestureDetector(
+                        onTap: onFavorite,
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            isFavorite
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            color: isFavorite ? cs.primary : cs.outline,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.drag_handle_rounded,
+                          color: cs.outline.withValues(alpha: 0.8),
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            const SizedBox(width: 8),
-            ReorderableDragStartListener(
-              index: index,
-              child: Icon(
-                Icons.reorder,
-                color: Theme.of(context).colorScheme.outline,
-                size: 20,
-              ),
             ),
-          ],
+          ),
         ),
-        onTap: onDetail,
       ),
     );
   }

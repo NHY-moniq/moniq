@@ -91,26 +91,16 @@ class ShiftTypesScreen extends HookConsumerWidget {
         : null;
     var selectedColor = existing?.color ?? _presetColors[0];
 
-    showModalBottomSheet(
+    showMoniqBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: AppSpacing.lg,
-            right: AppSpacing.lg,
-            top: AppSpacing.lg,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg,
-          ),
+      eyebrow: 'SHIFT',
+      title: isEdit ? '근무 유형 수정' : '근무 유형 추가',
+      child: StatefulBuilder(
+        builder: (ctx, setSheetState) => SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(isEdit ? '근무 유형 수정' : '근무 유형 추가',
-                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      )),
-              const SizedBox(height: AppSpacing.lg),
               Row(
                 children: [
                   Expanded(
@@ -229,6 +219,7 @@ class ShiftTypesScreen extends HookConsumerWidget {
                   if (name.isEmpty || code.isEmpty) {
                     await showMoniqInfoSheet(
                       context: ctx,
+                      eyebrow: 'REQUIRED',
                       title: '필수 항목을 입력해주세요',
                       message: '이름과 코드는 반드시 입력해야 해요.',
                     );
