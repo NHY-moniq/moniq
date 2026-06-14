@@ -113,6 +113,7 @@ class _MobileLayout extends StatelessWidget {
                       ),
                       confirmDismiss: (_) => showMoniqConfirmSheet(
                         context: context,
+                        eyebrow: 'DELETE',
                         title: '요청을 삭제할까요?',
                         message: '취소된 요청 ${g.ids.length}건이 영구적으로 삭제돼요.',
                         confirmLabel: '삭제',

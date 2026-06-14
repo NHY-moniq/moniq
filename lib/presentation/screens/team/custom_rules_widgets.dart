@@ -253,6 +253,7 @@ class _RuleGuideBannerState extends State<_RuleGuideBanner> {
 Future<bool> confirmDeleteRule(BuildContext context) async {
   return showMoniqConfirmSheet(
     context: context,
+    eyebrow: 'DELETE',
     title: '규칙 삭제',
     message: '이 규칙을 삭제하시겠습니까?',
     confirmLabel: '삭제',

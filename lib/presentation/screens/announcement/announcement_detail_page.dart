@@ -116,6 +116,7 @@ class _AnnouncementDetailPageState
           onTap: () async {
             final ok = await showMoniqConfirmSheet(
               context: context,
+              eyebrow: 'DELETE',
               title: '공지를 삭제할까요?',
               message: '이 공지사항이 영구적으로 삭제돼요.',
               confirmLabel: '삭제',

@@ -349,6 +349,7 @@ void showNoteForm(
                   if (text.isEmpty) {
                     await showMoniqInfoSheet(
                       context: ctx,
+                      eyebrow: 'MEMO',
                       title: '메모를 입력해주세요',
                       message: '추가하실 메모 내용을 입력해주세요.',
                     );

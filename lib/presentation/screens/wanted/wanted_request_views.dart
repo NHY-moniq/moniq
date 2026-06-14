@@ -253,6 +253,7 @@ class WantedRequestActiveView extends HookConsumerWidget {
         onPressed: () async {
           final confirm = await showMoniqConfirmSheet(
             context: context,
+            eyebrow: 'CLOSE',
             title: '수집 마감',
             message: '원티드 수집을 마감하시겠습니까?',
             confirmLabel: '마감',
@@ -1245,6 +1246,7 @@ class _NightDedicatedSelector extends HookConsumerWidget {
                         : () async {
                             final confirm = await showMoniqConfirmSheet(
                               context: context,
+                              eyebrow: 'NIGHT DUTY',
                               title: hasExistingApproval
                                   ? '나이트 전담 수정'
                                   : '나이트 전담 확정',

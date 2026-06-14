@@ -32,6 +32,7 @@ void showConfirmLeaveDialog({
       () async {
         final goToMembers = await showMoniqConfirmSheet(
           context: context,
+          eyebrow: 'NOTICE',
           title: '관리자 위임 필요',
           message:
               '팀에 관리자가 최소 1명 필요합니다.\n'
@@ -48,6 +49,7 @@ void showConfirmLeaveDialog({
       // 혼자 남은 팀 -> 삭제 시도하지 않고 안내만
       showMoniqInfoSheet(
         context: context,
+        eyebrow: 'NOTICE',
         title: '팀 나가기 불가',
         message: '혼자 남으셨습니다. 팀 제거를 해주세요.',
       );
@@ -57,6 +59,7 @@ void showConfirmLeaveDialog({
       () async {
         final ok = await showMoniqConfirmSheet(
           context: context,
+          eyebrow: 'LEAVE TEAM',
           title: '팀 나가기',
           message: '${state.team.name} 팀에서 나가시겠습니까?',
           confirmLabel: '나가기',
@@ -90,6 +93,7 @@ void showConfirmDeleteDialog({
   () async {
     final confirmed = await showMoniqConfirmSheet(
       context: context,
+      eyebrow: 'DELETE TEAM',
       title: '팀 삭제',
       message:
           '${state.team.name} 팀을 삭제하시겠습니까?\n'

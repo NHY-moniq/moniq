@@ -87,6 +87,7 @@ class _RequestHistoryScreenState extends ConsumerState<RequestHistoryScreen> {
       if (pendingCount > 0 && mounted) {
         await showMoniqInfoSheet(
           context: context,
+          eyebrow: 'NOTICE',
           title: '삭제 불가',
           message: '대기중인 건은 삭제가 불가능합니다.',
         );
@@ -101,6 +102,7 @@ class _RequestHistoryScreenState extends ConsumerState<RequestHistoryScreen> {
         : '${ids.length}건이 영구적으로 삭제돼요.';
     final confirm = await showMoniqConfirmSheet(
       context: context,
+      eyebrow: 'DELETE',
       title: '선택한 요청을 삭제할까요?',
       message: message,
       confirmLabel: '삭제',

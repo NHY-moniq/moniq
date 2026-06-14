@@ -29,6 +29,8 @@ class LoginScreen extends HookConsumerWidget {
           }
         },
         error: (error, _) {
+          // 원인 진단용 — 콘솔에 raw 에러 출력(메시지 매핑 전).
+          debugPrint('[login] raw auth error: $error');
           errorMessage.value = friendlyAuthError(error);
         },
       );

@@ -199,6 +199,7 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
   Future<void> _showOverlapInfo(BuildContext context) async {
     await showMoniqBottomSheet<void>(
       context: context,
+      eyebrow: 'VIEW',
       title: '표시 기준',
       child: Builder(
         builder: (sheetContext) {

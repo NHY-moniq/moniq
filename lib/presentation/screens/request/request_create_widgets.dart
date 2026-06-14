@@ -227,7 +227,7 @@ class _SelfChangeEntryRow extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
-        borderRadius: AppRadius.borderRadiusMd,
+        borderRadius: AppRadius.borderRadiusLg,
         border: Border.all(color: cs.outlineVariant),
       ),
       child: Column(
@@ -235,12 +235,29 @@ class _SelfChangeEntryRow extends StatelessWidget {
         children: [
           Row(
             children: [
+              // 동그란 번호 배지 + 캡션으로 카드 헤더를 또렷하게.
+              Container(
+                width: 22,
+                height: 22,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer.withValues(alpha: 0.7),
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '${index + 1}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onPrimaryContainer,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
               Text(
-                '#${index + 1}',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
+                '요청 정보',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: cs.onSurface,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const Spacer(),
@@ -580,7 +597,7 @@ class _SwapEntryRow extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
-        borderRadius: AppRadius.borderRadiusMd,
+        borderRadius: AppRadius.borderRadiusLg,
         border: Border.all(color: cs.outlineVariant),
       ),
       child: Column(
@@ -588,12 +605,29 @@ class _SwapEntryRow extends StatelessWidget {
         children: [
           Row(
             children: [
+              // 동그란 번호 배지 + 캡션으로 카드 헤더를 또렷하게.
+              Container(
+                width: 22,
+                height: 22,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer.withValues(alpha: 0.7),
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '${index + 1}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onPrimaryContainer,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
               Text(
-                '#${index + 1}',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
+                '요청 정보',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: cs.onSurface,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const Spacer(),
@@ -902,7 +936,7 @@ class _LabeledField extends StatelessWidget {
   final Widget child;
 
   /// 모든 child(드롭박스/InkWell)가 동일한 baseline을 갖도록 고정 높이 적용.
-  static const double _fieldHeight = 32;
+  static const double _fieldHeight = 40;
 
   @override
   Widget build(BuildContext context) {
@@ -920,9 +954,17 @@ class _LabeledField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
-        SizedBox(
+        // 입력 필드처럼 보이도록 테두리 + 배경 박스로 감싼다.
+        Container(
           height: _fieldHeight,
-          child: Align(alignment: Alignment.centerLeft, child: child),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          alignment: Alignment.centerLeft,
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: AppRadius.borderRadiusSm,
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: child,
         ),
       ],
     );
@@ -939,53 +981,73 @@ class _CurrentShiftLine extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
+    // 라벨 + 내용을 은은한 inset pill에 담아 정보를 또렷하게 구분.
+    Widget pill(Widget child) => Align(
+          alignment: Alignment.centerLeft,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm + 2,
+              vertical: 5,
+            ),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHigh.withValues(alpha: 0.6),
+              borderRadius: AppRadius.borderRadiusFull,
+            ),
+            child: child,
+          ),
+        );
+
     if (shift == null) {
-      return Text(
-        '현재 근무: 없음',
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: cs.onSurfaceVariant.withValues(alpha: 0.8),
-          fontSize: 12,
+      return pill(
+        Text(
+          '현재 근무 없음',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant.withValues(alpha: 0.85),
+            fontSize: 12,
+          ),
         ),
       );
     }
     final color = parseHexColor(shift!.color);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          '현재 근무: ',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: cs.onSurfaceVariant.withValues(alpha: 0.8),
-            fontSize: 12,
-          ),
-        ),
-        Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(3),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            shift!.code,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
+    return pill(
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '현재 근무 ',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant.withValues(alpha: 0.85),
+              fontSize: 12,
             ),
           ),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        Text(
-          shift!.name,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: cs.onSurface,
-            fontSize: 12,
+          Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              shift!.code,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            shift!.name,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: cs.onSurface,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

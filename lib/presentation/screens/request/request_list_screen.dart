@@ -74,6 +74,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
     if (ids.isEmpty) return;
     final ok = await showMoniqConfirmSheet(
       context: context,
+      eyebrow: 'APPROVE',
       title: '승인',
       message: '대기중인 ${ids.length}건이 승인됩니다.',
       confirmLabel: '확인',
@@ -98,6 +99,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
     if (ids.isEmpty) return;
     final ok = await showMoniqConfirmSheet(
       context: context,
+      eyebrow: 'REJECT',
       title: '거절',
       message: '대기중인 ${ids.length}건이 거절됩니다.',
       confirmLabel: '확인',
@@ -131,6 +133,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
     if (ids.isEmpty) return;
     final ok = await showMoniqConfirmSheet(
       context: context,
+      eyebrow: 'CANCEL',
       title: '요청 취소',
       message: '본인이 요청한 대기중 ${ids.length}건이 취소됩니다.',
       confirmLabel: '확인',
@@ -164,6 +167,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
       if (pendingCount > 0 && mounted) {
         await showMoniqInfoSheet(
           context: context,
+          eyebrow: 'NOTICE',
           title: '삭제 불가',
           message: '대기중인 건은 삭제가 불가능합니다.',
         );
@@ -178,6 +182,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
         : '${ids.length}건이 영구적으로 삭제돼요.';
     final confirm = await showMoniqConfirmSheet(
       context: context,
+      eyebrow: 'DELETE',
       title: '선택한 요청을 삭제할까요?',
       message: message,
       confirmLabel: '삭제',
