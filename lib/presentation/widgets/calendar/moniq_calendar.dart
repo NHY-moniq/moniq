@@ -556,6 +556,7 @@ class _MoniqCalendarState extends State<MoniqCalendar> {
 
     final result = await showMoniqBottomSheet<DateTime>(
       context: context,
+      eyebrow: 'SELECT',
       title: '연월 선택',
       child: Builder(
         builder: (ctx) {

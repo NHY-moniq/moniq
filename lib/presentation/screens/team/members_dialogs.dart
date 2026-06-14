@@ -176,6 +176,7 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
     final confirmLabel = newRole == 'admin' ? '변경' : '해제';
     final ok = await showMoniqConfirmSheet(
       context: context,
+      eyebrow: 'MEMBER',
       title: confirmTitle,
       message: '${m.displayName}님의 역할을 $nextRoleLabel로 변경하시겠습니까?',
       confirmLabel: confirmLabel,
@@ -262,6 +263,7 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
   Future<void> _confirmRemove() async {
     final ok = await showMoniqConfirmSheet(
       context: context,
+      eyebrow: 'REMOVE',
       title: '멤버 제거',
       message: '${widget.member.displayName}님을 팀에서 제거하시겠습니까?',
       confirmLabel: '제거',
@@ -275,7 +277,12 @@ class _MemberEditSheetState extends ConsumerState<MemberEditSheet> {
   }
 
   void _showError(String message) {
-    showMoniqInfoSheet(context: context, title: '안내', message: message);
+    showMoniqInfoSheet(
+      context: context,
+      eyebrow: 'NOTICE',
+      title: '안내',
+      message: message,
+    );
   }
 
   @override

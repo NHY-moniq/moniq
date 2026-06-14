@@ -200,7 +200,9 @@ class DateItemsPanel extends ConsumerWidget {
             }),
             // 개인 캘린더 근무
             ...shiftEvents.map((event) {
-              final originalIndex = events.indexOf(event);
+              // 화면은 _sortedEvents(정렬)로 그리지만 삭제/수정은 데이터소스
+              // (this.events == ds.getEvents, 저장 순서) 인덱스를 써야 한다.
+              final originalIndex = this.events.indexOf(event);
               final eventColor = event.color != null
                   ? parseHexColor(event.color!)
                   : AppColors.shiftDay;
@@ -248,7 +250,9 @@ class DateItemsPanel extends ConsumerWidget {
             const SizedBox(height: AppSpacing.sm),
             ...normalEvents.asMap().entries.map((entry) {
               final event = entry.value;
-              final originalIndex = events.indexOf(event);
+              // 화면은 _sortedEvents(정렬)로 그리지만 삭제/수정은 데이터소스
+              // (this.events == ds.getEvents, 저장 순서) 인덱스를 써야 한다.
+              final originalIndex = this.events.indexOf(event);
               final eventColor = event.color != null
                   ? parseHexColor(event.color!)
                   : AppColors.success;

@@ -51,6 +51,7 @@ PersonalShiftType personalTypeFromTeam(ShiftTypeModel t) => PersonalShiftType(
 void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
   showMoniqBottomSheet<void>(
     context: context,
+    eyebrow: 'ADD',
     title: '추가하기',
     child: Consumer(
       builder: (ctx, ref2, _) {
@@ -392,6 +393,13 @@ Future<void> editTeamShiftAsPersonal(
 
   if (!context.mounted) return;
 
+  // 현재 "적용된" 근무 타입 = 오버라이드가 있으면 그 타입, 없으면 원본 팀 근무.
+  // (오버라이드로 바꿔도 원본을 다시 고를 수 있도록 effective 기준으로 판정)
+  final currentOverride =
+      ref.read(personalShiftOverridesProvider).valueOrNull?[shift.shift.id];
+  final effectiveTypeId =
+      currentOverride?.shiftTypeId ?? shift.shift.shiftTypeId;
+
   final selected = await showMoniqBottomSheet<ShiftTypeModel>(
     context: context,
     eyebrow: 'SELECT',
@@ -429,7 +437,7 @@ Future<void> editTeamShiftAsPersonal(
                       const SizedBox(height: AppSpacing.sm),
                   itemBuilder: (_, i) {
                     final t = types[i];
-                    final isCurrent = t.id == shift.shift.shiftTypeId;
+                    final isCurrent = t.id == effectiveTypeId;
                     final hasTime =
                         t.startTime != null &&
                         t.endTime != null &&
@@ -459,25 +467,36 @@ Future<void> editTeamShiftAsPersonal(
 
   // 팀 근무 레코드는 그대로 두고, 개인 오버라이드만 upsert 한다.
   // (승인 불필요 — 변경은 내 개인 캘린더에만 반영되고 기기 간 동기화됨)
+  // 단, 원본 팀 근무를 다시 고른 경우엔 오버라이드를 삭제해 완전 복원한다.
+  final isRestoreToOriginal = selected.id == shift.shift.shiftTypeId;
   try {
-    await ref
-        .read(personalShiftOverrideRemoteProvider)
-        .upsert(
-          PersonalShiftOverrideRemote(
-            shiftId: shift.shift.id,
-            shiftTypeId: selected.id,
-            code: selected.code,
-            name: selected.name,
-            color: selected.color,
-            startTime: selected.startTime,
-            endTime: selected.endTime,
-          ),
-        );
+    final overrideRepo = ref.read(personalShiftOverrideRemoteProvider);
+    if (isRestoreToOriginal) {
+      await overrideRepo.remove(shift.shift.id);
+    } else {
+      await overrideRepo.upsert(
+        PersonalShiftOverrideRemote(
+          shiftId: shift.shift.id,
+          shiftTypeId: selected.id,
+          code: selected.code,
+          name: selected.name,
+          color: selected.color,
+          startTime: selected.startTime,
+          endTime: selected.endTime,
+        ),
+      );
+    }
     refreshAll(ref, date);
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('"${selected.name}"(으)로 변경되었습니다')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isRestoreToOriginal
+                ? '팀 근무로 복원되었습니다'
+                : '"${selected.name}"(으)로 변경되었습니다',
+          ),
+        ),
+      );
     }
   } catch (e) {
     if (context.mounted) {

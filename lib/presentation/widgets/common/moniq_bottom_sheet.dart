@@ -32,7 +32,8 @@ Future<T?> showMoniqBottomSheet<T>({
   String? eyebrow,
   bool isScrollControlled = true,
   bool useSafeArea = true,
-  double maxHeightFactor = 0.75,
+  // 모든 바텀시트의 기본 최대 높이 — 팀원 선택 시트 기준(화면의 약 56%).
+  double maxHeightFactor = 0.56,
 }) async {
   // Hide the app shell's floating bottom dock while the sheet is open so it
   // does not bleed through the semi-transparent barrier. The counter is
@@ -71,7 +72,7 @@ class MoniqBottomSheetShell extends StatelessWidget {
     required this.child,
     this.title,
     this.eyebrow,
-    this.maxHeightFactor = 0.75,
+    this.maxHeightFactor = 0.56,
   });
 
   final Widget child;

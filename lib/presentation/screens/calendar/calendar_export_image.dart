@@ -199,17 +199,15 @@ void drawPreviewTag(Canvas canvas, double x, double y, double cellW,
   final tagW = cellW - 8;
   final tagX = x + 4;
 
-  // 배경 라운드 사각형
-  final bgPaint = Paint()
-    ..color = color.withValues(alpha: isWork ? 0.25 : 0.15);
-  final rrect = RRect.fromRectAndRadius(
-    Rect.fromLTWH(tagX, y, tagW, tagH),
-    const Radius.circular(3),
-  );
-  canvas.drawRRect(rrect, bgPaint);
-
-  // 근무 일정은 테두리 추가
+  // 화면 미리보기와 동일하게: 근무 일정만 컬러 배경 박스 + 테두리를 채우고,
+  // 개인 일정은 배경 없이 텍스트만 표시한다.
   if (isWork) {
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(tagX, y, tagW, tagH),
+      const Radius.circular(3),
+    );
+    final bgPaint = Paint()..color = color.withValues(alpha: 0.25);
+    canvas.drawRRect(rrect, bgPaint);
     final borderPaint = Paint()
       ..color = color.withValues(alpha: 0.4)
       ..style = PaintingStyle.stroke

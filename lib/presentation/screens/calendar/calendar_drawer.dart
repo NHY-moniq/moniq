@@ -6,6 +6,7 @@ import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
@@ -113,6 +114,7 @@ class CalendarDrawer extends HookConsumerWidget {
                   const SizedBox(height: AppSpacing.sm),
                   _DrawerNavItem(
                     icon: Icons.schedule_outlined,
+                    accentColor: AppColors.brandBlue,
                     label: '내 근무 유형 설정',
                     badge: '${shiftTypes.length}',
                     onTap: () {
@@ -122,6 +124,7 @@ class CalendarDrawer extends HookConsumerWidget {
                   ),
                   _DrawerNavItem(
                     icon: Icons.calendar_month_outlined,
+                    accentColor: AppColors.success,
                     label: '외부 캘린더 일정 가져오기',
                     onTap: () {
                       Navigator.pop(context);
@@ -130,6 +133,7 @@ class CalendarDrawer extends HookConsumerWidget {
                   ),
                   _DrawerToggleItem(
                     icon: Icons.visibility_off_outlined,
+                    accentColor: const Color(0xFF9F7AEA),
                     label: '팀 근무 숨기기',
                     value: ref.watch(hideTeamShiftsInPersonalProvider),
                     onChanged: (v) => ref
@@ -163,19 +167,21 @@ class _DrawerNavItem extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.accentColor,
     this.badge,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final Color? accentColor;
   final String? badge;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final textColor = cs.onSurfaceVariant;
-    final iconColor = cs.onSurfaceVariant;
+    final textColor = cs.onSurface;
+    final accent = accentColor ?? cs.primary;
     const bgColor = Colors.transparent;
 
     return Padding(
@@ -192,13 +198,23 @@ class _DrawerNavItem extends StatelessWidget {
           hoverColor: cs.surfaceContainerLow,
           child: Padding(
             padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
             ),
             child: Row(
               children: [
-                Icon(icon, color: iconColor, size: 24),
-                const SizedBox(width: AppSpacing.lg),
+                // 부드러운 컬러 칩 안에 아이콘 — 바텀시트 옵션과 동일한 톤.
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.13),
+                    borderRadius: AppRadius.borderRadiusMd,
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(icon, color: accent, size: 20),
+                ),
+                const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Text(
                     label,
@@ -777,28 +793,40 @@ class _DrawerToggleItem extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.accentColor,
   });
 
   final IconData icon;
   final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
+  final Color? accentColor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final accent = accentColor ?? cs.primary;
     return InkWell(
       onTap: () => onChanged(!value),
       child: Padding(
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xxl,
-          vertical: AppSpacing.md,
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
         ),
         child: Row(
           children: [
-            Icon(icon, color: cs.onSurfaceVariant, size: 22),
-            const SizedBox(width: AppSpacing.lg),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.13),
+                borderRadius: AppRadius.borderRadiusMd,
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: accent, size: 20),
+            ),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Text(
                 label,

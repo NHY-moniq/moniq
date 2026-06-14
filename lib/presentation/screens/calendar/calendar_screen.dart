@@ -357,10 +357,13 @@ class CalendarScreen extends HookConsumerWidget {
                         ? const <ShiftWithType>[]
                         : (state.monthlyShifts[key] ?? const []);
                     for (final s in dayShifts) {
-                      final label =
-                          labelOf(s.shiftType.name, s.shiftType.code);
-                      if (!seenWorkLabels.add(label)) continue;
+                      // 개인 오버라이드가 있으면 코드/이름/색을 모두 그쪽으로.
+                      // (이전엔 색만 반영되고 코드는 원본 팀 근무가 그대로 떴다)
                       final ov = overrides[s.shift.id];
+                      final name = ov?.name ?? s.shiftType.name;
+                      final code = ov?.code ?? s.shiftType.code;
+                      final label = labelOf(name, code);
+                      if (!seenWorkLabels.add(label)) continue;
                       final colorHex = ov?.color ?? s.shiftType.color;
                       result.add(CalendarPreview(
                         text: label,

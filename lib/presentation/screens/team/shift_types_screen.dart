@@ -219,6 +219,7 @@ class ShiftTypesScreen extends HookConsumerWidget {
                   if (name.isEmpty || code.isEmpty) {
                     await showMoniqInfoSheet(
                       context: ctx,
+                      eyebrow: 'REQUIRED',
                       title: '필수 항목을 입력해주세요',
                       message: '이름과 코드는 반드시 입력해야 해요.',
                     );

@@ -18,6 +18,7 @@ import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
 import 'package:moniq/presentation/widgets/calendar/roster_panel.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
+import 'package:moniq/presentation/screens/calendar/calendar_export.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
@@ -634,9 +635,24 @@ class _TeamCalendarView extends HookConsumerWidget {
         ),
         trailing: !AdaptiveLayout.isWide(context)
             ? Builder(
-                builder: (ctx) => MoniqAppBarAction(
-                  icon: Icons.menu_rounded,
-                  onTap: () => Scaffold.of(ctx).openEndDrawer(),
+                builder: (ctx) => Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 팀 근무표 공유 / 개인 캘린더로 가져오기.
+                    if (calendarAsync.valueOrNull != null)
+                      MoniqAppBarAction(
+                        icon: Icons.ios_share_outlined,
+                        onTap: () => exportTeamCalendar(
+                          context,
+                          ref,
+                          calendarAsync.value!,
+                        ),
+                      ),
+                    MoniqAppBarAction(
+                      icon: Icons.menu_rounded,
+                      onTap: () => Scaffold.of(ctx).openEndDrawer(),
+                    ),
+                  ],
                 ),
               )
             : null,
@@ -1118,6 +1134,7 @@ class _TeamDrawer extends HookConsumerWidget {
                 children: [
                   _TeamDrawerNavItem(
                     icon: Icons.groups_outlined,
+                    iconColor: AppColors.brandBlue,
                     label: '팀 목록',
                     badge: '${teams.length}',
                     onTap: () {
@@ -1136,6 +1153,7 @@ class _TeamDrawer extends HookConsumerWidget {
                   if (isPersonalTeam) ...[
                     _TeamDrawerNavItem(
                       icon: Icons.calendar_today_outlined,
+                      iconColor: AppColors.success,
                       label: '멤버 근무 현황',
                       onTap: () {
                         Navigator.pop(context);
@@ -1144,6 +1162,7 @@ class _TeamDrawer extends HookConsumerWidget {
                     ),
                     _TeamDrawerNavItem(
                       icon: Icons.event_note_rounded,
+                      iconColor: const Color(0xFF9F7AEA),
                       label: '약속 관리',
                       onTap: () {
                         Navigator.pop(context);
@@ -1160,6 +1179,7 @@ class _TeamDrawer extends HookConsumerWidget {
                   if (!isPersonalTeam) ...[
                     _TeamDrawerNavItem(
                       icon: Icons.edit_calendar_outlined,
+                      iconColor: const Color(0xFF319795),
                       label: '원티드 입력',
                       onTap: () {
                         Navigator.pop(context);
@@ -1168,6 +1188,7 @@ class _TeamDrawer extends HookConsumerWidget {
                     ),
                     _TeamDrawerNavItem(
                       icon: Icons.swap_horiz,
+                      iconColor: const Color(0xFFED64A6),
                       label: '근무 변경 요청',
                       onTap: () {
                         Navigator.pop(context);
@@ -1205,7 +1226,7 @@ class _TeamDrawerNavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final resolvedIconColor = iconColor ?? cs.onSurfaceVariant;
+    final accent = iconColor ?? cs.primary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -1221,13 +1242,23 @@ class _TeamDrawerNavItem extends StatelessWidget {
           hoverColor: cs.surfaceContainerLow,
           child: Padding(
             padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
             ),
             child: Row(
               children: [
-                Icon(icon, color: resolvedIconColor, size: 24),
-                const SizedBox(width: AppSpacing.lg),
+                // 부드러운 컬러 칩 안에 아이콘 — 개인 드로어와 동일한 톤.
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.13),
+                    borderRadius: AppRadius.borderRadiusMd,
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(icon, color: accent, size: 20),
+                ),
+                const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Text(
                     label,
