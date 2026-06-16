@@ -146,24 +146,37 @@ Future<void> importDeviceCalendar(
     final events = allEvents;
 
     final eventDs = ref.read(personalEventDataSourceProvider);
-    int imported = 0;
+    // 로컬 캐시를 원격 상태로 먼저 동기화 — 이전에 가져온 일정이 로컬에 없으면
+    // 중복 판정이 누락돼 같은 일정이 또 추가되던 문제를 막는다.
+    try {
+      await eventDs.pullFromRemote();
+    } catch (_) {}
 
+    // (날짜|제목) 시그니처로 기존 일정 + 이번 실행 추가분을 함께 추적해 중복 방지.
+    String sig(DateTime d, String title) =>
+        '${d.year}-${d.month}-${d.day}|$title';
+    final seen = <String>{};
     for (final event in events) {
-      final existing = eventDs.getEvents(event.date);
-      final isDuplicate = existing.any((e) => e.title == event.title);
-
-      if (!isDuplicate) {
-        await eventDs.addEvent(PersonalEvent(
-          date: event.date,
-          title: event.title,
-          startTime: event.startTime,
-          endTime: event.endTime,
-          description: event.calendarName,
-          color: event.color ?? '#5A8BB5',
-          createdAt: DateTime.now(),
-        ));
-        imported++;
+      for (final ex in eventDs.getEvents(event.date)) {
+        seen.add(sig(event.date, ex.title));
       }
+    }
+
+    int imported = 0;
+    for (final event in events) {
+      final s = sig(event.date, event.title);
+      if (seen.contains(s)) continue; // 이미 있거나 이번에 추가한 동일 일정
+      seen.add(s);
+      await eventDs.addEvent(PersonalEvent(
+        date: event.date,
+        title: event.title,
+        startTime: event.startTime,
+        endTime: event.endTime,
+        description: event.calendarName,
+        color: event.color ?? '#5A8BB5',
+        createdAt: DateTime.now(),
+      ));
+      imported++;
     }
 
     refreshAll(ref, DateTime.now());
@@ -265,6 +278,15 @@ Future<void> exportTeamCalendar(
   }
 }
 
+/// 팀 캘린더의 내 근무를 개인 캘린더로 가져오기 (외부 호출용 public 진입점).
+/// 웹 사이드바 등 export 포맷 다이얼로그 없이 바로 호출할 때 사용.
+Future<void> importTeamShiftsToPersonal(
+  BuildContext context,
+  WidgetRef ref,
+  TeamCalendarState state,
+) =>
+    _importTeamShiftsToPersonal(context, ref, state);
+
 /// 팀 캘린더의 내 근무를 개인 캘린더로 import.
 ///
 /// - 기존 team-import 이벤트(description이 [kPersonalTeamImportMarker]로 시작)는
@@ -302,24 +324,40 @@ Future<void> _importTeamShiftsToPersonal(
     );
 
     // 각 shift → PersonalEvent. description에 import 마커 포함.
-    final events = myShifts.map((sw) {
-      return PersonalEvent(
-        date: DateTime(
-          sw.shift.shiftDate.year,
-          sw.shift.shiftDate.month,
-          sw.shift.shiftDate.day,
-        ),
+    // 개인 캘린더엔 날짜당 근무 1건만 — 같은 날 근무가 둘 이상이면 첫 건만 유지.
+    final seenDates = <String>{};
+    final events = <PersonalEvent>[];
+    for (final sw in myShifts) {
+      final d = DateTime(
+        sw.shift.shiftDate.year,
+        sw.shift.shiftDate.month,
+        sw.shift.shiftDate.day,
+      );
+      final dateKey = '${d.year}-${d.month}-${d.day}';
+      if (!seenDates.add(dateKey)) continue;
+      events.add(PersonalEvent(
+        date: d,
         title: sw.shiftType.name,
         startTime: sw.shiftType.startTime,
         endTime: sw.shiftType.endTime,
         color: sw.shiftType.color,
         description: '$kPersonalTeamImportMarker:${state.teamId}',
         createdAt: DateTime.now(),
-      );
-    }).toList();
+      ));
+    }
+    final workCount = events.length;
+    // OFF(근무 없는 날)는 팀 근무 경로에서 자동으로 표시되므로(중복 방지)
+    // import 시 별도 OFF 항목을 만들지 않는다.
 
     final eventDs = ref.read(personalEventDataSourceProvider);
-    final inserted = await eventDs.replaceTeamImports(events);
+    await eventDs.replaceTeamImports(events);
+    final inserted = workCount;
+
+    // 가져오기는 "이 팀 근무를 개인 캘린더에 다시 표시"하는 동작이므로,
+    // 이전에 "근무 삭제"로 숨긴 날짜를 모두 해제해 새 근무가 가려지지 않게 한다.
+    try {
+      await ref.read(personalHiddenShiftsDataSourceProvider).clearAll();
+    } catch (_) {}
 
     // 개인 캘린더 화면 캐시 무효화
     ref.read(eventRefreshProvider.notifier).state++;

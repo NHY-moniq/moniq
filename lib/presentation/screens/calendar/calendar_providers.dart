@@ -1,5 +1,8 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
+import 'package:moniq/data/datasources/personal_event_remote_data_source.dart'
+    show kPersonalTeamImportMarker;
+import 'package:moniq/data/datasources/personal_hidden_shifts_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_note_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_shift_override_remote_data_source.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
@@ -37,6 +40,19 @@ final personalEventDataSourceProvider = Provider<PersonalEventLocalDataSource>(
   (ref) {
     final userId = ref.watch(currentUserProvider)?.id ?? 'anonymous';
     return PersonalEventLocalDataSource(
+      prefs: ref.watch(sharedPreferencesProvider),
+      userId: userId,
+    );
+  },
+);
+
+/// 개인 캘린더에서 "근무 삭제"로 숨긴 날짜(로컬 전용). 팀 데이터는 보존하고
+/// 개인 캘린더 화면에서만 해당 날짜의 팀 근무/OFF를 제거한다.
+final personalHiddenShiftsDataSourceProvider =
+    Provider<PersonalHiddenShiftsLocalDataSource>(
+  (ref) {
+    final userId = ref.watch(currentUserProvider)?.id ?? 'anonymous';
+    return PersonalHiddenShiftsLocalDataSource(
       prefs: ref.watch(sharedPreferencesProvider),
       userId: userId,
     );
@@ -102,17 +118,38 @@ final dateNotesProvider = Provider.family<List<PersonalNote>, DateTime>(
   },
 );
 
+/// 숨긴(근무 삭제) 날짜의 team-import 근무 이벤트는 개인 캘린더에서 제거하고,
+/// 직접 추가한 개인 일정은 유지한다.
+bool _isImportWork(PersonalEvent e) =>
+    e.description?.startsWith(kPersonalTeamImportMarker) ?? false;
+
 final monthlyEventsProvider =
     Provider.family<Map<DateTime, List<PersonalEvent>>, DateTime>(
   (ref, month) {
     ref.watch(eventRefreshProvider);
-    return ref.watch(personalEventDataSourceProvider).getMonthlyEvents(month);
+    final all = ref.watch(personalEventDataSourceProvider).getMonthlyEvents(month);
+    final hidden = ref.watch(personalHiddenShiftsDataSourceProvider).getHiddenDates();
+    if (hidden.isEmpty) return all;
+    final out = <DateTime, List<PersonalEvent>>{};
+    all.forEach((date, evts) {
+      if (hidden.contains(date)) {
+        final kept = evts.where((e) => !_isImportWork(e)).toList();
+        if (kept.isNotEmpty) out[date] = kept;
+      } else {
+        out[date] = evts;
+      }
+    });
+    return out;
   },
 );
 
 final dateEventsProvider = Provider.family<List<PersonalEvent>, DateTime>(
   (ref, date) {
     ref.watch(eventRefreshProvider);
-    return ref.watch(personalEventDataSourceProvider).getEvents(date);
+    final all = ref.watch(personalEventDataSourceProvider).getEvents(date);
+    final hidden = ref.watch(personalHiddenShiftsDataSourceProvider).getHiddenDates();
+    final key = DateTime(date.year, date.month, date.day);
+    if (!hidden.contains(key)) return all;
+    return all.where((e) => !_isImportWork(e)).toList();
   },
 );

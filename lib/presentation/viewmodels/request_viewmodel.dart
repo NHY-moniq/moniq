@@ -8,6 +8,8 @@ import 'package:moniq/data/providers/request_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
+import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 
 part 'request_viewmodel.freezed.dart';
 
@@ -19,6 +21,7 @@ class RequestChangePreview {
     this.requesterAfterShiftType,
     this.targetBeforeShiftType,
     this.targetAfterShiftType,
+    this.requesterName,
     this.targetName,
   });
 
@@ -26,6 +29,7 @@ class RequestChangePreview {
   final ShiftTypeModel? requesterAfterShiftType; // null = OFF
   final ShiftTypeModel? targetBeforeShiftType;
   final ShiftTypeModel? targetAfterShiftType; // null = OFF
+  final String? requesterName;
   final String? targetName;
 }
 
@@ -75,12 +79,11 @@ final requestChangePreviewProvider = FutureProvider.autoDispose
 
   switch (req.changeType) {
     case 'swap':
-      // 멤버 간 근무 변경(단방향): 신청자가 다른 멤버의 근무 변경을 요청.
-      // 신청자 본인 근무는 변경되지 않으며, 대상자만 requestedShiftType로 변경된다.
-      requesterAfter = requesterBefore;
-      targetAfter = req.requestedShiftTypeId != null
-          ? typeMap[req.requestedShiftTypeId!]
-          : null;
+      // 멤버 간 근무 교환(양방향): 신청자 ↔ 대상자가 같은 날짜의 근무를 맞바꾼다.
+      // DB의 apply_request(swap)와 동일하게, 신청자는 대상자의 근무로, 대상자는
+      // 신청자의 근무로 변경된다.
+      requesterAfter = targetBefore;
+      targetAfter = requesterBefore;
       break;
     case 'day_off':
       requesterAfter = null; // OFF
@@ -102,6 +105,7 @@ final requestChangePreviewProvider = FutureProvider.autoDispose
     requesterAfterShiftType: requesterAfter,
     targetBeforeShiftType: targetBefore,
     targetAfterShiftType: targetAfter,
+    requesterName: state.userNames[req.requesterUserId],
     targetName:
         req.targetUserId != null ? state.userNames[req.targetUserId!] : null,
   );
@@ -184,16 +188,53 @@ class RequestListViewModel
         .toList();
   }
 
-  Future<void> approveRequest(String requestId) async {
+  /// 승인 적용 후 팀/개인 캘린더 캐시를 무효화해 변경된 근무(스왑 등)가
+  /// 캘린더에 즉시 반영되게 한다. (이전엔 요청 목록만 갱신돼 팀 캘린더는
+  /// 재진입 전까지 옛 근무가 그대로 보였다)
+  void _refreshCalendars() {
+    final teamId = state.valueOrNull?.teamId;
+    if (teamId != null) {
+      ref.invalidate(teamCalendarViewModelProvider(teamId));
+    }
+    ref.invalidate(homeViewModelProvider);
+  }
+
+  /// 자동 적용(apply_request) 실패를 사용자용 한국어 메시지로 변환.
+  /// 가장 흔한 케이스: swap 대상 중 한쪽이 해당 날짜에 근무가 없음(OFF).
+  static String _applyFailureMessage(Object error) {
+    final raw = error.toString();
+    if (raw.contains('shift가 있어야') ||
+        raw.contains('교환 가능') ||
+        raw.contains('shift')) {
+      return '교환하려는 날짜에 한쪽이 근무가 없어(OFF) 변경할 수 없어요.\n'
+          '양쪽 모두 근무가 있는 날만 교환할 수 있어요.';
+    }
+    return '근무 변경을 적용하지 못했어요. 잠시 후 다시 시도해주세요.';
+  }
+
+  /// 단건 승인. 반환값으로 적용 성공 여부와 실패 메시지를 전달한다.
+  /// 적용(apply_request)이 실패하면 승인 상태를 pending으로 되돌려
+  /// "승인됐는데 실제로는 미반영" 상태를 막는다.
+  Future<({bool ok, String? message})> approveRequest(String requestId) async {
     final repo = ref.read(requestRepositoryProvider);
     await repo.updateRequestStatus(requestId, 'approved');
     // 승인 후 shifts에 자동 반영 (day_off / shift_change / swap)
-    // 자동 적용 실패는 침묵 — 관리자가 수동으로 처리 가능
+    String? failure;
     try {
       await repo.applyRequest(requestId);
-    } catch (_) {}
-    await _notifyStatusChange(requestId, '승인');
+    } catch (e) {
+      failure = _applyFailureMessage(e);
+      // 적용 실패 → 승인 취소(pending 복귀)
+      try {
+        await repo.updateRequestStatus(requestId, 'pending');
+      } catch (_) {}
+    }
+    if (failure == null) {
+      await _notifyStatusChange(requestId, '승인');
+    }
+    _refreshCalendars();
     ref.invalidateSelf();
+    return (ok: failure == null, message: failure);
   }
 
   Future<void> rejectRequest(String requestId) async {
@@ -221,19 +262,30 @@ class RequestListViewModel
     ref.invalidateSelf();
   }
 
-  /// 일괄 승인 — 한 건이라도 실패해도 나머지는 진행하고 마지막에 1회 invalidate.
-  Future<void> approveRequests(List<String> requestIds) async {
+  /// 일괄 승인 — 한 건이라도 실패해도 나머지는 진행한다.
+  /// 반환값: 적용 실패가 하나라도 있으면 첫 실패 메시지, 모두 성공이면 null.
+  Future<String?> approveRequests(List<String> requestIds) async {
     final repo = ref.read(requestRepositoryProvider);
+    String? firstFailure;
     for (final id in requestIds) {
       try {
         await repo.updateRequestStatus(id, 'approved');
         try {
           await repo.applyRequest(id);
-        } catch (_) {}
+        } catch (e) {
+          firstFailure ??= _applyFailureMessage(e);
+          // 적용 실패 → 승인 취소(pending 복귀)
+          try {
+            await repo.updateRequestStatus(id, 'pending');
+          } catch (_) {}
+          continue; // 알림 스킵
+        }
         await _notifyStatusChange(id, '승인');
       } catch (_) {}
     }
+    _refreshCalendars();
     ref.invalidateSelf();
+    return firstFailure;
   }
 
   Future<void> rejectRequests(List<String> requestIds) async {

@@ -319,12 +319,12 @@ class _AppSettingsSection extends ConsumerWidget {
         MoniqCardRow(
           icon: Icons.calendar_month_outlined,
           label: '주 시작일',
-          valuePill: startDay == 'monday' ? '월' : '일',
-          onTap: () {
-            ref
+          trailing: _WeekStartToggle(
+            startDay: startDay,
+            onChanged: (value) => ref
                 .read(calendarStartDayProvider.notifier)
-                .setStartDay(startDay == 'monday' ? 'sunday' : 'monday');
-          },
+                .setStartDay(value),
+          ),
         ),
       ],
     );
@@ -584,5 +584,65 @@ class _InfoSection extends ConsumerWidget {
         const SnackBar(content: Text('링크를 열 수 없어 클립보드에 복사했어요')),
       );
     }
+  }
+}
+
+/// 주 시작일(월/일) 세그먼트 토글.
+///
+/// 기존엔 탭마다 값이 번갈아 바뀌어 현재 상태를 알기 어려웠다.
+/// 선택된 쪽이 강조되는 2-세그먼트 스위치로 바꿔 변경 여부를 직관적으로 보이게 한다.
+class _WeekStartToggle extends StatelessWidget {
+  const _WeekStartToggle({required this.startDay, required this.onChanged});
+
+  final String startDay;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: isDark ? cs.surfaceContainerHigh : cs.surfaceContainer,
+        borderRadius: AppRadius.borderRadiusFull,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _segment(context, value: 'monday', label: '월'),
+          _segment(context, value: 'sunday', label: '일'),
+        ],
+      ),
+    );
+  }
+
+  Widget _segment(
+    BuildContext context, {
+    required String value,
+    required String label,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final selected = startDay == value;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: selected ? null : () => onChanged(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? cs.primary : Colors.transparent,
+          borderRadius: AppRadius.borderRadiusFull,
+        ),
+        child: Text(
+          label,
+          style: AppTypography.caption.copyWith(
+            fontWeight: FontWeight.w700,
+            color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
   }
 }

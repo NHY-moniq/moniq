@@ -492,12 +492,23 @@ void showRequestDetailSheet(
         myUserId: ref.read(currentUserProvider)?.id,
         userNames: userNames,
         onApprove: () async {
+          // 승인 클릭 즉시 창을 닫는다 (처리 성공/실패와 무관하게).
+          Navigator.pop(ctx);
+          String? failure;
           for (final id in group.ids) {
-            await ref
+            final r = await ref
                 .read(requestListViewModelProvider(teamId).notifier)
                 .approveRequest(id);
+            if (!r.ok) failure ??= r.message;
           }
-          if (ctx.mounted) Navigator.pop(ctx);
+          if (failure != null && context.mounted) {
+            await showMoniqInfoSheet(
+              context: context,
+              eyebrow: 'APPROVE',
+              title: '근무 변경 실패',
+              message: failure,
+            );
+          }
         },
         onReject: () async {
           for (final id in group.ids) {

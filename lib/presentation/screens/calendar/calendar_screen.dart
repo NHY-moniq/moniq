@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/data/datasources/personal_event_local_data_source.dart'
+    show PersonalEvent;
 import 'package:moniq/data/datasources/personal_event_remote_data_source.dart'
     show kPersonalTeamImportMarker;
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
@@ -349,13 +351,22 @@ class CalendarScreen extends HookConsumerWidget {
                       return code;
                     }
 
-                    // 1) 서버 근무: 컬러 박스로 단문자 표시
-                    //    "팀 근무 숨기기" 토글이 ON이면 서버 근무는 스킵
+                    bool isImport(PersonalEvent e) =>
+                        e.description
+                            ?.startsWith(kPersonalTeamImportMarker) ==
+                        true;
+                    final evts = monthlyEvents[key];
+
+                    // 1) 팀(서버) 근무: 디폴트로 항상 최신 팀 근무를 표시.
+                    //    "팀 근무 숨기기" 토글이 ON이면 스킵.
                     final hideTeamShiftsPv =
                         ref.watch(hideTeamShiftsInPersonalProvider);
                     final dayShifts = hideTeamShiftsPv
                         ? const <ShiftWithType>[]
                         : (state.monthlyShifts[key] ?? const []);
+                    // 팀 근무가 있는 날은 가져온(import) 근무가 같은 근무의 중복이므로
+                    // 표시하지 않는다 (팀 근무 우선 — 항상 최신값).
+                    final hasServerShift = dayShifts.isNotEmpty;
                     for (final s in dayShifts) {
                       // 개인 오버라이드가 있으면 코드/이름/색을 모두 그쪽으로.
                       // (이전엔 색만 반영되고 코드는 원본 팀 근무가 그대로 떴다)
@@ -373,16 +384,21 @@ class CalendarScreen extends HookConsumerWidget {
                     }
                     // 2) 개인 일정: 근무 매칭이면 컬러 박스(중복 제거), 아니면 plain.
                     //    team-import 마커가 있는 이벤트는 근무 박스로 강제 표시.
-                    final evts = monthlyEvents[key];
+                    //    ★ 근무(매칭/팀-import)를 항상 먼저 추가해 셀 상단에 오게 하고,
+                    //      개인 일정은 그다음(아래)에 추가한다.
                     if (evts != null && evts.isNotEmpty) {
+                      // 1차: 근무 (매칭 근무유형 또는 팀-import)
                       for (final e in evts) {
                         if (result.length >= 3) break;
+                        // 팀 근무가 있는 날의 import 근무는 중복 → 스킵 (팀 근무 우선)
+                        if (hasServerShift && isImport(e)) continue;
+                        // 가져온 OFF 항목은 표시 안 함 — OFF는 팀 근무 경로에서 처리.
+                        if (isImport(e) &&
+                            (e.description?.endsWith(':off') ?? false)) {
+                          continue;
+                        }
                         final matchedType = shiftTypeByName[e.title];
-                        final isTeamImport = e.description
-                                ?.startsWith(kPersonalTeamImportMarker) ==
-                            true;
                         if (matchedType != null) {
-                          // 사용자가 지정한 코드 우선, 없으면 파생 라벨.
                           final matchedCode =
                               matchedType.code.trim().toUpperCase();
                           final label = matchedCode.isEmpty
@@ -396,8 +412,7 @@ class CalendarScreen extends HookConsumerWidget {
                             color: parseHexColor(colorHex),
                             isWork: true,
                           ));
-                        } else if (isTeamImport) {
-                          // 팀에서 가져온 근무는 정식 근무 라벨로 처리 (텍스트 박스)
+                        } else if (isImport(e)) {
                           final label = labelOf(e.title, '');
                           if (!seenWorkLabels.add(label)) continue;
                           result.add(CalendarPreview(
@@ -407,15 +422,20 @@ class CalendarScreen extends HookConsumerWidget {
                                 : AppColors.shiftOff,
                             isWork: true,
                           ));
-                        } else {
-                          result.add(CalendarPreview(
-                            text: e.title,
-                            color: e.color != null
-                                ? parseHexColor(e.color!)
-                                : null,
-                            isWork: false,
-                          ));
                         }
+                      }
+                      // 2차: 개인 일정 (plain) — 근무 아래
+                      for (final e in evts) {
+                        if (result.length >= 3) break;
+                        final matchedType = shiftTypeByName[e.title];
+                        if (matchedType != null || isImport(e)) continue;
+                        result.add(CalendarPreview(
+                          text: e.title,
+                          color: e.color != null
+                              ? parseHexColor(e.color!)
+                              : null,
+                          isWork: false,
+                        ));
                       }
                     }
                     // 3) 월 단위 OFF: 해당 월에 (서버 근무 OR team-import 일정) 이
@@ -432,9 +452,13 @@ class CalendarScreen extends HookConsumerWidget {
                         key.year == state.focusedMonth.year &&
                             key.month == state.focusedMonth.month;
                     final hasAnyWork = result.any((p) => p.isWork);
-                    if (monthHasAnyTeamSource &&
-                        isInFocusedMonth &&
-                        !hasAnyWork) {
+                    // 발행된 스케줄 기간(coverage)에 속한 날은 근무가 없으면 OFF.
+                    // (서버 근무가 일부 날만 있어도 빈 날을 정확히 OFF로 채운다)
+                    final isScheduledDay =
+                        !hideTeamShiftsPv && state.teamScheduledDates.contains(key);
+                    if (!hasAnyWork &&
+                        (isScheduledDay ||
+                            (monthHasAnyTeamSource && isInFocusedMonth))) {
                       seenWorkLabels.add('O');
                       result.insert(
                         0,

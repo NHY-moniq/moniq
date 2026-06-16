@@ -17,6 +17,8 @@ import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/data/providers/wanted_providers.dart';
+import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 
 part 'schedule_generation_viewmodel.freezed.dart';
 part 'schedule_solver.dart';
@@ -397,6 +399,11 @@ class ScheduleGenerationViewModel
       final scheduleRepo = ref.read(scheduleRepositoryProvider);
       await scheduleRepo.publishSchedule(current.generatedSchedule!.id);
       state = AsyncData(current.copyWith(isPublishing: false));
+
+      // 발행 즉시 팀/개인 캘린더를 새로고침 — 캘린더 도트(근무 인원 수)가
+      // 새 근무표를 반영하도록 한다. (이전엔 발행 후 수동 재진입 필요)
+      ref.invalidate(teamCalendarViewModelProvider(current.teamId));
+      ref.invalidate(homeViewModelProvider);
 
       // 팀원 전체에 새 근무 발행 푸시 (관리자 본인 제외, 실패 침묵)
       try {
