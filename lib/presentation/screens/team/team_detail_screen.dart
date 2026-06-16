@@ -40,6 +40,21 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
   bool _tutorialScheduled = false; // 중복 스케줄 방지
 
   @override
+  void initState() {
+    super.initState();
+    // 화면 재진입 시 멤버 역할(권한) 변경을 반영하기 위해 1회 새로고침.
+    // 이미 캐시된 경우에만 invalidate → 최초 진입 시 이중 조회를 막아 성능 영향 최소화.
+    // (재조회 중에도 skipLoadingOnReload로 기존 화면을 유지해 깜빡임 없음)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final cached = ref.read(teamDetailViewModelProvider(widget.teamId));
+      if (cached.hasValue) {
+        ref.invalidate(teamDetailViewModelProvider(widget.teamId));
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _tutorial?.dispose();
     super.dispose();
@@ -128,6 +143,8 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
         },
       ),
       body: detailAsync.when(
+        // 재진입 새로고침 중에는 기존 데이터를 유지(스피너 깜빡임 방지).
+        skipLoadingOnReload: true,
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
           message: '팀 정보를 불러올 수 없습니다',

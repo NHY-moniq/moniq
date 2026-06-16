@@ -13,7 +13,6 @@ import 'package:moniq/data/models/wanted_request_model.dart';
 import 'package:moniq/data/providers/custom_rule_providers.dart';
 import 'package:moniq/data/providers/feedback_providers.dart';
 import 'package:moniq/data/providers/schedule_providers.dart';
-import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
@@ -183,8 +182,6 @@ class ScheduleGenerationViewModel
       final activeMembers = generatingState.members
           .where((m) => !generatingState.excludedMemberIds.contains(m.userId))
           .toList();
-      // 주 시작요일 (달력 주 기준 주간 제한에 사용)
-      final weekStartsSunday = ref.read(calendarStartDayProvider) == 'sunday';
 
       // 이전 달 마지막 주 시드: periodStart 직전 7일 근무를 불러와 롤링 상태를 채운다.
       // (월 경계에서 주간 최대 근무·연속 근무/야간·N→D 등이 끊기지 않도록)
@@ -218,7 +215,6 @@ class ScheduleGenerationViewModel
           seed: baseSeed + (i * 7919),
           tuning: feedbackTuning,
           priorShifts: priorShifts,
-          weekStartsSunday: weekStartsSunday,
         );
         final objective = _generationObjective(
           result: candidate,
