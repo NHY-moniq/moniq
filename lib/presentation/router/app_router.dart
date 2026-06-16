@@ -60,6 +60,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ) ??
           false;
 
+      // 소셜 로그인(카카오 등) OAuth 콜백 딥링크 처리:
+      // com.moniq.moniq://login-callback?code=... 형태로 복귀하며,
+      // code -> 세션 교환은 supabase_flutter SDK가 자동 처리한다.
+      // go_router에는 매칭되는 라우트가 없으므로 여기서 안전한 경로로 보낸다.
+      final isOAuthCallback = state.uri.host == 'login-callback' ||
+          state.uri.path.contains('login-callback') ||
+          state.uri.queryParameters.containsKey('code');
+      if (isOAuthCallback) {
+        return isLoggedIn ? '/home' : '/login';
+      }
+
       final isAuthRoute = state.matchedLocation == '/login' ||
           state.matchedLocation == '/signup' ||
           state.matchedLocation == '/forgot-password' ||

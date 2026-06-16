@@ -13,6 +13,7 @@ import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +25,14 @@ Future<void> main() async {
     url: SupabaseConstants.url,
     anonKey: SupabaseConstants.publishKey,
   );
+
+  // 소셜 로그인(카카오 등) OAuth 콜백 후 떠 있는 인앱 브라우저를 자동으로 닫는다.
+  // supabase_flutter는 딥링크로 세션만 교환하고 브라우저는 닫지 않으므로 직접 처리.
+  Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    if (data.event == AuthChangeEvent.signedIn) {
+      closeInAppWebView();
+    }
+  });
 
   final prefs = await SharedPreferences.getInstance();
 

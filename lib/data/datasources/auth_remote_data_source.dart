@@ -165,6 +165,11 @@ class AuthRemoteDataSource {
       redirectTo: kIsWeb
           ? '${Uri.base.origin}/login'
           : 'com.moniq.moniq://login-callback',
+      // 인앱 브라우저(SFSafariViewController)는 콜백 후 자동으로 닫히지 않아
+      // 외부 브라우저로 띄운다. 리다이렉트 시 앱으로 자동 복귀하고 브라우저는
+      // 백그라운드로 빠지므로 시트가 앱 위에 남지 않는다.
+      authScreenLaunchMode:
+          kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
     );
 
     if (!launched) {
