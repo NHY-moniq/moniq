@@ -10,6 +10,7 @@ import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/profile_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
 class ProfileEditScreen extends HookConsumerWidget {
   const ProfileEditScreen({super.key});
@@ -82,11 +83,15 @@ class ProfileEditScreen extends HookConsumerWidget {
           children: [
             const SizedBox(height: AppSpacing.xl),
 
-            // Avatar section
+            // Avatar section — 보류(미리보기) 상태를 우선 반영한다.
             _AvatarSection(
-              avatarUrl: profileState.avatarUrl,
-              isLoading: profileState.isLoading,
-              onPickImage: () => _pickAndUploadImage(context, vm),
+              image: _avatarPreview(profileState),
+              isLoading: profileState.isSaving,
+              onEdit: () => _showAvatarSheet(
+                context,
+                vm,
+                hasAvatar: _avatarPreview(profileState) != null,
+              ),
             ),
 
             const SizedBox(height: AppSpacing.xxxl),
@@ -179,10 +184,58 @@ class ProfileEditScreen extends HookConsumerWidget {
     );
   }
 
-  Future<void> _pickAndUploadImage(
+  /// 현재 화면에 보여줄 아바타 이미지(보류 변경 우선). 없으면 null → 기본 아이콘.
+  ImageProvider? _avatarPreview(ProfileState state) {
+    if (state.pendingAvatarBytes != null) {
+      return MemoryImage(state.pendingAvatarBytes!);
+    }
+    if (!state.avatarCleared && (state.avatarUrl ?? '').isNotEmpty) {
+      return CachedNetworkImageProvider(state.avatarUrl!);
+    }
+    return null;
+  }
+
+  /// 편집 버튼 → 공용 흰색 바텀시트. 사진 불러오기 / 기본 이미지로 변경 선택.
+  /// 옵션을 누르면 시트만 닫고(프로필 편집 화면 유지) 변경은 보류 상태로만 둔다.
+  Future<void> _showAvatarSheet(
     BuildContext context,
-    ProfileViewModel vm,
-  ) async {
+    ProfileViewModel vm, {
+    required bool hasAvatar,
+  }) async {
+    await showMoniqBottomSheet<void>(
+      context: context,
+      eyebrow: 'PROFILE',
+      title: '프로필 사진',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          MoniqSheetOption(
+            icon: Icons.photo_library_outlined,
+            label: '프로필 사진 불러오기',
+            accentColor: AppColors.brandBlue,
+            onTap: () {
+              // 시트는 root navigator에 떠 있으므로 root로 닫아야 화면이 유지된다.
+              Navigator.of(context, rootNavigator: true).pop();
+              _pickAvatar(vm);
+            },
+          ),
+          if (hasAvatar)
+            MoniqSheetOption(
+              icon: Icons.person_outline,
+              label: '기본 이미지로 변경',
+              accentColor: AppColors.brandOrange,
+              onTap: () {
+                Navigator.of(context, rootNavigator: true).pop();
+                vm.markAvatarDefault();
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 갤러리에서 사진을 골라 미리보기로만 반영(업로드는 저장 시).
+  Future<void> _pickAvatar(ProfileViewModel vm) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
@@ -197,20 +250,20 @@ class ProfileEditScreen extends HookConsumerWidget {
     final extension = picked.name.split('.').last;
     final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.$extension';
 
-    vm.uploadAvatar(bytes, fileName);
+    vm.selectAvatar(bytes, fileName);
   }
 }
 
 class _AvatarSection extends StatelessWidget {
   const _AvatarSection({
-    required this.avatarUrl,
+    required this.image,
     required this.isLoading,
-    required this.onPickImage,
+    required this.onEdit,
   });
 
-  final String? avatarUrl;
+  final ImageProvider? image;
   final bool isLoading;
-  final VoidCallback onPickImage;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -219,16 +272,14 @@ class _AvatarSection extends StatelessWidget {
     return Column(
       children: [
         GestureDetector(
-          onTap: isLoading ? null : onPickImage,
+          onTap: isLoading ? null : onEdit,
           child: Stack(
             children: [
               CircleAvatar(
                 radius: 56,
                 backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
-                    ? CachedNetworkImageProvider(avatarUrl!)
-                    : null,
-                child: avatarUrl == null || avatarUrl!.isEmpty
+                backgroundImage: image,
+                child: image == null
                     ? Icon(
                         Icons.person,
                         size: 56,

@@ -1,0 +1,13 @@
+# 랜딩 페이지 사이트 — 정적 파일, 빌드 단계 없음.
+# 이 사이트의 Netlify "Base directory"를 landing 으로 설정하면 이 파일이 사용된다.
+[build]
+  publish = "."
+  command = ""
+
+# Pre-launch: keep search engines out until we ship real data.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"

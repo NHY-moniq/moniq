@@ -131,7 +131,7 @@ class CalendarDrawer extends HookConsumerWidget {
                       onImportCalendar();
                     },
                   ),
-                  _DrawerToggleItem(
+                  DrawerToggleItem(
                     icon: Icons.visibility_off_outlined,
                     accentColor: const Color(0xFF9F7AEA),
                     label: '팀 근무 숨기기',
@@ -787,13 +787,16 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
 
 // ── Drawer Toggle Item — 스위치형 항목 ──
 
-class _DrawerToggleItem extends StatelessWidget {
-  const _DrawerToggleItem({
+/// 캘린더 드로어/웹 flyout 공용 토글 항목. (앱·웹 동일 스타일 재사용)
+class DrawerToggleItem extends StatelessWidget {
+  const DrawerToggleItem({
+    super.key,
     required this.icon,
     required this.label,
     required this.value,
     required this.onChanged,
     this.accentColor,
+    this.compact = false,
   });
 
   final IconData icon;
@@ -802,44 +805,61 @@ class _DrawerToggleItem extends StatelessWidget {
   final ValueChanged<bool> onChanged;
   final Color? accentColor;
 
+  /// 웹 좌측 flyout에서 옆 항목(_FlyoutTile)과 칩/폰트 크기를 맞추기 위한 축소 모드.
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final accent = accentColor ?? cs.primary;
+    final chipSize = compact ? 30.0 : 36.0;
+    final labelStyle = compact
+        ? theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface.withValues(alpha: 0.82),
+          )
+        : theme.textTheme.bodyMedium?.copyWith(
+            color: cs.onSurface,
+            fontWeight: FontWeight.w500,
+          );
     return InkWell(
       onTap: () => onChanged(!value),
+      borderRadius: compact ? BorderRadius.circular(8) : null,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.sm,
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 12 : AppSpacing.lg,
+          vertical: compact ? 8 : AppSpacing.sm,
         ),
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: chipSize,
+              height: chipSize,
               decoration: BoxDecoration(
                 color: accent.withValues(alpha: 0.13),
-                borderRadius: AppRadius.borderRadiusMd,
+                borderRadius: compact
+                    ? BorderRadius.circular(8)
+                    : AppRadius.borderRadiusMd,
               ),
               alignment: Alignment.center,
-              child: Icon(icon, color: accent, size: 20),
+              child: Icon(icon, color: accent, size: compact ? 17 : 20),
             ),
-            const SizedBox(width: AppSpacing.md),
+            SizedBox(width: compact ? 10 : AppSpacing.md),
             Expanded(
               child: Text(
                 label,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: cs.onSurface,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: labelStyle,
+                overflow: compact ? TextOverflow.ellipsis : null,
+                maxLines: compact ? 1 : null,
               ),
             ),
             Switch.adaptive(
               value: value,
               onChanged: onChanged,
               activeThumbColor: cs.primary,
+              materialTapTargetSize:
+                  compact ? MaterialTapTargetSize.shrinkWrap : null,
             ),
           ],
         ),

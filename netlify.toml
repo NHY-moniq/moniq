@@ -1,12 +1,26 @@
+# Flutter 웹 앱 사이트 (앱 = 레포 루트).
+# 이 사이트의 Netlify "Base directory"는 비워두면(루트) 이 파일이 사용된다.
+#
+# Netlify 빌드 이미지에는 Flutter가 없으므로 빌드 시 SDK를 클론한다.
+# (build minutes를 아끼려면 나중에 stable -> 특정 태그로 핀 고정 가능)
 [build]
-  base    = "landing"
-  publish = "."
-  command = ""
+  publish = "build/web"
+  command = """
+    git clone https://github.com/flutter/flutter.git --depth 1 -b stable flutter-sdk && \
+    export PATH="$PATH:$(pwd)/flutter-sdk/bin" && \
+    flutter config --enable-web && \
+    flutter pub get && \
+    flutter build web --release
+  """
 
-# Pre-launch: keep search engines out until we ship real data.
+# SPA fallback: go_router 경로(/login 등)를 새로고침해도 404 안 나게 한다.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]
-    X-Robots-Tag = "noindex, nofollow"
     X-Frame-Options = "DENY"
     Referrer-Policy = "strict-origin-when-cross-origin"

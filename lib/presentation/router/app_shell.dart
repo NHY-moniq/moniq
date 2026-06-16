@@ -11,12 +11,14 @@ import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/notification_providers.dart';
 import 'package:moniq/data/providers/schedule_providers.dart';
+import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/router/bottom_sheet_visibility_provider.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_drawer.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_export.dart';
+import 'package:moniq/presentation/screens/team/appointment_management_screen.dart';
 import 'package:moniq/presentation/screens/team/team_excel_import.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
@@ -433,9 +435,20 @@ class _CalendarContextItems extends ConsumerWidget {
         ),
         _FlyoutTile(
           icon: Icons.calendar_month_outlined,
-          label: '외부 캘린더 가져오기',
+          label: '외부 캘린더 일정 가져오기',
           iconColor: AppColors.success,
           onTap: () => importDeviceCalendar(context, ref),
+        ),
+        // 팀 근무 숨기기 토글 — 모바일 캘린더 드로어와 동일 위젯 재사용.
+        DrawerToggleItem(
+          icon: Icons.visibility_off_outlined,
+          label: '팀 근무 숨기기',
+          accentColor: const Color(0xFF9F7AEA),
+          compact: true,
+          value: ref.watch(hideTeamShiftsInPersonalProvider),
+          onChanged: (v) => ref
+              .read(hideTeamShiftsInPersonalProvider.notifier)
+              .setHide(v),
         ),
       ],
     );
@@ -568,12 +581,26 @@ class _TeamContextItems extends ConsumerWidget {
           ),
           // ── 근무 ──
           const _FlyoutSectionLabel(label: '근무'),
-          _FlyoutTile(
-            icon: Icons.calendar_today_outlined,
-            label: '멤버 근무 현황',
-            iconColor: AppColors.success,
-            onTap: () => context.push('/teams/$teamId/personal-calendar'),
-          ),
+          // 멤버 근무 현황·약속 관리는 개인(private) 팀 전용. (모바일 드로어와 동일)
+          if (isPersonalTeam) ...[
+            _FlyoutTile(
+              icon: Icons.calendar_today_outlined,
+              label: '멤버 근무 현황',
+              iconColor: AppColors.success,
+              onTap: () => context.push('/teams/$teamId/personal-calendar'),
+            ),
+            _FlyoutTile(
+              icon: Icons.event_note_rounded,
+              label: '약속 관리',
+              iconColor: const Color(0xFF9F7AEA),
+              onTap: () => Navigator.of(context, rootNavigator: true).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      AppointmentManagementScreen(teamId: teamId),
+                ),
+              ),
+            ),
+          ],
           if (!isPersonalTeam) ...[
             _FlyoutTile(
               icon: Icons.edit_calendar_outlined,

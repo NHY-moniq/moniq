@@ -280,7 +280,6 @@ _GenerationResult _generateShifts({
   required int seed,
   _FeedbackGenerationTuning tuning = const _FeedbackGenerationTuning(),
   List<ShiftModel> priorShifts = const [],
-  bool weekStartsSunday = false,
 }) {
   final shifts = <Map<String, dynamic>>[];
   final warnings = <String>[];
@@ -632,12 +631,12 @@ _GenerationResult _generateShifts({
     for (final m in members) m.userId: null,
   };
 
-  // 주 시작요일 기준 그 주의 시작 날짜
+  // 주간 근무 제약은 항상 월요일 시작 주(월~일)를 기준으로 한다.
+  // (앱의 달력 시작 요일 설정과 무관하게 고정)
   DateTime weekStartOf(DateTime d) {
     final day = DateTime(d.year, d.month, d.day);
     final wd = day.weekday; // 1=월 .. 7=일
-    final back = weekStartsSunday ? (wd % 7) : (wd - 1);
-    return day.subtract(Duration(days: back));
+    return day.subtract(Duration(days: wd - 1));
   }
 
   // ── 이전 달 마지막 주 시드 ──
