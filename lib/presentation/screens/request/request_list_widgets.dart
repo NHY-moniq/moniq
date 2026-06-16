@@ -730,18 +730,101 @@ class _ChangePreview extends ConsumerWidget {
 
   Widget _previewBody(BuildContext context, RequestChangePreview preview) {
     final isSwap = request.changeType == 'swap';
-    // swap은 단방향(대상자 근무만 변경). 신청자 본인 근무는 변경되지 않으므로
-    // 카드 상세에서도 대상자의 변경 전/후만 노출한다.
+    // swap은 양방향 교환 — 신청자/대상자 각각의 변경 전→후를 모두 노출한다.
+    // (예: 백하은 D→N, 이지영 N→D)
     if (isSwap) {
-      return _BeforeAfterRow(
-        before: preview.targetBeforeShiftType,
-        after: preview.targetAfterShiftType,
+      // 한쪽이 OFF(근무 없음)이면 교환이 불가능하므로 경고를 표시한다.
+      // (승인 시에도 차단되고 알림이 뜬다)
+      final offBlocked = preview.requesterBeforeShiftType == null ||
+          preview.targetBeforeShiftType == null;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _NamedBeforeAfterRow(
+            name: preview.requesterName ?? '신청자',
+            before: preview.requesterBeforeShiftType,
+            after: preview.requesterAfterShiftType,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _NamedBeforeAfterRow(
+            name: preview.targetName ?? '대상자',
+            before: preview.targetBeforeShiftType,
+            after: preview.targetAfterShiftType,
+          ),
+          if (offBlocked) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _OffSwapWarning(),
+          ],
+        ],
       );
     }
 
     return _BeforeAfterRow(
       before: preview.requesterBeforeShiftType,
       after: preview.requesterAfterShiftType,
+    );
+  }
+}
+
+/// 한쪽이 OFF라 교환할 수 없는 swap 경고 배너.
+class _OffSwapWarning extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: cs.errorContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline_rounded, size: 16, color: cs.error),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              '한쪽이 OFF(근무 없음)라 교환할 수 없어요',
+              style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 이름 + 변경 전 → 변경 후 (swap 카드용)
+class _NamedBeforeAfterRow extends StatelessWidget {
+  const _NamedBeforeAfterRow({
+    required this.name,
+    required this.before,
+    required this.after,
+  });
+  final String name;
+  final ShiftTypeModel? before;
+  final ShiftTypeModel? after;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          name,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: cs.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 4),
+        _BeforeAfterRow(before: before, after: after),
+      ],
     );
   }
 }

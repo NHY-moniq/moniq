@@ -7,6 +7,7 @@ import 'package:moniq/data/models/user_model.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/data/repositories/shift_repository.dart';
+import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 
@@ -69,6 +70,14 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
         sw.shift.shiftDate.day,
       );
       mine.putIfAbsent(d, () => []).add(sw);
+    }
+
+    // 개인 캘린더에서 "근무 삭제"로 숨긴 날짜는 근무/OFF 모두 제거 (팀 데이터는 보존).
+    final hidden = ref.read(personalHiddenShiftsDataSourceProvider).getHiddenDates();
+    if (hidden.isNotEmpty) {
+      mine.removeWhere((d, _) => hidden.contains(d));
+      final visibleCoverage = coverage.where((d) => !hidden.contains(d)).toSet();
+      return (mine: mine, coverage: visibleCoverage);
     }
     return (mine: mine, coverage: coverage);
   }

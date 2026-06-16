@@ -856,11 +856,30 @@ class _TeamExcelFlyoutTiles extends ConsumerWidget {
             .valueOrNull
             ?.isAdmin ??
         false;
-    if (!isAdmin) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 모든 멤버: 내 근무를 개인 캘린더로 가져오기 (모바일 share 메뉴와 동일 기능)
+        const _FlyoutSectionLabel(label: '캘린더'),
+        _FlyoutTile(
+          icon: Icons.event_available_outlined,
+          label: '개인 캘린더로 내보내기',
+          iconColor: const Color(0xFF9F7AEA),
+          onTap: () {
+            final state =
+                ref.read(teamCalendarViewModelProvider(teamId)).valueOrNull;
+            if (state == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('근무표를 불러오는 중입니다')),
+              );
+              return;
+            }
+            importTeamShiftsToPersonal(context, ref, state);
+          },
+        ),
+        // 관리자 전용: 엑셀 가져오기/내보내기/샘플
+        if (!isAdmin) const SizedBox.shrink() else ...[
         const _FlyoutSectionLabel(label: '엑셀'),
         _FlyoutTile(
           icon: Icons.download_outlined,
@@ -901,6 +920,7 @@ class _TeamExcelFlyoutTiles extends ConsumerWidget {
             teamId: teamId,
           ),
         ),
+        ],
       ],
     );
   }

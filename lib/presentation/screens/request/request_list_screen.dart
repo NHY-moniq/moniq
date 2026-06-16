@@ -81,9 +81,17 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
     );
     if (!ok) return;
     try {
-      await ref
+      final failure = await ref
           .read(requestListViewModelProvider(widget.teamId).notifier)
           .approveRequests(ids);
+      if (failure != null && mounted) {
+        await showMoniqInfoSheet(
+          context: context,
+          eyebrow: 'APPROVE',
+          title: '근무 변경 실패',
+          message: failure,
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -314,9 +322,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
                   onFilterChanged: (f) => ref
                       .read(requestListViewModelProvider(teamId).notifier)
                       .setFilter(f),
-                  onApprove: (id) => ref
-                      .read(requestListViewModelProvider(teamId).notifier)
-                      .approveRequest(id),
+                  onApprove: (id) => _approveAndNotify([id]),
                   onReject: (id) => ref
                       .read(requestListViewModelProvider(teamId).notifier)
                       .rejectRequest(id),
@@ -345,9 +351,7 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
                       .setFilter(f),
                   onShowDetail: (g) =>
                       _showRequestDetail(context, ref, g, state.isAdmin),
-                  onApprove: (id) => ref
-                      .read(requestListViewModelProvider(teamId).notifier)
-                      .approveRequest(id),
+                  onApprove: (id) => _approveAndNotify([id]),
                   onReject: (id) => ref
                       .read(requestListViewModelProvider(teamId).notifier)
                       .rejectRequest(id),
@@ -361,6 +365,28 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
         },
       ),
     );
+  }
+
+  /// 요청 승인 + 적용 실패 시 바텀시트로 사용자에게 알림.
+  /// (예: swap 대상 중 한쪽이 해당 날짜에 근무가 없어 교환 불가)
+  Future<void> _approveAndNotify(List<String> ids) async {
+    final notifier =
+        ref.read(requestListViewModelProvider(widget.teamId).notifier);
+    String? failure;
+    for (final id in ids) {
+      final result = await notifier.approveRequest(id);
+      if (!result.ok) failure ??= result.message;
+    }
+    // 웹: 승인 후 선택된 상세 패널을 닫는다 (대기중 창이 계속 남는 문제 방지).
+    if (mounted) setState(() => _selectedGroup = null);
+    if (failure != null && mounted) {
+      await showMoniqInfoSheet(
+        context: context,
+        eyebrow: 'APPROVE',
+        title: '근무 변경 실패',
+        message: failure,
+      );
+    }
   }
 
   void _showRequestDetail(
@@ -383,12 +409,9 @@ class _RequestListScreenState extends ConsumerState<RequestListScreen> {
           myUserId: ref.read(currentUserProvider)?.id,
           userNames: userNames,
           onApprove: () async {
-            for (final id in group.ids) {
-              await ref
-                  .read(requestListViewModelProvider(teamId).notifier)
-                  .approveRequest(id);
-            }
-            if (ctx.mounted) Navigator.pop(ctx);
+            // 승인 클릭 즉시 창을 닫는다 (처리 성공/실패와 무관하게).
+            Navigator.pop(ctx);
+            await _approveAndNotify(group.ids);
           },
           onReject: () async {
             for (final id in group.ids) {
