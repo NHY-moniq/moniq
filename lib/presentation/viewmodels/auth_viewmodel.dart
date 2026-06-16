@@ -87,6 +87,14 @@ class AuthViewModel extends AsyncNotifier<User?> {
     });
   }
 
+  Future<void> signInWithApple() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final response = await _repository.signInWithApple();
+      return response.user;
+    });
+  }
+
   Future<void> signOut() async {
     state = const AsyncLoading();
     try {

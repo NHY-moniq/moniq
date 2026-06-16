@@ -501,75 +501,37 @@ Future<void> _exportCalendarWeb(
 }
 
 Future<String?> _showWebExportDialog(BuildContext context) {
-  final theme = Theme.of(context);
-  final cs = theme.colorScheme;
-  return showDialog<String>(
+  // 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+  return showMoniqBottomSheet<String>(
     context: context,
-    builder: (ctx) => Dialog(
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
-      elevation: 8,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.borderRadiusLg,
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'EXPORT',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.primary,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      '내보내기',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              _ExportOptionTile(
-                icon: Icons.content_copy_outlined,
-                title: '클립보드에 복사',
-                subtitle: '캘린더 이미지를 클립보드에 복사',
-                onTap: () => Navigator.pop(ctx, 'clipboard'),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              _ExportOptionTile(
-                icon: Icons.image_outlined,
-                title: '이미지 저장',
-                subtitle: 'PNG 파일로 다운로드',
-                onTap: () => Navigator.pop(ctx, 'image'),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              _ExportOptionTile(
-                icon: Icons.table_chart_outlined,
-                title: '엑셀로 내보내기',
-                subtitle: '엑셀/구글 스프레드시트용 .xlsx 파일',
-                onTap: () => Navigator.pop(ctx, 'excel'),
-              ),
-            ],
+    title: '내보내기',
+    eyebrow: 'EXPORT',
+    child: Builder(
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ExportOptionTile(
+            icon: Icons.content_copy_outlined,
+            title: '클립보드에 복사',
+            subtitle: '캘린더 이미지를 클립보드에 복사',
+            onTap: () => Navigator.pop(ctx, 'clipboard'),
           ),
-        ),
+          const SizedBox(height: AppSpacing.xs),
+          _ExportOptionTile(
+            icon: Icons.image_outlined,
+            title: '이미지 저장',
+            subtitle: 'PNG 파일로 다운로드',
+            onTap: () => Navigator.pop(ctx, 'image'),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          _ExportOptionTile(
+            icon: Icons.table_chart_outlined,
+            title: '엑셀로 내보내기',
+            subtitle: '엑셀/구글 스프레드시트용 .xlsx 파일',
+            onTap: () => Navigator.pop(ctx, 'excel'),
+          ),
+        ],
       ),
     ),
   );

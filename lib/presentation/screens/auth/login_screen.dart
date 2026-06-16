@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,13 @@ import 'package:moniq/core/utils/auth_error_utils.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/auth_viewmodel.dart';
+
+/// Sign in with Apple 버튼 노출 대상: Apple 플랫폼 + 웹.
+/// (Android에서는 네이티브 미구성이며 4.8 요건 대상도 아니므로 숨김)
+bool get _showAppleButton =>
+    kIsWeb ||
+    defaultTargetPlatform == TargetPlatform.iOS ||
+    defaultTargetPlatform == TargetPlatform.macOS;
 
 class LoginScreen extends HookConsumerWidget {
   const LoginScreen({super.key});
@@ -29,6 +37,8 @@ class LoginScreen extends HookConsumerWidget {
           }
         },
         error: (error, _) {
+          // 원인 진단용 — 콘솔에 raw 에러 출력(메시지 매핑 전).
+          debugPrint('[login] raw auth error: $error');
           errorMessage.value = friendlyAuthError(error);
         },
       );
@@ -220,7 +230,7 @@ class LoginScreen extends HookConsumerWidget {
                       ),
                       const SizedBox(height: AppSpacing.md),
 
-                      // 보조 소셜 버튼 (작은 아이콘)
+                      // 보조 소셜 버튼 (작은 아이콘) — Google + Apple 동일 줄
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -233,6 +243,19 @@ class LoginScreen extends HookConsumerWidget {
                             icon: Icons.g_mobiledata,
                             tooltip: 'Google로 로그인',
                           ),
+                          // Apple 로그인 — Apple 플랫폼/웹에서만 노출 (Guideline 4.8)
+                          if (_showAppleButton) ...[
+                            const SizedBox(width: AppSpacing.lg),
+                            _SmallSocialButton(
+                              onPressed: () => handleSocialLogin(
+                                ref
+                                    .read(authViewModelProvider.notifier)
+                                    .signInWithApple,
+                              ),
+                              icon: Icons.apple,
+                              tooltip: 'Apple로 로그인',
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: AppSpacing.xxxl),

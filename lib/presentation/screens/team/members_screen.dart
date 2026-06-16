@@ -346,7 +346,7 @@ class _MobileLayout extends StatelessWidget {
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                   itemCount: sorted.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, __) => const SizedBox.shrink(),
                   itemBuilder: (_, i) {
                     final m = sorted[i];
                     return MemberTile(
@@ -431,7 +431,7 @@ class _WebLayout extends StatelessWidget {
                           vertical: AppSpacing.sm,
                         ),
                         itemCount: sorted.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        separatorBuilder: (_, __) => const SizedBox.shrink(),
                         itemBuilder: (_, i) {
                           final m = sorted[i];
                           final isSelected = selectedMember?.userId == m.userId;

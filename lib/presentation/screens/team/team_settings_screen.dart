@@ -495,6 +495,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
   Future<void> _showUnsavedDialog() async {
     final leave = await showMoniqConfirmSheet(
       context: context,
+      eyebrow: 'UNSAVED',
       title: '저장하지 않고 나갈까요?',
       message: '변경사항이 저장되지 않아요.',
       confirmLabel: '나가기',

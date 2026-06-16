@@ -8,6 +8,7 @@ import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/tutorial_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
 /// 프로필 미리보기: 이모지 탭하면 입력, 카메라 버튼으로 이미지 선택
 class TeamCreateProfilePreview extends StatelessWidget {
@@ -116,46 +117,43 @@ class TeamCreateProfilePreview extends StatelessWidget {
   void _showEmojiInput(BuildContext context) {
     final controller = TextEditingController(text: emoji);
 
-    showDialog(
+    void submit(BuildContext ctx) {
+      final trimmed = controller.text.trim();
+      if (trimmed.isNotEmpty) {
+        // 첫 번째 이모지/문자만 사용
+        onEmojiChanged(trimmed.characters.first);
+      }
+      Navigator.pop(ctx);
+    }
+
+    // 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+    showMoniqBottomSheet<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('이모지 입력'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 32),
-          decoration: const InputDecoration(
-            hintText: '이모지를 입력하세요',
-            border: OutlineInputBorder(),
-          ),
-          onSubmitted: (value) {
-            final trimmed = value.trim();
-            if (trimmed.isNotEmpty) {
-              // 첫 번째 이모지/문자만 사용
-              final chars = trimmed.characters;
-              onEmojiChanged(chars.first);
-            }
-            Navigator.pop(ctx);
-          },
+      eyebrow: 'EMOJI',
+      title: '이모지 입력',
+      child: Builder(
+        builder: (ctx) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: controller,
+              autofocus: true,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 32),
+              decoration: const InputDecoration(
+                hintText: '이모지를 입력하세요',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => submit(ctx),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            FilledButton(
+              onPressed: () => submit(ctx),
+              child: const Text('확인'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () {
-              final trimmed = controller.text.trim();
-              if (trimmed.isNotEmpty) {
-                final chars = trimmed.characters;
-                onEmojiChanged(chars.first);
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('확인'),
-          ),
-        ],
       ),
     );
   }

@@ -253,6 +253,7 @@ class _RuleGuideBannerState extends State<_RuleGuideBanner> {
 Future<bool> confirmDeleteRule(BuildContext context) async {
   return showMoniqConfirmSheet(
     context: context,
+    eyebrow: 'DELETE',
     title: '규칙 삭제',
     message: '이 규칙을 삭제하시겠습니까?',
     confirmLabel: '삭제',
@@ -384,18 +385,20 @@ class CustomRuleTypeBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = _label(ruleType);
+    // 테마(colorScheme) 기반으로 다크모드에서도 어울리게 한다.
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.outlineVariant),
+        border: Border.all(color: cs.outlineVariant),
       ),
       child: Text(
         label,
         style: Theme.of(
           context,
-        ).textTheme.labelSmall?.copyWith(color: AppColors.onSurfaceVariant),
+        ).textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
       ),
     );
   }

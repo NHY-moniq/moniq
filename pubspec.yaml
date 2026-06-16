@@ -30,6 +30,8 @@ dependencies:
 
   # Social auth
   google_sign_in: ^6.2.2
+  sign_in_with_apple: ^6.1.0
+  crypto: ^3.0.0
 
   # Calendar
   table_calendar: ^3.1.2

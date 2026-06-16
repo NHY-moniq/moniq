@@ -153,6 +153,7 @@ class ShiftTypeCard extends ConsumerWidget {
     if (_isProtectedDefaultShiftType(shiftType)) {
       await showMoniqInfoSheet(
         context: context,
+        eyebrow: 'NOTICE',
         title: '삭제 불가',
         message: '데이/이브닝/나이트/교육 기본 근무 유형은 삭제할 수 없습니다.',
       );
@@ -161,6 +162,7 @@ class ShiftTypeCard extends ConsumerWidget {
 
     final confirmed = await showMoniqConfirmSheet(
       context: context,
+      eyebrow: 'DELETE',
       title: '근무 유형 삭제',
       message: '"${shiftType.name}" 근무 유형을 삭제하시겠습니까?\n배정된 근무가 있으면 삭제할 수 없습니다.',
       confirmLabel: '삭제',
