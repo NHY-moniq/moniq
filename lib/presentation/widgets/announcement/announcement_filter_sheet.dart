@@ -54,18 +54,22 @@ class _AnnouncementFilterSheetBody<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final option in options)
-          _FilterOptionRow<T>(
-            option: option,
-            selected: option.value == selectedValue,
-            accent: cs.primary,
-            onTap: () => Navigator.pop(context, option),
-          ),
-      ],
+    // 옵션이 많으면 시트 최대 높이를 넘으므로 내부에서 스크롤되게 한다.
+    // (Flexible 로 높이가 제한된 셸 안에서 고정 Column 은 overflow 발생)
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final option in options)
+            _FilterOptionRow<T>(
+              option: option,
+              selected: option.value == selectedValue,
+              accent: cs.primary,
+              onTap: () => Navigator.pop(context, option),
+            ),
+        ],
+      ),
     );
   }
 }

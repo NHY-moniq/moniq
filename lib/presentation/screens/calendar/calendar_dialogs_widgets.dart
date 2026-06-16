@@ -229,21 +229,23 @@ class _RecurrenceField extends StatelessWidget {
       context: context,
       title: '일정 반복',
       eyebrow: 'RECURRENCE',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final opt in options) ...[
-            _RecurrenceOptionTile(
-              icon: _iconFor(opt.$1),
-              label: opt.$2,
-              selected: opt.$1 == value,
-              onTap: () =>
-                  Navigator.of(context, rootNavigator: true).pop(opt.$1),
-            ),
-            const SizedBox(height: 6),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final opt in options) ...[
+              _RecurrenceOptionTile(
+                icon: _iconFor(opt.$1),
+                label: opt.$2,
+                selected: opt.$1 == value,
+                onTap: () =>
+                    Navigator.of(context, rootNavigator: true).pop(opt.$1),
+              ),
+              const SizedBox(height: 6),
+            ],
           ],
-        ],
+        ),
       ),
     );
     if (selected != null && selected != value) onChanged(selected);
@@ -376,9 +378,9 @@ class _RecurrenceOptionTile extends StatelessWidget {
   }
 }
 
-/// 개인 캘린더 — 연/월 선택 후 해당 월의 개인 일정(personal_events) +
-/// 메모(personal_notes)를 일괄 삭제하는 바텀시트. team의 showDeleteScheduleSheet
-/// 와 시각/플로우를 일치.
+/// 개인 캘린더 — 연/월 선택 후 해당 월의 **근무 일정(팀에서 가져온 근무)** 만
+/// 일괄 삭제하는 바텀시트. 직접 추가한 개인 일정/메모는 보존된다.
+/// 제목 있는 공용 바텀시트(showMoniqBottomSheet)로 통일한다.
 void showDeletePersonalScheduleSheet({
   required BuildContext context,
   required WidgetRef ref,
@@ -386,107 +388,20 @@ void showDeletePersonalScheduleSheet({
   final now = DateTime.now();
   DateTime selectedDate = DateTime(now.year, now.month);
 
-  showModalBottomSheet<void>(
+  showMoniqBottomSheet<void>(
     context: context,
-    useRootNavigator: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-    ),
-    builder: (ctx) => SizedBox(
-      height: 350,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('취소'),
-                ),
-                Text(
-                  '삭제할 연월 선택',
-                  style: Theme.of(
-                    ctx,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    final year = selectedDate.year;
-                    final month = selectedDate.month;
-
-                    final confirm = await showMoniqDestructiveConfirm(
-                      context: context,
-                      title: '정말 삭제하시겠습니까?',
-                      message: '$year년 $month월의 내 개인 일정과 메모가\n삭제되며 복구할 수 없습니다.',
-                    );
-                    if (!confirm) return;
-
-                    try {
-                      final eventDs = ref.read(personalEventDataSourceProvider);
-                      final noteLocal = ref.read(
-                        personalNoteDataSourceProvider,
-                      );
-                      final removedEvents = await eventDs.deleteEventsByMonth(
-                        year: year,
-                        month: month,
-                      );
-                      final removedNotes = await noteLocal.deleteNotesByMonth(
-                        year: year,
-                        month: month,
-                      );
-
-                      // 캐시 무효화 — 이벤트/메모/날짜 단위 모두
-                      ref.read(eventRefreshProvider.notifier).state++;
-                      ref.invalidate(monthlyEventsProvider);
-                      ref.invalidate(monthlyNotesProvider);
-                      ref.invalidate(dateEventsProvider);
-                      ref.invalidate(dateNotesProvider);
-                      // 개인 캘린더 화면(homeViewModel) 자체도 강제 리프레시
-                      try {
-                        await ref
-                            .read(homeViewModelProvider.notifier)
-                            .refresh();
-                      } catch (_) {}
-
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              '$year년 $month월 일정 $removedEvents건, '
-                              '메모 $removedNotes건이 삭제되었습니다',
-                            ),
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text('삭제 실패: $e')));
-                      }
-                    }
-                  },
-                  child: Text(
-                    '삭제',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: StatefulBuilder(
-              builder: (ctx, setSheetState) => CupertinoDatePicker(
+    title: '근무 삭제',
+    eyebrow: 'DELETE',
+    child: StatefulBuilder(
+      builder: (ctx, setSheetState) {
+        final cs = Theme.of(ctx).colorScheme;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 180,
+              child: CupertinoDatePicker(
                 mode: CupertinoDatePickerMode.monthYear,
                 initialDateTime: selectedDate,
                 onDateTimeChanged: (d) {
@@ -496,9 +411,68 @@ void showDeletePersonalScheduleSheet({
                 },
               ),
             ),
-          ),
-        ],
-      ),
+            const SizedBox(height: AppSpacing.lg),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: cs.error,
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.borderRadiusFull,
+                ),
+              ),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final year = selectedDate.year;
+                final month = selectedDate.month;
+
+                final confirm = await showMoniqDestructiveConfirm(
+                  context: context,
+                  title: '근무 일정을 삭제할까요?',
+                  message: '$year년 $month월의 근무 일정이 개인 캘린더에서 제거됩니다.\n'
+                      '팀 근무표 원본과 직접 추가한 개인 일정/메모는 유지됩니다.',
+                );
+                if (!confirm) return;
+
+                try {
+                  // 팀 데이터는 보존하고 개인 캘린더에서만 그 달 근무/OFF를 숨긴다.
+                  await ref
+                      .read(personalHiddenShiftsDataSourceProvider)
+                      .hideMonth(year, month);
+
+                  // 캐시 무효화 — 홈 캘린더가 숨김을 반영하도록
+                  ref.read(eventRefreshProvider.notifier).state++;
+                  ref.invalidate(monthlyEventsProvider);
+                  ref.invalidate(dateEventsProvider);
+                  ref.invalidate(homeViewModelProvider);
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '$year년 $month월 근무를 개인 캘린더에서 제거했습니다',
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('삭제 실패: $e')));
+                  }
+                }
+              },
+              child: Text(
+                '근무 삭제',
+                style: TextStyle(
+                  color: cs.onError,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     ),
   );
 }

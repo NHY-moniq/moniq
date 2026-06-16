@@ -6,7 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/data/datasources/personal_event_remote_data_source.dart'
+    show kPersonalTeamImportMarker;
 import 'package:moniq/data/providers/team_providers.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 
@@ -111,9 +114,20 @@ Future<Uint8List> _renderCalendarBytes(
 
     final isToday = date == todayKey;
     final shifts = state.monthlyShifts[date];
-    final events = eventDs.getEvents(date);
-    final hasContent =
-        (shifts != null && shifts.isNotEmpty) || events.isNotEmpty;
+    final allEvents = eventDs.getEvents(date);
+    // 팀에서 가져온 근무(import)는 근무 박스로, 직접 만든 개인 일정은 텍스트로 분리.
+    final importEvents = allEvents
+        .where((e) => e.description?.startsWith(kPersonalTeamImportMarker) == true)
+        .toList();
+    final personalEvents = allEvents
+        .where((e) => e.description?.startsWith(kPersonalTeamImportMarker) != true)
+        .toList();
+    final hasShift = shifts != null && shifts.isNotEmpty;
+    // 서버 근무가 있으면 import 근무는 중복이므로 무시(이중 출력 방지).
+    final hasWork = hasShift || importEvents.isNotEmpty;
+    // 근무가 전혀 없고 발행된 스케줄 기간(coverage)에 속한 날 → OFF.
+    final showOff = !hasWork && state.teamScheduledDates.contains(date);
+    final hasContent = hasWork || personalEvents.isNotEmpty || showOff;
 
     // 날짜 숫자 색상
     Color dayColor;
@@ -156,8 +170,8 @@ Future<Uint8List> _renderCalendarBytes(
     double tagY = dayTextY + 30;
     int tagCount = 0;
 
-    // 근무 일정 태그
-    if (shifts != null && shifts.isNotEmpty) {
+    // 1) 근무 일정 태그 (컬러 박스 채움)
+    if (hasShift) {
       for (final s in shifts) {
         if (tagCount >= 4) break;
         final shiftColor = parseHexColor(s.shiftType.color);
@@ -167,11 +181,30 @@ Future<Uint8List> _renderCalendarBytes(
         tagY += tagStep;
         tagCount++;
       }
+    } else if (importEvents.isNotEmpty) {
+      // 서버 근무가 없을 때(예: 비즐겨찾기 팀 import)만 import 근무를 박스로 표시.
+      for (final e in importEvents) {
+        if (tagCount >= 4) break;
+        final c =
+            e.color != null ? parseHexColor(e.color!) : AppColors.shiftOff;
+        drawPreviewTag(canvas, x, tagY, cellW, e.title, c,
+            isWork: true, fontSize: tagFontSize, tagHeight: tagHeight);
+        tagY += tagStep;
+        tagCount++;
+      }
     }
 
-    // 개인 일정 태그
-    if (events.isNotEmpty) {
-      for (final e in events) {
+    // 2) OFF 태그 (근무 없는 스케줄 기간 날 — 박스 채움)
+    if (showOff && tagCount < 4) {
+      drawPreviewTag(canvas, x, tagY, cellW, 'OFF', AppColors.shiftOff,
+          isWork: true, fontSize: tagFontSize, tagHeight: tagHeight);
+      tagY += tagStep;
+      tagCount++;
+    }
+
+    // 3) 개인 일정 태그 (박스 없이 텍스트만)
+    if (personalEvents.isNotEmpty) {
+      for (final e in personalEvents) {
         if (tagCount >= 4) break;
         final eventColor = e.color != null
             ? parseHexColor(e.color!)

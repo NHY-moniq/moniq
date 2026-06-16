@@ -289,6 +289,33 @@ class PersonalEventLocalDataSource {
     return removed;
   }
 
+  /// 특정 연/월의 **근무(team-import) 일정만** 일괄 삭제.
+  /// 사용자가 직접 추가한 개인 일정/메모는 보존된다.
+  /// 반환값: 삭제된 근무 일정 개수.
+  Future<int> deleteTeamImportsByMonth({
+    required int year,
+    required int month,
+  }) async {
+    int removed = 0;
+    try {
+      final all = await _remote.fetchAll();
+      final targets = all.where((e) =>
+          e.id != null &&
+          e.date.year == year &&
+          e.date.month == month &&
+          (e.description?.startsWith(kPersonalTeamImportMarker) ?? false));
+      for (final e in targets) {
+        try {
+          await _remote.delete(e.id!);
+          removed++;
+        } catch (_) {}
+      }
+    } catch (_) {}
+    // 로컬 캐시를 서버 상태로 재구축
+    await pullFromRemote();
+    return removed;
+  }
+
   /// 특정 날짜 이후의 동일 반복 일정 전체 삭제
   Future<void> removeRecurringEventsFrom({
     required DateTime date,

@@ -3,6 +3,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/core/utils/time_utils.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
+import 'package:moniq/data/datasources/personal_event_remote_data_source.dart'
+    show kPersonalTeamImportMarker;
 import 'package:moniq/data/datasources/personal_note_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_shift_override_remote_data_source.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
@@ -70,16 +72,29 @@ class DateItemsPanel extends ConsumerWidget {
     final dateKey = DateTime(date.year, date.month, date.day);
     final isExpanded = ref.watch(dateExpandedProvider);
 
-    // 개인 일정 중 shift type과 이름 매칭되는 건 근무로 분류
+    // 근무로 분류: (1) 팀에서 가져온(team-import) 일정 — OFF 포함, 또는
+    //            (2) 개인 근무 유형 이름과 매칭되는 일정.
     final shiftTypeNames = ref
         .watch(personalShiftTypesProvider)
         .map((st) => st.name)
         .toSet();
+    bool isImportWork(PersonalEvent e) =>
+        e.description?.startsWith(kPersonalTeamImportMarker) ?? false;
+    // 가져온 OFF 항목 — OFF는 팀 근무 경로에서 처리하므로 목록에서 제외(중복 방지).
+    bool isImportOff(PersonalEvent e) =>
+        isImportWork(e) && (e.description?.endsWith(':off') ?? false);
+    bool isWorkEvent(PersonalEvent e) =>
+        isImportWork(e) || shiftTypeNames.contains(e.title);
+    // 팀(서버) 근무가 있는 날은 가져온(import) 근무가 중복이므로 제외 (팀 근무 우선).
+    final hasServerShift = visibleShifts.isNotEmpty;
     final shiftEvents = events
-        .where((e) => shiftTypeNames.contains(e.title))
+        .where((e) =>
+            isWorkEvent(e) &&
+            !isImportOff(e) &&
+            !(hasServerShift && isImportWork(e)))
         .toList();
     final normalEvents = events
-        .where((e) => !shiftTypeNames.contains(e.title))
+        .where((e) => !isWorkEvent(e) && !isImportOff(e))
         .toList();
 
     return Padding(
@@ -303,27 +318,37 @@ class DateItemsPanel extends ConsumerWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.push_pin_rounded,
-                        size: 14,
-                        color: theme.colorScheme.secondary.withValues(
-                          alpha: 0.6,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
                       Expanded(
-                        child: Text(
-                          note.content,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.8,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 핀: 카드 좌상단
+                            Icon(
+                              Icons.push_pin_rounded,
+                              size: 14,
+                              color: theme.colorScheme.secondary.withValues(
+                                alpha: 0.6,
+                              ),
                             ),
-                            height: 1.4,
-                          ),
-                          maxLines: isNoteExpanded ? null : 1,
-                          overflow: isNoteExpanded
-                              ? null
-                              : TextOverflow.ellipsis,
+                            const SizedBox(height: 6),
+                            // 메모 텍스트: 핀 아래, 좌측 정렬
+                            Padding(
+                              padding: const EdgeInsets.only(left: AppSpacing.sm),
+                              child: Text(
+                                note.content,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.8,
+                                  ),
+                                  height: 1.4,
+                                ),
+                                maxLines: isNoteExpanded ? null : 2,
+                                overflow: isNoteExpanded
+                                    ? null
+                                    : TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       _CardActionButton(
