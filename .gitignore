@@ -64,6 +64,5 @@ supabase/.temp/
 /icons.png
 
 # Environment / secrets
-.env
 .env.local
 .env.*.local
