@@ -26,6 +26,7 @@ class DateItemsPanel extends ConsumerWidget {
     required this.events,
     required this.notes,
     this.hasTeamSchedule = false,
+    this.monthHasImportWork = false,
   });
 
   final DateTime date;
@@ -35,6 +36,10 @@ class DateItemsPanel extends ConsumerWidget {
 
   /// 이번 달에 팀 근무 스케줄이 존재하는지 (true면 근무 없는 날 = 오프)
   final bool hasTeamSchedule;
+
+  /// 이번 달에 가져온(import) 근무가 있는지 — "팀 근무 숨기기" 토글이 켜져
+  /// 있어도 import 근무는 표시되므로, 그 경우에도 빈 날을 오프로 표시한다.
+  final bool monthHasImportWork;
 
   /// 개인 일정 정렬: 종일(startTime null) 우선, 그다음 시간순.
   List<PersonalEvent> get _sortedEvents {
@@ -58,9 +63,17 @@ class DateItemsPanel extends ConsumerWidget {
     // 경우 사용자가 한 번에 가릴 수 있도록 함.
     final hideTeamShifts = ref.watch(hideTeamShiftsInPersonalProvider);
     final visibleShifts = hideTeamShifts ? const <ShiftWithType>[] : shifts;
-    // 팀 스케줄이 있는데 이 날 근무가 없으면 오프로 간주 (숨김 모드면 무시)
-    final isTeamOff =
-        !hideTeamShifts && hasTeamSchedule && visibleShifts.isEmpty;
+    // 이 날 가져온(import) 근무가 있으면 오프가 아니다. (OFF 마커는 제외)
+    final hasImportWorkToday = events.any((e) =>
+        (e.description?.startsWith(kPersonalTeamImportMarker) ?? false) &&
+        !(e.description?.endsWith(':off') ?? false));
+    // 팀 스케줄이 있고 이 날 근무가 없으면 오프로 간주.
+    // 캘린더 셀과 동일하게: import 근무가 있는 달이면 "팀 근무 숨기기" 토글과
+    // 무관하게 오프를 표시한다. (그렇지 않으면 토글 OFF일 때만)
+    final isTeamOff = hasTeamSchedule &&
+        visibleShifts.isEmpty &&
+        !hasImportWorkToday &&
+        (monthHasImportWork || !hideTeamShifts);
     final hasItems =
         visibleShifts.isNotEmpty ||
         isTeamOff ||
