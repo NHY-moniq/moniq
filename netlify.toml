@@ -10,6 +10,7 @@
     export PATH="$PATH:$(pwd)/flutter-sdk/bin" && \
     flutter config --enable-web && \
     flutter pub get && \
+    dart run build_runner build --delete-conflicting-outputs && \
     flutter build web --release
   """
 
