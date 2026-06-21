@@ -6,6 +6,7 @@ import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/screens/team/shift_type_manage_widgets.dart';
 import 'package:moniq/presentation/screens/team/shift_types_list_widgets.dart';
 import 'package:moniq/presentation/screens/team/team_settings_widgets.dart';
+import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
@@ -76,6 +77,12 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
   late bool _noEveningThenDay;
   late bool _nodDisabled; // N→O→D 패턴 금지
 
+  // 나이트 전담 전용 규칙
+  late int _ndMonthlyMax; // 월 최대 야간
+  late int _ndMaxConsecutive; // 최대 연속 야간
+  late int _ndMinOffAfter; // 야간 후 최소 휴무
+  late int _ndWeeklyMax; // 주 최대 야간
+
   bool _isDirty = false;
   bool _saving = false;
 
@@ -122,6 +129,24 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
     _nodDisabled =
         ((ruleMap['nod_disabled'] ?? {})['enabled'] as bool?) ?? true;
 
+    // 나이트 전담 전용 규칙 로드
+    _ndMonthlyMax =
+        ((ruleMap['max_night_dedicated_shifts'] ?? {})['count'] as num?)
+            ?.toInt() ??
+        14;
+    _ndMaxConsecutive =
+        ((ruleMap['night_dedicated_max_consecutive'] ?? {})['count'] as num?)
+            ?.toInt() ??
+        3;
+    _ndMinOffAfter =
+        ((ruleMap['night_dedicated_min_off_after'] ?? {})['count'] as num?)
+            ?.toInt() ??
+        2;
+    _ndWeeklyMax =
+        ((ruleMap['night_dedicated_weekly_max'] ?? {})['count'] as num?)
+            ?.toInt() ??
+        5;
+
     _wantedP1Limit =
         ((ruleMap['wanted_p1_limit'] ?? {})['count'] as num?)?.toInt() ?? 0;
     _wantedP2Limit =
@@ -160,6 +185,18 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
       'enabled': _noEveningThenDay,
     });
     await notifier.upsertRule('nod_disabled', {'enabled': _nodDisabled});
+    await notifier.upsertRule('max_night_dedicated_shifts', {
+      'count': _ndMonthlyMax,
+    });
+    await notifier.upsertRule('night_dedicated_max_consecutive', {
+      'count': _ndMaxConsecutive,
+    });
+    await notifier.upsertRule('night_dedicated_min_off_after', {
+      'count': _ndMinOffAfter,
+    });
+    await notifier.upsertRule('night_dedicated_weekly_max', {
+      'count': _ndWeeklyMax,
+    });
     await notifier.upsertRule('wanted_p1_limit', {'count': _wantedP1Limit});
     await notifier.upsertRule('wanted_p2_limit', {'count': _wantedP2Limit});
 
@@ -193,6 +230,7 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final readOnly = !widget.isAdmin;
     // 인력 설정에는 D/E/N 유형만 표시.
     // 교육 등 기타 유형은 근무 유형 설정에서 관리하며 스케줄링에서 별도 처리됨.
@@ -410,6 +448,75 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
                     readOnly: readOnly,
                     onChanged: (v) {
                       setState(() => _nodDisabled = v);
+                      _markDirty();
+                    },
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: AppSpacing.lg),
+
+              // 나이트 전담 전용 규칙
+              NightRuleCard(
+                children: [
+                  NumberRuleRow(
+                    label: '월 최대 야간(N) 수',
+                    value: _ndMonthlyMax,
+                    suffix: '회',
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _ndMonthlyMax = v);
+                      _markDirty();
+                    },
+                  ),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: AppColors.tertiary.withValues(
+                      alpha: isDark ? 0.18 : 0.12,
+                    ),
+                  ),
+                  NumberRuleRow(
+                    label: '최대 연속 야간(N) 수',
+                    value: _ndMaxConsecutive,
+                    suffix: '일',
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _ndMaxConsecutive = v);
+                      _markDirty();
+                    },
+                  ),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: AppColors.tertiary.withValues(
+                      alpha: isDark ? 0.18 : 0.12,
+                    ),
+                  ),
+                  NumberRuleRow(
+                    label: '야간 후 최소 휴무 일수',
+                    value: _ndMinOffAfter,
+                    suffix: '일',
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _ndMinOffAfter = v);
+                      _markDirty();
+                    },
+                  ),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: AppColors.tertiary.withValues(
+                      alpha: isDark ? 0.18 : 0.12,
+                    ),
+                  ),
+                  NumberRuleRow(
+                    label: '주 최대 야간(N) 수',
+                    value: _ndWeeklyMax,
+                    suffix: '회',
+                    readOnly: readOnly,
+                    onChanged: (v) {
+                      setState(() => _ndWeeklyMax = v);
                       _markDirty();
                     },
                   ),

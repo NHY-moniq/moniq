@@ -32,7 +32,13 @@ class ScheduleRulesScreen extends HookConsumerWidget {
     final detailAsync = ref.watch(teamDetailViewModelProvider(teamId));
 
     return Scaffold(
-      appBar: const MoniqAppBar(title: '생성 규칙 설정'),
+      appBar: MoniqAppBar(
+        title: '생성 규칙 설정',
+        trailing: MoniqAppBarAction(
+          icon: Icons.history_rounded,
+          onTap: () => context.push('/teams/$teamId/schedule/history'),
+        ),
+      ),
       body: detailAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
