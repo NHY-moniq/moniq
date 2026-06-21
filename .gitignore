@@ -66,3 +66,6 @@ supabase/.temp/
 # Environment / secrets
 .env.local
 .env.*.local
+
+# Netlify Flutter 웹 빌드 시 클론되는 SDK (커밋 금지)
+flutter-sdk/
