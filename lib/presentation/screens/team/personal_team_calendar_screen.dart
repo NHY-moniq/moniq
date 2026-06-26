@@ -270,33 +270,41 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              infoItem(
-                icon: Icons.event_busy_outlined,
-                title: '기본 기준',
-                body: [bold('오프'), normal('가 겹치는 날을 계산합니다.')],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              infoItem(
-                icon: Icons.add_rounded,
-                title: '데이 포함',
-                body: [
-                  normal('옵션을 켜면 '),
-                  bold('오프 + 데이'),
-                  normal('가 겹치는 날까지 함께 봅니다.'),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              infoItem(
-                icon: Icons.groups_2_outlined,
-                title: '표시 방식',
-                body: [
-                  normal('선택한 인원의 '),
-                  bold('과반수'),
-                  normal('가 겹치는 날이 있으면 그 날들을 먼저 보여줍니다.\n'),
-                  normal('과반수 겹침이 없으면 '),
-                  bold('겹침이 있는 날 전체'),
-                  normal('를 보여줍니다.'),
-                ],
+              // 내용이 시트 최대 높이를 넘으면 카드 영역만 스크롤되고
+              // 확인 버튼은 항상 하단에 고정되어 잘리지 않는다.
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      infoItem(
+                        icon: Icons.event_busy_outlined,
+                        title: '겹침 기준',
+                        body: [
+                          bold('오프'),
+                          normal('가 겹치는 날을 봅니다. '),
+                          bold('데이 포함'),
+                          normal('을 켜면 '),
+                          bold('데이'),
+                          normal('까지 함께 계산해요.'),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      infoItem(
+                        icon: Icons.groups_2_outlined,
+                        title: '표시 방식',
+                        body: [
+                          normal('인원의 '),
+                          bold('과반수'),
+                          normal('가 겹치는 날을 먼저, 없으면 '),
+                          bold('겹친 날 전체'),
+                          normal('를 보여줍니다.'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: AppSpacing.xl),
               FilledButton(
