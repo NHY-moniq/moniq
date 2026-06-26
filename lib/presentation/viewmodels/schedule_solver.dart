@@ -327,6 +327,14 @@ _GenerationResult _generateShifts({
   // 나이트 전담 월간 목표 나이트 수 (기본 14)
   final nightDedicatedMonthlyTarget =
       (ruleMap['max_night_dedicated_shifts']?['count'] as num?)?.toInt() ?? 14;
+  // 나이트 전담 전용 휴식 규칙 (팀 설정에서 조정 가능)
+  final nightDedicatedMaxConsecutive =
+      (ruleMap['night_dedicated_max_consecutive']?['count'] as num?)?.toInt() ??
+      3;
+  final nightDedicatedMinOffAfter =
+      (ruleMap['night_dedicated_min_off_after']?['count'] as num?)?.toInt() ?? 2;
+  final nightDedicatedWeeklyMax =
+      (ruleMap['night_dedicated_weekly_max']?['count'] as num?)?.toInt() ?? 5;
 
   // 소프트 기피 패턴 (기본 false — 팀 설정에서 켜야 활성화)
   // avoidNood=true(하드 시): NOOD 차단 시 실제 스케줄 재현이 어려울 수 있음
@@ -847,28 +855,36 @@ _GenerationResult _generateShifts({
                   : maxConsecutiveNights))
         return false;
 
-      // ── 나이트 전담 전용 하드 규칙 ──
-      // 0) 최대 연속 3나이트
+      // ── 나이트 전담 전용 하드 규칙 (팀 설정값 적용) ──
+      // 0) 최대 연속 야간
       if (m.member.nightDedicated &&
           isNight &&
           isYesterday &&
           prevCode0 == 'N' &&
-          (consecutiveNight[uid] ?? 0) >= 3)
+          (consecutiveNight[uid] ?? 0) >= nightDedicatedMaxConsecutive)
         return false;
-      // 1) 나이트 블록 후 최소 2오프: 어제=오프, 2일전=N이면 오늘도 오프 필요
-      if (m.member.nightDedicated &&
-          isNight &&
-          prevCode0 == null &&
-          prevCode1 == 'N')
-        return false;
-      // 2) 주간 최대 5나이트 (7일 롤링 윈도우)
+      // 1) 나이트 블록 후 최소 N오프: 어제부터 연속 오프 일수가 설정값 미만이고
+      //    그 오프 직전이 나이트였으면 오늘도 오프(=N 배정 불가).
+      if (m.member.nightDedicated && isNight && prevCode0 == null) {
+        var offRun = 0;
+        for (var i = 0; i < 3; i++) {
+          if (prevCodes[uid]![i] == null) {
+            offRun++;
+          } else {
+            break;
+          }
+        }
+        final beforeOff = offRun < 3 ? prevCodes[uid]![offRun] : null;
+        if (beforeOff == 'N' && offRun < nightDedicatedMinOffAfter) return false;
+      }
+      // 2) 주간 최대 야간 (7일 롤링 윈도우)
       if (m.member.nightDedicated && isNight) {
         final recentDates7 = recentWorkDates[uid]!;
         final sevenDaysAgoNd = date.subtract(const Duration(days: 7));
         final recentNights = recentDates7
             .where((dt) => dt.isAfter(sevenDaysAgoNd))
             .length;
-        if (recentNights >= 5) return false;
+        if (recentNights >= nightDedicatedWeeklyMax) return false;
       }
 
       // 주간 최소 오프: 달력 주(주 시작요일 기준) 근무일이
@@ -971,12 +987,10 @@ _GenerationResult _generateShifts({
       final minStaff = max(1, minStaffing[shiftType.id] ?? 1);
 
       // ── eligible 필터링 (하드 제약) ──
+      // 배정 가능한 멤버가 없으면 그 칸은 비운 채로 둔다(아래 미충족 카운트로 노출).
+      // 피로도(연속근무·연속야간·주간오프)를 깨서까지 채우지는 않는다 —
+      // "피로도 위반보다 미충원이 낫다"는 방침.
       final eligible = members.where((m) => eligibleFor(m, shiftType)).toList();
-
-      if (eligible.isEmpty) {
-        warnings.add('$dateStr ${shiftType.name}: 배정 가능한 멤버가 없습니다');
-        continue;
-      }
 
       // ── 소프트 스코어링 ──
       int score(TeamMemberWithUser m) {
@@ -1487,32 +1501,11 @@ _GenerationResult _generateShifts({
         // prevCodes는 날짜 루프 끝에서 한 번만 슬라이딩 (shiftType별 X)
       }
 
-      // ── 미충족 보정 ──
-      // 최소 인원이 비면(특히 이전 달 시드로 첫날 전원이 연속근무 상한에 걸리거나,
-      // 월말 경계에서 주간 오프에 묶이는 경우) 주간 오프·연속 한도를 1단계만 완화해
-      // 다른 멤버로 채운다. (멤버 속성·N→D·원티드 오프·커스텀 하드 등 진짜 하드 제약 유지)
-      if (assigned < minStaff) {
-        final relaxed =
-            members
-                .where(
-                  (m) => eligibleFor(
-                    m,
-                    shiftType,
-                    relaxWeeklyOff: true,
-                    relaxConsecutive: true,
-                  ),
-                )
-                .toList()
-              ..sort((a, b) => score(b).compareTo(score(a)));
-        for (final m in relaxed) {
-          if (assigned >= minStaff) break;
-          final uid = m.userId;
-          if (antiPairConflict(uid)) continue;
-          assignMember(uid);
-          assigned++;
-        }
-      }
-
+      // ── 미충족 노출 ──
+      // 최소 인원을 못 채워도 피로도(연속근무·연속야간·주간오프)를 완화하지 않는다.
+      // 비는 칸은 그대로 두고 경고/미충원 일자로 노출만 한다.
+      // (이전 달 시드로 첫날들이 연속근무·주간오프에 묶여 비는 건 의도된 동작 —
+      //  피로도 위반보다 미충원이 낫다는 방침.)
       if (assigned < minStaff) {
         warnings.add(
           '$dateStr ${shiftType.name}: 최소 인원($minStaff명) 미충족 — $assigned명 배정',

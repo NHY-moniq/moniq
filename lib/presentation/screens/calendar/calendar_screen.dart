@@ -150,6 +150,12 @@ class CalendarScreen extends HookConsumerWidget {
         final dateEvents =
             ref.watch(dateEventsProvider(state.selectedDate));
 
+        // 이 달에 가져온(import) 근무가 있는지 — "팀 근무 숨기기" 토글과 무관하게
+        // import 근무는 표시되므로, OFF도 토글과 무관하게 채우기 위해 따로 본다.
+        final monthHasImportWork = monthlyEvents.values.any((evts) => evts.any(
+            (e) =>
+                e.description?.startsWith(kPersonalTeamImportMarker) == true));
+
         return Scaffold(
           backgroundColor:
               Theme.of(context).colorScheme.surfaceContainerLow,
@@ -442,12 +448,9 @@ class CalendarScreen extends HookConsumerWidget {
                     //    한 건이라도 있을 때만 — 이 날에 work 라벨이 없으면 OFF 추가.
                     //    (서버/일정 처리 후 평가해야 team-import 근무가 있는 날에
                     //     OFF가 잘못 추가되지 않는다.)
-                    final monthHasAnyTeamSource = !hideTeamShiftsPv &&
-                        (state.monthlyShifts.isNotEmpty ||
-                            monthlyEvents.values.any((evts) => evts.any((e) =>
-                                e.description
-                                        ?.startsWith(kPersonalTeamImportMarker) ==
-                                    true)));
+                    // 서버 팀 근무 소스(토글로 숨김 가능) + import 근무(토글 무관).
+                    final monthHasServerSource =
+                        !hideTeamShiftsPv && state.monthlyShifts.isNotEmpty;
                     final isInFocusedMonth =
                         key.year == state.focusedMonth.year &&
                             key.month == state.focusedMonth.month;
@@ -456,9 +459,12 @@ class CalendarScreen extends HookConsumerWidget {
                     // (서버 근무가 일부 날만 있어도 빈 날을 정확히 OFF로 채운다)
                     final isScheduledDay =
                         !hideTeamShiftsPv && state.teamScheduledDates.contains(key);
+                    // import 근무가 있으면 "팀 근무 숨기기" 토글과 무관하게 OFF를 채운다
+                    // (앱에서 토글이 켜져 있어도 import 근무가 보이므로 OFF도 보여야 함).
                     if (!hasAnyWork &&
                         (isScheduledDay ||
-                            (monthHasAnyTeamSource && isInFocusedMonth))) {
+                            ((monthHasServerSource || monthHasImportWork) &&
+                                isInFocusedMonth))) {
                       seenWorkLabels.add('O');
                       result.insert(
                         0,
@@ -496,6 +502,7 @@ class CalendarScreen extends HookConsumerWidget {
                     shifts: state.selectedDateShifts ?? [],
                     events: dateEvents,
                     notes: dateNotes,
+                    monthHasImportWork: monthHasImportWork,
                     // 캘린더 셀의 OFF 표시와 같은 로직: focused month에 팀 근무 또는
                     // team-import 일정이 1건이라도 있고, 선택된 날도 focused month이며
                     // 그 날 본인 근무가 없으면 OFF로 간주.

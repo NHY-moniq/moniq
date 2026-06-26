@@ -578,7 +578,10 @@ class _MoniqInfoConfirmDialog extends StatelessWidget {
         horizontal: AppSpacing.xxl,
         vertical: AppSpacing.xxl,
       ),
-      child: Padding(
+      child: ConstrainedBox(
+        // 웹/데스크톱에서 모달이 가로로 거대해지지 않도록 최대 너비 제한.
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: Padding(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg,
           AppSpacing.lg,
@@ -672,6 +675,7 @@ class _MoniqInfoConfirmDialog extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
