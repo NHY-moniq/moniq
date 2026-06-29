@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:moniq/app.dart';
@@ -35,6 +37,18 @@ Future<void> main() async {
   });
 
   final prefs = await SharedPreferences.getInstance();
+
+  // AdMob 초기화 — 모바일(Android/iOS)에서만. 웹은 미지원.
+  // 실패해도 앱 진입을 막지 않도록 fire-and-forget.
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS)) {
+    MobileAds.instance.initialize().then((_) {
+      debugPrint('[boot] MobileAds 초기화 완료');
+    }).catchError((Object e) {
+      debugPrint('[boot] MobileAds 초기화 실패: $e');
+    });
+  }
 
   await NotificationService.instance.initialize();
 

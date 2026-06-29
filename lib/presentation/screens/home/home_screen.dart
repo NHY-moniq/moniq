@@ -71,15 +71,10 @@ class HomeScreen extends HookConsumerWidget {
               : buildAppBar(),
           body: SingleChildScrollView(
             padding: const EdgeInsets.only(bottom: 120),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                HomeBody(
-                  displayName: displayName,
-                  monthlyShifts: state.monthlyShifts,
-                  shiftTheme: shiftTheme,
-                ),
-              ],
+            child: HomeBody(
+              displayName: displayName,
+              monthlyShifts: state.monthlyShifts,
+              shiftTheme: shiftTheme,
             ),
           ),
         );

@@ -11,6 +11,7 @@ import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/announcement/announcement_filter_sheet.dart';
+import 'package:moniq/presentation/widgets/common/banner_ad_widget.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
@@ -43,6 +44,16 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
       ),
       body: Column(
         children: [
+          // 배너 광고 — 팀 공지사항 상단. 모바일 전용(웹/미지원 시 빈 위젯).
+          const Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.xxl,
+              AppSpacing.sm,
+              AppSpacing.xxl,
+              0,
+            ),
+            child: BannerAdWidget(),
+          ),
           if (teams.length > 1)
             _TeamFilterHeader(
               label: filterLabel,

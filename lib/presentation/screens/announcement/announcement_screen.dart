@@ -17,6 +17,7 @@ import 'package:moniq/presentation/theme/app_typography.dart';
 import 'package:moniq/presentation/viewmodels/announcement_viewmodel.dart';
 import 'package:moniq/presentation/widgets/announcement/announcement_author.dart';
 import 'package:moniq/presentation/widgets/announcement/announcement_filter_sheet.dart';
+import 'package:moniq/presentation/widgets/common/banner_ad_widget.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
@@ -55,7 +56,20 @@ class AnnouncementScreen extends HookConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('공지 작성'),
       ),
-      body: announcementsAsync.when(
+      body: Column(
+        children: [
+          // 배너 광고 — 공지사항 상단. 모바일 전용(웹/미지원 시 빈 위젯, 공간 차지 안 함).
+          const Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.xxl,
+              AppSpacing.sm,
+              AppSpacing.xxl,
+              0,
+            ),
+            child: BannerAdWidget(),
+          ),
+          Expanded(
+            child: announcementsAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
           message: '공지사항을 불러올 수 없습니다',
@@ -160,6 +174,9 @@ class AnnouncementScreen extends HookConsumerWidget {
             ],
           );
         },
+            ),
+          ),
+        ],
       ),
     );
   }
