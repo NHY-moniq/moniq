@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:moniq/core/constants/google_auth_constants.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -60,7 +61,22 @@ class AuthRemoteDataSource {
       );
     }
 
-    final googleSignIn = GoogleSignIn(scopes: ['email', 'profile', 'openid']);
+    final iosClientId = GoogleAuthConstants.iosClientId;
+    final webClientId = GoogleAuthConstants.webClientId;
+    if (iosClientId.isEmpty || webClientId.isEmpty) {
+      throw const AuthException(
+        'Google 로그인 설정이 누락되었습니다. .env의 '
+        'GOOGLE_IOS_CLIENT_ID / GOOGLE_WEB_CLIENT_ID를 확인하세요.',
+      );
+    }
+
+    // clientId: iOS 클라이언트 / serverClientId: Supabase에 등록된 Web 클라이언트.
+    // serverClientId가 있어야 idToken의 audience가 Supabase 기대값과 일치한다.
+    final googleSignIn = GoogleSignIn(
+      clientId: iosClientId,
+      serverClientId: webClientId,
+      scopes: const ['email', 'profile', 'openid'],
+    );
 
     final googleUser = await googleSignIn.signIn();
     if (googleUser == null) {
