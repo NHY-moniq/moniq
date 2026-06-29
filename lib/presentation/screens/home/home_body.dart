@@ -11,6 +11,7 @@ import 'package:moniq/presentation/screens/home/active_shift_card.dart';
 import 'package:moniq/presentation/screens/home/home_widgets.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/banner_ad_widget.dart';
 
 // ════════════════════════════════════════════════
 // Home Body
@@ -154,6 +155,9 @@ class HomeBody extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
+
+          // 배너 광고 — 팀 소식 위. 모바일 전용(웹/미지원 시 빈 위젯, 공간 차지 안 함).
+          const BannerAdWidget(),
 
           // Title
           Text(
