@@ -3,17 +3,14 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/schedule_generation_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 
 // ────────────────────────────────────────
 // 위반 리포트 바텀시트
 // ────────────────────────────────────────
 
 class ViolationSheet extends ConsumerStatefulWidget {
-  const ViolationSheet({
-    super.key,
-    required this.state,
-    required this.teamId,
-  });
+  const ViolationSheet({super.key, required this.state, required this.teamId});
   final ScheduleGenerationState state;
   final String teamId;
 
@@ -41,7 +38,8 @@ class _ViolationSheetState extends ConsumerState<ViolationSheet>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final state = ref
+    final state =
+        ref
             .watch(scheduleGenerationViewModelProvider(widget.teamId))
             .valueOrNull ??
         widget.state;
@@ -79,7 +77,11 @@ class _ViolationSheetState extends ConsumerState<ViolationSheet>
           // ── 헤더 ──
           Padding(
             padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              AppSpacing.md,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -88,20 +90,21 @@ class _ViolationSheetState extends ConsumerState<ViolationSheet>
                     Expanded(
                       child: Text(
                         '분석 리포트',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                    // AI 분석 버튼
+                    // AI 분석 버튼 — 준비 중(비활성화)
                     if (!state.isAnalyzing && state.aiAnalysis == null)
                       _AiAnalysisButton(
                         onTap: () {
-                          ref
-                              .read(
-                                scheduleGenerationViewModelProvider(widget.teamId)
-                                    .notifier,
-                              )
-                              .analyzeViolations('');
+                          showMoniqInfoSheet(
+                            context: context,
+                            eyebrow: 'COMING SOON',
+                            title: 'AI 분석',
+                            message: '준비 중인 기능입니다.',
+                          );
                         },
                       ),
                   ],
@@ -113,7 +116,9 @@ class _ViolationSheetState extends ConsumerState<ViolationSheet>
                   children: [
                     _SummaryPill(
                       label: totalHard > 0 ? '하드 $totalHard건' : '하드 없음',
-                      color: totalHard > 0 ? AppColors.error : AppColors.success,
+                      color: totalHard > 0
+                          ? AppColors.error
+                          : AppColors.success,
                     ),
                     if (state.wantedTotal > 0)
                       _SummaryPill(
@@ -140,8 +145,9 @@ class _ViolationSheetState extends ConsumerState<ViolationSheet>
               onRefresh: () {
                 ref
                     .read(
-                      scheduleGenerationViewModelProvider(widget.teamId)
-                          .notifier,
+                      scheduleGenerationViewModelProvider(
+                        widget.teamId,
+                      ).notifier,
                     )
                     .analyzeViolations('');
               },
@@ -150,7 +156,9 @@ class _ViolationSheetState extends ConsumerState<ViolationSheet>
           // ── 필 탭바 ──
           Padding(
             padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.sm,
+            ),
             child: _PillTabBar(
               controller: _tabController,
               tabs: [
@@ -223,8 +231,11 @@ class _HardViolationTab extends StatelessWidget {
                 color: AppColors.success.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_rounded,
-                  size: 32, color: AppColors.success),
+              child: const Icon(
+                Icons.check_rounded,
+                size: 32,
+                color: AppColors.success,
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
@@ -262,17 +273,19 @@ class _HardViolationTab extends StatelessWidget {
                 color: AppColors.error.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(AppRadius.xs),
                 border: Border.all(
-                    color: AppColors.error.withValues(alpha: 0.15)),
+                  color: AppColors.error.withValues(alpha: 0.15),
+                ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.error_outline_rounded,
-                      color: AppColors.error, size: 18),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(msg, style: theme.textTheme.bodySmall),
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    color: AppColors.error,
+                    size: 18,
                   ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(child: Text(msg, style: theme.textTheme.bodySmall)),
                 ],
               ),
             ),
@@ -284,8 +297,9 @@ class _HardViolationTab extends StatelessWidget {
         if (hasCustom) ...[
           const _SectionHeader(label: '하드 커스텀 룰', color: AppColors.error),
           const SizedBox(height: AppSpacing.sm),
-          ...CustomRuleViolationGroup.groupBy(customViolations)
-              .map((g) => CustomRuleViolationGroup(group: g)),
+          ...CustomRuleViolationGroup.groupBy(
+            customViolations,
+          ).map((g) => CustomRuleViolationGroup(group: g)),
         ],
       ],
     );
@@ -371,15 +385,18 @@ class _PillTabBarState extends State<_PillTabBar> {
                         color: isActive
                             ? Colors.white
                             : colorScheme.onSurfaceVariant,
-                        fontWeight:
-                            isActive ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: isActive
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                       ),
                     ),
                     if (tab.count > 0) ...[
                       const SizedBox(width: 5),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 1),
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: isActive
                               ? Colors.white.withValues(alpha: 0.25)
@@ -421,7 +438,9 @@ class _AiAnalysisButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
@@ -431,13 +450,17 @@ class _AiAnalysisButton extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(AppRadius.full),
           border: Border.all(
-              color: AppColors.brandOrange.withValues(alpha: 0.3)),
+            color: AppColors.brandOrange.withValues(alpha: 0.3),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.auto_awesome_rounded,
-                size: 14, color: AppColors.brandOrange),
+            const Icon(
+              Icons.auto_awesome_rounded,
+              size: 14,
+              color: AppColors.brandOrange,
+            ),
             const SizedBox(width: 4),
             Text(
               'AI 분석',
@@ -468,7 +491,11 @@ class _AiAnalysisCard extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.fromLTRB(
-          AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
+        AppSpacing.lg,
+        0,
+        AppSpacing.lg,
+        AppSpacing.sm,
+      ),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -489,13 +516,17 @@ class _AiAnalysisCard extends StatelessWidget {
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(
-                      strokeWidth: 2, color: AppColors.brandOrange),
+                    strokeWidth: 2,
+                    color: AppColors.brandOrange,
+                  ),
                 ),
                 const SizedBox(width: AppSpacing.md),
-                Text('AI가 근무표를 분석하고 있습니다...',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.brandOrange,
-                    )),
+                Text(
+                  'AI가 근무표를 분석하고 있습니다...',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.brandOrange,
+                  ),
+                ),
               ],
             )
           // 분석 텍스트가 길어도 카드 높이를 제한하고 내부 스크롤로 처리해
@@ -507,19 +538,27 @@ class _AiAnalysisCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.auto_awesome_rounded,
-                      size: 15, color: AppColors.brandOrange),
+                  const Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 15,
+                    color: AppColors.brandOrange,
+                  ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: SingleChildScrollView(
-                      child: Text(state.aiAnalysis!,
-                          style: theme.textTheme.bodySmall),
+                      child: Text(
+                        state.aiAnalysis!,
+                        style: theme.textTheme.bodySmall,
+                      ),
                     ),
                   ),
                   GestureDetector(
                     onTap: onRefresh,
-                    child: const Icon(Icons.refresh_rounded,
-                        size: 16, color: AppColors.textSecondaryLight),
+                    child: const Icon(
+                      Icons.refresh_rounded,
+                      size: 16,
+                      color: AppColors.textSecondaryLight,
+                    ),
                   ),
                 ],
               ),
@@ -588,24 +627,29 @@ class ViolationSummaryBanner extends StatelessWidget {
                 children: [
                   if (hardCount > 0)
                     BannerChip(
-                        label: '하드 위반 $hardCount건',
-                        color: AppColors.error),
+                      label: '하드 위반 $hardCount건',
+                      color: AppColors.error,
+                    ),
                   if (customViolCount > 0)
                     BannerChip(
-                        label: '커스텀 룰 위반 $customViolCount건',
-                        color: AppColors.error),
+                      label: '커스텀 룰 위반 $customViolCount건',
+                      color: AppColors.error,
+                    ),
                   if (softCustomCount > 0)
                     BannerChip(
-                        label: '소프트 커스텀 $softCustomCount건',
-                        color: AppColors.brandOrange),
+                      label: '소프트 커스텀 $softCustomCount건',
+                      color: AppColors.brandOrange,
+                    ),
                   if (softPatternTotal > 0)
                     BannerChip(
-                        label: '기피패턴 $softPatternTotal회',
-                        color: AppColors.brandOrange),
+                      label: '기피패턴 $softPatternTotal회',
+                      color: AppColors.brandOrange,
+                    ),
                   if (skillViolTotal > 0)
                     BannerChip(
-                        label: '숙련도 $skillViolTotal건',
-                        color: AppColors.brandOrange),
+                      label: '숙련도 $skillViolTotal건',
+                      color: AppColors.brandOrange,
+                    ),
                   if (state.wantedTotal > 0)
                     BannerChip(
                       label: '원티드 $wantedPct%',
@@ -631,11 +675,17 @@ class ViolationSummaryBanner extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('리포트',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: AppColors.textSecondaryLight)),
-                const Icon(Icons.chevron_right,
-                    size: 16, color: AppColors.textSecondaryLight),
+                Text(
+                  '리포트',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 16,
+                  color: AppColors.textSecondaryLight,
+                ),
               ],
             ),
           ],
@@ -654,8 +704,7 @@ class BannerChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label,
-      style: TextStyle(
-          fontSize: 12, fontWeight: FontWeight.w600, color: color),
+      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
     );
   }
 }
@@ -673,11 +722,7 @@ class _SummaryPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label,
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: color,
-      ),
+      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
     );
   }
 }
@@ -701,19 +746,25 @@ class SoftSummaryTab extends StatelessWidget {
     final theme = Theme.of(context);
     final softViol = state.softViolations;
     const patternKeys = {'NOD', 'NOOD', 'NOE', 'EOD'};
-    final hasSoftPattern = softViol.entries
-        .any((e) => patternKeys.contains(e.key) && e.value.isNotEmpty);
+    final hasSoftPattern = softViol.entries.any(
+      (e) => patternKeys.contains(e.key) && e.value.isNotEmpty,
+    );
     final softCustomViols = state.softCustomViolations;
     final hasSkill = (softViol['신규단독'] ?? []).isNotEmpty;
 
-    final allGood = state.wantedTotal == 0 &&
+    final allGood =
+        state.wantedTotal == 0 &&
         !hasSoftPattern &&
         !hasSkill &&
         softCustomViols.isEmpty;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.lg),
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
       children: [
         // ── 원티드 반영률 ──
         if (state.wantedTotal > 0) ...[
@@ -724,13 +775,15 @@ class SoftSummaryTab extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           SummaryCard(
             icon: Icons.favorite_outline,
-            iconColor: wantedPct >= 80 ? AppColors.success : AppColors.brandOrange,
+            iconColor: wantedPct >= 80
+                ? AppColors.success
+                : AppColors.brandOrange,
             title: '원티드 반영률',
             value: '$wantedPct%',
-            subtitle:
-                '${state.wantedSatisfied}건 반영 / 전체 ${state.wantedTotal}건',
-            valueColor:
-                wantedPct >= 80 ? AppColors.success : AppColors.brandOrange,
+            subtitle: '${state.wantedSatisfied}건 반영 / 전체 ${state.wantedTotal}건',
+            valueColor: wantedPct >= 80
+                ? AppColors.success
+                : AppColors.brandOrange,
           ),
           if (state.wantedUnsatisfied.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -740,7 +793,8 @@ class SoftSummaryTab extends StatelessWidget {
                 color: AppColors.brandOrange.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(AppRadius.xs),
                 border: Border.all(
-                    color: AppColors.brandOrange.withValues(alpha: 0.2)),
+                  color: AppColors.brandOrange.withValues(alpha: 0.2),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -753,40 +807,43 @@ class SoftSummaryTab extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  ...state.wantedUnsatisfied.map(
-                    (item) {
-                      final parts = item.split('\t');
-                      final name = parts[0];
-                      final detail = parts.length > 1 ? parts[1] : '';
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.only(top: 1),
-                              child: Icon(Icons.event_busy_outlined,
-                                  size: 14, color: AppColors.brandOrange),
+                  ...state.wantedUnsatisfied.map((item) {
+                    final parts = item.split('\t');
+                    final name = parts[0];
+                    final detail = parts.length > 1 ? parts[1] : '';
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 1),
+                            child: Icon(
+                              Icons.event_busy_outlined,
+                              size: 14,
+                              color: AppColors.brandOrange,
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              name,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            name,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              detail,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                  fontWeight: FontWeight.w700),
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                detail,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant),
+                                color: theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -796,8 +853,7 @@ class SoftSummaryTab extends StatelessWidget {
 
         // ── 기피 패턴 위반 ──
         if (hasSoftPattern) ...[
-          const _SectionHeader(
-              label: '기피패턴 위반', color: AppColors.brandOrange),
+          const _SectionHeader(label: '기피패턴 위반', color: AppColors.brandOrange),
           const SizedBox(height: AppSpacing.sm),
           ...{
             'NOD': ('NOD (나이트→오프→데이)', softViol['NOD']),
@@ -831,8 +887,10 @@ class SoftSummaryTab extends StatelessWidget {
             color: AppColors.brandOrange,
           ),
           const SizedBox(height: AppSpacing.sm),
-          ...CustomRuleViolationGroup.groupBy(softCustomViols, isHard: false)
-              .map((g) => CustomRuleViolationGroup(group: g, isHard: false)),
+          ...CustomRuleViolationGroup.groupBy(
+            softCustomViols,
+            isHard: false,
+          ).map((g) => CustomRuleViolationGroup(group: g, isHard: false)),
           const SizedBox(height: AppSpacing.md),
         ],
 
@@ -850,8 +908,11 @@ class SoftSummaryTab extends StatelessWidget {
                       color: AppColors.success.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.check_rounded,
-                        size: 32, color: AppColors.success),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      size: 32,
+                      color: AppColors.success,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
@@ -932,9 +993,12 @@ class PatternGroup extends StatelessWidget {
               Icon(icon, size: 15, color: AppColors.brandOrange),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(label,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(fontWeight: FontWeight.w600)),
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
               Text(
                 '${items.length}회',
@@ -951,8 +1015,9 @@ class PatternGroup extends StatelessWidget {
               padding: const EdgeInsets.only(left: 21, top: 2),
               child: Text(
                 '- $item',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: AppColors.textSecondaryLight),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondaryLight,
+                ),
               ),
             ),
           ),
@@ -998,12 +1063,18 @@ class SummaryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: AppColors.textSecondaryLight)),
-                Text(subtitle,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: AppColors.textSecondaryLight)),
+                Text(
+                  title,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
               ],
             ),
           ),
@@ -1078,11 +1149,14 @@ class CustomRuleViolationGroup extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.08),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(7)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(7),
+              ),
             ),
             child: Row(
               children: [
@@ -1124,7 +1198,8 @@ class CustomRuleViolationGroup extends StatelessWidget {
                             child: Text(
                               body,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                  color: AppColors.textSecondaryLight),
+                                color: AppColors.textSecondaryLight,
+                              ),
                             ),
                           ),
                         ],

@@ -13,13 +13,12 @@ import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_dialogs.dart'
     as calendar_dialogs;
 import 'package:moniq/presentation/viewmodels/personal_team_calendar_viewmodel.dart';
-import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
+import 'package:moniq/presentation/widgets/calendar/weekly_member_grid.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
-import 'package:table_calendar/table_calendar.dart';
 
 import 'personal_team_calendar_widgets.dart';
 
@@ -53,7 +52,8 @@ class PersonalTeamCalendarScreen extends ConsumerWidget {
           onRetry: () =>
               ref.invalidate(personalTeamCalendarViewModelProvider(teamId)),
         ),
-        data: (state) => _CalendarBody(state: state, teamId: teamId),
+        data: (state) =>
+            PersonalTeamCalendarBody(state: state, teamId: teamId),
       ),
     );
   }
@@ -79,17 +79,27 @@ class _AppointmentBarAction extends StatelessWidget {
   }
 }
 
-class _CalendarBody extends ConsumerStatefulWidget {
-  const _CalendarBody({required this.state, required this.teamId});
+/// 친목 팀 멤버 근무 현황 본문.
+///
+/// 멤버 근무 현황 전용 화면([PersonalTeamCalendarScreen])과 팀 탭 메인
+/// ([TeamScreen]의 친목 팀 뷰)에서 동일한 본문으로 재사용된다.
+class PersonalTeamCalendarBody extends ConsumerStatefulWidget {
+  const PersonalTeamCalendarBody({
+    super.key,
+    required this.state,
+    required this.teamId,
+  });
 
   final PersonalTeamCalendarState state;
   final String teamId;
 
   @override
-  ConsumerState<_CalendarBody> createState() => _CalendarBodyState();
+  ConsumerState<PersonalTeamCalendarBody> createState() =>
+      _PersonalTeamCalendarBodyState();
 }
 
-class _CalendarBodyState extends ConsumerState<_CalendarBody> {
+class _PersonalTeamCalendarBodyState
+    extends ConsumerState<PersonalTeamCalendarBody> {
   bool _includeDay = false;
   bool _isOverlapCardExpanded = false;
   // 과반수 이상만 표시(false) ↔ 전체 겹침 표시(true) 토글
@@ -99,14 +109,6 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
 
   DateTime _dateKey(DateTime date) {
     return DateTime(date.year, date.month, date.day);
-  }
-
-  List<PersonalMemberShift> _filterShiftsByMembers(
-    List<PersonalMemberShift> shifts,
-    Set<String> memberIds,
-  ) {
-    if (memberIds.isEmpty) return const [];
-    return shifts.where((shift) => memberIds.contains(shift.userId)).toList();
   }
 
   int _targetShiftCount({
@@ -481,15 +483,35 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
     return '${date.year}년 ${date.month}월 ${date.day}일 (${weekdays[date.weekday - 1]})';
   }
 
+  /// 겹침 칩 탭 핸들러.
+  ///
+  /// 대상 날짜가 현재 표시 중인 주/월 밖이면 먼저 그 기간으로 이동한 뒤
+  /// 선택한다. 그리드는 선택일 변경에 맞춰 해당 열을 자동으로 중앙 정렬한다.
   Future<void> _selectOverlapDate(
     PersonalTeamCalendarViewModel vm,
     DateTime date,
   ) async {
-    vm.selectDate(date);
-    if (date.year != widget.state.focusedMonth.year ||
-        date.month != widget.state.focusedMonth.month) {
-      await vm.changeMonth(DateTime(date.year, date.month));
+    final state = widget.state;
+    final target = _dateKey(date);
+
+    if (state.viewMode == CalendarViewMode.month) {
+      final sameMonth =
+          target.year == state.focusedMonth.year &&
+          target.month == state.focusedMonth.month;
+      if (!sameMonth) {
+        await vm.changeMonth(DateTime(target.year, target.month));
+      }
+      vm.selectDate(target);
+      return;
     }
+
+    // 주 모드: 대상이 현재 표시 주 밖이면 그 주로 이동한 뒤 선택.
+    final startsOnSunday = ref.read(calendarStartDayProvider) == 'sunday';
+    final currentStart = personalWeekStart(state.selectedDate, startsOnSunday);
+    final targetStart = personalWeekStart(target, startsOnSunday);
+    final deltaWeeks = targetStart.difference(currentStart).inDays ~/ 7;
+    if (deltaWeeks != 0) await vm.moveWeek(deltaWeeks);
+    vm.selectDate(target);
   }
 
   @override
@@ -498,17 +520,13 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
     final teamId = widget.teamId;
     final vm = ref.read(personalTeamCalendarViewModelProvider(teamId).notifier);
     final calendarStartDay = ref.watch(calendarStartDayProvider);
-    final startingDay = calendarStartDay == 'sunday'
-        ? StartingDayOfWeek.sunday
-        : StartingDayOfWeek.monday;
+    final startsOnSunday = calendarStartDay == 'sunday';
+    final currentUserId = ref
+        .watch(supabaseClientProvider)
+        .auth
+        .currentUser
+        ?.id;
     final selectedMembers = state.selectedMembers;
-    // 1명만 선택하면 개인 캘린더처럼 날짜별 근무 코드(D/E/N/오프)를 표시한다.
-    final isSingleMember = selectedMembers.length == 1;
-    final singleMemberId = isSingleMember ? selectedMembers.first.userId : null;
-    final selectedShifts = _filterShiftsByMembers(
-      state.shiftsForDate(state.selectedDate),
-      state.selectedMemberIds,
-    );
     final allOverlapDays = _overlapDays(state);
     final dateFormat = DateFormat('MM.dd(E)', 'ko_KR');
     final monthFormat = DateFormat('yyyy년 M월');
@@ -617,13 +635,6 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
                         ),
                     ],
                   ),
-                  if (!_isOverlapCardExpanded) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    _OverlapCollapsedSummary(
-                      monthLabel: monthFormat.format(state.focusedMonth),
-                      days: overlapDays,
-                    ),
-                  ],
                   if (_isOverlapCardExpanded) ...[
                     const SizedBox(height: AppSpacing.sm),
                     Center(
@@ -693,78 +704,8 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.lg),
-          MoniqCalendar(
-            focusedDay: state.focusedMonth,
-            selectedDay: state.selectedDate,
-            rowHeight: 80,
-            viewMode: state.viewMode,
-            onViewModeChanged: vm.setViewMode,
-            calendarFormat: state.viewMode == CalendarViewMode.month
-                ? CalendarFormat.month
-                : CalendarFormat.week,
-            startingDayOfWeek: startingDay,
-            legendItems: const [
-              (color: personalShiftDayColor, label: 'D'),
-              (color: personalShiftEveningColor, label: 'E'),
-              (color: personalShiftNightColor, label: 'N'),
-            ],
-            // eventLoader가 있어야 markerBuilder가 호출됨
-            eventLoader: (day) {
-              final key = _dateKey(day);
-              final dayShifts = _filterShiftsByMembers(
-                state.monthlyData[key] ?? const <PersonalMemberShift>[],
-                state.selectedMemberIds,
-              );
-              // 1명 모드: 오프 날도 'O'를 렌더링하도록 빈 날엔 오프 센티넬 주입.
-              if (isSingleMember && dayShifts.isEmpty) {
-                return [
-                  PersonalMemberShift(userId: singleMemberId!, date: day),
-                ];
-              }
-              return dayShifts;
-            },
-            cornerBadgeBuilder: (context, date) {
-              final key = _dateKey(date);
-              if ((highlightedOverlapCountByDate[key] ?? 0) <= 0) {
-                return null;
-              }
-              return const _OverlapCornerDot();
-            },
-            onDaySelected: (selected, focused) => vm.selectDate(selected),
-            onPageChanged: (focused) => vm.changeMonth(focused),
-            markerBuilder: (context, date, events) {
-              final dayShifts = events
-                  .whereType<PersonalMemberShift>()
-                  .toList();
-              if (dayShifts.isEmpty) return null;
-
-              // 1명 모드: 개인 캘린더처럼 단일 근무 코드 셀(D/E/N/오프) 표시.
-              if (isSingleMember) {
-                return _SingleMemberDayCell(shift: dayShifts.first);
-              }
-
-              final typeCount = <String, int>{};
-              for (final shift in dayShifts) {
-                final code = personalShiftDenCode(shift);
-                if (code == null) continue;
-                typeCount[code] = (typeCount[code] ?? 0) + 1;
-              }
-
-              final sortedCodes = typeCount.keys.toList()
-                ..sort(
-                  (a, b) => personalShiftDenSortKey(
-                    a,
-                  ).compareTo(personalShiftDenSortKey(b)),
-                );
-
-              return _PersonalCalendarMarker(
-                sortedCodes: sortedCodes,
-                typeCount: typeCount,
-              );
-            },
-          ),
-          const SizedBox(height: AppSpacing.lg),
+          // ② 이 날 약속 잡기 카드 — 그리드 위로 끌어올려 주요 행동을 강조.
+          const SizedBox(height: AppSpacing.md),
           Padding(
             padding: AppSpacing.screenHorizontal,
             child: _AppointmentEntryCard(
@@ -774,13 +715,33 @@ class _CalendarBodyState extends ConsumerState<_CalendarBody> {
               onTap: () => _showAppointmentSheet(context, state, vm),
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          // ③ 멤버 근무 그리드 — 주/월 공통, 좌우 여백은 최소화.
+          const SizedBox(height: AppSpacing.lg),
           Padding(
-            padding: AppSpacing.screenHorizontal,
-            child: PersonalDayDetailPanel(
-              date: state.selectedDate,
-              shifts: selectedShifts,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+            child: MemberShiftGrid(
+              selectedDate: state.selectedDate,
+              focusedMonth: state.focusedMonth,
               members: selectedMembers,
+              monthlyData: state.monthlyData,
+              startsOnSunday: startsOnSunday,
+              currentUserId: currentUserId,
+              viewMode: state.viewMode,
+              overlapDates: highlightedOverlapCountByDate.keys.toSet(),
+              onViewModeChanged: vm.setViewMode,
+              onDateSelected: vm.selectDate,
+              onMoveWeek: (delta) => vm.moveWeek(delta),
+              onMoveMonth: (delta) => vm.changeMonth(
+                DateTime(
+                  state.focusedMonth.year,
+                  state.focusedMonth.month + delta,
+                ),
+              ),
+              onToday: () => state.viewMode == CalendarViewMode.month
+                  ? vm.goToTodayMonth()
+                  : vm.goToTodayWeek(startsOnSunday),
+              onSelectMembers: () =>
+                  _showMemberSelectionSheet(context, state, vm),
             ),
           ),
           const SizedBox(height: AppSpacing.xxxl),

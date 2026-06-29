@@ -6,6 +6,7 @@ import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
+import 'package:moniq/presentation/widgets/calendar/personal_team_weekly_grid_section.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 import 'package:moniq/presentation/widgets/tutorial/tutorial_controller.dart';
@@ -233,6 +234,9 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                 // 개인 팀: 멤버 근무 섹션 / 조직 팀: 스케줄 운영 섹션
                 if (isPersonal) ...[
                   _SectionHeader(label: '멤버 근무'),
+                  const SizedBox(height: AppSpacing.lg),
+                  // 친목 팀: 멤버 주간 근무 그리드를 상세 화면에 바로 노출.
+                  PersonalTeamWeeklyGridSection(teamId: widget.teamId),
                   const SizedBox(height: AppSpacing.lg),
                   TeamDetailBubbleMenuCard(
                     key: _memberCalendarKey,

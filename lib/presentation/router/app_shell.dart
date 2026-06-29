@@ -581,14 +581,9 @@ class _TeamContextItems extends ConsumerWidget {
           ),
           // ── 근무 ──
           const _FlyoutSectionLabel(label: '근무'),
-          // 멤버 근무 현황·약속 관리는 개인(private) 팀 전용. (모바일 드로어와 동일)
+          // 약속 관리는 개인(private) 팀 전용. (모바일 드로어와 동일)
+          // 멤버 근무 현황은 팀 탭 메인이 그 역할을 하므로 항목에서 제외한다.
           if (isPersonalTeam) ...[
-            _FlyoutTile(
-              icon: Icons.calendar_today_outlined,
-              label: '멤버 근무 현황',
-              iconColor: AppColors.success,
-              onTap: () => context.push('/teams/$teamId/personal-calendar'),
-            ),
             _FlyoutTile(
               icon: Icons.event_note_rounded,
               label: '약속 관리',
