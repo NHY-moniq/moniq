@@ -45,11 +45,10 @@
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="moniq_push" />
 
-        <!-- AdMob App ID — 현재는 Google 공식 "샘플" App ID(테스트용).
-             출시 전 실제 AdMob App ID로 교체할 것. -->
+        <!-- AdMob App ID (실제 운영용) -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="ca-app-pub-9945303286843241~5002423508" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
