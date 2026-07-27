@@ -194,7 +194,8 @@ class ShiftThemeData {
 ///
 /// Priority:
 /// 1. Server shifts from [homeViewModelProvider]
-/// 2. Personal calendar shifts from [dateEventsProvider] + [personalShiftTypesProvider]
+/// 2. Personal calendar shifts from [dateEventsIncludingSpansProvider] +
+///    [personalShiftTypesProvider]
 /// 3. Fallback: [ShiftThemeData.off]
 final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
   final today = DateTime.now();
@@ -226,7 +227,8 @@ final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
 
   // 2. Fallback to personal calendar (may throw if SharedPreferences not ready)
   try {
-    final personalEvents = ref.watch(dateEventsProvider(todayKey));
+    final personalEvents =
+        ref.watch(dateEventsIncludingSpansProvider(todayKey));
     final personalShiftTypes = ref.watch(personalShiftTypesProvider);
     final shiftTypeNames = personalShiftTypes.map((st) => st.name).toSet();
 

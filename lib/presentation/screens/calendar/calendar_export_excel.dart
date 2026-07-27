@@ -37,6 +37,8 @@ Future<List<int>> _buildPersonalExcelBytes(
 ) async {
   final focusedMonth = state.focusedMonth;
   final eventDs = ref.read(personalEventDataSourceProvider);
+  // 여러 날에 걸친 일정은 걸쳐 있는 모든 날짜에 표기 (화면 캘린더와 동일).
+  final monthEvents = eventDs.getMonthlyEventsIncludingSpans(focusedMonth);
   final daysInMonth = DateTime(
     focusedMonth.year,
     focusedMonth.month + 1,
@@ -134,7 +136,7 @@ Future<List<int>> _buildPersonalExcelBytes(
 
     // 일정 텍스트 조합
     final shifts = state.monthlyShifts[date];
-    final events = eventDs.getEvents(date);
+    final events = monthEvents[date] ?? const [];
     final items = <String>['$d일'];
 
     if (shifts != null) {

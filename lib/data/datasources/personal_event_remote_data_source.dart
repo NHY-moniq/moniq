@@ -31,21 +31,31 @@ class PersonalEventRemoteDataSource {
     return (rows as List).map((r) => _fromRow(r as Map<String, dynamic>)).toList();
   }
 
+  /// insert payload. `end_date`는 값이 있을 때만 포함한다 —
+  /// end_date 마이그레이션 전 DB에서도 당일 일정은 정상 저장되도록 하기 위함.
+  /// (PostgREST 다건 insert는 모든 row의 key가 같아야 하므로 [withEndDate]로 통일)
+  Map<String, dynamic> _insertPayload(
+    PersonalEvent event, {
+    required bool withEndDate,
+  }) => {
+        'user_id': _userId,
+        'event_date': _dateStr(event.date),
+        if (withEndDate)
+          'end_date': event.endDate != null ? _dateStr(event.endDate!) : null,
+        'title': event.title,
+        'start_time': event.startTime,
+        'end_time': event.endTime,
+        'description': event.description,
+        'color': event.color,
+        'recurrence': event.recurrence,
+      };
+
   /// insert 후 발급된 id를 포함한 이벤트 반환.
   Future<PersonalEvent> insert(PersonalEvent event) async {
     if (_userId == null) throw Exception('Not authenticated');
     final row = await _client
         .from('personal_events')
-        .insert({
-          'user_id': _userId,
-          'event_date': _dateStr(event.date),
-          'title': event.title,
-          'start_time': event.startTime,
-          'end_time': event.endTime,
-          'description': event.description,
-          'color': event.color,
-          'recurrence': event.recurrence,
-        })
+        .insert(_insertPayload(event, withEndDate: event.endDate != null))
         .select()
         .single();
     return _fromRow(row);
@@ -55,6 +65,7 @@ class PersonalEventRemoteDataSource {
     if (event.id == null) return;
     await _client.from('personal_events').update({
       'event_date': _dateStr(event.date),
+      'end_date': event.endDate != null ? _dateStr(event.endDate!) : null,
       'title': event.title,
       'start_time': event.startTime,
       'end_time': event.endTime,
@@ -74,17 +85,10 @@ class PersonalEventRemoteDataSource {
   Future<List<PersonalEvent>> insertMany(List<PersonalEvent> events) async {
     if (_userId == null) throw Exception('Not authenticated');
     if (events.isEmpty) return const [];
+    // 기간이 있는 일정이 하나라도 있으면 전체 row에 end_date를 포함(key 통일).
+    final withEndDate = events.any((e) => e.endDate != null);
     final payload = events
-        .map((e) => {
-              'user_id': _userId,
-              'event_date': _dateStr(e.date),
-              'title': e.title,
-              'start_time': e.startTime,
-              'end_time': e.endTime,
-              'description': e.description,
-              'color': e.color,
-              'recurrence': e.recurrence,
-            })
+        .map((e) => _insertPayload(e, withEndDate: withEndDate))
         .toList();
     final rows = await _client
         .from('personal_events')
@@ -136,6 +140,9 @@ class PersonalEventRemoteDataSource {
       id: row['id'] as String?,
       date: DateTime.parse(row['event_date'] as String),
       title: row['title'] as String,
+      endDate: row['end_date'] != null
+          ? DateTime.parse(row['end_date'] as String)
+          : null,
       startTime: row['start_time'] as String?,
       endTime: row['end_time'] as String?,
       description: row['description'] as String?,

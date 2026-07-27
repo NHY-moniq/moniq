@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/core/utils/time_utils.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
@@ -14,6 +15,7 @@ import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
+import 'package:moniq/presentation/widgets/common/moniq_date_picker_sheet.dart';
 
 import 'calendar_providers.dart';
 
@@ -34,6 +36,11 @@ TimeOfDay parseTime(String time) {
 
 String formatTime(TimeOfDay time) =>
     '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
+/// 일정 폼의 시작/종료 일자 버튼 라벨 (예: `7.27 (월)`).
+String formatEventDate(DateTime date) => DateFormat('M.d (E)').format(date);
+
+int _minutesOf(TimeOfDay t) => t.hour * 60 + t.minute;
 
 /// 팀 근무 유형(ShiftTypeModel)을 개인 근무 유형(PersonalShiftType)으로 변환.
 /// 개인 캘린더의 빠른추가/변경 칩과 셀 미리보기에서 팀 유형을 재사용하기 위함.
@@ -69,12 +76,19 @@ void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
                   ? ref.read(personalShiftTypesProvider)
                   : PersonalShiftTypeLocalDataSource.defaultTypes);
         final cs = Theme.of(ctx).colorScheme;
-        final existingEvents = ref.read(dateEventsProvider(date));
         final dateKey = DateTime(date.year, date.month, date.day);
-        // 개인 근무 일정(이름이 근무유형과 매칭)의 인덱스
-        final personalShiftIndex = existingEvents.indexWhere(
-          (e) => shiftTypes.any((st) => st.name == e.title),
-        );
+        // 개인 근무 일정(이름이 근무유형과 매칭)의 저장 인덱스.
+        // 화면에 보이는 목록(숨김/팀 근무 숨기기 필터 적용)에서 찾되, 변경·삭제는
+        // 저장 위치(originIndex)로 해야 다른 일정이 잘못 바뀌지 않는다.
+        // 이 날 시작하는 일정만 대상 — 이어지는 다일 일정은 시작일에서 다룬다.
+        final personalShiftIndex = ref
+                .read(dateEventOccurrencesProvider(date))
+                .where((o) =>
+                    !o.isContinuation &&
+                    shiftTypes.any((st) => st.name == o.event.title))
+                .firstOrNull
+                ?.originIndex ??
+            -1;
         final hasPersonalShift = personalShiftIndex >= 0;
         // 팀(서버) 근무
         final teamShifts =

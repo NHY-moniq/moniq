@@ -56,17 +56,19 @@ class _EventAllDayCheckbox extends StatelessWidget {
   }
 }
 
-/// 시작/종료 시간 버튼 — 약속잡기 시트의 `_AppointmentTimeButton`과 동일 스펙.
+/// 시작/종료 일자·시간 버튼 — 약속잡기 시트의 `_AppointmentTimeButton`과 동일 스펙.
 class _EventTimeButton extends StatelessWidget {
   const _EventTimeButton({
     required this.label,
     required this.value,
     required this.onTap,
+    this.icon = Icons.schedule_rounded,
   });
 
   final String label;
   final String value;
   final VoidCallback onTap;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -97,18 +99,18 @@ class _EventTimeButton extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(
-                    Icons.schedule_rounded,
-                    size: 13,
-                    color: cs.onSurfaceVariant,
-                  ),
+                  Icon(icon, size: 13, color: cs.onSurfaceVariant),
                   const SizedBox(width: 3),
-                  Text(
-                    label,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ],
@@ -443,6 +445,8 @@ void showDeletePersonalScheduleSheet({
                   ref.read(eventRefreshProvider.notifier).state++;
                   ref.invalidate(monthlyEventsProvider);
                   ref.invalidate(dateEventsProvider);
+                  ref.invalidate(dateEventOccurrencesProvider);
+                  ref.invalidate(dateEventsIncludingSpansProvider);
                   ref.invalidate(homeViewModelProvider);
 
                   if (context.mounted) {

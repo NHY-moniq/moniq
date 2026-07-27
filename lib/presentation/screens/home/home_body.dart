@@ -44,7 +44,7 @@ class HomeBody extends ConsumerWidget {
     List<dynamic> personalShiftTypes = [];
     Set<String> shiftTypeNames = {};
     try {
-      personalEvents = ref.watch(dateEventsProvider(todayKey));
+      personalEvents = ref.watch(dateEventsIncludingSpansProvider(todayKey));
       personalShiftTypes = ref.watch(personalShiftTypesProvider);
       shiftTypeNames = personalShiftTypes.map((st) => st.name as String).toSet();
     } catch (_) {

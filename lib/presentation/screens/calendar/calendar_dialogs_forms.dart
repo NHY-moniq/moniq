@@ -18,6 +18,19 @@ void showEventForm(
   TimeOfDay? endTime = existing?.endTime != null
       ? parseTime(existing!.endTime!)
       : null;
+  // 시작 일자는 캘린더에서 선택한 날짜(수정 시에는 기존 일정의 시작일)를 기본값으로,
+  // 종료 일자는 시작 일자와 같은 날을 기본값으로 둔다. 사용자가 각각 변경 가능.
+  final baseDate = DateTime(date.year, date.month, date.day);
+  DateTime startDate = existing != null
+      ? DateTime(existing.date.year, existing.date.month, existing.date.day)
+      : baseDate;
+  DateTime endDate = existing?.endDate != null
+      ? DateTime(
+          existing!.endDate!.year,
+          existing.endDate!.month,
+          existing.endDate!.day,
+        )
+      : startDate;
   String selectedColor = existing?.color ?? '#38A169';
   String selectedRecurrence = existing?.recurrence ?? 'none';
 
@@ -44,6 +57,8 @@ void showEventForm(
     context: context,
     eyebrow: 'SCHEDULE',
     title: index == null ? '일정 추가' : '일정 수정',
+    // 시작/종료 일자 행이 늘어나 기본 높이(0.56)로는 폼이 답답해진다.
+    maxHeightFactor: 0.72,
     child: StatefulBuilder(
       builder: (ctx, setSheetState) {
         final cs = Theme.of(ctx).colorScheme;
@@ -96,12 +111,12 @@ void showEventForm(
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              // 종일 체크박스 + 시작/종료 시간 (약속잡기 UI와 동일 패턴)
+              // 종일 체크박스 + 시작/종료 일시 (날짜 + 시간)
               Row(
                 children: [
                   SizedBox(
                     width: 64,
-                    height: 50,
+                    height: 108,
                     child: _EventAllDayCheckbox(
                       selected: startTime == null && endTime == null,
                       onChanged: (v) {
@@ -119,54 +134,160 @@ void showEventForm(
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
-                    child: SizedBox(
-                      height: 50,
-                      child: _EventTimeButton(
-                        label: '시작',
-                        value: startTime != null
-                            ? formatTime(startTime!)
-                            : '--:--',
-                        onTap: () {
-                          showCupertinoTimePicker(
-                            context: ctx,
-                            initialHour: startTime?.hour ?? 9,
-                            initialMinute: startTime?.minute ?? 0,
-                            onChanged: (h, m) {
-                              setSheetState(() {
-                                startTime = TimeOfDay(hour: h, minute: m);
-                                endTime ??= TimeOfDay(
-                                  hour: (h + 1) % 24,
-                                  minute: m,
-                                );
-                              });
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: SizedBox(
-                      height: 50,
-                      child: _EventTimeButton(
-                        label: '종료',
-                        value: endTime != null ? formatTime(endTime!) : '--:--',
-                        onTap: () {
-                          showCupertinoTimePicker(
-                            context: ctx,
-                            initialHour:
-                                endTime?.hour ?? (startTime?.hour ?? 9) + 1,
-                            initialMinute:
-                                endTime?.minute ?? startTime?.minute ?? 0,
-                            onChanged: (h, m) {
-                              setSheetState(
-                                () => endTime = TimeOfDay(hour: h, minute: m),
-                              );
-                            },
-                          );
-                        },
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 시작 일자 + 시작 시간
+                        SizedBox(
+                          height: 50,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 5,
+                                child: _EventTimeButton(
+                                  icon: Icons.event_rounded,
+                                  label: '시작일',
+                                  value: formatEventDate(startDate),
+                                  onTap: () async {
+                                    final picked =
+                                        await showMoniqDatePickerSheet(
+                                          context: ctx,
+                                          initialDate: startDate,
+                                          firstDate: DateTime(
+                                            startDate.year - 3,
+                                            1,
+                                            1,
+                                          ),
+                                          lastDate: DateTime(
+                                            startDate.year + 5,
+                                            12,
+                                            31,
+                                          ),
+                                          title: '시작 일자',
+                                        );
+                                    if (picked == null) return;
+                                    setSheetState(() {
+                                      startDate = DateTime(
+                                        picked.year,
+                                        picked.month,
+                                        picked.day,
+                                      );
+                                      // 시작일이 종료일보다 뒤로 가면 종료일을 함께 밀어준다.
+                                      if (endDate.isBefore(startDate)) {
+                                        endDate = startDate;
+                                      }
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                flex: 4,
+                                child: _EventTimeButton(
+                                  label: '시작 시간',
+                                  value: startTime != null
+                                      ? formatTime(startTime!)
+                                      : '--:--',
+                                  onTap: () {
+                                    showCupertinoTimePicker(
+                                      context: ctx,
+                                      initialHour: startTime?.hour ?? 9,
+                                      initialMinute: startTime?.minute ?? 0,
+                                      onChanged: (h, m) {
+                                        setSheetState(() {
+                                          startTime = TimeOfDay(
+                                            hour: h,
+                                            minute: m,
+                                          );
+                                          endTime ??= TimeOfDay(
+                                            hour: (h + 1) % 24,
+                                            minute: m,
+                                          );
+                                        });
+                                      },
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        // 종료 일자 + 종료 시간
+                        SizedBox(
+                          height: 50,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 5,
+                                child: _EventTimeButton(
+                                  icon: Icons.event_available_rounded,
+                                  label: '종료일',
+                                  value: formatEventDate(endDate),
+                                  onTap: () async {
+                                    // firstDate를 시작일로 제한해 시작일보다 앞선
+                                    // 종료일은 아예 선택할 수 없게 한다.
+                                    final picked =
+                                        await showMoniqDatePickerSheet(
+                                          context: ctx,
+                                          initialDate: endDate.isBefore(
+                                            startDate,
+                                          )
+                                              ? startDate
+                                              : endDate,
+                                          firstDate: startDate,
+                                          lastDate: DateTime(
+                                            startDate.year + 5,
+                                            12,
+                                            31,
+                                          ),
+                                          title: '종료 일자',
+                                        );
+                                    if (picked == null) return;
+                                    setSheetState(() {
+                                      endDate = DateTime(
+                                        picked.year,
+                                        picked.month,
+                                        picked.day,
+                                      );
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                flex: 4,
+                                child: _EventTimeButton(
+                                  label: '종료 시간',
+                                  value: endTime != null
+                                      ? formatTime(endTime!)
+                                      : '--:--',
+                                  onTap: () {
+                                    showCupertinoTimePicker(
+                                      context: ctx,
+                                      initialHour:
+                                          endTime?.hour ??
+                                          (startTime?.hour ?? 9) + 1,
+                                      initialMinute:
+                                          endTime?.minute ??
+                                          startTime?.minute ??
+                                          0,
+                                      onChanged: (h, m) {
+                                        setSheetState(
+                                          () => endTime = TimeOfDay(
+                                            hour: h,
+                                            minute: m,
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -255,6 +376,29 @@ void showEventForm(
                   onPressed: () async {
                     final title = titleController.text.trim();
                     if (title.isEmpty) return;
+                    // 시작 일시는 반드시 종료 일시보다 앞서야 한다.
+                    if (endDate.isBefore(startDate)) {
+                      await showMoniqInfoSheet(
+                        context: ctx,
+                        eyebrow: 'SCHEDULE',
+                        title: '종료 일자를 확인해주세요',
+                        message: '종료 일자는 시작 일자보다 앞설 수 없습니다.',
+                      );
+                      return;
+                    }
+                    if (endDate == startDate &&
+                        startTime != null &&
+                        endTime != null &&
+                        _minutesOf(endTime!) <= _minutesOf(startTime!)) {
+                      await showMoniqInfoSheet(
+                        context: ctx,
+                        eyebrow: 'SCHEDULE',
+                        title: '종료 시간을 확인해주세요',
+                        message: '같은 날이면 종료 시간이 시작 시간보다 늦어야 합니다.\n'
+                            '자정을 넘기는 일정이면 종료 일자를 다음 날로 선택해주세요.',
+                      );
+                      return;
+                    }
                     final userDesc = descController.text.trim();
                     // 마커가 있으면 description 앞에 prepend (구분용).
                     final desc = descriptionMarker != null
@@ -263,8 +407,10 @@ void showEventForm(
                               : '$descriptionMarker\n$userDesc')
                         : (userDesc.isEmpty ? null : userDesc);
                     final event = PersonalEvent(
-                      date: DateTime(date.year, date.month, date.day),
+                      date: startDate,
                       title: title,
+                      // 당일 일정은 endDate를 비워 기존 데이터와 동일하게 둔다.
+                      endDate: endDate.isAfter(startDate) ? endDate : null,
                       startTime: startTime != null
                           ? formatTime(startTime!)
                           : null,
@@ -276,6 +422,11 @@ void showEventForm(
                     );
                     final ds = ref.read(personalEventDataSourceProvider);
                     if (index == null) {
+                      await ds.addEvent(event);
+                    } else if (startDate != baseDate) {
+                      // 시작 일자가 바뀌면 저장되는 날짜 키 자체가 달라지므로
+                      // 기존 항목을 지우고 새 날짜로 다시 등록한다.
+                      await ds.removeEvent(baseDate, index);
                       await ds.addEvent(event);
                     } else {
                       await ds.updateEvent(date, index, event);
