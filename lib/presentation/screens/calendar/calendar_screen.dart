@@ -147,8 +147,9 @@ class CalendarScreen extends HookConsumerWidget {
         final monthlyNotes =
             ref.watch(monthlyNotesProvider(state.focusedMonth));
         final dateNotes = ref.watch(dateNotesProvider(state.selectedDate));
+        // 패널은 다일 일정의 중간/마지막 날도 보여주므로 occurrence를 사용한다.
         final dateEvents =
-            ref.watch(dateEventsProvider(state.selectedDate));
+            ref.watch(dateEventOccurrencesProvider(state.selectedDate));
 
         // 이 달에 가져온(import) 근무가 있는지 — "팀 근무 숨기기" 토글과 무관하게
         // import 근무는 표시되므로, OFF도 토글과 무관하게 채우기 위해 따로 본다.

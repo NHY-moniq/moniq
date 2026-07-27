@@ -363,6 +363,8 @@ Future<void> _importTeamShiftsToPersonal(
     ref.read(eventRefreshProvider.notifier).state++;
     ref.invalidate(monthlyEventsProvider);
     ref.invalidate(dateEventsProvider);
+    ref.invalidate(dateEventOccurrencesProvider);
+    ref.invalidate(dateEventsIncludingSpansProvider);
     // 홈 캘린더 자체 데이터(shift) 갱신
     try {
       await ref.read(homeViewModelProvider.notifier).refresh();

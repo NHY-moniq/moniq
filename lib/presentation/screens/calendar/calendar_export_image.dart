@@ -116,6 +116,8 @@ Future<Uint8List> _renderCalendarBytes(
 ) async {
   final focusedMonth = state.focusedMonth;
   final eventDs = ref.read(personalEventDataSourceProvider);
+  // 여러 날에 걸친 일정은 걸쳐 있는 모든 날짜에 그린다 (화면 캘린더와 동일).
+  final monthEvents = eventDs.getMonthlyEventsIncludingSpans(focusedMonth);
   final daysInMonth = DateTime(
     focusedMonth.year,
     focusedMonth.month + 1,
@@ -192,7 +194,7 @@ Future<Uint8List> _renderCalendarBytes(
 
     final isToday = date == todayKey;
     final shifts = state.monthlyShifts[date];
-    final allEvents = eventDs.getEvents(date);
+    final allEvents = monthEvents[date] ?? const [];
     // 팀에서 가져온 근무(import)는 근무 박스로, 직접 만든 개인 일정은 텍스트로 분리.
     final importEvents = allEvents
         .where(
