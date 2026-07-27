@@ -6,15 +6,15 @@ import 'package:flutter/foundation.dart';
 /// (실제 광고를 직접 클릭하면 정책 위반으로 계정이 정지될 수 있음 —
 ///  https://support.google.com/admob/answer/6128543 참고)
 ///
-/// 출시 직전에 아래 `_prod*` 값을 실제 AdMob 광고 단위 ID로 교체하고,
-/// `useTestAds`를 false로 내리면 된다.
+/// 릴리스 빌드는 실제 광고 단위 ID가 채워진 플랫폼(iOS)에서 실광고를 노출하고,
+/// 아직 ID가 없는 Android는 테스트 광고로 폴백한다.
 class AdHelper {
   AdHelper._();
 
   /// true면 항상 테스트 광고를 노출한다.
   /// 디버그 빌드에서는 무조건 테스트 광고를 쓰고,
-  /// 릴리스에서도 실제 ID를 채우기 전까지는 테스트 광고를 유지한다.
-  static const bool useTestAds = true;
+  /// 릴리스에서는 실제 광고 단위 ID가 채워진 플랫폼만 실광고를 노출한다.
+  static const bool useTestAds = false;
 
   // ── Google 공식 테스트 배너 광고 단위 ID ──
   // https://developers.google.com/admob/flutter/test-ads
@@ -23,9 +23,11 @@ class AdHelper {
   static const String _testBannerIos =
       'ca-app-pub-3940256099942544/2934735716';
 
-  // ── 실제 배너 광고 단위 ID (출시 전 교체) ──
+  // ── 실제 배너 광고 단위 ID ──
+  // Android는 AdMob에 앱 등록 후 발급받아 채울 것 (빈 값이면 테스트 광고 유지).
   static const String _prodBannerAndroid = '';
-  static const String _prodBannerIos = '';
+  static const String _prodBannerIos =
+      'ca-app-pub-9945303286843241/1201389262';
 
   /// 현재 플랫폼에 맞는 배너 광고 단위 ID.
   /// 웹은 google_mobile_ads를 지원하지 않으므로 호출하면 안 된다.

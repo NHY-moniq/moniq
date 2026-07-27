@@ -107,10 +107,9 @@
 	<!-- FCM: APNS 토큰 자동 등록 (FlutterFire 권장) -->
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<true/>
-	<!-- AdMob App ID — 현재는 Google 공식 "샘플" App ID(테스트용).
-	     출시 전 실제 AdMob App ID로 교체할 것. -->
+	<!-- AdMob App ID (실제 운영용) -->
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>ca-app-pub-9945303286843241~3299683388</string>
 	<!-- AdMob: iOS 14+ 맞춤형 광고를 위한 앱 추적 권한(ATT) 설명 문구 -->
 	<key>NSUserTrackingUsageDescription</key>
 	<string>맞춤형 광고를 제공하기 위해 사용자 데이터가 사용됩니다.</string>
