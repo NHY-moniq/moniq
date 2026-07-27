@@ -17,60 +17,6 @@ class AuthViewModel extends AsyncNotifier<User?> {
     return _repository.currentUser;
   }
 
-  Future<void> signInWithEmail({
-    required String email,
-    required String password,
-  }) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      final response = await _repository.signInWithEmail(
-        email: email,
-        password: password,
-      );
-      return response.user;
-    });
-  }
-
-  Future<void> signUpWithEmail({
-    required String email,
-    required String password,
-    required String displayName,
-  }) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      final response = await _repository.signUpWithEmail(
-        email: email,
-        password: password,
-        displayName: displayName,
-      );
-      return response.user;
-    });
-  }
-
-  Future<void> resetPassword(String email) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      await _repository.resetPassword(email);
-      return _repository.currentUser;
-    });
-  }
-
-  Future<AuthResponse> signUpWithEmailRaw({
-    required String email,
-    required String password,
-    required String displayName,
-  }) {
-    return _repository.signUpWithEmail(
-      email: email,
-      password: password,
-      displayName: displayName,
-    );
-  }
-
-  Future<void> resendVerificationEmail(String email) async {
-    await _repository.resendVerificationEmail(email);
-  }
-
   Future<void> signInWithGoogle() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
