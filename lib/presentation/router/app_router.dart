@@ -4,10 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moniq/presentation/router/app_shell.dart';
-import 'package:moniq/presentation/screens/auth/forgot_password_screen.dart';
 import 'package:moniq/presentation/screens/auth/login_screen.dart';
-import 'package:moniq/presentation/screens/auth/email_verification_screen.dart';
-import 'package:moniq/presentation/screens/auth/signup_screen.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_screen.dart';
 import 'package:moniq/presentation/screens/notifications/notifications_screen.dart';
 import 'package:moniq/presentation/screens/home/home_screen.dart';
@@ -71,10 +68,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return isLoggedIn ? '/home' : '/login';
       }
 
-      final isAuthRoute = state.matchedLocation == '/login' ||
-          state.matchedLocation == '/signup' ||
-          state.matchedLocation == '/forgot-password' ||
-          state.matchedLocation == '/verify-email';
+      final isAuthRoute = state.matchedLocation == '/login';
 
       if (!isLoggedIn && !isAuthRoute) {
         return '/login';
@@ -92,23 +86,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/login',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const LoginScreen(),
-      ),
-      GoRoute(
-        path: '/signup',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const SignupScreen(),
-      ),
-      GoRoute(
-        path: '/forgot-password',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const ForgotPasswordScreen(),
-      ),
-      GoRoute(
-        path: '/verify-email',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => EmailVerificationScreen(
-          email: state.extra as String? ?? '',
-        ),
       ),
 
       // App Shell with bottom navigation

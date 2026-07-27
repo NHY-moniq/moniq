@@ -18,30 +18,6 @@ class AuthRemoteDataSource {
   final GoTrueClient _auth;
   final SupabaseClient _client;
 
-  // Email / Password
-  Future<AuthResponse> signInWithEmail({
-    required String email,
-    required String password,
-  }) async {
-    return _auth.signInWithPassword(email: email, password: password);
-  }
-
-  Future<AuthResponse> signUpWithEmail({
-    required String email,
-    required String password,
-    required String displayName,
-  }) async {
-    return _auth.signUp(
-      email: email,
-      password: password,
-      data: {'display_name': displayName},
-    );
-  }
-
-  Future<void> resetPassword(String email) async {
-    await _auth.resetPasswordForEmail(email);
-  }
-
   // Google Sign-In
   Future<AuthResponse> signInWithGoogle() async {
     if (kIsWeb) {
@@ -191,11 +167,6 @@ class AuthRemoteDataSource {
     if (!launched) {
       throw const AuthException('카카오 로그인 페이지를 열 수 없습니다');
     }
-  }
-
-  // Email verification
-  Future<void> resendVerificationEmail(String email) async {
-    await _auth.resend(type: OtpType.signup, email: email);
   }
 
   // Account deletion
