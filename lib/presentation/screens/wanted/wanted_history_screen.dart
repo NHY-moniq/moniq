@@ -133,7 +133,7 @@ class WantedHistoryScreen extends ConsumerWidget {
         ),
         data: (groups) {
           if (groups.isEmpty) {
-            return MoniqEmptyState.peaceful(
+            return MoniqEmptyState.shift(
               title: '수집 히스토리가 없어요',
               message: '원티드 수집이 마감되면 여기서 확인할 수 있어요',
             );

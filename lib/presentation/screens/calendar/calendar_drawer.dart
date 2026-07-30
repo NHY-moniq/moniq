@@ -1,5 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
@@ -9,6 +8,7 @@ import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
+import 'package:moniq/presentation/widgets/common/moniq_time_picker_sheet.dart';
 
 import 'calendar_providers.dart';
 
@@ -513,6 +513,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                           _showTimePicker(
                             context: ctx,
                             initial: startTime,
+                            title: '시작 시간',
                             onChanged: (t) =>
                                 setSheetState(() => startTime = t),
                           );
@@ -573,6 +574,7 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                           _showTimePicker(
                             context: ctx,
                             initial: endTime,
+                            title: '종료 시간',
                             onChanged: (t) => setSheetState(() => endTime = t),
                           );
                         },
@@ -723,65 +725,19 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
     return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
   }
 
-  void _showTimePicker({
+  Future<void> _showTimePicker({
     required BuildContext context,
     required TimeOfDay initial,
     required ValueChanged<TimeOfDay> onChanged,
-  }) {
-    var selected = initial;
-
-    showModalBottomSheet(
+    String title = '시간 선택',
+  }) async {
+    final picked = await showMoniqTimePickerSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => SizedBox(
-        height: 280,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.md,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('취소'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      onChanged(selected);
-                      Navigator.pop(ctx);
-                    },
-                    child: const Text('확인'),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: CupertinoDatePicker(
-                mode: CupertinoDatePickerMode.time,
-                use24hFormat: false,
-                initialDateTime: DateTime(
-                  2000,
-                  1,
-                  1,
-                  initial.hour,
-                  initial.minute,
-                ),
-                onDateTimeChanged: (dt) {
-                  selected = TimeOfDay(hour: dt.hour, minute: dt.minute);
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+      initialTime: initial,
+      title: title,
     );
+    if (picked == null) return;
+    onChanged(picked);
   }
 }
 

@@ -56,7 +56,7 @@ class _MobileLayout extends StatelessWidget {
           ),
         Expanded(
           child: groups.isEmpty
-              ? MoniqEmptyState.peaceful(
+              ? MoniqEmptyState.shift(
                   title: '이번달·다음달 요청이 없어요',
                   message: '지난 요청은 히스토리에서 확인할 수 있어요',
                 )
@@ -190,7 +190,7 @@ class _WebLayout extends StatelessWidget {
               ),
               Expanded(
                 child: groups.isEmpty
-                    ? MoniqEmptyState.peaceful(
+                    ? MoniqEmptyState.shift(
                         title: '이번달·다음달 요청이 없어요',
                         message: '지난 요청은 히스토리에서 확인할 수 있어요',
                       )

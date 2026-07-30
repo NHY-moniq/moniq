@@ -78,7 +78,7 @@ class WantedDayOffScreen extends HookConsumerWidget {
               child: ListView(
                 children: [
                   const SizedBox(height: 120),
-                  MoniqEmptyState.peaceful(
+                  MoniqEmptyState.shift(
                     title: '진행 중인 원티드 수집이 없어요',
                     message: '관리자가 수집을 시작하면 여기서 입력할 수 있어요',
                   ),
@@ -314,24 +314,12 @@ class _EntryView extends HookConsumerWidget {
     // 통합 뷰 — 엔트리 없음
     final unified = _unifiedEntries();
     if (unified.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.calendar_today,
-              size: 48,
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              '아래 버튼으로 날짜를 추가하세요',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+      // 다른 빈 상태와 같이 브랜드 캐릭터를 쓴다 — Material 기본 아이콘만
+      // 회색으로 떠 있어 이 화면만 앱 밖처럼 보였다.
+      return MoniqEmptyState.shift(
+        compact: true,
+        title: '아직 추가한 원티드가 없어요',
+        message: '아래 버튼으로 원하는 날짜를 추가해보세요',
       );
     }
 
@@ -359,7 +347,8 @@ class _EntryView extends HookConsumerWidget {
         } else if (shiftType != null) {
           entryColor = parseHexColor(shiftType.color);
         } else {
-          entryColor = AppColors.primary;
+          // 근무 유형을 못 찾은 fallback — 고정 앰버 대신 현재 테마 색을 쓴다.
+          entryColor = colorScheme.primary;
         }
 
         // P0-1: 순위 pill 전용 색상
@@ -482,6 +471,8 @@ class _EntryView extends HookConsumerWidget {
     WidgetRef ref,
     bool isBlocked,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     // 나이트 전담 뷰
     if (_isNightView) {
       final isApplied = _isNightApplied();
@@ -535,8 +526,10 @@ class _EntryView extends HookConsumerWidget {
       height: AppSizing.buttonHeight,
       child: FilledButton.icon(
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.onPrimary,
+          // 고정 브랜드 앰버였다 — 화면의 다른 요소가 전부 근무 색을 따르는데
+          // 이 버튼만 노랗게 겉돌았다.
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: AppRadius.borderRadiusFull,
           ),
@@ -1076,8 +1069,8 @@ class _EntryView extends HookConsumerWidget {
                   height: AppSizing.buttonHeight,
                   child: FilledButton(
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.onPrimary,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: AppRadius.borderRadiusFull,
                       ),

@@ -38,9 +38,11 @@ class _ActiveBanner extends StatelessWidget {
           // 상단 Row: 수집 중 pill + D-N pill
           Row(
             children: [
-              const _EntryStatusPill(
+              // 진행 상태는 근무 색을 따른다. 고정 주황이면 나이트(남색) 테마에서
+              // 이 배지만 튄다. 마감 임박 경고색(brandOrange)과도 구분된다.
+              _EntryStatusPill(
                 label: '수집 중',
-                color: AppColors.brandOrange,
+                color: colorScheme.primary,
                 icon: Icons.circle,
               ),
               const Spacer(),

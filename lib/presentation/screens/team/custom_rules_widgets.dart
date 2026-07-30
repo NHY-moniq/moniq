@@ -537,7 +537,7 @@ class CustomRulesEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MoniqEmptyState.peaceful(
+    return MoniqEmptyState.shift(
       title: '등록된 커스텀 규칙이 없어요',
       message: '팀 상황에 맞는 규칙을 자연어로 입력하면\nAI가 자동으로 분석합니다.',
     );

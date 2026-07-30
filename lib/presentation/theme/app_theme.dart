@@ -3,32 +3,78 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/app_typography.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 
 abstract final class AppTheme {
-  static ThemeData light() {
+  /// [color]의 색조를 유지한 채 밝기만 [lightness]로 올려 옅은 배경색을 만든다.
+  static Color _tint(Color color, double lightness) => HSLColor.fromColor(color)
+      .withLightness(lightness.clamp(0.0, 1.0))
+      .withSaturation(
+          (HSLColor.fromColor(color).saturation * 0.85).clamp(0.0, 1.0))
+      .toColor();
+
+  /// 라이트 테마.
+  ///
+  /// primary 계열은 [shift]가 있으면 항상 그날 근무 색을 따른다.
+  /// surface 계열만 톤을 나눠, 쿨톤(나이트·오프)이면 상아색 대신 쿨 계열을 쓰고
+  /// 웜톤(데이·이브닝)이면 기존 상아색을 그대로 유지한다.
+  static ThemeData light({ShiftThemeData? shift}) {
+    final cool = shift?.isCoolTone ?? false;
+
+    final primary = shift?.primary ?? AppColors.primary;
+    final onPrimary = shift?.onPrimary ?? AppColors.onPrimary;
+    // primaryContainer(아이콘 배지 등)는 시프트 색을 옅게 깐다.
+    final primaryContainer =
+        shift == null ? AppColors.primaryContainer : _tint(primary, 0.88);
+    final onPrimaryContainer =
+        shift == null ? AppColors.onPrimaryContainer : shift.accentText;
+    final secondary = shift?.primary ?? AppColors.secondary;
+    final secondaryContainer =
+        shift == null ? AppColors.secondaryContainer : _tint(primary, 0.82);
+
+    final surface = cool ? AppColors.surfaceCool : AppColors.surface;
+    final surfaceContainerLowest = cool
+        ? AppColors.surfaceContainerLowestCool
+        : AppColors.surfaceContainerLowest;
+    final surfaceContainerLow =
+        cool ? AppColors.surfaceContainerLowCool : AppColors.surfaceContainerLow;
+    final surfaceContainer =
+        cool ? AppColors.surfaceContainerCool : AppColors.surfaceContainer;
+    final surfaceContainerHigh = cool
+        ? AppColors.surfaceContainerHighCool
+        : AppColors.surfaceContainerHigh;
+    final surfaceContainerHighest = cool
+        ? AppColors.surfaceContainerHighestCool
+        : AppColors.surfaceContainerHighest;
+    final outlineVariant =
+        cool ? AppColors.outlineVariantCool : AppColors.outlineVariant;
+    final border = cool ? AppColors.borderCool : AppColors.borderLight;
+    final divider = cool ? AppColors.dividerCool : AppColors.dividerLight;
+    final background = cool ? AppColors.backgroundCool : AppColors.backgroundLight;
+
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.primary,
-      primary: AppColors.primary,
-      onPrimary: AppColors.onPrimary,
-      primaryContainer: AppColors.primaryContainer,
-      onPrimaryContainer: AppColors.onPrimaryContainer,
-      secondary: AppColors.secondary,
+      seedColor: primary,
+      primary: primary,
+      onPrimary: onPrimary,
+      primaryContainer: primaryContainer,
+      onPrimaryContainer: onPrimaryContainer,
+      secondary: secondary,
       onSecondary: AppColors.onSecondary,
-      secondaryContainer: AppColors.secondaryContainer,
+      secondaryContainer: secondaryContainer,
       tertiary: AppColors.tertiary,
       tertiaryContainer: AppColors.tertiaryContainer,
       error: AppColors.error,
       onError: AppColors.onError,
-      surface: AppColors.surface,
-      surfaceContainerLowest: AppColors.surfaceContainerLowest,
-      surfaceContainerLow: AppColors.surfaceContainerLow,
-      surfaceContainer: AppColors.surfaceContainer,
-      surfaceContainerHigh: AppColors.surfaceContainerHigh,
-      surfaceContainerHighest: AppColors.surfaceContainerHighest,
+      surface: surface,
+      surfaceContainerLowest: surfaceContainerLowest,
+      surfaceContainerLow: surfaceContainerLow,
+      surfaceContainer: surfaceContainer,
+      surfaceContainerHigh: surfaceContainerHigh,
+      surfaceContainerHighest: surfaceContainerHighest,
       onSurface: AppColors.onSurface,
       onSurfaceVariant: AppColors.onSurfaceVariant,
       outline: AppColors.outline,
-      outlineVariant: AppColors.outlineVariant,
+      outlineVariant: outlineVariant,
     );
 
     final textTheme = GoogleFonts.plusJakartaSansTextTheme().copyWith(
@@ -48,9 +94,9 @@ abstract final class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       textTheme: textTheme,
-      scaffoldBackgroundColor: AppColors.backgroundLight,
+      scaffoldBackgroundColor: background,
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.surface.withValues(alpha: 0.8),
+        backgroundColor: surface.withValues(alpha: 0.8),
         foregroundColor: AppColors.onSurface,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -61,14 +107,14 @@ abstract final class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.onPrimary,
+          backgroundColor: primary,
+          foregroundColor: onPrimary,
           minimumSize: const Size.fromHeight(AppSizing.buttonHeight),
           shape: RoundedRectangleBorder(
             borderRadius: AppRadius.borderRadiusFull,
           ),
           elevation: 4,
-          shadowColor: AppColors.primary.withValues(alpha: 0.3),
+          shadowColor: primary.withValues(alpha: 0.3),
           textStyle: AppTypography.labelLarge,
         ),
       ),
@@ -79,19 +125,19 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: AppRadius.borderRadiusFull,
           ),
-          side: BorderSide(color: AppColors.outlineVariant, width: 2),
+          side: BorderSide(color: outlineVariant, width: 2),
           textStyle: AppTypography.labelLarge,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.secondary,
+          foregroundColor: secondary,
           textStyle: AppTypography.labelLarge,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surfaceContainer,
+        fillColor: surfaceContainer,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.xxl,
           vertical: AppSpacing.lg,
@@ -107,7 +153,7 @@ abstract final class AppTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.borderRadiusLg,
           borderSide: BorderSide(
-            color: AppColors.primary.withValues(alpha: 0.3),
+            color: primary.withValues(alpha: 0.3),
             width: 2,
           ),
         ),
@@ -117,18 +163,18 @@ abstract final class AppTheme {
         ),
         hintStyle: TextStyle(color: AppColors.outline.withValues(alpha: 0.4)),
       ),
-      dividerTheme: const DividerThemeData(
-        color: AppColors.dividerLight,
+      dividerTheme: DividerThemeData(
+        color: divider,
         thickness: 1,
         space: 1,
       ),
       cardTheme: CardThemeData(
-        color: AppColors.surfaceContainerLow,
+        color: surfaceContainerLow,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.borderRadiusXl,
           side: BorderSide(
-            color: AppColors.borderLight.withValues(alpha: 0.45),
+            color: border.withValues(alpha: 0.45),
           ),
         ),
       ),
@@ -156,17 +202,30 @@ abstract final class AppTheme {
     );
   }
 
-  static ThemeData dark() {
+  /// 다크 테마.
+  ///
+  /// [shift]가 있으면 primary와 컨테이너 계열을 그날 근무 색으로 맞춘다.
+  /// 다크 모드의 surface는 원래 무채색이라 웜/쿨 구분 없이 항상 적용한다.
+  static ThemeData dark({ShiftThemeData? shift}) {
+    final primary = shift?.primary ?? AppColors.primary;
+    final onPrimary = shift?.onPrimary ?? AppColors.onPrimary;
+    final primaryContainer =
+        shift == null ? AppColors.primaryContainerDark : _tint(primary, 0.18);
+    final onPrimaryContainer =
+        shift == null ? AppColors.onPrimaryContainerDark : _tint(primary, 0.80);
+    final secondaryContainer =
+        shift == null ? AppColors.secondaryContainerDark : _tint(primary, 0.22);
+
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.primary,
+      seedColor: primary,
       brightness: Brightness.dark,
-      primary: AppColors.primary,
-      onPrimary: AppColors.onPrimary,
-      primaryContainer: AppColors.primaryContainerDark,
-      onPrimaryContainer: AppColors.onPrimaryContainerDark,
-      secondary: AppColors.secondary,
+      primary: primary,
+      onPrimary: onPrimary,
+      primaryContainer: primaryContainer,
+      onPrimaryContainer: onPrimaryContainer,
+      secondary: shift?.primary ?? AppColors.secondary,
       onSecondary: AppColors.onSecondary,
-      secondaryContainer: AppColors.secondaryContainerDark,
+      secondaryContainer: secondaryContainer,
       tertiary: AppColors.tertiary,
       tertiaryContainer: AppColors.tertiaryContainerDark,
       error: AppColors.error,
@@ -218,14 +277,14 @@ abstract final class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.onPrimary,
+          backgroundColor: primary,
+          foregroundColor: onPrimary,
           minimumSize: const Size.fromHeight(AppSizing.buttonHeight),
           shape: RoundedRectangleBorder(
             borderRadius: AppRadius.borderRadiusFull,
           ),
           elevation: 4,
-          shadowColor: AppColors.primary.withValues(alpha: 0.3),
+          shadowColor: primary.withValues(alpha: 0.3),
           textStyle: AppTypography.labelLarge,
         ),
       ),
@@ -242,7 +301,7 @@ abstract final class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.secondary,
+          foregroundColor: primary,
           textStyle: AppTypography.labelLarge,
         ),
       ),
@@ -264,7 +323,7 @@ abstract final class AppTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.borderRadiusLg,
           borderSide: BorderSide(
-            color: AppColors.primary.withValues(alpha: 0.3),
+            color: primary.withValues(alpha: 0.3),
             width: 2,
           ),
         ),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/ads/ad_helper.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/theme/app_typography.dart';
 
 /// 적응형(anchored adaptive) 배너 광고 위젯.
@@ -12,14 +14,14 @@ import 'package:moniq/presentation/theme/app_typography.dart';
 ///   화면 어느 위치(패딩 안/밖)에 놓아도 정확히 들어맞는다.
 /// - 로드 실패·미지원 시 공간을 차지하지 않는다 (빈 위젯).
 /// - 홈 카드 패밀리와 동일한 크림 카드 스타일로 감싼다.
-class BannerAdWidget extends StatefulWidget {
+class BannerAdWidget extends ConsumerStatefulWidget {
   const BannerAdWidget({super.key});
 
   @override
-  State<BannerAdWidget> createState() => _BannerAdWidgetState();
+  ConsumerState<BannerAdWidget> createState() => _BannerAdWidgetState();
 }
 
-class _BannerAdWidgetState extends State<BannerAdWidget> {
+class _BannerAdWidgetState extends ConsumerState<BannerAdWidget> {
   BannerAd? _bannerAd;
   bool _isLoaded = false;
   bool _didRequest = false;
@@ -88,6 +90,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
 
         final cs = Theme.of(context).colorScheme;
         final isDark = cs.brightness == Brightness.dark;
+        final shift = ref.watch(todayShiftThemeProvider);
 
         return Container(
           margin: const EdgeInsets.only(bottom: AppSpacing.lg),
@@ -96,14 +99,13 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
             vertical: AppSpacing.xxs, // 상하 2 (높이 축소)
           ),
           decoration: BoxDecoration(
-            color: isDark
-                ? AppColors.surfaceContainerDark
-                : AppColors.surfaceContainerLow,
+            color: shift.scaffoldBackground,
             borderRadius: AppRadius.borderRadiusLg, // 24
             border: Border.all(
+              // 테두리도 배경 톤을 따라가야 프레임이 겉돌지 않는다.
               color: isDark
                   ? AppColors.outlineVariantDark
-                  : AppColors.borderLight,
+                  : shift.elevatedSurface,
               width: 1,
             ),
             boxShadow: isDark

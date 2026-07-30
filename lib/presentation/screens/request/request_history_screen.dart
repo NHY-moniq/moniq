@@ -193,7 +193,7 @@ class _RequestHistoryScreenState extends ConsumerState<RequestHistoryScreen> {
 
           final history = _historyItems(state.requests);
           if (history.isEmpty) {
-            return MoniqEmptyState.peaceful(
+            return MoniqEmptyState.shift(
               title: '히스토리가 없어요',
               message: '최근 6개월의 요청만 보관돼요',
             );
