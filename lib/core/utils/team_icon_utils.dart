@@ -24,11 +24,7 @@ const teamColors = [
 ];
 
 class TeamIconData {
-  const TeamIconData({
-    this.emoji,
-    required this.color,
-    this.imageUrl,
-  });
+  const TeamIconData({this.emoji, required this.color, this.imageUrl});
 
   final String? emoji;
   final String color;
@@ -43,18 +39,12 @@ class TeamIconData {
 
   static TeamIconData decode(String? icon) {
     if (icon == null || icon.isEmpty) {
-      return const TeamIconData(
-        emoji: defaultEmoji,
-        color: '#5A8BB5',
-      );
+      return const TeamIconData(emoji: defaultEmoji, color: '#5A8BB5');
     }
 
     // 이미지 형식: "image|url"
     if (icon.startsWith('image|')) {
-      return TeamIconData(
-        color: '#5A8BB5',
-        imageUrl: icon.substring(6),
-      );
+      return TeamIconData(color: '#5A8BB5', imageUrl: icon.substring(6));
     }
 
     // 새 형식: "emoji|#color"
@@ -67,10 +57,7 @@ class TeamIconData {
     }
 
     // 레거시: Material 아이콘 이름
-    return TeamIconData(
-      emoji: _legacyIconToEmoji(icon),
-      color: '#5A8BB5',
-    );
+    return TeamIconData(emoji: _legacyIconToEmoji(icon), color: '#5A8BB5');
   }
 }
 
@@ -113,11 +100,7 @@ bool _isUnsetIcon(String? icon) {
 
 /// 팀 프로필 아바타 위젯
 class TeamProfileAvatar extends StatelessWidget {
-  const TeamProfileAvatar({
-    super.key,
-    required this.icon,
-    this.radius = 28,
-  });
+  const TeamProfileAvatar({super.key, required this.icon, this.radius = 28});
 
   final String? icon;
   final double radius;
@@ -126,17 +109,26 @@ class TeamProfileAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
+    // 개인 캘린더 프로필과 같은 가장자리를 준다. 아래 분기(마스코트/이미지/이모지)
+    // 마다 테두리를 넣는 대신 결과를 한 번 감싸 세 경우 모두 같은 링을 갖게 한다.
+    Widget withRing(Widget avatar) => Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: cs.outlineVariant, width: 2),
+      ),
+      child: avatar,
+    );
+
     // 아이콘 미지정 → moniq 마스코트
     if (_isUnsetIcon(icon)) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundColor: cs.surfaceContainerHigh,
-        child: ClipOval(
-          child: Padding(
-            padding: EdgeInsets.all(radius * 0.18),
-            child: Image.asset(
-              'assets/images/off.png',
-              fit: BoxFit.contain,
+      return withRing(
+        CircleAvatar(
+          radius: radius,
+          backgroundColor: cs.surfaceContainerHigh,
+          child: ClipOval(
+            child: Padding(
+              padding: EdgeInsets.all(radius * 0.18),
+              child: Image.asset('assets/images/off.png', fit: BoxFit.contain),
             ),
           ),
         ),
@@ -146,20 +138,24 @@ class TeamProfileAvatar extends StatelessWidget {
     final data = TeamIconData.decode(icon);
 
     if (data.isImage) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundImage: NetworkImage(data.imageUrl!),
-        backgroundColor: Colors.grey.withValues(alpha: 0.2),
+      return withRing(
+        CircleAvatar(
+          radius: radius,
+          backgroundImage: NetworkImage(data.imageUrl!),
+          backgroundColor: Colors.grey.withValues(alpha: 0.2),
+        ),
       );
     }
 
     final bgColor = parseHexColor(data.color);
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: bgColor.withValues(alpha: 0.25),
-      child: Text(
-        data.emoji ?? defaultEmoji,
-        style: TextStyle(fontSize: radius * 0.75),
+    return withRing(
+      CircleAvatar(
+        radius: radius,
+        backgroundColor: bgColor.withValues(alpha: 0.25),
+        child: Text(
+          data.emoji ?? defaultEmoji,
+          style: TextStyle(fontSize: radius * 0.75),
+        ),
       ),
     );
   }

@@ -61,6 +61,9 @@ void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
     context: context,
     eyebrow: 'ADD',
     title: '추가하기',
+    // 근무 유형 개수만큼 칩이 줄바꿈되어 높이가 사용자마다 다르다.
+    // 기본 상한(0.56)으로는 유형이 5개만 돼도 하단이 잘렸다.
+    maxHeightFactor: 0.8,
     child: Consumer(
       builder: (ctx, ref2, _) {
         // 즐겨찾기 팀이 있으면 그 팀의 근무 유형을 우선 사용.
@@ -82,11 +85,14 @@ void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
         // 화면에 보이는 목록(숨김/팀 근무 숨기기 필터 적용)에서 찾되, 변경·삭제는
         // 저장 위치(originIndex)로 해야 다른 일정이 잘못 바뀌지 않는다.
         // 이 날 시작하는 일정만 대상 — 이어지는 다일 일정은 시작일에서 다룬다.
-        final personalShiftIndex = ref
+        final personalShiftIndex =
+            ref
                 .read(dateEventOccurrencesProvider(date))
-                .where((o) =>
-                    !o.isContinuation &&
-                    shiftTypes.any((st) => st.name == o.event.title))
+                .where(
+                  (o) =>
+                      !o.isContinuation &&
+                      shiftTypes.any((st) => st.name == o.event.title),
+                )
                 .firstOrNull
                 ?.originIndex ??
             -1;
@@ -100,97 +106,105 @@ void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
             const <ShiftWithType>[];
         final teamShift = teamShifts.isNotEmpty ? teamShifts.first : null;
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── 근무 섹션 ──
-            if (teamShift != null) ...[
-              // 팀(서버) 근무가 있으면 근무 수정 옵션 제공
-              MoniqSheetOption(
-                icon: Icons.swap_horiz,
-                label: '근무 수정',
-                description: '${teamShift.shiftType.name} · 근무 유형 변경',
-                accentColor: parseHexColor(teamShift.shiftType.color),
-                trailing: const SizedBox.shrink(),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  editTeamShiftAsPersonal(context, ref, date, teamShift);
-                },
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Divider(height: 1, color: cs.outlineVariant),
-              const SizedBox(height: AppSpacing.sm),
-            ] else if (shiftTypes.isNotEmpty) ...[
-              // ── 근무 일정 빠른 추가/변경 (근무 유형 칩) ──
-              Text(
-                hasPersonalShift ? '근무 변경' : '근무 일정 추가',
-                style: Theme.of(ctx).textTheme.labelLarge?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: shiftTypes.map((st) {
-                  final color = parseHexColor(st.color);
-                  return _ShiftQuickChip(
-                    color: color,
-                    label: st.name,
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      hasPersonalShift
-                          ? changeShiftEvent(ref, date, personalShiftIndex, st)
-                          : addShiftEvent(ref, date, st);
-                    },
-                  );
-                }).toList(),
-              ),
-              if (hasPersonalShift) ...[
-                const SizedBox(height: AppSpacing.md),
+        // 상한을 올려도 유형이 더 많으면 넘칠 수 있으므로 스크롤로 받아준다.
+        return SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── 근무 섹션 ──
+              if (teamShift != null) ...[
+                // 팀(서버) 근무가 있으면 근무 수정 옵션 제공
                 MoniqSheetOption(
-                  icon: Icons.delete_outline,
-                  label: '근무 삭제',
-                  description: '이 날의 개인 근무 일정을 삭제',
-                  accentColor: AppColors.error,
+                  icon: Icons.swap_horiz,
+                  label: '근무 수정',
+                  description: '${teamShift.shiftType.name} · 근무 유형 변경',
+                  accentColor: parseHexColor(teamShift.shiftType.color),
                   trailing: const SizedBox.shrink(),
                   onTap: () {
                     Navigator.pop(ctx);
-                    removeShiftEvent(ref, date, personalShiftIndex);
+                    editTeamShiftAsPersonal(context, ref, date, teamShift);
                   },
                 ),
+                const SizedBox(height: AppSpacing.sm),
+                Divider(height: 1, color: cs.outlineVariant),
+                const SizedBox(height: AppSpacing.sm),
+              ] else if (shiftTypes.isNotEmpty) ...[
+                // ── 근무 일정 빠른 추가/변경 (근무 유형 칩) ──
+                Text(
+                  hasPersonalShift ? '근무 변경' : '근무 일정 추가',
+                  style: Theme.of(ctx).textTheme.labelLarge?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: shiftTypes.map((st) {
+                    final color = parseHexColor(st.color);
+                    return _ShiftQuickChip(
+                      color: color,
+                      label: st.name,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        hasPersonalShift
+                            ? changeShiftEvent(
+                                ref,
+                                date,
+                                personalShiftIndex,
+                                st,
+                              )
+                            : addShiftEvent(ref, date, st);
+                      },
+                    );
+                  }).toList(),
+                ),
+                if (hasPersonalShift) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  MoniqSheetOption(
+                    icon: Icons.delete_outline,
+                    label: '근무 삭제',
+                    description: '이 날의 개인 근무 일정을 삭제',
+                    accentColor: AppColors.error,
+                    trailing: const SizedBox.shrink(),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      removeShiftEvent(ref, date, personalShiftIndex);
+                    },
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.xl),
+                Divider(height: 1, color: cs.outlineVariant),
+                const SizedBox(height: AppSpacing.sm),
               ],
-              const SizedBox(height: AppSpacing.xl),
-              Divider(height: 1, color: cs.outlineVariant),
-              const SizedBox(height: AppSpacing.sm),
+              // ── 일정 추가 ──
+              MoniqSheetOption(
+                icon: Icons.event,
+                label: '일정 추가',
+                description: '시간, 색상, 설명을 포함한 일정',
+                accentColor: AppColors.success,
+                trailing: const SizedBox.shrink(),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showEventForm(context, ref, date, null, null);
+                },
+              ),
+              // ── 메모 추가 ──
+              MoniqSheetOption(
+                icon: Icons.edit_note,
+                label: '메모 추가',
+                description: '간단한 텍스트 메모',
+                accentColor: cs.tertiary,
+                trailing: const SizedBox.shrink(),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showNoteForm(context, ref, date, null, null);
+                },
+              ),
             ],
-            // ── 일정 추가 ──
-            MoniqSheetOption(
-              icon: Icons.event,
-              label: '일정 추가',
-              description: '시간, 색상, 설명을 포함한 일정',
-              accentColor: AppColors.success,
-              trailing: const SizedBox.shrink(),
-              onTap: () {
-                Navigator.pop(ctx);
-                showEventForm(context, ref, date, null, null);
-              },
-            ),
-            // ── 메모 추가 ──
-            MoniqSheetOption(
-              icon: Icons.edit_note,
-              label: '메모 추가',
-              description: '간단한 텍스트 메모',
-              accentColor: cs.tertiary,
-              trailing: const SizedBox.shrink(),
-              onTap: () {
-                Navigator.pop(ctx);
-                showNoteForm(context, ref, date, null, null);
-              },
-            ),
-          ],
+          ),
         );
       },
     ),
@@ -410,8 +424,9 @@ Future<void> editTeamShiftAsPersonal(
 
   // 현재 "적용된" 근무 타입 = 오버라이드가 있으면 그 타입, 없으면 원본 팀 근무.
   // (오버라이드로 바꿔도 원본을 다시 고를 수 있도록 effective 기준으로 판정)
-  final currentOverride =
-      ref.read(personalShiftOverridesProvider).valueOrNull?[shift.shift.id];
+  final currentOverride = ref
+      .read(personalShiftOverridesProvider)
+      .valueOrNull?[shift.shift.id];
   final effectiveTypeId =
       currentOverride?.shiftTypeId ?? shift.shift.shiftTypeId;
 
