@@ -74,9 +74,6 @@ class WantedRequestActiveView extends HookConsumerWidget {
             .where((member) => !respondedUserIds.contains(member.userId))
             .toList()
           ..sort((a, b) => a.displayName.compareTo(b.displayName));
-    final responseLabel = totalMemberCount > 0
-        ? '$totalMemberCount명 중 $respondedCount명 응답'
-        : '$respondedCount명 응답';
 
     // 엔트리 칩 빌더 (shiftTypeId 기반: null=오프/회색, non-null=근무 유형 색)
     Widget entryChip(WantedEntryDisplayItem item) {
@@ -151,113 +148,72 @@ class WantedRequestActiveView extends HookConsumerWidget {
     );
     Widget typeChips() => (hasNight && hasNonNight)
         ? Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.sm,
+              AppSpacing.lg,
+              AppSpacing.md,
             ),
-            child: Center(
-              child: WantedModeTabs(
-                isNight: isNight,
-                onWanted: () => ref
-                    .read(wantedAdminViewModelProvider(teamId).notifier)
-                    .selectType('day_off'),
-                onNight: () => ref
-                    .read(wantedAdminViewModelProvider(teamId).notifier)
-                    .selectType('night_dedicated'),
-              ),
+            child: WantedModeTabs(
+              isNight: isNight,
+              onWanted: () => ref
+                  .read(wantedAdminViewModelProvider(teamId).notifier)
+                  .selectType('day_off'),
+              onNight: () => ref
+                  .read(wantedAdminViewModelProvider(teamId).notifier)
+                  .selectType('night_dedicated'),
             ),
           )
         : const SizedBox.shrink();
 
-    // 상태 배너 (공통)
-    Widget statusBanner() => Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xxl,
-        AppSpacing.lg,
-        AppSpacing.xxl,
-        AppSpacing.xxl,
+    // 수집 현황 헤더 (공통)
+    //
+    // 관리자가 이 화면에서 가장 먼저 알아야 하는 건 "얼마나 걷혔나"와 "언제까지"다.
+    // 그래서 응답률을 카드의 주인공으로 올리고, 기간·마감은 카드 하단 부가 정보로 내렸다.
+    Widget statusHeader() => _WantedHeaderCard(
+      statusLabel: isNight ? '나이트 전담 수집 중' : '원티드 수집 중',
+      statusColor: colorScheme.onPrimaryContainer,
+      statusIcon: Icons.circle,
+      trailingPill: request.deadline != null
+          ? _WantedStatusPill(
+              label: dDayText(),
+              color: daysLeftColor(request.deadline!),
+            )
+          : null,
+      metric: _WantedResponseMeter(
+        respondedCount: respondedCount,
+        totalMemberCount: totalMemberCount,
+        entryCount: state.allEntries.length,
+        onTap: showMissingMembersSheet,
       ),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const _WantedStatusPill(
-                label: '수집 중',
-                color: AppColors.brandOrange,
-                icon: Icons.circle,
-              ),
-              const Spacer(),
-              if (request.deadline != null)
-                _WantedStatusPill(
-                  label: dDayText(),
-                  color: daysLeftColor(request.deadline!),
-                ),
-            ],
+      footRows: [
+        _WantedHeaderFootRow(
+          label: '근무 기간',
+          value:
+              '${DateFormat('yyyy.MM.dd').format(request.periodStart)} ~ '
+              '${DateFormat('yyyy.MM.dd').format(request.periodEnd)}',
+        ),
+        if (request.deadline != null)
+          _WantedHeaderFootRow(
+            label: '입력 마감',
+            value: DateFormat('yyyy.MM.dd').format(request.deadline!),
+            valueColor: daysLeftColor(request.deadline!),
           ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            isNight ? '나이트 전담 수집 진행 중' : '원티드 수집 진행 중',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            '${DateFormat('yyyy.MM.dd').format(request.periodStart)} ~ '
-            '${DateFormat('yyyy.MM.dd').format(request.periodEnd)}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              if (request.deadline != null)
-                _WantedMetricChip(
-                  icon: Icons.event_available_rounded,
-                  label:
-                      '마감 ${DateFormat('yyyy.MM.dd').format(request.deadline!)}',
-                ),
-              _WantedMetricChip(
-                icon: Icons.groups_rounded,
-                label: responseLabel,
-                color: colorScheme.primary,
-                onTap: showMissingMembersSheet,
-              ),
-              _WantedMetricChip(
-                icon: Icons.checklist_rounded,
-                label: '${state.allEntries.length}건',
-                color: AppColors.brandOrange,
-              ),
-            ],
-          ),
-        ],
-      ),
+      ],
     );
 
+    // 수집 마감은 되돌릴 수 없는 파괴적 액션이 아니라 정상 진행 단계다.
+    // (마감 후에도 '수집 재개'가 가능하다) 그래서 error 톤 대신 기본 CTA 톤을 쓴다.
     Widget closeRequestButton() => SizedBox(
       width: double.infinity,
-      child: FilledButton.tonalIcon(
-        style: FilledButton.styleFrom(
-          backgroundColor: colorScheme.errorContainer,
-          foregroundColor: colorScheme.onErrorContainer,
-        ),
+      child: ElevatedButton.icon(
         onPressed: () async {
           final confirm = await showMoniqConfirmSheet(
             context: context,
             eyebrow: 'CLOSE',
-            title: '수집 마감',
-            message: '원티드 수집을 마감하시겠습니까?',
-            confirmLabel: '마감',
-            destructive: true,
+            title: '수집을 마감할까요?',
+            message: '마감하면 팀원이 더 이상 원티드를 입력할 수 없어요.\n마감한 뒤에도 다시 열 수 있어요.',
+            confirmLabel: '마감하기',
           );
           if (confirm == true) {
             await ref
@@ -265,16 +221,46 @@ class WantedRequestActiveView extends HookConsumerWidget {
                 .closeRequest();
           }
         },
-        icon: const Icon(Icons.check_circle_outline),
+        icon: const Icon(Icons.done_all_rounded),
         label: const Text('수집 마감'),
       ),
     );
 
     // 하단 버튼 (공통)
-    Widget bottomButtons() => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: closeRequestButton(),
+    //
+    // 목록이 버튼 뒤로 스크롤되므로 상단 경계선 + surface 배경으로 독처럼 띄운다.
+    Widget bottomButtons() => Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.md,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 마감 전에 미응답자가 남아 있다는 사실을 버튼 바로 위에서 알린다
+              if (missingMembers.isNotEmpty) ...[
+                Text(
+                  '아직 ${missingMembers.length}명이 입력하지 않았어요',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+              ],
+              closeRequestButton(),
+            ],
+          ),
+        ),
       ),
     );
 
@@ -294,7 +280,7 @@ class WantedRequestActiveView extends HookConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                statusBanner(),
+                statusHeader(),
                 typeChips(),
                 const Spacer(),
                 bottomButtons(),
@@ -310,26 +296,16 @@ class WantedRequestActiveView extends HookConsumerWidget {
                     isActive: true,
                   )
                 : state.allEntries.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.hourglass_empty,
-                          size: 48,
-                          color: colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.3,
+                ? MoniqEmptyState.shift(
+                    title: '아직 들어온 원티드가 없어요',
+                    message: '팀원이 입력하면 여기에 바로 모여요',
+                    action: missingMembers.isEmpty
+                        ? null
+                        : MoniqEmptyStateAction(
+                            label: '미응답자에게 알림 보내기',
+                            icon: Icons.notifications_active_outlined,
+                            onTap: showMissingMembersSheet,
                           ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(
-                          '아직 입력된 원티드가 없습니다',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
                   )
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(AppSpacing.lg),
@@ -388,7 +364,7 @@ class WantedRequestActiveView extends HookConsumerWidget {
     // ── 모바일 레이아웃 ──
     return Column(
       children: [
-        statusBanner(),
+        statusHeader(),
         typeChips(),
 
         // 나이트 전담 탭: 선택 UI
@@ -408,44 +384,37 @@ class WantedRequestActiveView extends HookConsumerWidget {
               onRefresh: () => ref
                   .read(wantedAdminViewModelProvider(teamId).notifier)
                   .refresh(),
+              // 빈 상태도 당겨서 새로고침이 되도록 스크롤 가능한 상태를 유지한다
               child: state.allEntries.isEmpty
-                  ? ListView(
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.4,
-                          child: Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.hourglass_empty,
-                                  size: 48,
-                                  color: colorScheme.onSurfaceVariant
-                                      .withValues(alpha: 0.3),
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                                Text(
-                                  '아직 입력된 원티드가 없습니다',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
+                  ? LayoutBuilder(
+                      builder: (context, constraints) => SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
+                          child: MoniqEmptyState.shift(
+                            compact: true,
+                            title: '아직 들어온 원티드가 없어요',
+                            message: '팀원이 입력하면 여기에 바로 모여요\n아래로 당기면 새로고침돼요',
+                            action: missingMembers.isEmpty
+                                ? null
+                                : MoniqEmptyStateAction(
+                                    label: '미응답자에게 알림 보내기',
+                                    icon: Icons.notifications_active_outlined,
+                                    onTap: showMissingMembersSheet,
                                   ),
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                Text(
-                                  '아래로 당겨 새로고침',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant
-                                        .withValues(alpha: 0.5),
-                                  ),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
-                      ],
+                      ),
                     )
                   : ListView.builder(
-                      padding: AppSpacing.screenAll,
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        AppSpacing.sm,
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                      ),
                       itemCount: userGroups.length,
                       itemBuilder: (context, index) {
                         final group = userGroups[index];
@@ -461,7 +430,7 @@ class WantedRequestActiveView extends HookConsumerWidget {
                           elevation: 0,
                           color: colorScheme.surfaceContainerLow,
                           shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.borderRadiusMd,
+                            borderRadius: AppRadius.borderRadiusLg,
                             side: BorderSide(color: colorScheme.outlineVariant),
                           ),
                           child: Padding(
@@ -469,12 +438,10 @@ class WantedRequestActiveView extends HookConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.surfaceContainerHighest
-                                        .withValues(alpha: 0.5),
-                                    borderRadius: AppRadius.borderRadiusMd,
-                                  ),
+                                // 카드 안에 또 색 면을 깔면 무거워져서, 헤더 줄은
+                                // 배경 없이 InkWell만 두고 카드 자체를 면으로 쓴다
+                                Material(
+                                  type: MaterialType.transparency,
                                   child: InkWell(
                                     borderRadius: AppRadius.borderRadiusMd,
                                     onTap: () {
@@ -496,14 +463,16 @@ class WantedRequestActiveView extends HookConsumerWidget {
                                         children: [
                                           CircleAvatar(
                                             radius: 17,
-                                            backgroundColor: colorScheme.primary
-                                                .withValues(alpha: 0.14),
+                                            backgroundColor: colorScheme
+                                                .onPrimaryContainer
+                                                .withValues(alpha: 0.12),
                                             child: Text(
                                               initial,
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w900,
-                                                color: colorScheme.primary,
+                                                color: colorScheme
+                                                    .onPrimaryContainer,
                                               ),
                                             ),
                                           ),
@@ -521,7 +490,8 @@ class WantedRequestActiveView extends HookConsumerWidget {
                                             '${group.items.length}건',
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
-                                                  color: colorScheme.primary,
+                                                  color: colorScheme
+                                                      .onPrimaryContainer,
                                                   fontWeight: FontWeight.w900,
                                                 ),
                                           ),
@@ -678,151 +648,130 @@ class WantedRequestClosedView extends HookConsumerWidget {
     // 타입 전환 칩
     Widget typeChips() => (hasNight && hasNonNight)
         ? Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.sm,
+              AppSpacing.lg,
+              AppSpacing.md,
             ),
-            child: Center(
-              child: WantedModeTabs(
-                isNight: isNight,
-                onWanted: () => ref
-                    .read(wantedAdminViewModelProvider(teamId).notifier)
-                    .selectClosedType('day_off'),
-                onNight: () => ref
-                    .read(wantedAdminViewModelProvider(teamId).notifier)
-                    .selectClosedType('night_dedicated'),
-              ),
+            child: WantedModeTabs(
+              isNight: isNight,
+              onWanted: () => ref
+                  .read(wantedAdminViewModelProvider(teamId).notifier)
+                  .selectClosedType('day_off'),
+              onNight: () => ref
+                  .read(wantedAdminViewModelProvider(teamId).notifier)
+                  .selectClosedType('night_dedicated'),
             ),
           )
         : const SizedBox.shrink();
 
-    // 마감 배너
-    Widget closedBanner() => Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xxl,
-        AppSpacing.lg,
-        AppSpacing.xxl,
-        AppSpacing.xxl,
-      ),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    // 마감 결과 헤더 — 수집 중 헤더와 같은 카드 구조를 써서 마감 전후가 이어져 보이게 한다
+    Widget closedHeader() => _WantedHeaderCard(
+      statusLabel: isNight ? '나이트 전담 수집 마감' : '원티드 수집 마감',
+      statusColor: colorScheme.onSurfaceVariant,
+      statusIcon: Icons.check_circle_outline,
+      metric: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          _WantedStatusPill(
-            label: '수집 마감',
-            color: colorScheme.onSurfaceVariant,
-            icon: Icons.check_circle_outline,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            isNight ? '나이트 전담 수집 결과' : '원티드 수집 결과',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w900,
+          Expanded(
+            child: _WantedStatBlock(
+              label: '응답한 팀원',
+              value: '${userGroups.length}',
+              unit: '명',
+              valueColor: colorScheme.onPrimaryContainer,
+              emphasized: true,
             ),
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            '${DateFormat('yyyy.MM.dd').format(request.periodStart)} ~ '
-            '${DateFormat('yyyy.MM.dd').format(request.periodEnd)}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              _WantedMetricChip(
-                icon: Icons.groups_rounded,
-                label: '${userGroups.length}명 응답',
-              ),
-              _WantedMetricChip(
-                icon: Icons.checklist_rounded,
-                label: '${state.lastClosedEntries.length}건',
-              ),
-            ],
+          const SizedBox(width: AppSpacing.md),
+          _WantedStatBlock(
+            label: '수집된 원티드',
+            value: '${state.lastClosedEntries.length}',
+            unit: '건',
+            alignEnd: true,
           ),
         ],
       ),
+      footRows: [
+        _WantedHeaderFootRow(
+          label: '근무 기간',
+          value:
+              '${DateFormat('yyyy.MM.dd').format(request.periodStart)} ~ '
+              '${DateFormat('yyyy.MM.dd').format(request.periodEnd)}',
+        ),
+      ],
     );
 
     // 하단 버튼 영역 (수집 재개 + 새 수집 시작)
-    Widget bottomButtons() => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          0,
-          AppSpacing.lg,
-          AppSpacing.lg,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 수집 재개
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  final picked = await _showWantedReopenSheet(context);
-                  if (picked == null || !context.mounted) return;
-                  final ok = await ref
+    Widget bottomButtons() => Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.md,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 수집 재개
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await _showWantedReopenSheet(context);
+                    if (picked == null || !context.mounted) return;
+                    final ok = await ref
+                        .read(wantedAdminViewModelProvider(teamId).notifier)
+                        .reopenRequests(deadline: picked);
+                    if (!ok && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('수집 재개 중 오류가 발생했습니다')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.replay),
+                  label: const Text('수집 재개'),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              // 새 수집 시작
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => ref
                       .read(wantedAdminViewModelProvider(teamId).notifier)
-                      .reopenRequests(deadline: picked);
-                  if (!ok && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('수집 재개 중 오류가 발생했습니다')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.replay),
-                label: const Text('수집 재개'),
+                      .startNewCollection(),
+                  icon: const Icon(Icons.add),
+                  label: const Text('새 수집 시작'),
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            // 새 수집 시작
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => ref
-                    .read(wantedAdminViewModelProvider(teamId).notifier)
-                    .startNewCollection(),
-                icon: const Icon(Icons.add),
-                label: const Text('새 수집 시작'),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
 
     // 엔트리 목록 (모바일 기준)
     Widget entryList() => state.lastClosedEntries.isEmpty
-        ? Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.inbox_outlined,
-                  size: 48,
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  '수집된 원티드가 없습니다',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
+        ? MoniqEmptyState.shift(
+            compact: true,
+            title: '수집된 원티드가 없어요',
+            message: '이번 수집에는 아무도 입력하지 않았어요',
           )
         : ListView.builder(
-            padding: AppSpacing.screenAll,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.sm,
+              AppSpacing.lg,
+              AppSpacing.lg,
+            ),
             itemCount: userGroups.length,
             itemBuilder: (context, index) {
               final group = userGroups[index];
@@ -951,7 +900,7 @@ class WantedRequestClosedView extends HookConsumerWidget {
 
     return Column(
       children: [
-        closedBanner(),
+        closedHeader(),
         typeChips(),
         if (isNight)
           Expanded(
@@ -1034,24 +983,10 @@ class _NightDedicatedSelector extends HookConsumerWidget {
     final isConfirming = useState(false);
 
     if (applicantIds.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.nightlight_round,
-              size: 48,
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              '나이트 전담 신청자가 없습니다',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+      return MoniqEmptyState.shift(
+        compact: true,
+        title: '나이트 전담 신청자가 없어요',
+        message: '팀원이 나이트 전담을 신청하면 여기에서 확정할 수 있어요',
       );
     }
 

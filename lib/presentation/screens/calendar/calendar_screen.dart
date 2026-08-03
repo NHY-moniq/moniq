@@ -23,6 +23,7 @@ import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import 'calendar_dialogs.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'calendar_drawer.dart';
 import 'calendar_export.dart';
 import 'calendar_providers.dart';
@@ -159,7 +160,7 @@ class CalendarScreen extends HookConsumerWidget {
 
         return Scaffold(
           backgroundColor:
-              Theme.of(context).colorScheme.surfaceContainerLow,
+              ref.watch(todayShiftThemeProvider).scaffoldBackground,
           appBar: MoniqAppBar(
                   title: calendarTitle,
                   eyebrow: 'OnorOff',

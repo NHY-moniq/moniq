@@ -12,6 +12,7 @@ import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
@@ -42,7 +43,7 @@ class TeamScreen extends HookConsumerWidget {
 
     if (favoriteTeamAsync.isLoading) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : const MoniqAppBar(title: '팀', showBack: false),
@@ -52,7 +53,7 @@ class TeamScreen extends HookConsumerWidget {
 
     if (favoriteTeamAsync.hasError) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : const MoniqAppBar(title: '팀', showBack: false),
@@ -89,7 +90,7 @@ class TeamScreen extends HookConsumerWidget {
     // 즐겨찾기가 없으면 팀 목록이 필요함
     if (favoriteTeam == null && teamsAsync.isLoading) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : const MoniqAppBar(title: '팀', showBack: false),
@@ -99,7 +100,7 @@ class TeamScreen extends HookConsumerWidget {
 
     if (favoriteTeam == null && teamsAsync.hasError) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : const MoniqAppBar(title: '팀', showBack: false),
@@ -116,11 +117,11 @@ class TeamScreen extends HookConsumerWidget {
 
     if (teams.isEmpty) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : const MoniqAppBar(title: '팀', showBack: false),
-        body: MoniqEmptyState.cheerful(
+        body: MoniqEmptyState.shift(
           title: '아직 참여한 팀이 없어요',
           message: '팀을 만들거나 초대 코드로 참여해보세요',
           action: MoniqEmptyStateAction(
@@ -148,10 +149,8 @@ class _NoFavoriteView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
-      backgroundColor: cs.surfaceContainerLow,
+      backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
       appBar: AdaptiveLayout.isWide(context)
           ? null
           : const MoniqAppBar(title: '팀', showBack: false),
@@ -614,7 +613,7 @@ class _TeamCalendarView extends HookConsumerWidget {
     final lastTap = useState<({DateTime day, int at})?>(null);
     final scrollCtrl = useScrollController();
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+      backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
       appBar: MoniqAppBar(
         title: team.name,
         eyebrow: team.teamType == 'personal' ? 'PRIVATE TEAM' : 'PUBLIC TEAM',
@@ -887,7 +886,7 @@ class _PersonalTeamCalendarView extends HookConsumerWidget {
     );
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+      backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
       appBar: MoniqAppBar(
         title: team.name,
         eyebrow: team.teamType == 'personal' ? 'PRIVATE TEAM' : 'PUBLIC TEAM',

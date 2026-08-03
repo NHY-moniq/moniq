@@ -78,7 +78,7 @@ class AnnouncementScreen extends HookConsumerWidget {
         ),
         data: (announcements) {
           if (announcements.isEmpty) {
-            return MoniqEmptyState.encouraging(
+            return MoniqEmptyState.shift(
               title: '아직 등록된 공지가 없어요',
               message: '팀원들에게 전달할 공지를 작성해보세요',
             );
@@ -109,7 +109,7 @@ class AnnouncementScreen extends HookConsumerWidget {
               ),
               Expanded(
                 child: visible.isEmpty
-                    ? MoniqEmptyState.peaceful(
+                    ? MoniqEmptyState.shift(
                         title: '고정된 공지가 없어요',
                         message: '공지 카드의 핀 아이콘을 눌러 상단에 고정하세요',
                       )
@@ -210,13 +210,7 @@ class AnnouncementScreen extends HookConsumerWidget {
   }
 
   void _showCreateSheet(BuildContext context, WidgetRef ref) {
-    // 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
-    showMoniqBottomSheet<void>(
-      context: context,
-      eyebrow: 'ANNOUNCE',
-      title: '공지사항 작성',
-      child: _AnnouncementCreateSheet(teamId: teamId),
-    );
+    showAnnouncementCreateSheet(context, teamId: teamId);
   }
 
   void _showDetail(

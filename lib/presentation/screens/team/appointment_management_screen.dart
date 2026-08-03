@@ -213,7 +213,7 @@ class _AppointmentManagementScreenState
   }
 
   Widget _emptyState() {
-    return MoniqEmptyState.peaceful(
+    return MoniqEmptyState.shift(
       title: _showPast ? '지난 약속이 없어요' : '예정된 약속이 없어요',
       message: _showPast
           ? '아직 지나간 약속이 없습니다.'

@@ -25,6 +25,10 @@ class ScheduleStepIndicator extends StatelessWidget {
     _ScheduleFlowStep(label: '발행'),
   ];
 
+  /// 단계 라벨. 발행 완료 시트가 지나온 단계를 되짚을 때 같은 문구를 쓰도록
+  /// 공개한다. (여기와 시트가 따로 문자열을 들면 어긋나기 쉽다)
+  static const stepLabels = ['규칙', '기간', '미리보기', '발행'];
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -42,9 +46,14 @@ class ScheduleStepIndicator extends StatelessWidget {
         horizontal: AppSpacing.xs,
         vertical: AppSpacing.sm,
       ),
+      // 배경을 직접 칠하면 시트·카드처럼 배경 톤이 다른 곳에 얹혔을 때
+      // 흰 띠처럼 떠 보이므로, 부모 배경을 그대로 상속받고 구분선만 남긴다.
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.72),
-        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,

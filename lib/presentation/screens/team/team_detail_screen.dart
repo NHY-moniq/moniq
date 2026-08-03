@@ -205,10 +205,12 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                 _SectionHeader(label: '팀 설정'),
                 const SizedBox(height: AppSpacing.lg),
 
+                // 메뉴 아이콘은 항목마다 고정 액센트 색을 써서 서로 구분한다.
+                // '팀 상세 설정'만 테마 토큰(secondary)이라 근무 색을 따라간다.
                 TeamDetailBubbleMenuCard(
                   key: _memberKey,
                   icon: Icons.people_outline,
-                  iconColor: Theme.of(context).colorScheme.tertiary,
+                  iconColor: AppColors.accentBlue,
                   title: '멤버 관리',
                   subtitle: '${state.members.length}명',
                   onTap: () => context.push('/teams/${widget.teamId}/members'),
@@ -237,7 +239,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                   TeamDetailBubbleMenuCard(
                     key: _memberCalendarKey,
                     icon: Icons.calendar_month_outlined,
-                    iconColor: Theme.of(context).colorScheme.primary,
+                    iconColor: AppColors.accentGreen,
                     title: '멤버 근무 현황',
                     subtitle: '즐겨찾기 팀 근무 · 오프 겹침 보기',
                     onTap: () => context.push(
@@ -247,7 +249,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                   const SizedBox(height: AppSpacing.md),
                   TeamDetailBubbleMenuCard(
                     icon: Icons.event_note_rounded,
-                    iconColor: Theme.of(context).colorScheme.primary,
+                    iconColor: AppColors.accentPink,
                     title: '약속 관리',
                     subtitle: '약속 보기 · 내 캘린더에 추가',
                     onTap: () => Navigator.of(context, rootNavigator: true).push(
@@ -267,7 +269,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                     child: TeamDetailBubbleMenuCard(
                       key: _scheduleKey,
                       icon: Icons.auto_awesome_outlined,
-                      iconColor: Theme.of(context).colorScheme.primary,
+                      iconColor: AppColors.accentPurple,
                       title: '근무표 자동 생성',
                       subtitle: state.isAdmin
                           ? '규칙 설정 · 근무표 생성'
@@ -297,7 +299,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                         opacity: state.isAdmin ? 1.0 : 0.5,
                         child: TeamDetailBubbleMenuCard(
                           icon: Icons.event_note_outlined,
-                          iconColor: AppColors.brandOrange,
+                          iconColor: AppColors.accentAmber,
                           title: '원티드 수집',
                           subtitle: state.isAdmin
                               ? '근무표 생성 전 팀원 원티드 수집'
@@ -321,7 +323,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                       const SizedBox(height: AppSpacing.md),
                       TeamDetailBubbleMenuCard(
                         icon: Icons.edit_calendar_outlined,
-                        iconColor: Theme.of(context).colorScheme.secondary,
+                        iconColor: AppColors.accentTeal,
                         title: '원티드 입력',
                         subtitle: '내 원티드 날짜 입력하기',
                         onTap: () => context.push(
@@ -334,7 +336,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                   TeamDetailBubbleMenuCard(
                     key: _exchangeKey,
                     icon: Icons.swap_horiz_outlined,
-                    iconColor: Theme.of(context).colorScheme.tertiary,
+                    iconColor: AppColors.accentIndigo,
                     title: '교환/변경 요청',
                     subtitle: '근무 교환 및 변경 요청 관리',
                     onTap: () =>

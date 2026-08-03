@@ -1481,7 +1481,7 @@ class _FloatingNavBar extends StatelessWidget {
           child: Container(
             height: 72,
             decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.8),
+              color: shiftTheme.elevatedSurface.withValues(alpha: 0.8),
               borderRadius: BorderRadius.circular(999),
               boxShadow: [
                 BoxShadow(

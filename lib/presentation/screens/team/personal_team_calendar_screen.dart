@@ -10,9 +10,8 @@ import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/presentation/screens/team/appointment_management_screen.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
-import 'package:moniq/presentation/screens/calendar/calendar_dialogs.dart'
-    as calendar_dialogs;
 import 'package:moniq/presentation/viewmodels/personal_team_calendar_viewmodel.dart';
+import 'package:moniq/presentation/widgets/common/moniq_time_picker_sheet.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/presentation/widgets/calendar/weekly_member_grid.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
@@ -817,28 +816,30 @@ class _AppointmentSheetContentState
     });
   }
 
-  void _pickTime({required bool isStart}) {
-    calendar_dialogs.showCupertinoTimePicker(
+  Future<void> _pickTime({required bool isStart}) async {
+    final initial = isStart
+        ? _startTime ?? const TimeOfDay(hour: 9, minute: 0)
+        : _endTime ??
+            TimeOfDay(
+              hour: ((_startTime?.hour ?? 9) + 1) % 24,
+              minute: _startTime?.minute ?? 0,
+            );
+
+    final picked = await showMoniqTimePickerSheet(
       context: context,
-      initialHour: isStart
-          ? _startTime?.hour ?? 9
-          : _endTime?.hour ?? (_startTime?.hour ?? 9) + 1,
-      initialMinute: isStart
-          ? _startTime?.minute ?? 0
-          : _endTime?.minute ?? _startTime?.minute ?? 0,
-      onChanged: (hour, minute) {
-        if (!mounted) return;
-        final picked = TimeOfDay(hour: hour, minute: minute);
-        setState(() {
-          if (isStart) {
-            _startTime = picked;
-            _endTime ??= picked.replacing(hour: (picked.hour + 1) % 24);
-          } else {
-            _endTime = picked;
-          }
-        });
-      },
+      initialTime: initial,
+      title: isStart ? '시작 시간' : '종료 시간',
     );
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      if (isStart) {
+        _startTime = picked;
+        _endTime ??= picked.replacing(hour: (picked.hour + 1) % 24);
+      } else {
+        _endTime = picked;
+      }
+    });
   }
 
   Future<void> _saveAppointment() async {

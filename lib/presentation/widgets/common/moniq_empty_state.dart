@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/app_typography.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 
 /// Consistent empty-state illustration for Moniq screens.
 ///
@@ -10,7 +12,7 @@ import 'package:moniq/presentation/theme/app_typography.dart';
 ///
 /// Usage:
 /// ```dart
-/// MoniqEmptyState.peaceful(
+/// MoniqEmptyState.shift(
 ///   title: '받은 알림이 없어요',
 ///   message: '조용한 하루네요 ☕',
 ///   action: MoniqEmptyStateAction(
@@ -19,7 +21,7 @@ import 'package:moniq/presentation/theme/app_typography.dart';
 ///   ),
 /// )
 /// ```
-class MoniqEmptyState extends StatelessWidget {
+class MoniqEmptyState extends ConsumerWidget {
   const MoniqEmptyState({
     super.key,
     required this.title,
@@ -30,8 +32,12 @@ class MoniqEmptyState extends StatelessWidget {
     this.compact = false,
   });
 
-  /// Peaceful / no-content variant — uses the "off" grey character.
-  factory MoniqEmptyState.peaceful({
+  /// 오늘 근무 캐릭터를 쓰는 변형.
+  ///
+  /// [characterAsset]을 `null`로 두면 빌드 시점에 `todayShiftThemeProvider`에서
+  /// 캐릭터를 읽는다. 화면 전체가 근무 색을 따라가는데 빈 상태 캐릭터만
+  /// 노란 데이 캐릭터로 고정돼 겉돌던 문제를 없앤다.
+  factory MoniqEmptyState.shift({
     Key? key,
     required String title,
     required String message,
@@ -43,47 +49,7 @@ class MoniqEmptyState extends StatelessWidget {
         key: key,
         title: title,
         message: message,
-        characterAsset: 'assets/images/off.png',
-        action: action,
-        secondaryAction: secondaryAction,
-        compact: compact,
-      );
-
-  /// Encouraging variant — uses the yellow "day" character.
-  factory MoniqEmptyState.encouraging({
-    Key? key,
-    required String title,
-    required String message,
-    MoniqEmptyStateAction? action,
-    MoniqEmptyStateAction? secondaryAction,
-    bool compact = false,
-  }) =>
-      MoniqEmptyState(
-        key: key,
-        title: title,
-        message: message,
-        characterAsset: 'assets/images/yellow.png',
-        action: action,
-        secondaryAction: secondaryAction,
-        compact: compact,
-      );
-
-  /// Cheerful variant — uses the orange "evening" character.
-  /// Used when the empty state invites multiple onboarding choices
-  /// (e.g. team_screen: "팀 만들기 / 초대 코드로 참여").
-  factory MoniqEmptyState.cheerful({
-    Key? key,
-    required String title,
-    required String message,
-    MoniqEmptyStateAction? action,
-    MoniqEmptyStateAction? secondaryAction,
-    bool compact = false,
-  }) =>
-      MoniqEmptyState(
-        key: key,
-        title: title,
-        message: message,
-        characterAsset: 'assets/images/orange.png',
+        characterAsset: null,
         action: action,
         secondaryAction: secondaryAction,
         compact: compact,
@@ -91,73 +57,106 @@ class MoniqEmptyState extends StatelessWidget {
 
   final String title;
   final String message;
-  final String characterAsset;
+
+  /// 고정 캐릭터 에셋. `null`이면 오늘 근무 캐릭터를 따른다.
+  final String? characterAsset;
   final MoniqEmptyStateAction? action;
   final MoniqEmptyStateAction? secondaryAction;
   final bool compact;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
-    final characterSize = compact ? 96.0 : 140.0;
+    final asset =
+        characterAsset ?? ref.watch(todayShiftThemeProvider).characterAsset;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xxxl,
-          vertical: AppSpacing.xxxl,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Soft background blob + character
-            Container(
-              width: characterSize * 1.4,
-              height: characterSize * 1.4,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: cs.surfaceContainerLow,
-              ),
-              alignment: Alignment.center,
-              child: Image.asset(
-                characterAsset,
-                width: characterSize,
-                height: characterSize,
-                fit: BoxFit.contain,
-              ),
+    // 남은 높이에 맞춰 캐릭터와 여백을 줄인다. 예전엔 크기가 고정이라
+    // 헤더·탭·하단 독이 함께 있는 화면에서는 액션 버튼이 잘려나갔다.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxH = constraints.maxHeight;
+        final baseCharacter = compact ? 96.0 : 140.0;
+
+        // 캐릭터(1.4배 blob) + 텍스트 2줄 + 액션이 들어갈 자리를 뺀 나머지가
+        // 캐릭터에 쓸 수 있는 높이다. 텍스트·버튼은 줄일 수 없으므로 고정으로 본다.
+        var characterSize = baseCharacter;
+        var gap = compact ? AppSpacing.lg : AppSpacing.xxl;
+        var padV = AppSpacing.xxxl;
+        var actionGap = AppSpacing.xxl;
+
+        if (maxH.isFinite) {
+          const textBlock = 96.0; // 제목 + 간격 + 메시지(2줄까지)
+          final actionBlock = action == null ? 0.0 : 48.0;
+          final secondaryBlock = secondaryAction == null ? 0.0 : 48.0;
+          final fixed = textBlock + actionBlock + secondaryBlock;
+
+          // 여유가 빠듯하면 여백부터 줄이고, 그래도 모자라면 캐릭터를 줄인다.
+          var available = maxH - fixed - padV * 2 - gap - actionGap;
+          if (available < baseCharacter * 1.4) {
+            padV = AppSpacing.lg;
+            gap = AppSpacing.md;
+            actionGap = AppSpacing.lg;
+            available = maxH - fixed - padV * 2 - gap - actionGap;
+          }
+          // 너무 작아지면 캐릭터를 감추느니 하한(64)에서 멈춘다.
+          characterSize = (available / 1.4).clamp(64.0, baseCharacter);
+        }
+
+        return Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.xxxl,
+              vertical: padV,
             ),
-            SizedBox(
-              height: compact
-                  ? AppSpacing.lg
-                  : AppSpacing.xxl,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Soft background blob + character
+                Container(
+                  width: characterSize * 1.4,
+                  height: characterSize * 1.4,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: cs.surfaceContainerLow,
+                  ),
+                  alignment: Alignment.center,
+                  child: Image.asset(
+                    asset,
+                    width: characterSize,
+                    height: characterSize,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                SizedBox(height: gap),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.headlineLarge.copyWith(
+                    color: cs.onSurface,
+                    fontSize: compact ? 18 : 22,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                if (action != null) ...[
+                  SizedBox(height: actionGap),
+                  action!,
+                ],
+                if (secondaryAction != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  secondaryAction!,
+                ],
+              ],
             ),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: AppTypography.headlineLarge.copyWith(
-                color: cs.onSurface,
-                fontSize: compact ? 18 : 22,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: AppTypography.bodyMedium.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-            if (action != null) ...[
-              const SizedBox(height: AppSpacing.xxl),
-              action!,
-            ],
-            if (secondaryAction != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              secondaryAction!,
-            ],
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

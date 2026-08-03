@@ -1,5 +1,23 @@
 part of 'announcement_screen.dart';
 
+/// 공지 작성 바텀시트를 띄운다.
+///
+/// 팀 공지 목록(`AnnouncementScreen`)과 내 공지 목록(`MyAnnouncementsScreen`)
+/// 둘 다 같은 시트를 쓰도록 공개 함수로 뺐다. 예전엔 후자가 작성 대신
+/// `/teams/:id/announcements`로 push해서 목록 화면이 한 겹 더 쌓였다.
+Future<void> showAnnouncementCreateSheet(
+  BuildContext context, {
+  required String teamId,
+}) {
+  // 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
+  return showMoniqBottomSheet<void>(
+    context: context,
+    eyebrow: 'ANNOUNCE',
+    title: '공지사항 작성',
+    child: _AnnouncementCreateSheet(teamId: teamId),
+  );
+}
+
 class _AnnouncementCreateSheet extends ConsumerStatefulWidget {
   const _AnnouncementCreateSheet({required this.teamId});
   final String teamId;
