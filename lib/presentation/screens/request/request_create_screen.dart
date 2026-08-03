@@ -221,19 +221,19 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
             teamId: widget.teamId,
             changeType: 'swap',
             // 오프(_off)는 합성 항목이라 실제 shift_types FK로 보낼 수 없다 —
-            // null로 보내면 적용 시 상대의 실제 근무(없으면 오프)와 맞교환된다.
+            // null이면 적용 시 대상 멤버의 근무가 오프(삭제)로 변경된다.
             requestedShiftTypeId: e.isOff ? null : e.desiredShiftType?.id,
             targetUserId: e.userId,
-            reason: '${e.userName ?? '동료'}님과 근무 교환',
+            reason: '${e.userName ?? '멤버'}님 근무 변경',
           );
           try {
             final dateLabel = DateFormat('M/d', 'ko_KR').format(e.date!);
             final shiftLabel = e.desiredShiftType?.name ?? '';
             await PushService.instance.sendToUsers(
               userIds: [e.userId!],
-              title: '근무 교환 요청',
+              title: '근무 변경 요청',
               body:
-                  '$myName 님이 $dateLabel $shiftLabel 근무 교환을 요청했습니다',
+                  '$myName 님이 $dateLabel 근무를 $shiftLabel(으)로 변경 요청했습니다',
               data: {
                 'type': 'swap_request',
                 'team_id': widget.teamId,

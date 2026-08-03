@@ -366,19 +366,19 @@ class SwapEntry {
   ShiftTypeModel? targetCurrentShiftType;
 
   /// 변경할 근무(TO-BE) — 드롭박스에서 선택한 값. 기본값은 targetCurrentShiftType.
-  /// 오프(휴무)와의 교환도 선택할 수 있다.
+  /// 오프(휴무)로의 변경도 선택할 수 있다.
   ShiftTypeModel? desiredShiftType;
 
   bool get isComplete =>
       userId != null && date != null && desiredShiftType != null;
 
-  /// 변경할 근무가 OFF(휴무)인지 — 오프인 팀원과의 교환 요청.
+  /// 변경할 근무가 OFF(휴무)인지 — 대상 멤버를 오프로 변경하는 요청.
   bool get isOff =>
       desiredShiftType?.id == '_off' ||
       (desiredShiftType?.code.toUpperCase() == 'OFF');
 }
 
-/// 다중 근무 교환 요청 섹션 — 한 건씩 행으로 추가하여 N건을 한 번에 제출.
+/// 다중 멤버 근무 변경 요청 섹션 — 한 건씩 행으로 추가하여 N건을 한 번에 제출.
 class SwapEntriesSection extends ConsumerStatefulWidget {
   const SwapEntriesSection({
     super.key,
@@ -559,7 +559,7 @@ class _SwapEntriesSectionState extends ConsumerState<SwapEntriesSection> {
         ],
         const SizedBox(height: AppSpacing.md),
         _AddEntryButton(
-          label: '교환 요청 추가',
+          label: '변경 요청 추가',
           enabled: lastComplete,
           onPressed: _addEntry,
         ),
