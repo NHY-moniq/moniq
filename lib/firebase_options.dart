@@ -51,16 +51,16 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCHQ0ZhO2YTiy4jjeDGmqxfFKbvTVIHkx0',
-    appId: '1:467877754259:ios:410f9675a38ae091b92466',
+    appId: '1:467877754259:ios:14d4c0cab43c53f9b92466',
     messagingSenderId: '467877754259',
     projectId: 'onoroff-96389',
     storageBucket: 'onoroff-96389.firebasestorage.app',
-    iosBundleId: 'com.maybeornot.onoroff',
+    iosBundleId: 'com.maybe.onoroff',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCZi-p67336MoFMGNX3ELDHuBxpBqj7Xyo',
-    appId: '1:467877754259:android:5e13069231d25b2db92466',
+    appId: '1:467877754259:android:b3dc087b93a21b64b92466',
     messagingSenderId: '467877754259',
     projectId: 'onoroff-96389',
     storageBucket: 'onoroff-96389.firebasestorage.app',

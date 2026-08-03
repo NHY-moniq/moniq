@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.maybeornot.onoroff</string>
+	<string>com.maybe.onoroff</string>
 	<key>PROJECT_ID</key>
 	<string>onoroff-96389</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:467877754259:ios:410f9675a38ae091b92466</string>
+	<string>1:467877754259:ios:14d4c0cab43c53f9b92466</string>
 </dict>
 </plist>
