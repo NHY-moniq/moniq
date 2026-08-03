@@ -33,8 +33,9 @@ class ShiftThemeData {
   final CharacterType characterType;
 
   // ── 배경 톤 ──
-  // 데이·이브닝(웜톤)은 기존 상아색을 그대로 쓰고,
-  // 나이트·오프(쿨톤)는 상아색보다 차갑고 하얀 배경을 쓴다.
+  // 배경(surface 계열)은 근무와 무관하게 항상 웜톤 상아색을 쓴다.
+  // 나이트·오프의 쿨톤 배경 전환은 브랜드 톤 일관성을 위해 제거됨 —
+  // 근무별 구분은 primary/cardColor/캐릭터로만 표현한다.
   static const warmBackground = Color(0xFFFCF6E3);
   static const warmScaffold = Color(0xFFFFF6EA);
   static const warmElevated = Color(0xFFF7EAD6);
@@ -44,11 +45,6 @@ class ShiftThemeData {
   static const darkBackground = Color(0xFF121212);
   static const darkScaffold = Color(0xFF181818);
   static const darkElevated = Color(0xFF282828);
-
-  /// 색조가 웜톤(노랑·주황·빨강 계열)인지 여부.
-  ///
-  /// 웜톤이면 상아색 배경, 쿨톤이면 차가운 화이트 배경을 쓴다.
-  static bool _isWarmHue(double hue) => hue < 75 || hue >= 330;
 
   /// 이 시프트가 쿨톤 배경을 쓰는지.
   ///
@@ -86,9 +82,9 @@ class ShiftThemeData {
   static const night = ShiftThemeData(
     primary: Color(0xFF0061A4),
     onPrimary: Color(0xFFFFFFFF),
-    background: coolBackground,
-    scaffoldBackground: coolScaffold,
-    elevatedSurface: coolElevated,
+    background: warmBackground,
+    scaffoldBackground: warmScaffold,
+    elevatedSurface: warmElevated,
     cardColor: Color(0xFF0061A4),
     accentText: Color(0xFF0061A4),
     displayName: 'Night Shift',
@@ -99,9 +95,9 @@ class ShiftThemeData {
   static const off = ShiftThemeData(
     primary: Color(0xFFA0AEC0),
     onPrimary: Color(0xFFFFFFFF),
-    background: coolBackground,
-    scaffoldBackground: coolScaffold,
-    elevatedSurface: coolElevated,
+    background: warmBackground,
+    scaffoldBackground: warmScaffold,
+    elevatedSurface: warmElevated,
     cardColor: Color(0xFFA0AEC0),
     accentText: Color(0xFF718096),
     displayName: 'OFF',
@@ -196,17 +192,16 @@ class ShiftThemeData {
       );
     }
 
-    // 밝은 배경: 시프트 색조에 맞춰 웜톤(상아색)/쿨톤(화이트) 중 하나를 고른다.
-    final isWarm = _isWarmHue(hsl.hue);
+    // 밝은 배경: 시프트 색조와 무관하게 웜톤(상아색)으로 고정한다.
     // 강조 텍스트: 색상의 밝기를 내림
     final accent = hsl.withLightness((hsl.lightness * 0.6).clamp(0, 0.5)).toColor();
 
     return ShiftThemeData(
       primary: color,
       onPrimary: brightness == Brightness.dark ? Colors.white : const Color(0xFF2D1F00),
-      background: isWarm ? warmBackground : coolBackground,
-      scaffoldBackground: isWarm ? warmScaffold : coolScaffold,
-      elevatedSurface: isWarm ? warmElevated : coolElevated,
+      background: warmBackground,
+      scaffoldBackground: warmScaffold,
+      elevatedSurface: warmElevated,
       cardColor: color,
       accentText: accent,
       displayName: displayName ?? 'Shift',
