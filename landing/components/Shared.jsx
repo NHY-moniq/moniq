@@ -129,90 +129,68 @@ const ScreenshotImage = ({ src, alt = '', fallback = null, fit = 'cover' }) => {
   );
 };
 
-// Pre-launch banner — shows once at top, dismissable
-const PreLaunchBanner = () => {
-  const [show, setShow] = React.useState(true);
-  if (!show) return null;
-  return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 60,
-      background: '#312F23', color: '#FCF6E3',
-      padding: '10px 20px', display: 'flex', alignItems: 'center',
-      justifyContent: 'center', gap: 12, flexWrap: 'wrap',
-      font: '600 12px/1.4 var(--font-family)',
-    }}>
-      <span style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        background: 'rgba(255,215,0,.18)', color: '#FFD700',
-        padding: '3px 10px', borderRadius: 9999,
-        font: '800 10px/1 var(--font-family)', letterSpacing: 1.4, textTransform: 'uppercase',
-      }}>
-        <span className="material-symbols-outlined" style={{ fontSize: 12, fontVariationSettings: "'FILL' 1" }}>info</span>
-        Pre-launch preview
-      </span>
-      <span style={{ color: 'rgba(252,246,227,.85)' }}>
-        모든 별점·후기·통계·병원 로고는 디자인 시안용 예시예요. 출시 후 실데이터로 교체될 예정.
-      </span>
-      <button onClick={() => setShow(false)} aria-label="배너 닫기" style={{
-        marginLeft: 8, background: 'transparent', border: 'none', cursor: 'pointer',
-        color: 'rgba(252,246,227,.6)', padding: 4, display: 'flex', alignItems: 'center',
-      }}>
-        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
-      </button>
-    </div>
-  );
-};
+// Store badges — Apple / Google 공식 배지 애셋을 그대로 사용한다(변형 금지).
+// 출시 전이므로 링크 대신 "곧 출시" 툴팁을 띄운다. 출시 후 href로 교체.
+//
+// 두 배지의 시각적 높이를 맞추는 방법:
+//   App Store SVG는 여백 없이 마크로 꽉 차 있다 (129.7 x 40).
+//   Play PNG는 상하에 투명 여백이 있어 전체 높이가 마크 높이의 1.3021배다
+//   (646 x 250 중 실제 마크는 646 x 192). 그래서 Play만 그 비율로 키운다.
+const BADGE_HEIGHT = 48;
+const PLAY_PADDING_RATIO = 1.3021;
 
-// Coming-soon download CTA — replaces App Store / Play Store buttons until launch
-const ComingSoonButtons = ({ kind = 'cream' }) => {
+const STORE_BADGES = [
+  {
+    key: 'ios',
+    src: 'assets/badges/Download_on_the_App_Store_Badge_KR_RGB_blk_100317.svg',
+    alt: 'App Store에서 다운로드',
+    height: BADGE_HEIGHT,
+  },
+  {
+    key: 'android',
+    src: 'assets/badges/ko_badge_web_generic.png',
+    alt: 'Google Play에서 다운로드',
+    height: Math.round(BADGE_HEIGHT * PLAY_PADDING_RATIO),
+  },
+];
+
+const ComingSoonButtons = () => {
   const [tip, setTip] = React.useState(null); // 'ios' | 'android' | null
+
   const onTap = (which) => {
     setTip(which);
     setTimeout(() => setTip(null), 1800);
   };
-  const wrap = { display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 };
-  const tipBubble = (label) => (
-    <div style={{
-      background: '#312F23', color: '#FCF6E3',
-      padding: '8px 14px', borderRadius: 9999,
-      font: '700 12px/1 var(--font-family)',
-      boxShadow: '0 8px 20px rgba(49,47,35,.25)',
-      animation: 'fadeIn .18s ease-out',
-    }}>
-      <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 1", marginRight: 6, verticalAlign: -2 }}>schedule</span>
-      {label}
-    </div>
-  );
-  const btnBase = (k) => ({
-    primary: { background: '#312F23', color: '#FCF6E3', boxShadow: '0 10px 24px rgba(49,47,35,.25)' },
-    cream:   { background: '#FFFDF7', color: '#312F23', border: '1.5px solid rgba(49,47,35,.1)' },
-  }[k]);
-  const renderBtn = (which, label, icon) => (
-    <div style={wrap}>
-      <button onClick={() => onTap(which)} style={{
-        ...btnBase(kind === 'primary' && which === 'ios' ? 'primary' : 'cream'),
-        height: 56, padding: '0 24px', borderRadius: 9999,
-        border: btnBase(kind === 'primary' && which === 'ios' ? 'primary' : 'cream').border || 'none',
-        font: '800 15px/1 var(--font-family)', letterSpacing: .2,
-        display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer',
-        position: 'relative',
-      }}>
-        {icon === 'apple'
-          ? <svg width="16" height="18" viewBox="0 0 814 1000" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.3-167.2-107.3C188 664 163 614 138.3 563.8c-24.5-49.8-58.5-136.7-58.5-221.2 0-149.5 97.7-229 193.1-229 50.8 0 93.1 33.3 124.5 33.3 30 0 76.7-35.5 133.9-35.5 58.6 0 148.2 20.3 197.5 96.8zm-234-181.5c28.2-36.2 48.6-86.2 48.6-136.2 0-6.8-.6-13.6-1.3-20.2-45.8 1.6-99.9 31.4-132.5 71.2-23.2 28.6-45.6 78.6-45.6 129.2 0 7.6.6 15.2 1.3 22.1 3.3.5 8.7 1.3 14.1 1.3 40.8 0 91.1-28.4 115.4-67.4z"/></svg>
-          : <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: "'FILL' 1" }}>{icon}</span>
-        }
-        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-          <span style={{ font: '700 9px/1 var(--font-family)', letterSpacing: 1.2, opacity: .65 }}>COMING SOON</span>
-          <span>{label}</span>
-        </span>
-      </button>
-      {tip === which && tipBubble('곧 출시돼요 · 잠시만 기다려주세요')}
-    </div>
-  );
+
   return (
-    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-      {renderBtn('ios', 'App Store', 'apple')}
-      {renderBtn('android', 'Google Play', 'android')}
+    <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+      {STORE_BADGES.map(b => (
+        <div key={b.key} style={{ position: 'relative', display: 'inline-flex' }}>
+          <button
+            onClick={() => onTap(b.key)}
+            aria-label={b.alt}
+            style={{
+              background: 'transparent', border: 'none', padding: 0,
+              cursor: 'pointer', lineHeight: 0, display: 'inline-flex',
+            }}
+          >
+            <img src={b.src} alt={b.alt} style={{ height: b.height, width: 'auto', display: 'block' }} />
+          </button>
+          {tip === b.key && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 8px)', left: 0, whiteSpace: 'nowrap',
+              background: '#312F23', color: '#FCF6E3',
+              padding: '8px 14px', borderRadius: 9999,
+              font: '700 12px/1 var(--font-family)',
+              boxShadow: '0 8px 20px rgba(49,47,35,.25)',
+              animation: 'fadeIn .18s ease-out', zIndex: 5,
+            }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 1", marginRight: 6, verticalAlign: -2 }}>schedule</span>
+              곧 출시돼요 · 잠시만 기다려주세요
+            </div>
+          )}
+        </div>
+      ))}
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }`}</style>
     </div>
   );
@@ -302,4 +280,4 @@ const LegendChips = ({ items = [], style }) => (
   </div>
 );
 
-Object.assign(window, { LandingEyebrow, LandingChip, LandingButton, LandingCard, PhoneFrame, Section, Mascot, PreLaunchBanner, ComingSoonButtons, ScreenshotImage, FloatingPanel, PhoneStack, LegendChips });
+Object.assign(window, { LandingEyebrow, LandingChip, LandingButton, LandingCard, PhoneFrame, Section, Mascot, ComingSoonButtons, ScreenshotImage, FloatingPanel, PhoneStack, LegendChips });

@@ -9,8 +9,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block"/>
 <style>
   html, body { margin: 0; background: var(--bg); color: var(--fg1); font-family: var(--font-family); scroll-behavior: smooth; }
-  body { overflow-x: hidden; padding-top: 44px; }
-  @media (max-width: 720px) { body { padding-top: 64px; } }
+  body { overflow-x: hidden; }
   a { color: inherit; text-decoration: none; }
   * { box-sizing: border-box; }
   button { font-family: var(--font-family); }
@@ -69,7 +68,6 @@
       const [tweaks, setTweaks] = useTweaks(TWEAK_DEFAULTS);
       return (
         <React.Fragment>
-          <PreLaunchBanner />
           {tweaks.showNav && <LandingNav />}
           <LandingHero tweaks={tweaks} />
           <FeatureScheduleAutoGen />
@@ -79,8 +77,6 @@
           <FeatureSwap />
           <FeatureTeamCalendar />
           <FeaturePersonalCalendar />
-          <ProofStrip />
-          <Testimonials />
           <FAQ />
           <FinalCTA />
           <LandingFooter />
