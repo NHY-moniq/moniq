@@ -10,6 +10,16 @@ import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_date_picker_sheet.dart';
 
+/// 드롭박스 선택지로 노출할 OFF 합성 항목 (내 근무 변경 / 멤버 간 교환 공용).
+const ShiftTypeModel _offShiftType = ShiftTypeModel(
+  id: '_off',
+  teamId: '',
+  name: '오프(휴무)',
+  code: 'OFF',
+  color: '#A0AEC0',
+  displayOrder: 9999,
+);
+
 /// 한 건의 "내 근무 변경" 요청 (다중 등록용).
 ///
 /// 날짜 + 변경 근무(TO-BE) 2개 필드로 구성된다.
@@ -57,16 +67,6 @@ class _SelfChangeEntriesSectionState
     extends ConsumerState<SelfChangeEntriesSection> {
   bool _loading = false;
   List<ShiftTypeModel> _shiftTypes = [];
-
-  /// 드롭박스 선택지로 노출할 OFF 합성 항목.
-  static const ShiftTypeModel _offShiftType = ShiftTypeModel(
-    id: '_off',
-    teamId: '',
-    name: '오프(휴무)',
-    code: 'OFF',
-    color: '#A0AEC0',
-    displayOrder: 9999,
-  );
 
   @override
   void initState() {
@@ -366,10 +366,16 @@ class SwapEntry {
   ShiftTypeModel? targetCurrentShiftType;
 
   /// 변경할 근무(TO-BE) — 드롭박스에서 선택한 값. 기본값은 targetCurrentShiftType.
+  /// 오프(휴무)와의 교환도 선택할 수 있다.
   ShiftTypeModel? desiredShiftType;
 
   bool get isComplete =>
       userId != null && date != null && desiredShiftType != null;
+
+  /// 변경할 근무가 OFF(휴무)인지 — 오프인 팀원과의 교환 요청.
+  bool get isOff =>
+      desiredShiftType?.id == '_off' ||
+      (desiredShiftType?.code.toUpperCase() == 'OFF');
 }
 
 /// 다중 근무 교환 요청 섹션 — 한 건씩 행으로 추가하여 N건을 한 번에 제출.
@@ -416,9 +422,11 @@ class _SwapEntriesSectionState extends ConsumerState<SwapEntriesSection> {
         _members = (results[0] as List<TeamMemberWithUser>)
             .where((m) => m.userId != widget.myUserId)
             .toList();
-        _shiftTypes = (results[1] as List<ShiftTypeModel>)
-            .where((t) => t.isActive)
-            .toList();
+        // 내 근무 변경과 동일하게 오프(휴무)도 선택지로 노출한다.
+        _shiftTypes = [
+          ...(results[1] as List<ShiftTypeModel>).where((t) => t.isActive),
+          _offShiftType,
+        ];
         _loadingMembers = false;
       });
     } catch (_) {

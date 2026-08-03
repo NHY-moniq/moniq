@@ -102,8 +102,11 @@ Future<File> generateCalendarImage(
   final bytes = await _renderCalendarBytes(state, ref);
   final focusedMonth = state.focusedMonth;
   final dir = await getTemporaryDirectory();
+  // 파일명에 타임스탬프를 붙여 공유 대상 앱이 같은 이름의 이전 캐시를
+  // 재사용하는 문제를 방지한다.
+  final ts = DateTime.now().millisecondsSinceEpoch;
   final file = File(
-    '${dir.path}/moniq_${focusedMonth.year}_${focusedMonth.month}.png',
+    '${dir.path}/moniq_${focusedMonth.year}_${focusedMonth.month}_$ts.png',
   );
   await file.writeAsBytes(bytes);
   return file;
@@ -442,8 +445,10 @@ Future<File> generateTeamImageWithNames(
 ) async {
   final bytes = await _renderTeamImageBytes(state, memberNames);
   final dir = await getTemporaryDirectory();
+  // 파일명에 타임스탬프를 붙여 공유 대상 앱의 동일 파일명 캐시 재사용 방지.
+  final ts = DateTime.now().millisecondsSinceEpoch;
   final file = File(
-    '${dir.path}/team_${state.teamId}_${state.focusedMonth.year}_${state.focusedMonth.month}.png',
+    '${dir.path}/team_${state.teamId}_${state.focusedMonth.year}_${state.focusedMonth.month}_$ts.png',
   );
   await file.writeAsBytes(bytes);
   return file;

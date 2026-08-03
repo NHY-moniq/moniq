@@ -7,6 +7,7 @@ import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_action_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_time_picker_sheet.dart';
 
@@ -326,22 +327,32 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                     subtitle: st.startTime != null
                         ? Text('${st.startTime} ~ ${st.endTime ?? ''}')
                         : null,
-                    trailing: PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert, size: 18),
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(value: 'edit', child: Text('수정')),
-                        const PopupMenuItem(value: 'delete', child: Text('삭제')),
+                    trailing: MoniqCardActionButton(
+                      title: st.name,
+                      actions: [
+                        MoniqActionItem(
+                          icon: Icons.edit_outlined,
+                          label: '수정',
+                          onTap: () => _showEditShiftTypeForm(context, ref, st),
+                        ),
+                        MoniqActionItem(
+                          icon: Icons.delete_outline_rounded,
+                          label: '삭제',
+                          destructive: true,
+                          onTap: () async {
+                            final ok = await showMoniqDestructiveConfirm(
+                              context: context,
+                              title: '근무 유형 삭제',
+                              message: "'${st.name}' 유형을 삭제할까요?",
+                            );
+                            if (!ok) return;
+                            ref
+                                .read(personalShiftTypeDataSourceProvider)
+                                .remove(st.id);
+                            ref.invalidate(personalShiftTypesProvider);
+                          },
+                        ),
                       ],
-                      onSelected: (action) {
-                        if (action == 'edit') {
-                          _showEditShiftTypeForm(context, ref, st);
-                        } else if (action == 'delete') {
-                          ref
-                              .read(personalShiftTypeDataSourceProvider)
-                              .remove(st.id);
-                          ref.invalidate(personalShiftTypesProvider);
-                        }
-                      },
                     ),
                   ),
                 );
@@ -814,8 +825,9 @@ class DrawerToggleItem extends StatelessWidget {
               value: value,
               onChanged: onChanged,
               activeThumbColor: cs.primary,
-              materialTapTargetSize:
-                  compact ? MaterialTapTargetSize.shrinkWrap : null,
+              materialTapTargetSize: compact
+                  ? MaterialTapTargetSize.shrinkWrap
+                  : null,
             ),
           ],
         ),

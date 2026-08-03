@@ -220,8 +220,9 @@ class _RequestCreateFormState extends ConsumerState<_RequestCreateForm> {
           await repo.createRequest(
             teamId: widget.teamId,
             changeType: 'swap',
-            requestedDate: e.date,
-            requestedShiftTypeId: e.desiredShiftType?.id,
+            // 오프(_off)는 합성 항목이라 실제 shift_types FK로 보낼 수 없다 —
+            // null로 보내면 적용 시 상대의 실제 근무(없으면 오프)와 맞교환된다.
+            requestedShiftTypeId: e.isOff ? null : e.desiredShiftType?.id,
             targetUserId: e.userId,
             reason: '${e.userName ?? '동료'}님과 근무 교환',
           );
