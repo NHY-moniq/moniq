@@ -98,8 +98,7 @@ class _AppShellState extends ConsumerState<AppShell>
                 currentIndex: navigationShell.currentIndex,
                 onTap: (index) => navigationShell.goBranch(
                   index,
-                  initialLocation:
-                      index == navigationShell.currentIndex,
+                  initialLocation: index == navigationShell.currentIndex,
                 ),
                 shiftTheme: shiftTheme,
               ),
@@ -123,14 +122,38 @@ class _WebShell extends ConsumerStatefulWidget {
 class _WebShellState extends ConsumerState<_WebShell> {
   bool _hovered = false;
 
+  /// 터치 환경에는 hover가 없으므로 탭으로 flyout을 고정해서 연다.
+  bool _pinnedOpen = false;
+
+  /// 마지막 입력이 터치였는지 (마우스면 hover가 담당하므로 자동 고정 안 함).
+  bool _lastInputWasTouch = false;
+
   static const double _sidebarWidth = 220.0;
   static const double _flyoutWidth = 220.0;
 
-  bool get _flyoutVisible => _hovered && _hasContextItems;
+  bool get _flyoutVisible => (_hovered || _pinnedOpen) && _hasContextItems;
 
   bool get _hasContextItems {
     final idx = widget.navigationShell.currentIndex;
     return idx == 1 || idx == 2;
+  }
+
+  bool _tabHasContextItems(int index) => index == 1 || index == 2;
+
+  void _handleTabSelect(int index) {
+    setState(() {
+      if (index == widget.navigationShell.currentIndex) {
+        // 현재 탭 재탭: flyout 토글 (터치에서 열고 닫는 수단)
+        if (_tabHasContextItems(index)) _pinnedOpen = !_pinnedOpen;
+      } else {
+        // 다른 탭으로 이동: 터치라면 컨텍스트 탭 진입 시 자동으로 열어준다.
+        _pinnedOpen = _tabHasContextItems(index) && _lastInputWasTouch;
+      }
+    });
+    widget.navigationShell.goBranch(
+      index,
+      initialLocation: index == widget.navigationShell.currentIndex,
+    );
   }
 
   @override
@@ -142,61 +165,62 @@ class _WebShellState extends ConsumerState<_WebShell> {
       body: Row(
         children: [
           // ── 사이드바 + flyout 묶음 ──
-          MouseRegion(
-            onEnter: (_) => setState(() => _hovered = true),
-            onExit: (_) => setState(() => _hovered = false),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 사이드바: 항상 220px 고정
-                Container(
-                  width: _sidebarWidth,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLow,
-                    border: Border(
-                      right: BorderSide(
-                        color: colorScheme.outlineVariant,
-                        width: 1,
+          Listener(
+            // hover가 없는 터치 입력을 감지해 탭 시 flyout 자동 고정에 사용.
+            onPointerDown: (event) =>
+                _lastInputWasTouch = event.kind != PointerDeviceKind.mouse,
+            child: MouseRegion(
+              onEnter: (_) => setState(() => _hovered = true),
+              onExit: (_) => setState(() => _hovered = false),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 사이드바: 항상 220px 고정
+                  Container(
+                    width: _sidebarWidth,
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerLow,
+                      border: Border(
+                        right: BorderSide(
+                          color: colorScheme.outlineVariant,
+                          width: 1,
+                        ),
                       ),
                     ),
-                  ),
-                  child: _FixedSidebar(
-                    currentIndex: currentIndex,
-                    shiftTheme: widget.shiftTheme,
-                    onTabSelect: (index) => widget.navigationShell.goBranch(
-                      index,
-                      initialLocation:
-                          index == widget.navigationShell.currentIndex,
+                    child: _FixedSidebar(
+                      currentIndex: currentIndex,
+                      shiftTheme: widget.shiftTheme,
+                      onTabSelect: _handleTabSelect,
                     ),
                   ),
-                ),
 
-                // 컨텍스트 flyout: hover 시에만 슬라이드
-                AnimatedContainer(
-                  width: _flyoutVisible ? _flyoutWidth : 0,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeInOut,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainer,
-                    border: Border(
-                      right: BorderSide(
-                        color: colorScheme.outlineVariant,
-                        width: 1,
+                  // 컨텍스트 flyout: hover 또는 탭 고정 시 슬라이드
+                  AnimatedContainer(
+                    width: _flyoutVisible ? _flyoutWidth : 0,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeInOut,
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainer,
+                      border: Border(
+                        right: BorderSide(
+                          color: colorScheme.outlineVariant,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: ClipRect(
+                      child: OverflowBox(
+                        maxWidth: _flyoutWidth,
+                        alignment: Alignment.centerLeft,
+                        child: SizedBox(
+                          width: _flyoutWidth,
+                          child: _ContextFlyout(currentIndex: currentIndex),
+                        ),
                       ),
                     ),
                   ),
-                  child: ClipRect(
-                    child: OverflowBox(
-                      maxWidth: _flyoutWidth,
-                      alignment: Alignment.centerLeft,
-                      child: SizedBox(
-                        width: _flyoutWidth,
-                        child: _ContextFlyout(currentIndex: currentIndex),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -446,9 +470,8 @@ class _CalendarContextItems extends ConsumerWidget {
           accentColor: const Color(0xFF9F7AEA),
           compact: true,
           value: ref.watch(hideTeamShiftsInPersonalProvider),
-          onChanged: (v) => ref
-              .read(hideTeamShiftsInPersonalProvider.notifier)
-              .setHide(v),
+          onChanged: (v) =>
+              ref.read(hideTeamShiftsInPersonalProvider.notifier).setHide(v),
         ),
       ],
     );
@@ -590,8 +613,7 @@ class _TeamContextItems extends ConsumerWidget {
               iconColor: const Color(0xFF9F7AEA),
               onTap: () => Navigator.of(context, rootNavigator: true).push(
                 MaterialPageRoute<void>(
-                  builder: (_) =>
-                      AppointmentManagementScreen(teamId: teamId),
+                  builder: (_) => AppointmentManagementScreen(teamId: teamId),
                 ),
               ),
             ),
@@ -611,8 +633,7 @@ class _TeamContextItems extends ConsumerWidget {
             ),
           ],
           // ── 엑셀 ── (웹 + 팀 관리자 + 일반 팀에서만, 맨 아래)
-          if (kIsWeb && !isPersonalTeam)
-            _TeamExcelFlyoutTiles(teamId: teamId),
+          if (kIsWeb && !isPersonalTeam) _TeamExcelFlyoutTiles(teamId: teamId),
         ],
       ],
     );
@@ -846,10 +867,8 @@ class _TeamExcelFlyoutTiles extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isAdmin = ref
-            .watch(teamDetailViewModelProvider(teamId))
-            .valueOrNull
-            ?.isAdmin ??
+    final isAdmin =
+        ref.watch(teamDetailViewModelProvider(teamId)).valueOrNull?.isAdmin ??
         false;
 
     return Column(
@@ -862,59 +881,63 @@ class _TeamExcelFlyoutTiles extends ConsumerWidget {
           label: '개인 캘린더로 내보내기',
           iconColor: const Color(0xFF9F7AEA),
           onTap: () {
-            final state =
-                ref.read(teamCalendarViewModelProvider(teamId)).valueOrNull;
+            final state = ref
+                .read(teamCalendarViewModelProvider(teamId))
+                .valueOrNull;
             if (state == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('근무표를 불러오는 중입니다')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('근무표를 불러오는 중입니다')));
               return;
             }
             importTeamShiftsToPersonal(context, ref, state);
           },
         ),
         // 관리자 전용: 엑셀 가져오기/내보내기/샘플
-        if (!isAdmin) const SizedBox.shrink() else ...[
-        const _FlyoutSectionLabel(label: '엑셀'),
-        _FlyoutTile(
-          icon: Icons.download_outlined,
-          label: '근무표 가져오기',
-          iconColor: AppColors.brandBlue,
-          onTap: () => importTeamExcel(
-            context,
-            ref,
-            teamId: teamId,
-            shiftRepo: ref.read(shiftRepositoryProvider),
-            scheduleRepo: ref.read(scheduleRepositoryProvider),
-            teamRepo: ref.read(teamRepositoryProvider),
+        if (!isAdmin)
+          const SizedBox.shrink()
+        else ...[
+          const _FlyoutSectionLabel(label: '엑셀'),
+          _FlyoutTile(
+            icon: Icons.download_outlined,
+            label: '근무표 가져오기',
+            iconColor: AppColors.brandBlue,
+            onTap: () => importTeamExcel(
+              context,
+              ref,
+              teamId: teamId,
+              shiftRepo: ref.read(shiftRepositoryProvider),
+              scheduleRepo: ref.read(scheduleRepositoryProvider),
+              teamRepo: ref.read(teamRepositoryProvider),
+            ),
           ),
-        ),
-        _FlyoutTile(
-          icon: Icons.upload_file_outlined,
-          label: '근무표 내보내기',
-          iconColor: AppColors.success,
-          onTap: () {
-            final state =
-                ref.read(teamCalendarViewModelProvider(teamId)).valueOrNull;
-            if (state == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('근무표를 불러오는 중입니다')),
-              );
-              return;
-            }
-            exportTeamRosterExcel(context, ref, state: state);
-          },
-        ),
-        _FlyoutTile(
-          icon: Icons.description_outlined,
-          label: '샘플 양식 내보내기',
-          iconColor: const Color(0xFF9F7AEA),
-          onTap: () => exportSampleTemplate(
-            context,
-            shiftRepo: ref.read(shiftRepositoryProvider),
-            teamId: teamId,
+          _FlyoutTile(
+            icon: Icons.upload_file_outlined,
+            label: '근무표 내보내기',
+            iconColor: AppColors.success,
+            onTap: () {
+              final state = ref
+                  .read(teamCalendarViewModelProvider(teamId))
+                  .valueOrNull;
+              if (state == null) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('근무표를 불러오는 중입니다')));
+                return;
+              }
+              exportTeamRosterExcel(context, ref, state: state);
+            },
           ),
-        ),
+          _FlyoutTile(
+            icon: Icons.description_outlined,
+            label: '샘플 양식 내보내기',
+            iconColor: const Color(0xFF9F7AEA),
+            onTap: () => exportSampleTemplate(
+              context,
+              shiftRepo: ref.read(shiftRepositoryProvider),
+              teamId: teamId,
+            ),
+          ),
         ],
       ],
     );

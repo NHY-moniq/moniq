@@ -730,69 +730,19 @@ class _ChangePreview extends ConsumerWidget {
 
   Widget _previewBody(BuildContext context, RequestChangePreview preview) {
     final isSwap = request.changeType == 'swap';
-    // swap은 양방향 교환 — 신청자/대상자 각각의 변경 전→후를 모두 노출한다.
-    // (예: 백하은 D→N, 이지영 N→D)
+    // swap(멤버 근무 변경)은 대상 멤버의 변경 전→후만 노출한다.
+    // (신청자의 근무는 변경되지 않음)
     if (isSwap) {
-      // 한쪽이 OFF(근무 없음)이면 교환이 불가능하므로 경고를 표시한다.
-      // (승인 시에도 차단되고 알림이 뜬다)
-      final offBlocked = preview.requesterBeforeShiftType == null ||
-          preview.targetBeforeShiftType == null;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _NamedBeforeAfterRow(
-            name: preview.requesterName ?? '신청자',
-            before: preview.requesterBeforeShiftType,
-            after: preview.requesterAfterShiftType,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _NamedBeforeAfterRow(
-            name: preview.targetName ?? '대상자',
-            before: preview.targetBeforeShiftType,
-            after: preview.targetAfterShiftType,
-          ),
-          if (offBlocked) ...[
-            const SizedBox(height: AppSpacing.sm),
-            _OffSwapWarning(),
-          ],
-        ],
+      return _NamedBeforeAfterRow(
+        name: preview.targetName ?? '대상자',
+        before: preview.targetBeforeShiftType,
+        after: preview.targetAfterShiftType,
       );
     }
 
     return _BeforeAfterRow(
       before: preview.requesterBeforeShiftType,
       after: preview.requesterAfterShiftType,
-    );
-  }
-}
-
-/// 한쪽이 OFF라 교환할 수 없는 swap 경고 배너.
-class _OffSwapWarning extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: cs.errorContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline_rounded, size: 16, color: cs.error),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              '한쪽이 OFF(근무 없음)라 교환할 수 없어요',
-              style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

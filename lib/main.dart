@@ -26,6 +26,15 @@ Future<void> main() async {
     url: SupabaseConstants.url,
     anonKey: SupabaseConstants.publishKey,
   );
+  // 세션 복원 진단용 — 콜드 스타트 시 디스크에 저장돼 있던 세션 유무 확인.
+  debugPrint(
+    '[boot] 복원된 세션: '
+    '${Supabase.instance.client.auth.currentSession?.user.email ?? '없음'}',
+  );
+  Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    debugPrint('[auth] event=${data.event} '
+        'user=${data.session?.user.email ?? '없음'}');
+  });
 
   // 소셜 로그인(카카오 등) OAuth 콜백 후 떠 있는 인앱 브라우저를 자동으로 닫는다.
   // supabase_flutter는 딥링크로 세션만 교환하고 브라우저는 닫지 않으므로 직접 처리.
