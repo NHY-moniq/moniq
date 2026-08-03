@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:moniq/core/constants/google_auth_constants.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -16,30 +17,6 @@ class AuthRemoteDataSource {
 
   final GoTrueClient _auth;
   final SupabaseClient _client;
-
-  // Email / Password
-  Future<AuthResponse> signInWithEmail({
-    required String email,
-    required String password,
-  }) async {
-    return _auth.signInWithPassword(email: email, password: password);
-  }
-
-  Future<AuthResponse> signUpWithEmail({
-    required String email,
-    required String password,
-    required String displayName,
-  }) async {
-    return _auth.signUp(
-      email: email,
-      password: password,
-      data: {'display_name': displayName},
-    );
-  }
-
-  Future<void> resetPassword(String email) async {
-    await _auth.resetPasswordForEmail(email);
-  }
 
   // Google Sign-In
   Future<AuthResponse> signInWithGoogle() async {
@@ -60,7 +37,22 @@ class AuthRemoteDataSource {
       );
     }
 
-    final googleSignIn = GoogleSignIn(scopes: ['email', 'profile', 'openid']);
+    final iosClientId = GoogleAuthConstants.iosClientId;
+    final webClientId = GoogleAuthConstants.webClientId;
+    if (iosClientId.isEmpty || webClientId.isEmpty) {
+      throw const AuthException(
+        'Google 로그인 설정이 누락되었습니다. .env의 '
+        'GOOGLE_IOS_CLIENT_ID / GOOGLE_WEB_CLIENT_ID를 확인하세요.',
+      );
+    }
+
+    // clientId: iOS 클라이언트 / serverClientId: Supabase에 등록된 Web 클라이언트.
+    // serverClientId가 있어야 idToken의 audience가 Supabase 기대값과 일치한다.
+    final googleSignIn = GoogleSignIn(
+      clientId: iosClientId,
+      serverClientId: webClientId,
+      scopes: const ['email', 'profile', 'openid'],
+    );
 
     final googleUser = await googleSignIn.signIn();
     if (googleUser == null) {
@@ -175,11 +167,6 @@ class AuthRemoteDataSource {
     if (!launched) {
       throw const AuthException('카카오 로그인 페이지를 열 수 없습니다');
     }
-  }
-
-  // Email verification
-  Future<void> resendVerificationEmail(String email) async {
-    await _auth.resend(type: OtpType.signup, email: email);
   }
 
   // Account deletion

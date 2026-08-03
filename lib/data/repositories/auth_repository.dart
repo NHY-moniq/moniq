@@ -10,29 +10,6 @@ class AuthRepository {
 
   final AuthRemoteDataSource _dataSource;
 
-  Future<AuthResponse> signInWithEmail({
-    required String email,
-    required String password,
-  }) {
-    return _dataSource.signInWithEmail(email: email, password: password);
-  }
-
-  Future<AuthResponse> signUpWithEmail({
-    required String email,
-    required String password,
-    required String displayName,
-  }) {
-    return _dataSource.signUpWithEmail(
-      email: email,
-      password: password,
-      displayName: displayName,
-    );
-  }
-
-  Future<void> resetPassword(String email) {
-    return _dataSource.resetPassword(email);
-  }
-
   Future<AuthResponse> signInWithGoogle() {
     return _dataSource.signInWithGoogle();
   }
@@ -43,10 +20,6 @@ class AuthRepository {
 
   Future<AuthResponse> signInWithApple() {
     return _dataSource.signInWithApple();
-  }
-
-  Future<void> resendVerificationEmail(String email) {
-    return _dataSource.resendVerificationEmail(email);
   }
 
   Future<void> signOut() {

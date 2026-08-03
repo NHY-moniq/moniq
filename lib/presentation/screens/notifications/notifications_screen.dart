@@ -7,6 +7,7 @@ import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/notification_providers.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
@@ -77,7 +78,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: cs.surfaceContainerLow,
+      backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
       appBar: _selectionMode
           ? MoniqAppBar(
               title: '${_selected.length}개 선택됨',
@@ -133,7 +134,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       : selectedTeamId != null
                           ? '이 팀의 알림이 없어요'
                           : '받은 알림이 없어요';
-                  return MoniqEmptyState.peaceful(
+                  return MoniqEmptyState.shift(
                     title: msg,
                     message: '30일 이내 알림만 표시돼요',
                   );
@@ -672,16 +673,23 @@ _NotifTarget _classifyNotification(NotificationModel n) {
       return _NotifTarget.teamCalendar;
     case 'wanted_open':
     case 'wanted_close':
+    // 미응답자 독촉 알림. 보내는 쪽(wanted_request_shared)이 쓰는 타입이라
+    // 여기 빠져 있으면 legacy 추정으로 흘러 '요청'으로 잘못 분류됐다.
+    case 'wanted_request':
       return _NotifTarget.wanted;
     case 'announcement':
       return _NotifTarget.announcements;
+    case 'appointment':
+      return _NotifTarget.teamCalendar;
   }
 
-  // legacy 알림 — type 없을 때 제목/본문으로 추정
+  // legacy 알림 — type 없을 때 제목/본문으로 추정.
+  // '원티드 입력 요청'처럼 두 키워드가 겹치는 제목이 있으므로 더 구체적인
+  // 키워드(원티드·공지)를 먼저 본다. '요청'이 앞서면 원티드가 전부 요청으로 샌다.
   final text = '${n.title} ${n.body}';
-  if (text.contains('요청')) return _NotifTarget.requests;
   if (text.contains('원티드')) return _NotifTarget.wanted;
   if (text.contains('공지')) return _NotifTarget.announcements;
+  if (text.contains('요청')) return _NotifTarget.requests;
   if (text.contains('근무표') ||
       text.contains('근무 변경') ||
       text.contains('근무 추가') ||
@@ -736,7 +744,11 @@ Future<void> _navigateForNotification(
   NotificationModel n,
 ) async {
   final target = _classifyNotification(n);
-  final teamId = (n.data['team_id'] as String?) ?? n.teamId;
+  // 보내는 쪽이 스네이크(team_id)와 카멜(teamId)을 섞어 쓰고 있어 둘 다 본다.
+  // 한쪽만 보면 키가 다른 알림은 teamId가 null이 되어 탭해도 아무 일도 없었다.
+  final teamId = (n.data['team_id'] as String?) ??
+      (n.data['teamId'] as String?) ??
+      n.teamId;
   if (target == _NotifTarget.none || teamId == null) return;
 
   switch (target) {

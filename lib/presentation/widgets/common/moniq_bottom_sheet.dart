@@ -161,6 +161,10 @@ class MoniqBottomSheetShell extends StatelessWidget {
                   ],
                 ),
               ),
+            // NOTE: 여기서 본문을 스크롤로 감싸지 않는다. ListView/Expanded를
+            // 직접 쓰는 시트가 여럿이라 unbounded height로 터진다.
+            // 내용이 데이터에 따라 길어지는 시트는 각자 SingleChildScrollView로
+            // 감싸는 것이 규칙이다. (예: showAddMenu, showEventForm)
             Flexible(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(

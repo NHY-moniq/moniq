@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/core/utils/team_icon_utils.dart';
-import 'package:moniq/data/models/personal_team_member_shift.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/team_providers.dart';
@@ -13,6 +12,7 @@ import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
@@ -26,7 +26,7 @@ import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
 import 'package:moniq/presentation/screens/team/appointment_management_screen.dart';
-import 'package:moniq/presentation/screens/team/personal_team_calendar_widgets.dart';
+import 'package:moniq/presentation/screens/team/personal_team_calendar_screen.dart';
 import 'package:moniq/presentation/viewmodels/personal_team_calendar_viewmodel.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:moniq/presentation/router/bottom_sheet_visibility_provider.dart';
@@ -43,7 +43,7 @@ class TeamScreen extends HookConsumerWidget {
 
     if (favoriteTeamAsync.isLoading) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : const MoniqAppBar(title: '팀', showBack: false),
@@ -53,7 +53,7 @@ class TeamScreen extends HookConsumerWidget {
 
     if (favoriteTeamAsync.hasError) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : const MoniqAppBar(title: '팀', showBack: false),
@@ -90,7 +90,7 @@ class TeamScreen extends HookConsumerWidget {
     // 즐겨찾기가 없으면 팀 목록이 필요함
     if (favoriteTeam == null && teamsAsync.isLoading) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : const MoniqAppBar(title: '팀', showBack: false),
@@ -100,7 +100,7 @@ class TeamScreen extends HookConsumerWidget {
 
     if (favoriteTeam == null && teamsAsync.hasError) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : const MoniqAppBar(title: '팀', showBack: false),
@@ -117,11 +117,11 @@ class TeamScreen extends HookConsumerWidget {
 
     if (teams.isEmpty) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : const MoniqAppBar(title: '팀', showBack: false),
-        body: MoniqEmptyState.cheerful(
+        body: MoniqEmptyState.shift(
           title: '아직 참여한 팀이 없어요',
           message: '팀을 만들거나 초대 코드로 참여해보세요',
           action: MoniqEmptyStateAction(
@@ -149,10 +149,8 @@ class _NoFavoriteView extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
-      backgroundColor: cs.surfaceContainerLow,
+      backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
       appBar: AdaptiveLayout.isWide(context)
           ? null
           : const MoniqAppBar(title: '팀', showBack: false),
@@ -615,7 +613,7 @@ class _TeamCalendarView extends HookConsumerWidget {
     final lastTap = useState<({DateTime day, int at})?>(null);
     final scrollCtrl = useScrollController();
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+      backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
       appBar: MoniqAppBar(
         title: team.name,
         eyebrow: team.teamType == 'personal' ? 'PRIVATE TEAM' : 'PUBLIC TEAM',
@@ -886,13 +884,9 @@ class _PersonalTeamCalendarView extends HookConsumerWidget {
     final stateAsync = ref.watch(
       personalTeamCalendarViewModelProvider(team.id),
     );
-    final calendarStartDay = ref.watch(calendarStartDayProvider);
-    final startingDay = calendarStartDay == 'sunday'
-        ? StartingDayOfWeek.sunday
-        : StartingDayOfWeek.monday;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+      backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
       appBar: MoniqAppBar(
         title: team.name,
         eyebrow: team.teamType == 'personal' ? 'PRIVATE TEAM' : 'PUBLIC TEAM',
@@ -942,101 +936,11 @@ class _PersonalTeamCalendarView extends HookConsumerWidget {
           onRetry: () =>
               ref.invalidate(personalTeamCalendarViewModelProvider(team.id)),
         ),
-        data: (state) {
-          final vm = ref.read(
-            personalTeamCalendarViewModelProvider(team.id).notifier,
-          );
-          return RefreshIndicator(
-            onRefresh: () async =>
-                ref.invalidate(personalTeamCalendarViewModelProvider(team.id)),
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: AppSpacing.sm),
-                  MoniqCalendar(
-                    rowHeight: 80,
-                    viewMode: state.viewMode,
-                    onViewModeChanged: vm.setViewMode,
-                    calendarFormat: state.viewMode == CalendarViewMode.month
-                        ? CalendarFormat.month
-                        : CalendarFormat.week,
-                    focusedDay: state.focusedMonth,
-                    selectedDay: state.selectedDate,
-                    startingDayOfWeek: startingDay,
-                    legendItems: const [
-                      (color: personalShiftDayColor, label: 'D'),
-                      (color: personalShiftEveningColor, label: 'E'),
-                      (color: personalShiftNightColor, label: 'N'),
-                    ],
-                    onDaySelected: (selected, _) => vm.selectDate(selected),
-                    onPageChanged: (focused) => vm.changeMonth(focused),
-                    eventLoader: (day) {
-                      final key = DateTime(day.year, day.month, day.day);
-                      return state.monthlyData[key] ?? [];
-                    },
-                    markerBuilder: (context, _, events) {
-                      if (events.isEmpty) return null;
-                      final shifts = events.cast<PersonalMemberShift>();
-                      final typeCount = <String, int>{};
-                      for (final shift in shifts) {
-                        final denCode = personalShiftDenCode(shift);
-                        if (denCode == null) continue;
-                        typeCount[denCode] = (typeCount[denCode] ?? 0) + 1;
-                      }
-                      if (typeCount.isEmpty) return null;
-
-                      final sortedCodes = typeCount.keys.toList()
-                        ..sort(
-                          (a, b) => personalShiftDenSortKey(
-                            a,
-                          ).compareTo(personalShiftDenSortKey(b)),
-                        );
-
-                      return Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: sortedCodes.take(3).map((code) {
-                          final color = personalShiftColorByCode(code);
-                          final count = typeCount[code]!;
-                          return Container(
-                            width: 12,
-                            height: 12,
-                            margin: const EdgeInsets.symmetric(horizontal: 0.5),
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: Text(
-                                '$count',
-                                style: TextStyle(
-                                  fontSize: 6,
-                                  fontWeight: FontWeight.w700,
-                                  color: Theme.of(context).colorScheme.surface,
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Padding(
-                    padding: AppSpacing.screenHorizontal,
-                    child: PersonalDayDetailPanel(
-                      date: state.selectedDate,
-                      shifts: state.shiftsForDate(state.selectedDate),
-                      members: state.members,
-                    ),
-                  ),
-                  const SizedBox(height: 100),
-                ],
-              ),
-            ),
-          );
-        },
+        data: (state) => RefreshIndicator(
+          onRefresh: () async =>
+              ref.invalidate(personalTeamCalendarViewModelProvider(team.id)),
+          child: PersonalTeamCalendarBody(state: state, teamId: team.id),
+        ),
       ),
     );
   }
@@ -1151,15 +1055,6 @@ class _TeamDrawer extends HookConsumerWidget {
                     },
                   ),
                   if (isPersonalTeam) ...[
-                    _TeamDrawerNavItem(
-                      icon: Icons.calendar_today_outlined,
-                      iconColor: AppColors.success,
-                      label: '멤버 근무 현황',
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/teams/$currentTeamId/personal-calendar');
-                      },
-                    ),
                     _TeamDrawerNavItem(
                       icon: Icons.event_note_rounded,
                       iconColor: const Color(0xFF9F7AEA),

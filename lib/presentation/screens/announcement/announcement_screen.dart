@@ -17,6 +17,7 @@ import 'package:moniq/presentation/theme/app_typography.dart';
 import 'package:moniq/presentation/viewmodels/announcement_viewmodel.dart';
 import 'package:moniq/presentation/widgets/announcement/announcement_author.dart';
 import 'package:moniq/presentation/widgets/announcement/announcement_filter_sheet.dart';
+import 'package:moniq/presentation/widgets/common/banner_ad_widget.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
@@ -55,7 +56,20 @@ class AnnouncementScreen extends HookConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('공지 작성'),
       ),
-      body: announcementsAsync.when(
+      body: Column(
+        children: [
+          // 배너 광고 — 공지사항 상단. 모바일 전용(웹/미지원 시 빈 위젯, 공간 차지 안 함).
+          const Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.xxl,
+              AppSpacing.sm,
+              AppSpacing.xxl,
+              0,
+            ),
+            child: BannerAdWidget(),
+          ),
+          Expanded(
+            child: announcementsAsync.when(
         loading: () => const MoniqLoadingView(),
         error: (e, _) => MoniqErrorView(
           message: '공지사항을 불러올 수 없습니다',
@@ -64,7 +78,7 @@ class AnnouncementScreen extends HookConsumerWidget {
         ),
         data: (announcements) {
           if (announcements.isEmpty) {
-            return MoniqEmptyState.encouraging(
+            return MoniqEmptyState.shift(
               title: '아직 등록된 공지가 없어요',
               message: '팀원들에게 전달할 공지를 작성해보세요',
             );
@@ -95,7 +109,7 @@ class AnnouncementScreen extends HookConsumerWidget {
               ),
               Expanded(
                 child: visible.isEmpty
-                    ? MoniqEmptyState.peaceful(
+                    ? MoniqEmptyState.shift(
                         title: '고정된 공지가 없어요',
                         message: '공지 카드의 핀 아이콘을 눌러 상단에 고정하세요',
                       )
@@ -160,6 +174,9 @@ class AnnouncementScreen extends HookConsumerWidget {
             ],
           );
         },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -193,13 +210,7 @@ class AnnouncementScreen extends HookConsumerWidget {
   }
 
   void _showCreateSheet(BuildContext context, WidgetRef ref) {
-    // 다른 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
-    showMoniqBottomSheet<void>(
-      context: context,
-      eyebrow: 'ANNOUNCE',
-      title: '공지사항 작성',
-      child: _AnnouncementCreateSheet(teamId: teamId),
-    );
+    showAnnouncementCreateSheet(context, teamId: teamId);
   }
 
   void _showDetail(

@@ -79,11 +79,12 @@ final requestChangePreviewProvider = FutureProvider.autoDispose
 
   switch (req.changeType) {
     case 'swap':
-      // 멤버 간 근무 교환(양방향): 신청자 ↔ 대상자가 같은 날짜의 근무를 맞바꾼다.
-      // DB의 apply_request(swap)와 동일하게, 신청자는 대상자의 근무로, 대상자는
-      // 신청자의 근무로 변경된다.
-      requesterAfter = targetBefore;
-      targetAfter = requesterBefore;
+      // 멤버 근무 변경: 대상 멤버의 근무를 요청된 근무로 변경한다.
+      // (신청자의 근무는 변경되지 않음 — DB apply_request(swap)와 동일)
+      requesterAfter = requesterBefore;
+      targetAfter = req.requestedShiftTypeId != null
+          ? typeMap[req.requestedShiftTypeId!]
+          : null; // null = 오프로 변경
       break;
     case 'day_off':
       requesterAfter = null; // OFF

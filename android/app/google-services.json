@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:467877754259:android:5e13069231d25b2db92466",
+        "mobilesdk_app_id": "1:467877754259:android:b3dc087b93a21b64b92466",
         "android_client_info": {
-          "package_name": "com.maybeornot.onoroff"
+          "package_name": "com.maybe.onoroff"
         }
       },
       "oauth_client": [],

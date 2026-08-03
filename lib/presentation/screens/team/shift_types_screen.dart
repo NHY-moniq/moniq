@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
@@ -10,6 +9,7 @@ import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
+import 'package:moniq/presentation/widgets/common/moniq_time_picker_sheet.dart';
 
 const _presetColors = [
   '#F0C040', // yellow
@@ -126,16 +126,15 @@ class ShiftTypesScreen extends HookConsumerWidget {
                 children: [
                   Expanded(
                     child: InkWell(
-                      onTap: () {
-                        _showCupertinoTimePicker(
+                      onTap: () async {
+                        final picked = await showMoniqTimePickerSheet(
                           context: ctx,
-                          initialHour: startTime?.hour ?? 9,
-                          initialMinute: startTime?.minute ?? 0,
-                          onChanged: (h, m) {
-                            setSheetState(() =>
-                                startTime = TimeOfDay(hour: h, minute: m));
-                          },
+                          initialTime: startTime ??
+                              const TimeOfDay(hour: 9, minute: 0),
+                          title: '시작 시간',
                         );
+                        if (picked == null) return;
+                        setSheetState(() => startTime = picked);
                       },
                       child: InputDecorator(
                         decoration: const InputDecoration(
@@ -154,18 +153,18 @@ class ShiftTypesScreen extends HookConsumerWidget {
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: InkWell(
-                      onTap: () {
-                        _showCupertinoTimePicker(
+                      onTap: () async {
+                        final picked = await showMoniqTimePickerSheet(
                           context: ctx,
-                          initialHour:
-                              endTime?.hour ?? (startTime?.hour ?? 9) + 1,
-                          initialMinute:
-                              endTime?.minute ?? startTime?.minute ?? 0,
-                          onChanged: (h, m) {
-                            setSheetState(() =>
-                                endTime = TimeOfDay(hour: h, minute: m));
-                          },
+                          initialTime: endTime ??
+                              TimeOfDay(
+                                hour: ((startTime?.hour ?? 9) + 1) % 24,
+                                minute: startTime?.minute ?? 0,
+                              ),
+                          title: '종료 시간',
                         );
+                        if (picked == null) return;
+                        setSheetState(() => endTime = picked);
                       },
                       child: InputDecorator(
                         decoration: const InputDecoration(
@@ -345,58 +344,4 @@ TimeOfDay? _parseTimeOfDay(String timeStr) {
   final minute = int.tryParse(parts[1]);
   if (hour == null || minute == null) return null;
   return TimeOfDay(hour: hour, minute: minute);
-}
-
-void _showCupertinoTimePicker({
-  required BuildContext context,
-  required int initialHour,
-  required int initialMinute,
-  required void Function(int hour, int minute) onChanged,
-}) {
-  int selectedHour = initialHour;
-  int selectedMinute = initialMinute;
-
-  showModalBottomSheet(
-    context: context,
-    builder: (ctx) => SizedBox(
-      height: 280,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('취소'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    onChanged(selectedHour, selectedMinute);
-                    Navigator.pop(ctx);
-                  },
-                  child: const Text('확인'),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: CupertinoDatePicker(
-              mode: CupertinoDatePickerMode.time,
-              use24hFormat: false,
-              initialDateTime:
-                  DateTime(2000, 1, 1, selectedHour, selectedMinute),
-              onDateTimeChanged: (dateTime) {
-                selectedHour = dateTime.hour;
-                selectedMinute = dateTime.minute;
-              },
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
 }

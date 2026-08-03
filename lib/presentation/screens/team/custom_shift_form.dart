@@ -1,8 +1,8 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/presentation/screens/team/shift_template_data.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/widgets/common/moniq_time_picker_sheet.dart';
 
 /// 커스텀 근무 유형 입력 폼 (추가/수정 공용)
 class CustomShiftForm extends StatefulWidget {
@@ -114,74 +114,22 @@ class _CustomShiftFormState extends State<CustomShiftForm> {
     return '밤';
   }
 
-  void _showTimePicker({required bool isStart}) {
-    final current = isStart ? _startTime : _endTime;
-    var selected = current;
-
-    showModalBottomSheet(
+  Future<void> _showTimePicker({required bool isStart}) async {
+    final picked = await showMoniqTimePickerSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-      ),
-      builder: (ctx) => SizedBox(
-        height: 280,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.md,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    isStart ? '시작 시간' : '종료 시간',
-                    style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        if (isStart) {
-                          _startTime = selected;
-                        } else {
-                          _endTime = selected;
-                        }
-                        _syncControllers();
-                      });
-                      Navigator.pop(ctx);
-                    },
-                    child: const Text('완료'),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: CupertinoDatePicker(
-                mode: CupertinoDatePickerMode.time,
-                use24hFormat: false,
-                initialDateTime: DateTime(
-                  2000,
-                  1,
-                  1,
-                  current.hour,
-                  current.minute,
-                ),
-                onDateTimeChanged: (dateTime) {
-                  selected = TimeOfDay(
-                    hour: dateTime.hour,
-                    minute: dateTime.minute,
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+      initialTime: isStart ? _startTime : _endTime,
+      title: isStart ? '시작 시간' : '종료 시간',
     );
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      if (isStart) {
+        _startTime = picked;
+      } else {
+        _endTime = picked;
+      }
+      _syncControllers();
+    });
   }
 
   @override

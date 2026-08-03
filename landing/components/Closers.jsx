@@ -1,58 +1,4 @@
-// CTA + Social proof + Footer
-
-const ProofStrip = () => (
-  <Section paddingY={80}>
-    <div style={{ textAlign: 'center', marginBottom: 40 }}>
-      <LandingEyebrow>Trusted by nurses at</LandingEyebrow>
-    </div>
-    <div style={{ display: 'flex', justifyContent: 'center', gap: 48, flexWrap: 'wrap', opacity: .75 }}>
-      {['Seoul National', 'Severance', 'Asan Medical', 'Samsung Medical', 'Ajou Univ.', 'Kyung Hee'].map(n => (
-        <div key={n} style={{ font: '900 22px/1 var(--font-family)', letterSpacing: -.5, color: '#5F5C4D' }}>{n}</div>
-      ))}
-    </div>
-  </Section>
-);
-
-const Testimonials = () => (
-  <Section paddingY={120}>
-    <div style={{ textAlign: 'center', marginBottom: 56 }}>
-      <LandingEyebrow>출시 전 미리보기</LandingEyebrow>
-      <h2 style={{ font: '900 52px/1.05 var(--font-family)', letterSpacing: -1.4, color: '#312F23', marginTop: 14, textWrap: 'balance' }}>
-        베타 테스터를 모집해요.
-      </h2>
-      <p style={{
-        font: '500 17px/1.6 var(--font-family)',
-        color: '#5F5C4D',
-        maxWidth: 560,
-        margin: '20px auto 0',
-        textWrap: 'balance',
-      }}>
-        실제 병동에서 한 달간 함께 검증해주실 간호사·수간호사님을 찾고 있어요.<br />
-        피드백은 다음 버전에 가장 먼저 반영돼요.
-      </p>
-    </div>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
-      {[
-        { icon: 'medical_services', title: '병동 베타', sub: '내 병동에서 직접 써보고, 수간호사 모드까지 함께 검증해요.', color: '#FFC107', bg: 'rgba(255,193,7,.18)' },
-        { icon: 'forum', title: '직접 피드백', sub: '카톡·메일로 매주 한 번씩 짧게. 무엇이 불편한지 듣고 다음 주에 고쳐요.', color: '#FF8C00', bg: 'rgba(255,140,0,.16)' },
-        { icon: 'card_giftcard', title: '얼리 액세스', sub: '정식 출시 전 모든 기능을 먼저 써보고, 출시 후 혜택도 준비할게요.', color: '#0061A4', bg: 'rgba(0,97,164,.12)' },
-      ].map((t, i) => (
-        <LandingCard key={i} padding={28} hover>
-          <div style={{
-            width: 48, height: 48, borderRadius: 16,
-            background: t.bg,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginBottom: 18,
-          }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 24, color: t.color, fontVariationSettings: "'FILL' 1" }}>{t.icon}</span>
-          </div>
-          <div style={{ font: '900 19px/1.2 var(--font-family)', color: '#312F23', marginBottom: 10 }}>{t.title}</div>
-          <p style={{ font: '500 14px/1.55 var(--font-family)', color: '#5F5C4D', textWrap: 'pretty' }}>{t.sub}</p>
-        </LandingCard>
-      ))}
-    </div>
-  </Section>
-);
+// CTA + Footer
 
 const FAQ = () => {
   const [open, setOpen] = React.useState(0);
@@ -128,7 +74,7 @@ const FinalCTA = () => (
           iOS · Android 곧 출시돼요. 출시 알림을 먼저 받아보세요.
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 36 }}>
-          <ComingSoonButtons kind="cream" />
+          <ComingSoonButtons />
         </div>
       </div>
     </div>
@@ -180,4 +126,4 @@ const LandingFooter = () => (
   </footer>
 );
 
-Object.assign(window, { ProofStrip, Testimonials, FAQ, FinalCTA, LandingFooter });
+Object.assign(window, { FAQ, FinalCTA, LandingFooter });

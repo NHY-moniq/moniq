@@ -394,22 +394,22 @@ class _ShiftTypeGroup extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
+                  color: Theme.of(ctx).colorScheme.primary.withValues(alpha: 0.08),
                   borderRadius: AppRadius.borderRadiusSm,
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.info_outline,
                       size: 18,
-                      color: AppColors.primary,
+                      color: Theme.of(ctx).colorScheme.primary,
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
                         '관리자 승인이 필요한 근무 변경 요청으로 접수됩니다.',
                         style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                          color: AppColors.primary,
+                          color: Theme.of(ctx).colorScheme.primary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

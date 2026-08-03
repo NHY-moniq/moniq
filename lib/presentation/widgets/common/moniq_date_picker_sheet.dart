@@ -25,6 +25,8 @@ Future<DateTime?> showMoniqDatePickerSheet({
     context: context,
     title: title,
     eyebrow: eyebrow ?? 'DATE',
+    // 220px 휠 + 요약 + 버튼이라 기본 상한(0.56)으로는 하단이 잘린다.
+    maxHeightFactor: 0.78,
     child: _MoniqDatePickerSheetBody(
       initialDate: seed,
       minDate: minDate,
@@ -70,103 +72,106 @@ class _MoniqDatePickerSheetBodyState extends State<_MoniqDatePickerSheetBody> {
     final colorScheme = theme.colorScheme;
     final dateLabel = DateFormat('yyyy.MM.dd (E)').format(_selectedDate);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
+    // 글자 크기를 키운 기기에서는 상한을 올려도 넘칠 수 있어 스크롤로 받는다.
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerLowest,
+              borderRadius: AppRadius.borderRadiusMd,
+              border: Border.all(color: colorScheme.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  '선택 날짜',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  dateLabel,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLowest,
+          const SizedBox(height: AppSpacing.md),
+          ClipRRect(
             borderRadius: AppRadius.borderRadiusMd,
-            border: Border.all(color: colorScheme.outlineVariant),
-          ),
-          child: Row(
-            children: [
-              Text(
-                '선택 날짜',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+            child: Container(
+              height: 220,
+              color: colorScheme.surfaceContainerLowest,
+              child: CupertinoTheme(
+                data: CupertinoThemeData(
+                  brightness: theme.brightness,
+                  primaryColor: colorScheme.primary,
                 ),
-              ),
-              const Spacer(),
-              Text(
-                dateLabel,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w700,
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.date,
+                  backgroundColor: colorScheme.surfaceContainerLowest,
+                  initialDateTime: _selectedDate,
+                  minimumDate: widget.minDate,
+                  maximumDate: widget.maxDate,
+                  onDateTimeChanged: (value) {
+                    setState(() {
+                      _selectedDate = DateTime(
+                        value.year,
+                        value.month,
+                        value.day,
+                      );
+                    });
+                  },
                 ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        ClipRRect(
-          borderRadius: AppRadius.borderRadiusMd,
-          child: Container(
-            height: 220,
-            color: colorScheme.surfaceContainerLowest,
-            child: CupertinoTheme(
-              data: CupertinoThemeData(
-                brightness: theme.brightness,
-                primaryColor: colorScheme.primary,
-              ),
-              child: CupertinoDatePicker(
-                mode: CupertinoDatePickerMode.date,
-                backgroundColor: colorScheme.surfaceContainerLowest,
-                initialDateTime: _selectedDate,
-                minimumDate: widget.minDate,
-                maximumDate: widget.maxDate,
-                onDateTimeChanged: (value) {
-                  setState(() {
-                    _selectedDate = DateTime(
-                      value.year,
-                      value.month,
-                      value.day,
-                    );
-                  });
-                },
               ),
             ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.xl),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: AppRadius.borderRadiusFull,
+          const SizedBox(height: AppSpacing.xl),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.borderRadiusFull,
+                      ),
+                      side: BorderSide(color: colorScheme.outlineVariant),
                     ),
-                    side: BorderSide(color: colorScheme.outlineVariant),
+                    child: Text(widget.cancelLabel),
                   ),
-                  child: Text(widget.cancelLabel),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                flex: 2,
-                child: FilledButton(
-                  onPressed: () => Navigator.pop(context, _selectedDate),
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: AppRadius.borderRadiusFull,
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  flex: 2,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(context, _selectedDate),
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.borderRadiusFull,
+                      ),
                     ),
+                    child: Text(widget.confirmLabel),
                   ),
-                  child: Text(widget.confirmLabel),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

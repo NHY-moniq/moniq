@@ -1,5 +1,48 @@
 part of 'calendar_dialogs.dart';
 
+// ── 일정 폼 공통 축(axis) ──────────────────────────────────────────────
+// 종일/시작/종료 행의 라벨을 같은 x에서 시작시키기 위한 고정 폭.
+// 이 값을 공유해야 값 필드들의 좌측 경계도 자동으로 한 줄로 맞는다.
+const double _eventRowLabelWidth = 52;
+
+/// 일시 섹션 행 라벨(종일·시작·종료) 스타일 — 세 행이 같은 무게로 보이게 한다.
+TextStyle? _eventRowLabelStyle(BuildContext context) {
+  final theme = Theme.of(context);
+  return theme.textTheme.bodyMedium?.copyWith(
+    color: theme.colorScheme.onSurface,
+    fontWeight: FontWeight.w600,
+  );
+}
+
+/// 폼 섹션 라벨 — 일시/색상/설명/반복 그룹의 머리말.
+/// 값 필드보다 한 단계 작고 흐린 톤이라 그룹 구분만 하고 시선을 뺏지 않는다.
+class _FormSectionLabel extends StatelessWidget {
+  const _FormSectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: AppSpacing.xs,
+        bottom: AppSpacing.sm,
+      ),
+      child: Text(
+        text,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}
+
+/// 종일 토글 — 시작/종료 행과 같은 축(좌: 라벨, 우: 값)을 쓰는 한 줄 스위치.
+/// 예전처럼 날짜 그리드 옆에 세로로 붙지 않아 여백이 어긋나지 않는다.
 class _EventAllDayCheckbox extends StatelessWidget {
   const _EventAllDayCheckbox({required this.selected, required this.onChanged});
 
@@ -8,47 +51,32 @@ class _EventAllDayCheckbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => onChanged(!selected),
-        borderRadius: AppRadius.borderRadiusMd,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: selected ? cs.primary : cs.surface,
-                  borderRadius: BorderRadius.circular(7),
-                  border: Border.all(
-                    color: selected
-                        ? cs.primary
-                        : cs.outlineVariant.withValues(alpha: 0.9),
-                    width: 1.4,
+    return Semantics(
+      toggled: selected,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => onChanged(!selected),
+          borderRadius: AppRadius.borderRadiusMd,
+          child: SizedBox(
+            height: 40,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: _eventRowLabelWidth,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: AppSpacing.xs),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('종일', style: _eventRowLabelStyle(context)),
+                    ),
                   ),
                 ),
-                alignment: Alignment.center,
-                child: selected
-                    ? Icon(Icons.check_rounded, size: 15, color: cs.onPrimary)
-                    : null,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '종일',
-                maxLines: 1,
-                style: textTheme.labelSmall?.copyWith(
-                  color: selected ? cs.primary : cs.onSurfaceVariant,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
+                const Spacer(),
+                _MiniSwitch(on: selected),
+                const SizedBox(width: AppSpacing.xs),
+              ],
+            ),
           ),
         ),
       ),
@@ -56,76 +84,142 @@ class _EventAllDayCheckbox extends StatelessWidget {
   }
 }
 
-/// 시작/종료 시간 버튼 — 약속잡기 시트의 `_AppointmentTimeButton`과 동일 스펙.
+/// 종일 행의 작은 스위치 — 노브 색은 시프트별 primary 위에서도 대비가 남도록
+/// on일 때 onPrimary, off일 때 밝기별로 갈라 고른다.
+class _MiniSwitch extends StatelessWidget {
+  const _MiniSwitch({required this.on});
+
+  final bool on;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final knobColor = on
+        ? cs.onPrimary
+        : (cs.brightness == Brightness.dark
+              ? cs.onSurface
+              : cs.surfaceContainerLowest);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      width: 44,
+      height: 26,
+      padding: const EdgeInsets.all(3),
+      alignment: on ? Alignment.centerRight : Alignment.centerLeft,
+      decoration: BoxDecoration(
+        color: on ? cs.primary : cs.onSurfaceVariant.withValues(alpha: 0.22),
+        borderRadius: AppRadius.borderRadiusFull,
+      ),
+      child: Container(
+        width: 20,
+        height: 20,
+        decoration: BoxDecoration(
+          color: knobColor,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: cs.shadow.withValues(alpha: 0.16),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 시작/종료 한 줄 — 왼쪽 라벨 축 + 오른쪽 날짜·시간 값 필드.
+/// 라벨을 행이 책임지므로 값 필드는 값만 보여주면 되고, 그만큼 테두리 박스가
+/// 반복되던 무게가 사라진다.
+class _EventDateTimeRow extends StatelessWidget {
+  const _EventDateTimeRow({
+    required this.label,
+    required this.dateField,
+    required this.timeField,
+  });
+
+  final String label;
+  final Widget dateField;
+  final Widget timeField;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 46,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: _eventRowLabelWidth,
+            child: Padding(
+              padding: const EdgeInsets.only(left: AppSpacing.xs),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(label, style: _eventRowLabelStyle(context)),
+              ),
+            ),
+          ),
+          Expanded(flex: 5, child: dateField),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(flex: 4, child: timeField),
+        ],
+      ),
+    );
+  }
+}
+
+/// 시작/종료 일자·시간 값 필드. 라벨은 [_EventDateTimeRow]가 맡으므로
+/// 값만 가운데에 두고, 채우기 색은 제목/설명 입력과 같은 톤으로 통일한다.
+/// [label]은 화면에 그리지 않고 스크린리더 설명으로만 쓴다.
 class _EventTimeButton extends StatelessWidget {
   const _EventTimeButton({
     required this.label,
     required this.value,
     required this.onTap,
+    this.muted = false,
   });
 
   final String label;
   final String value;
   final VoidCallback onTap;
 
+  /// 아직 정해지지 않은 값(`--:--`)일 때 톤을 낮춰 placeholder처럼 보이게 한다.
+  final bool muted;
+
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
+    return Semantics(
+      button: true,
+      label: label,
+      value: value,
+      child: Material(
+        color: cs.surfaceContainerHigh,
         borderRadius: AppRadius.borderRadiusMd,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: 4,
-          ),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerLow,
-            borderRadius: AppRadius.borderRadiusMd,
-            border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: 0.62),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.schedule_rounded,
-                    size: 13,
-                    color: cs.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 3),
-                  Text(
-                    label,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.borderRadiusMd,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+            child: Center(
+              child: Text(
                 value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: cs.onSurface,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: muted
+                      ? cs.onSurfaceVariant.withValues(alpha: 0.55)
+                      : cs.onSurface,
+                  fontWeight: FontWeight.w400,
                   letterSpacing: 0.2,
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -133,7 +227,8 @@ class _EventTimeButton extends StatelessWidget {
   }
 }
 
-/// 색상 chip — 선택 시 흰색 inner ring + primary 2px outer outline로 강조.
+/// 색상 chip — 선택 시 primary 링 + 안쪽 원이 커지며 살짝 떠오른다.
+/// 링/여백만으로 선택을 표현해 어떤 시프트 테마에서도 색이 탁해지지 않는다.
 class _ColorChip extends StatelessWidget {
   const _ColorChip({
     required this.hex,
@@ -158,27 +253,28 @@ class _ColorChip extends StatelessWidget {
         curve: Curves.easeOut,
         width: 40,
         height: 40,
+        // 링은 항상 자리를 차지하고 색만 바뀌어야 선택 시 원이 튀지 않는다.
+        padding: EdgeInsets.all(isSelected ? 3 : 6),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          // Outer primary ring when selected
-          border: isSelected ? Border.all(color: cs.primary, width: 2) : null,
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.35),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+          border: Border.all(
+            color: isSelected ? cs.primary : Colors.transparent,
+            width: 2,
+          ),
         ),
-        padding: EdgeInsets.all(isSelected ? 3 : 0),
-        child: Container(
+        child: DecoratedBox(
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
-            // Inner white ring for the double-ring effect
-            border: isSelected ? Border.all(color: cs.surface, width: 2) : null,
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.28),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
         ),
       ),
@@ -259,19 +355,8 @@ class _RecurrenceField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(
-            left: AppSpacing.xs,
-            bottom: AppSpacing.xs,
-          ),
-          child: Text(
-            '반복',
-            style: tt.labelSmall?.copyWith(
-              color: cs.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+        // 라벨은 폼의 다른 섹션과 같은 위젯을 써서 축·톤을 맞춘다.
+        const _FormSectionLabel('반복'),
         Material(
           color: cs.surfaceContainerHigh,
           borderRadius: AppRadius.borderRadiusLg,
@@ -428,7 +513,8 @@ void showDeletePersonalScheduleSheet({
                 final confirm = await showMoniqDestructiveConfirm(
                   context: context,
                   title: '근무 일정을 삭제할까요?',
-                  message: '$year년 $month월의 근무 일정이 개인 캘린더에서 제거됩니다.\n'
+                  message:
+                      '$year년 $month월의 근무 일정이 개인 캘린더에서 제거됩니다.\n'
                       '팀 근무표 원본과 직접 추가한 개인 일정/메모는 유지됩니다.',
                 );
                 if (!confirm) return;
@@ -443,14 +529,14 @@ void showDeletePersonalScheduleSheet({
                   ref.read(eventRefreshProvider.notifier).state++;
                   ref.invalidate(monthlyEventsProvider);
                   ref.invalidate(dateEventsProvider);
+                  ref.invalidate(dateEventOccurrencesProvider);
+                  ref.invalidate(dateEventsIncludingSpansProvider);
                   ref.invalidate(homeViewModelProvider);
 
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(
-                          '$year년 $month월 근무를 개인 캘린더에서 제거했습니다',
-                        ),
+                        content: Text('$year년 $month월 근무를 개인 캘린더에서 제거했습니다'),
                       ),
                     );
                   }

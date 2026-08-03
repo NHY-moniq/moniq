@@ -79,4 +79,31 @@ abstract final class AppColors {
   // Divider
   static const dividerLight = Color(0xFFE8E2D2);
   static const dividerDark = Color(0xFF2C2C2C);
+
+  // ── Menu accent palette ──
+  // 메뉴 항목을 색으로 구분하기 위한 팔레트.
+  // 시프트 테마(primary)와 달리 고정색이라 근무가 바뀌어도 항목의 정체성이
+  // 유지된다. 의미를 갖는 error/success와는 역할이 다르다.
+  static const accentBlue = Color(0xFF2196F3);
+  static const accentGreen = Color(0xFF38A169);
+  static const accentPurple = Color(0xFF9F7AEA);
+  static const accentPink = Color(0xFFED64A6);
+  static const accentIndigo = Color(0xFF5A67D8);
+  static const accentTeal = Color(0xFF0D9488);
+  static const accentAmber = Color(0xFFED8936);
+
+  // ── Cool surface family ──
+  // 나이트·오프처럼 쿨톤 시프트일 때 위 웜(상아색) 계열을 통째로 대체한다.
+  // 밝기 단계는 웜 팔레트와 1:1로 맞춰, 위젯 쪽 코드는 그대로 두고
+  // ColorScheme만 갈아끼우면 되도록 했다.
+  static const surfaceCool = Color(0xFFFBFDFF);
+  static const surfaceContainerLowestCool = Color(0xFFFBFDFF);
+  static const surfaceContainerLowCool = Color(0xFFF8FBFE);
+  static const surfaceContainerCool = Color(0xFFF1F6FB);
+  static const surfaceContainerHighCool = Color(0xFFEDF3F9);
+  static const surfaceContainerHighestCool = Color(0xFFE3ECF4);
+  static const backgroundCool = Color(0xFFFBFDFF);
+  static const outlineVariantCool = Color(0xFFD3DDE6);
+  static const borderCool = Color(0xFFDCE5EE);
+  static const dividerCool = Color(0xFFDCE5EE);
 }

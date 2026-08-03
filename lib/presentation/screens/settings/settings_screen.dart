@@ -30,10 +30,10 @@ class SettingsScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
+    final shift = ref.watch(todayShiftThemeProvider);
 
     return Scaffold(
-      backgroundColor: cs.surfaceContainerLow,
+      backgroundColor: shift.scaffoldBackground,
       appBar: AdaptiveLayout.isWide(context)
           ? null
           : const MoniqAppBar(
@@ -285,6 +285,16 @@ Color _settingsCardTint(BuildContext context, WidgetRef ref) {
   return shift.primary.withValues(alpha: isDark ? 0.18 : 0.08);
 }
 
+/// 스위치·세그먼트 토글에 쓰는 색.
+///
+/// 오늘 시프트 색을 그대로 쓰면 컨트롤이 너무 튀어서, 색조는 유지하고
+/// 채도만 살짝 낮춘다.
+Color _settingsControlColor(WidgetRef ref) {
+  final shift = ref.watch(todayShiftThemeProvider);
+  final hsl = HSLColor.fromColor(shift.primary);
+  return hsl.withSaturation((hsl.saturation * 0.72).clamp(0.0, 1.0)).toColor();
+}
+
 class _AppSettingsSection extends ConsumerWidget {
   const _AppSettingsSection();
 
@@ -321,6 +331,8 @@ class _AppSettingsSection extends ConsumerWidget {
           label: '주 시작일',
           trailing: _WeekStartToggle(
             startDay: startDay,
+            activeColor: _settingsControlColor(ref),
+            onActiveColor: ref.watch(todayShiftThemeProvider).onPrimary,
             onChanged: (value) => ref
                 .read(calendarStartDayProvider.notifier)
                 .setStartDay(value),
@@ -436,7 +448,6 @@ class _NotificationsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final enabled = ref.watch(notificationEnabledProvider);
-    final cs = Theme.of(context).colorScheme;
     return MoniqGroupedCard(
       backgroundColor: _settingsCardTint(context, ref),
       heading: '알림',
@@ -447,7 +458,7 @@ class _NotificationsSection extends ConsumerWidget {
           subtitle: '스케줄·요청·공지',
           trailing: Switch.adaptive(
             value: enabled,
-            activeTrackColor: cs.primary,
+            activeTrackColor: _settingsControlColor(ref),
             onChanged: (v) async {
               final n = ref.read(notificationEnabledProvider.notifier);
               v ? await n.enable() : await n.disable();
@@ -592,9 +603,21 @@ class _InfoSection extends ConsumerWidget {
 /// 기존엔 탭마다 값이 번갈아 바뀌어 현재 상태를 알기 어려웠다.
 /// 선택된 쪽이 강조되는 2-세그먼트 스위치로 바꿔 변경 여부를 직관적으로 보이게 한다.
 class _WeekStartToggle extends StatelessWidget {
-  const _WeekStartToggle({required this.startDay, required this.onChanged});
+  const _WeekStartToggle({
+    required this.startDay,
+    required this.activeColor,
+    required this.onActiveColor,
+    required this.onChanged,
+  });
 
   final String startDay;
+
+  /// 선택된 세그먼트 배경 — 오늘 시프트 색(채도 낮춤).
+  final Color activeColor;
+
+  /// [activeColor] 위에 올라가는 라벨 색.
+  final Color onActiveColor;
+
   final ValueChanged<String> onChanged;
 
   @override
@@ -632,14 +655,14 @@ class _WeekStartToggle extends StatelessWidget {
         curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? cs.primary : Colors.transparent,
+          color: selected ? activeColor : Colors.transparent,
           borderRadius: AppRadius.borderRadiusFull,
         ),
         child: Text(
           label,
           style: AppTypography.caption.copyWith(
             fontWeight: FontWeight.w700,
-            color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+            color: selected ? onActiveColor : cs.onSurfaceVariant,
           ),
         ),
       ),

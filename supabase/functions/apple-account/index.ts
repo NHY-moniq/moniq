@@ -7,9 +7,9 @@
 //                     폐기한다. (App Store "Offering Account Deletion" 요건)
 //
 // 필요한 환경변수(Supabase Function Secrets):
-//   APPLE_TEAM_ID      Apple Developer Team ID (예: DNZ4K5RRY6)
-//   APPLE_KEY_ID       Sign in with Apple Key ID
-//   APPLE_CLIENT_ID    네이티브 앱 Bundle ID (예: com.onoroff.onoroff)
+//   APPLE_TEAM_ID      Apple Developer Team ID (현재: 4YL472XL36)
+//   APPLE_KEY_ID       Sign in with Apple Key ID (APNs 키와 별개 키)
+//   APPLE_CLIENT_ID    네이티브 앱 Bundle ID (현재: com.maybe.onoroff)
 //   APPLE_PRIVATE_KEY  .p8 파일 내용 (BEGIN/END PRIVATE KEY 포함)
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (플랫폼 기본 제공)
 // =============================================================================

@@ -335,7 +335,8 @@ class TodayEventsCard extends ConsumerWidget {
     List<PersonalEvent> events = const [];
     Set<String> shiftTypeNames = const {};
     try {
-      events = ref.watch(dateEventsProvider(todayKey));
+      // 여러 날에 걸친 일정은 오늘이 중간/마지막 날이어도 "오늘 일정"에 포함.
+      events = ref.watch(dateEventsIncludingSpansProvider(todayKey));
       shiftTypeNames = ref
           .watch(personalShiftTypesProvider)
           .map((st) => st.name)

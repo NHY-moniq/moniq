@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/widgets/common/character_blob.dart';
@@ -29,119 +30,124 @@ class ActiveShiftCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      clipBehavior: Clip.hardEdge,
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 280),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            shiftTheme.cardColor,
-            shiftTheme.cardColor.withValues(alpha: 0.85),
+    // 카드 탭 시 개인 캘린더로 이동 (today 버튼과 동일)
+    return GestureDetector(
+      onTap: () => context.go('/calendar'),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        clipBehavior: Clip.hardEdge,
+        width: double.infinity,
+        constraints: const BoxConstraints(minHeight: 280),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              shiftTheme.cardColor,
+              shiftTheme.cardColor.withValues(alpha: 0.85),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(32),
+        ),
+        child: Stack(
+          children: [
+            // Decorative blur circle (top-right)
+            Positioned(
+              top: -48,
+              right: -48,
+              child: Container(
+                width: 192,
+                height: 192,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: shiftTheme.primary.withValues(alpha: 0.15),
+                ),
+              ),
+            ),
+
+            // Character PNG or CharacterBlob fallback
+            Positioned(
+              right: -16,
+              bottom: -16,
+              child: Transform.rotate(
+                angle: 0.21,
+                child: Opacity(
+                  opacity: 0.25,
+                  child: shiftTheme.characterAsset.isNotEmpty
+                      ? Image.asset(
+                          shiftTheme.characterAsset,
+                          width: 200,
+                          height: 200,
+                          fit: BoxFit.contain,
+                        )
+                      : CharacterBlob(
+                          type: CharacterType.grey,
+                          size: 160,
+                          showEyes: true,
+                          sleeping: true,
+                        ),
+                ),
+              ),
+            ),
+
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Glass badge
+                  GlassBadge(
+                    label: hasShift ? 'Active Shift' : 'No Shift',
+                    showPulse: hasShift,
+                    textColor: shiftTheme.onPrimary,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Shift name
+                  Text(
+                    shiftTheme.displayName,
+                    style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w900,
+                      color: shiftTheme.onPrimary,
+                      height: 1.1,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Time
+                  if (hasShift && startTime != null && endTime != null)
+                    Text(
+                      '$startTime — $endTime',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: shiftTheme.onPrimary.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+
+                  // Location / Team chips — OFF여도 소속 팀명은 표시
+                  if (hasShift || teamName != null)
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: [
+                        GlassChip(
+                          icon: Icons.group,
+                          label: teamName ?? '개인 일정',
+                          textColor: shiftTheme.onPrimary,
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
           ],
         ),
-        borderRadius: BorderRadius.circular(32),
-      ),
-      child: Stack(
-        children: [
-          // Decorative blur circle (top-right)
-          Positioned(
-            top: -48,
-            right: -48,
-            child: Container(
-              width: 192,
-              height: 192,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: shiftTheme.primary.withValues(alpha: 0.15),
-              ),
-            ),
-          ),
-
-          // Character PNG or CharacterBlob fallback
-          Positioned(
-            right: -16,
-            bottom: -16,
-            child: Transform.rotate(
-              angle: 0.21,
-              child: Opacity(
-                opacity: 0.25,
-                child: shiftTheme.characterAsset.isNotEmpty
-                    ? Image.asset(
-                        shiftTheme.characterAsset,
-                        width: 200,
-                        height: 200,
-                        fit: BoxFit.contain,
-                      )
-                    : CharacterBlob(
-                        type: CharacterType.grey,
-                        size: 160,
-                        showEyes: true,
-                        sleeping: true,
-                      ),
-              ),
-            ),
-          ),
-
-          // Content
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Glass badge
-                GlassBadge(
-                  label: hasShift ? 'Active Shift' : 'No Shift',
-                  showPulse: hasShift,
-                  textColor: shiftTheme.onPrimary,
-                ),
-                const SizedBox(height: 20),
-
-                // Shift name
-                Text(
-                  shiftTheme.displayName,
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w900,
-                    color: shiftTheme.onPrimary,
-                    height: 1.1,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-
-                // Time
-                if (hasShift && startTime != null && endTime != null)
-                  Text(
-                    '$startTime — $endTime',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: shiftTheme.onPrimary.withValues(alpha: 0.8),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-
-                // Location / Team chips — OFF여도 소속 팀명은 표시
-                if (hasShift || teamName != null)
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.sm,
-                    children: [
-                      GlassChip(
-                        icon: Icons.group,
-                        label: teamName ?? '개인 일정',
-                        textColor: shiftTheme.onPrimary,
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -168,8 +174,9 @@ class GlassBadge extends StatelessWidget {
     // textColor 대비 색으로 글래스를 도출 (밝은 텍스트 → 어두운 글래스)
     final isLightText =
         ThemeData.estimateBrightnessForColor(textColor) == Brightness.light;
-    final glassColor = (isLightText ? Colors.black : Colors.white)
-        .withValues(alpha: 0.22);
+    final glassColor = (isLightText ? Colors.black : Colors.white).withValues(
+      alpha: 0.22,
+    );
     // 라이브 인디케이터 dot은 textColor와 무관한 의미 색(빨강)
     const liveDotColor = Color(0xFFE53935);
 
@@ -241,26 +248,23 @@ class GlassChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLightText =
         ThemeData.estimateBrightnessForColor(textColor) == Brightness.light;
-    final glassBg = (isLightText ? Colors.black : Colors.white)
-        .withValues(alpha: 0.22);
-    final glassBorder = (isLightText ? Colors.black : Colors.white)
-        .withValues(alpha: 0.15);
+    final glassBg = (isLightText ? Colors.black : Colors.white).withValues(
+      alpha: 0.22,
+    );
+    final glassBorder = (isLightText ? Colors.black : Colors.white).withValues(
+      alpha: 0.15,
+    );
 
     return ClipRRect(
       borderRadius: AppRadius.borderRadiusFull,
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 10,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
             color: glassBg,
             borderRadius: AppRadius.borderRadiusFull,
-            border: Border.all(
-              color: glassBorder,
-            ),
+            border: Border.all(color: glassBorder),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

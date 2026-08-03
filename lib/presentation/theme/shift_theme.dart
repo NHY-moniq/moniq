@@ -12,6 +12,8 @@ class ShiftThemeData {
     required this.primary,
     required this.onPrimary,
     required this.background,
+    required this.scaffoldBackground,
+    required this.elevatedSurface,
     required this.cardColor,
     required this.accentText,
     required this.displayName,
@@ -22,17 +24,45 @@ class ShiftThemeData {
   final Color primary;
   final Color onPrimary;
   final Color background;
+  final Color scaffoldBackground; // 화면 전체 배경 (Scaffold)
+  final Color elevatedSurface; // 배경 위에 떠 있는 면 (하단 dock, 배너 래퍼 등)
   final Color cardColor;
   final Color accentText; // 밝은 배경 위에 쓸 강조 텍스트 색
   final String displayName; // 카드에 표시할 영어 이름
   final String characterAsset;
   final CharacterType characterType;
 
+  // ── 배경 톤 ──
+  // 데이·이브닝(웜톤)은 기존 상아색을 그대로 쓰고,
+  // 나이트·오프(쿨톤)는 상아색보다 차갑고 하얀 배경을 쓴다.
+  static const warmBackground = Color(0xFFFCF6E3);
+  static const warmScaffold = Color(0xFFFFF6EA);
+  static const warmElevated = Color(0xFFF7EAD6);
+  static const coolBackground = Color(0xFFF4F8FC);
+  static const coolScaffold = Color(0xFFF8FBFE);
+  static const coolElevated = Color(0xFFEDF3F9);
+  static const darkBackground = Color(0xFF121212);
+  static const darkScaffold = Color(0xFF181818);
+  static const darkElevated = Color(0xFF282828);
+
+  /// 색조가 웜톤(노랑·주황·빨강 계열)인지 여부.
+  ///
+  /// 웜톤이면 상아색 배경, 쿨톤이면 차가운 화이트 배경을 쓴다.
+  static bool _isWarmHue(double hue) => hue < 75 || hue >= 330;
+
+  /// 이 시프트가 쿨톤 배경을 쓰는지.
+  ///
+  /// 앱 전역 [ColorScheme]을 웜(상아색)/쿨(화이트) 중 어느 계열로 만들지
+  /// 고르는 데 쓴다. 다크 모드는 자체 테마를 쓰므로 false다.
+  bool get isCoolTone => background == coolBackground;
+
   // ── Light mode ──
   static const day = ShiftThemeData(
     primary: Color(0xFFFFD700),
     onPrimary: Color(0xFF2D1F00),
-    background: Color(0xFFFCF6E3),
+    background: warmBackground,
+    scaffoldBackground: warmScaffold,
+    elevatedSurface: warmElevated,
     cardColor: Color(0xFFFFD700),
     accentText: Color(0xFFB8860B),
     displayName: 'Day Shift',
@@ -43,7 +73,9 @@ class ShiftThemeData {
   static const evening = ShiftThemeData(
     primary: Color(0xFFFF8C00),
     onPrimary: Color(0xFFFFFFFF),
-    background: Color(0xFFFCF6E3),
+    background: warmBackground,
+    scaffoldBackground: warmScaffold,
+    elevatedSurface: warmElevated,
     cardColor: Color(0xFFFF8C00),
     accentText: Color(0xFFE07800),
     displayName: 'Evening Shift',
@@ -54,7 +86,9 @@ class ShiftThemeData {
   static const night = ShiftThemeData(
     primary: Color(0xFF0061A4),
     onPrimary: Color(0xFFFFFFFF),
-    background: Color(0xFFF8F9FF),
+    background: coolBackground,
+    scaffoldBackground: coolScaffold,
+    elevatedSurface: coolElevated,
     cardColor: Color(0xFF0061A4),
     accentText: Color(0xFF0061A4),
     displayName: 'Night Shift',
@@ -65,7 +99,9 @@ class ShiftThemeData {
   static const off = ShiftThemeData(
     primary: Color(0xFFA0AEC0),
     onPrimary: Color(0xFFFFFFFF),
-    background: Color(0xFFFCF6E3),
+    background: coolBackground,
+    scaffoldBackground: coolScaffold,
+    elevatedSurface: coolElevated,
     cardColor: Color(0xFFA0AEC0),
     accentText: Color(0xFF718096),
     displayName: 'OFF',
@@ -77,7 +113,9 @@ class ShiftThemeData {
   static const dayDark = ShiftThemeData(
     primary: Color(0xFFFFD700),
     onPrimary: Color(0xFF453900),
-    background: Color(0xFF121212),
+    background: darkBackground,
+    scaffoldBackground: darkScaffold,
+    elevatedSurface: darkElevated,
     cardColor: Color(0xFFFFD700),
     accentText: Color(0xFFFFD700),
     displayName: 'Day Shift',
@@ -88,7 +126,9 @@ class ShiftThemeData {
   static const eveningDark = ShiftThemeData(
     primary: Color(0xFFFF8C00),
     onPrimary: Color(0xFFFFFFFF),
-    background: Color(0xFF121212),
+    background: darkBackground,
+    scaffoldBackground: darkScaffold,
+    elevatedSurface: darkElevated,
     cardColor: Color(0xFFFF8C00),
     accentText: Color(0xFFFF8C00),
     displayName: 'Evening Shift',
@@ -99,7 +139,9 @@ class ShiftThemeData {
   static const nightDark = ShiftThemeData(
     primary: Color(0xFF2196F3),
     onPrimary: Color(0xFFFFFFFF),
-    background: Color(0xFF121212),
+    background: darkBackground,
+    scaffoldBackground: darkScaffold,
+    elevatedSurface: darkElevated,
     cardColor: Color(0xFF2196F3),
     accentText: Color(0xFF2196F3),
     displayName: 'Night Shift',
@@ -110,7 +152,9 @@ class ShiftThemeData {
   static const offDark = ShiftThemeData(
     primary: Color(0xFFA0AEC0),
     onPrimary: Color(0xFFFFFFFF),
-    background: Color(0xFF121212),
+    background: darkBackground,
+    scaffoldBackground: darkScaffold,
+    elevatedSurface: darkElevated,
     cardColor: Color(0xFFA0AEC0),
     accentText: Color(0xFFA0AEC0),
     displayName: 'OFF',
@@ -140,8 +184,10 @@ class ShiftThemeData {
     if (isDark) {
       return ShiftThemeData(
         primary: color,
-        onPrimary: brightness == Brightness.dark ? Colors.white : const Color(0xFF121212),
-        background: const Color(0xFF121212),
+        onPrimary: brightness == Brightness.dark ? Colors.white : darkBackground,
+        background: darkBackground,
+        scaffoldBackground: darkScaffold,
+        elevatedSurface: darkElevated,
         cardColor: color,
         accentText: color,
         displayName: displayName ?? 'Shift',
@@ -150,16 +196,17 @@ class ShiftThemeData {
       );
     }
 
-    // 밝은 배경: 채도를 유지하면서 밝기를 올림 (기존 프리셋 #FCF6E3 수준)
-    final lightBg = hsl.withSaturation((hsl.saturation * 0.5).clamp(0, 1))
-        .withLightness(0.92).toColor();
+    // 밝은 배경: 시프트 색조에 맞춰 웜톤(상아색)/쿨톤(화이트) 중 하나를 고른다.
+    final isWarm = _isWarmHue(hsl.hue);
     // 강조 텍스트: 색상의 밝기를 내림
     final accent = hsl.withLightness((hsl.lightness * 0.6).clamp(0, 0.5)).toColor();
 
     return ShiftThemeData(
       primary: color,
       onPrimary: brightness == Brightness.dark ? Colors.white : const Color(0xFF2D1F00),
-      background: lightBg,
+      background: isWarm ? warmBackground : coolBackground,
+      scaffoldBackground: isWarm ? warmScaffold : coolScaffold,
+      elevatedSurface: isWarm ? warmElevated : coolElevated,
       cardColor: color,
       accentText: accent,
       displayName: displayName ?? 'Shift',
@@ -194,7 +241,8 @@ class ShiftThemeData {
 ///
 /// Priority:
 /// 1. Server shifts from [homeViewModelProvider]
-/// 2. Personal calendar shifts from [dateEventsProvider] + [personalShiftTypesProvider]
+/// 2. Personal calendar shifts from [dateEventsIncludingSpansProvider] +
+///    [personalShiftTypesProvider]
 /// 3. Fallback: [ShiftThemeData.off]
 final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
   final today = DateTime.now();
@@ -226,7 +274,8 @@ final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
 
   // 2. Fallback to personal calendar (may throw if SharedPreferences not ready)
   try {
-    final personalEvents = ref.watch(dateEventsProvider(todayKey));
+    final personalEvents =
+        ref.watch(dateEventsIncludingSpansProvider(todayKey));
     final personalShiftTypes = ref.watch(personalShiftTypesProvider);
     final shiftTypeNames = personalShiftTypes.map((st) => st.name).toSet();
 

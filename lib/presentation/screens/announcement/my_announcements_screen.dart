@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/data/models/announcement_model.dart';
 import 'package:moniq/data/models/team_model.dart';
@@ -11,6 +10,7 @@ import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/announcement/announcement_filter_sheet.dart';
+import 'package:moniq/presentation/widgets/common/banner_ad_widget.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
@@ -43,6 +43,16 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
       ),
       body: Column(
         children: [
+          // 배너 광고 — 팀 공지사항 상단. 모바일 전용(웹/미지원 시 빈 위젯).
+          const Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.xxl,
+              AppSpacing.sm,
+              AppSpacing.xxl,
+              0,
+            ),
+            child: BannerAdWidget(),
+          ),
           if (teams.length > 1)
             _TeamFilterHeader(
               label: filterLabel,
@@ -62,7 +72,7 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
               ),
               data: (items) {
                 if (items.isEmpty) {
-                  return MoniqEmptyState.peaceful(
+                  return MoniqEmptyState.shift(
                     title: '공지사항이 없어요',
                     message: selectedTeam == null
                         ? '팀 관리자가 공지를 등록하면 여기에 표시돼요'
@@ -199,7 +209,11 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
       teamId = await _pickTeam(context, teams);
     }
     if (teamId == null || !context.mounted) return;
-    context.push('/teams/$teamId/announcements');
+    // 작성 시트를 바로 연다. 예전엔 팀 공지 목록으로 push해서, 버튼을 눌렀는데
+    // 작성이 아니라 같은 성격의 목록이 한 겹 더 쌓이고 거기서 또 눌러야 했다.
+    await showAnnouncementCreateSheet(context, teamId: teamId);
+    if (!context.mounted) return;
+    ref.invalidate(myAnnouncementsProvider);
   }
 
   Future<String?> _pickTeam(BuildContext context, List<TeamModel> teams) {

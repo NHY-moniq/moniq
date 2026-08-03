@@ -31,7 +31,10 @@ class DateItemsPanel extends ConsumerWidget {
 
   final DateTime date;
   final List<ShiftWithType> shifts;
-  final List<PersonalEvent> events;
+
+  /// 이 날 표시할 일정 — 여러 날에 걸친 일정의 중간/마지막 날도 포함된다.
+  /// 각 항목이 저장 위치(시작일 + 인덱스)를 갖고 있어 수정/삭제에 그대로 쓴다.
+  final List<PersonalEventOccurrence> events;
   final List<PersonalNote> notes;
 
   /// 이번 달에 팀 근무 스케줄이 존재하는지 (true면 근무 없는 날 = 오프)
@@ -41,15 +44,19 @@ class DateItemsPanel extends ConsumerWidget {
   /// 있어도 import 근무는 표시되므로, 그 경우에도 빈 날을 오프로 표시한다.
   final bool monthHasImportWork;
 
-  /// 개인 일정 정렬: 종일(startTime null) 우선, 그다음 시간순.
-  List<PersonalEvent> get _sortedEvents {
+  /// 개인 일정 정렬: 종일(startTime null)과 이어지는 다일 일정 우선,
+  /// 그다음 시작 시간순.
+  List<PersonalEventOccurrence> get _sortedEvents {
+    // 이어지는 날의 일정은 그 날 하루를 관통하므로 종일과 같은 취급.
+    bool allDayLike(PersonalEventOccurrence o) =>
+        o.isContinuation || o.event.startTime == null;
     final list = [...events];
     list.sort((a, b) {
-      final aAllDay = a.startTime == null;
-      final bAllDay = b.startTime == null;
+      final aAllDay = allDayLike(a);
+      final bAllDay = allDayLike(b);
       if (aAllDay != bAllDay) return aAllDay ? -1 : 1;
       if (aAllDay && bAllDay) return 0;
-      return a.startTime!.compareTo(b.startTime!);
+      return a.event.startTime!.compareTo(b.event.startTime!);
     });
     return list;
   }
@@ -64,9 +71,9 @@ class DateItemsPanel extends ConsumerWidget {
     final hideTeamShifts = ref.watch(hideTeamShiftsInPersonalProvider);
     final visibleShifts = hideTeamShifts ? const <ShiftWithType>[] : shifts;
     // 이 날 가져온(import) 근무가 있으면 오프가 아니다. (OFF 마커는 제외)
-    final hasImportWorkToday = events.any((e) =>
-        (e.description?.startsWith(kPersonalTeamImportMarker) ?? false) &&
-        !(e.description?.endsWith(':off') ?? false));
+    final hasImportWorkToday = events.any((o) =>
+        (o.event.description?.startsWith(kPersonalTeamImportMarker) ?? false) &&
+        !(o.event.description?.endsWith(':off') ?? false));
     // 팀 스케줄이 있고 이 날 근무가 없으면 오프로 간주.
     // 캘린더 셀과 동일하게: import 근무가 있는 달이면 "팀 근무 숨기기" 토글과
     // 무관하게 오프를 표시한다. (그렇지 않으면 토글 OFF일 때만)
@@ -101,13 +108,13 @@ class DateItemsPanel extends ConsumerWidget {
     // 팀(서버) 근무가 있는 날은 가져온(import) 근무가 중복이므로 제외 (팀 근무 우선).
     final hasServerShift = visibleShifts.isNotEmpty;
     final shiftEvents = events
-        .where((e) =>
-            isWorkEvent(e) &&
-            !isImportOff(e) &&
-            !(hasServerShift && isImportWork(e)))
+        .where((o) =>
+            isWorkEvent(o.event) &&
+            !isImportOff(o.event) &&
+            !(hasServerShift && isImportWork(o.event)))
         .toList();
     final normalEvents = events
-        .where((e) => !isWorkEvent(e) && !isImportOff(e))
+        .where((o) => !isWorkEvent(o.event) && !isImportOff(o.event))
         .toList();
 
     return Padding(
@@ -227,10 +234,11 @@ class DateItemsPanel extends ConsumerWidget {
               );
             }),
             // 개인 캘린더 근무
-            ...shiftEvents.map((event) {
-              // 화면은 _sortedEvents(정렬)로 그리지만 삭제/수정은 데이터소스
-              // (this.events == ds.getEvents, 저장 순서) 인덱스를 써야 한다.
-              final originalIndex = this.events.indexOf(event);
+            ...shiftEvents.map((occurrence) {
+              // 화면은 _sortedEvents(정렬)로 그리지만 삭제/수정은 저장 위치
+              // (시작일 + 그 날 리스트의 인덱스)를 써야 한다.
+              final event = occurrence.event;
+              final originalIndex = occurrence.originIndex;
               final eventColor = event.color != null
                   ? parseHexColor(event.color!)
                   : AppColors.shiftDay;
@@ -254,7 +262,7 @@ class DateItemsPanel extends ConsumerWidget {
                       onTap: () => showEventForm(
                         context,
                         ref,
-                        date,
+                        occurrence.originDate,
                         originalIndex,
                         event,
                       ),
@@ -263,7 +271,7 @@ class DateItemsPanel extends ConsumerWidget {
                       icon: Icons.delete_outline_rounded,
                       label: '\uC0AD\uC81C',
                       destructive: true,
-                      onTap: () => _deleteEvent(context, ref, originalIndex),
+                      onTap: () => _deleteEvent(context, ref, occurrence),
                     ),
                   ],
                 ),
@@ -276,21 +284,16 @@ class DateItemsPanel extends ConsumerWidget {
             const SizedBox(height: AppSpacing.lg),
             _buildSectionHeader(theme, '개인 일정'),
             const SizedBox(height: AppSpacing.sm),
-            ...normalEvents.asMap().entries.map((entry) {
-              final event = entry.value;
-              // 화면은 _sortedEvents(정렬)로 그리지만 삭제/수정은 데이터소스
-              // (this.events == ds.getEvents, 저장 순서) 인덱스를 써야 한다.
-              final originalIndex = this.events.indexOf(event);
-              final eventColor = event.color != null
-                  ? parseHexColor(event.color!)
+            ...normalEvents.map((occurrence) {
+              final eventColor = occurrence.event.color != null
+                  ? parseHexColor(occurrence.event.color!)
                   : AppColors.success;
               return _buildEventCard(
                 theme,
                 ref,
                 context,
-                event,
+                occurrence,
                 eventColor,
-                originalIndex,
               );
             }),
           ],
@@ -529,10 +532,14 @@ class DateItemsPanel extends ConsumerWidget {
     ThemeData theme,
     WidgetRef ref,
     BuildContext context,
-    PersonalEvent event,
+    PersonalEventOccurrence occurrence,
     Color eventColor,
-    int index,
   ) {
+    final event = occurrence.event;
+    // 여러 날에 걸친 일정은 며칠째인지 함께 보여준다 (예: 2/3일).
+    final dayCounter = event.spansMultipleDays
+        ? '${_dayIndexOf(event)}/${_totalDaysOf(event)}일'
+        : null;
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.symmetric(
@@ -557,20 +564,40 @@ class DateItemsPanel extends ConsumerWidget {
                     borderRadius: AppRadius.borderRadiusSm,
                   ),
                   child: Icon(
-                    Icons.event_outlined,
+                    // 이어지는 날은 아이콘으로 구분 (시작일만 event 아이콘).
+                    occurrence.isContinuation
+                        ? Icons.more_horiz_rounded
+                        : Icons.event_outlined,
                     size: 16,
                     color: eventColor,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
-                  child: Text(
-                    event.title,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          event.title,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (dayCounter != null) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          dayCounter,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: eventColor.withValues(alpha: 0.85),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 Container(
@@ -607,13 +634,19 @@ class DateItemsPanel extends ConsumerWidget {
               _ItemAction(
                 icon: Icons.edit_outlined,
                 label: '\uC218\uC815',
-                onTap: () => showEventForm(context, ref, date, index, event),
+                onTap: () => showEventForm(
+                  context,
+                  ref,
+                  occurrence.originDate,
+                  occurrence.originIndex,
+                  event,
+                ),
               ),
               _ItemAction(
                 icon: Icons.delete_outline_rounded,
                 label: '\uC0AD\uC81C',
                 destructive: true,
-                onTap: () => _deleteEvent(context, ref, index),
+                onTap: () => _deleteEvent(context, ref, occurrence),
               ),
             ],
           ),
@@ -622,9 +655,34 @@ class DateItemsPanel extends ConsumerWidget {
     );
   }
 
-  void _deleteEvent(BuildContext context, WidgetRef ref, int index) async {
+  /// 선택된 날짜가 다일 일정의 몇 번째 날인지 (1부터).
+  int _dayIndexOf(PersonalEvent event) {
+    final start = DateTime(event.date.year, event.date.month, event.date.day);
+    final today = DateTime(date.year, date.month, date.day);
+    return today.difference(start).inDays + 1;
+  }
+
+  int _totalDaysOf(PersonalEvent event) {
+    final start = DateTime(event.date.year, event.date.month, event.date.day);
+    final end = DateTime(
+      event.endDate!.year,
+      event.endDate!.month,
+      event.endDate!.day,
+    );
+    return end.difference(start).inDays + 1;
+  }
+
+  void _deleteEvent(
+    BuildContext context,
+    WidgetRef ref,
+    PersonalEventOccurrence occurrence,
+  ) async {
     final ds = ref.read(personalEventDataSourceProvider);
-    final events = ds.getEvents(date);
+    // 삭제는 항상 저장 위치(시작일 + 인덱스) 기준 — 이어지는 날에서 눌러도
+    // 원본 1건이 지워진다.
+    final originDate = occurrence.originDate;
+    final index = occurrence.originIndex;
+    final events = ds.getEvents(originDate);
     if (index < 0 || index >= events.length) return;
 
     final event = events[index];
@@ -659,11 +717,11 @@ class DateItemsPanel extends ConsumerWidget {
       );
 
       if (choice == 'single') {
-        await ds.removeEvent(date, index);
+        await ds.removeEvent(originDate, index);
         refreshAll(ref, date);
       } else if (choice == 'future') {
         await ds.removeRecurringEventsFrom(
-          date: date,
+          date: originDate,
           title: event.title,
           recurrence: event.recurrence!,
         );
@@ -672,7 +730,7 @@ class DateItemsPanel extends ConsumerWidget {
       return;
     }
 
-    await ds.removeEvent(date, index);
+    await ds.removeEvent(originDate, index);
     refreshAll(ref, date);
   }
 

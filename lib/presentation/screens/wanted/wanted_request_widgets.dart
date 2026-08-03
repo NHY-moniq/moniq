@@ -16,6 +16,7 @@ import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/wanted_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_date_picker_sheet.dart';
+import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 
 part 'wanted_request_views.dart';
 part 'wanted_request_shared.dart';

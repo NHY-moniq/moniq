@@ -47,14 +47,14 @@ class HomeScreen extends HookConsumerWidget {
 
     return calendarAsync.when(
       loading: () => Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        backgroundColor: shiftTheme.scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : buildAppBar(),
         body: const MoniqLoadingView(),
       ),
       error: (e, _) => Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        backgroundColor: shiftTheme.scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : buildAppBar(),
@@ -65,21 +65,16 @@ class HomeScreen extends HookConsumerWidget {
       ),
       data: (state) {
         return Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+          backgroundColor: shiftTheme.scaffoldBackground,
           appBar: AdaptiveLayout.isWide(context)
               ? null
               : buildAppBar(),
           body: SingleChildScrollView(
             padding: const EdgeInsets.only(bottom: 120),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                HomeBody(
-                  displayName: displayName,
-                  monthlyShifts: state.monthlyShifts,
-                  shiftTheme: shiftTheme,
-                ),
-              ],
+            child: HomeBody(
+              displayName: displayName,
+              monthlyShifts: state.monthlyShifts,
+              shiftTheme: shiftTheme,
             ),
           ),
         );
