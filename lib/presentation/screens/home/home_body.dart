@@ -3,6 +3,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/time_utils.dart';
+import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart'
+    show isOffShiftName;
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
@@ -64,12 +66,21 @@ class HomeBody extends ConsumerWidget {
             .firstOrNull
         : null;
 
-    final hasShift = hasServerShift || matchedShiftType != null;
+    // 개인 근무 유형에도 '오프'가 있으므로, 매칭된 게 오프면 근무가 아니라
+    // 쉬는 날로 다룬다 (인사말·Active Shift 카드 모두 오프 상태로).
+    final isPersonalOff =
+        matchedShiftType != null &&
+        isOffShiftName(
+          matchedShiftType.name as String,
+          matchedShiftType.code as String,
+        );
+    final hasShift =
+        hasServerShift || (matchedShiftType != null && !isPersonalOff);
     final shiftName = hasServerShift
         ? firstShift.shiftType.name
         : matchedShiftType?.name ?? 'Off';
     final isOff = hasServerShift
-        ? firstShift.shiftType.code.toUpperCase() == 'OFF'
+        ? isOffShiftName(firstShift.shiftType.name, firstShift.shiftType.code)
         : !hasShift;
     final rawStart =
         hasServerShift ? firstShift.shiftType.startTime : matchedShiftType?.startTime;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -354,16 +355,41 @@ class PersonalEventLocalDataSource {
         createdAt: event.createdAt,
         recurrence: event.recurrence,
       );
-      // Supabase insert (id 발급). 실패 시 로컬에만 저장.
-      try {
-        final saved = await _remote.insert(e);
-        e = saved;
-      } catch (_) {}
+      // 로컬 우선 저장 — 화면은 서버 왕복을 기다리지 않고 바로 갱신된다.
+      // (근무를 연속으로 넣을 때 탭마다 insert를 기다리면 눈에 띄게 밀린다)
       final key = _userDateKey(date);
       final existing = _prefs.getStringList(key) ?? [];
-      existing.add(jsonEncode(e.toJson()));
+      final localJson = jsonEncode(e.toJson());
+      existing.add(localJson);
       await _prefs.setStringList(key, existing);
+      // 서버 저장은 뒤따르게 하고, 발급받은 id만 같은 항목에 채워 넣는다.
+      // 실패하면 로컬 전용으로 남는다(기존 동작과 동일).
+      unawaited(_syncInsert(e, date, localJson));
     }
+  }
+
+  /// [addEvent]의 서버 반영 — insert 후 발급된 id를 로컬 항목에 되채운다.
+  ///
+  /// 그 사이 다른 저장이 끼어들어 인덱스가 밀릴 수 있으므로, 위치가 아니라
+  /// 저장했던 JSON 문자열을 찾아 교체한다. 못 찾으면(이미 지워짐 등) 넘어간다.
+  Future<void> _syncInsert(
+    PersonalEvent event,
+    DateTime date,
+    String localJson,
+  ) async {
+    PersonalEvent saved;
+    try {
+      saved = await _remote.insert(event);
+    } catch (_) {
+      return;
+    }
+    if (saved.id == null) return;
+    final key = _userDateKey(date);
+    final current = _prefs.getStringList(key) ?? [];
+    final idx = current.indexOf(localJson);
+    if (idx < 0) return;
+    current[idx] = jsonEncode(saved.toJson());
+    await _prefs.setStringList(key, current);
   }
 
   /// 반복 단위에 따라 날짜 목록 생성 (최대 1년)

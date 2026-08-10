@@ -22,7 +22,7 @@ const FAQ = () => {
   ];
   return (
     <Section paddingY={120} bg="#F7F1DC">
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 80, alignItems: 'flex-start' }}>
+      <div className="split-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 80, alignItems: 'flex-start' }}>
         <div>
           <LandingEyebrow>FAQ</LandingEyebrow>
           <h2 style={{ font: '900 52px/1.05 var(--font-family)', letterSpacing: -1.4, color: '#312F23', marginTop: 14, textWrap: 'balance' }}>
@@ -83,7 +83,7 @@ const FinalCTA = () => (
 
 const LandingFooter = () => (
   <footer style={{ padding: '64px 40px 48px', background: '#312F23', color: '#FCF6E3' }}>
-    <div style={{ maxWidth: 1280, margin: '0 auto', display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr', gap: 40 }}>
+    <div className="footer-grid" style={{ maxWidth: 1280, margin: '0 auto', display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr', gap: 40 }}>
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <div style={{ display: 'flex' }}>

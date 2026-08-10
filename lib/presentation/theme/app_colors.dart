@@ -70,7 +70,9 @@ abstract final class AppColors {
   static const shiftDay = Color(0xFFFFC107);
   static const shiftEvening = Color(0xFFFF8F00);
   static const shiftNight = Color(0xFF2196F3);
-  static const shiftOff = Color(0xFFA0AEC0);
+  // 오프는 "쉬는 날"이라 무채색 대신 옅은 하늘색 파스텔 톤.
+  // 글자색으로 쓸 땐 그대로면 흰 배경에서 안 보이므로 `readableInk()`를 거친다.
+  static const shiftOff = Color(0xFFD5EBFF);
 
   // Border
   static const borderLight = Color(0xFFE8E2D2);

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -34,6 +36,9 @@ import 'date_items_panel.dart';
 // continues to work without changes.
 export 'calendar_providers.dart';
 
+/// 캘린더 한 줄(주) 높이 — 대상 날짜 줄의 화면 위치 계산에도 쓰이므로 상수로 둔다.
+const double _kCalendarRowHeight = 80;
+
 // -- Screen --
 
 class CalendarScreen extends HookConsumerWidget {
@@ -50,6 +55,94 @@ class CalendarScreen extends HookConsumerWidget {
     // 더블탭 감지용 — 마지막 탭한 날짜 + 시각.
     final lastTap = useState<({DateTime day, int at})?>(null);
     final scrollCtrl = useScrollController();
+    // 날짜를 탭하면 그 날의 근무 카드 패널로 스크롤한다. 더블탭(펼치기 토글)과
+    // 겹치지 않도록 더블탭 판정 시간(350ms)이 지난 뒤에 실행하고, 두 번째 탭이
+    // 들어오면 취소한다.
+    final panelKey = useMemoized(() => GlobalKey(), const []);
+    final focusTimer = useRef<Timer?>(null);
+    useEffect(() => () => focusTimer.value?.cancel(), const []);
+
+    void focusSelectedDatePanel() {
+      focusTimer.value?.cancel();
+      focusTimer.value = Timer(const Duration(milliseconds: 360), () {
+        if (!scrollCtrl.hasClients) return;
+        // 펼쳐진 상태면 근무 카드가 여러 장이라, 맨 아래까지 내려 카드 전체를
+        // 화면에 담는다. 접혀 있으면 패널이 짧으니 필요한 만큼만 움직인다.
+        if (ref.read(dateExpandedProvider)) {
+          scrollCtrl.animateTo(
+            scrollCtrl.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeOutCubic,
+          );
+          return;
+        }
+        final panelContext = panelKey.currentContext;
+        if (panelContext == null) return;
+        // keepVisibleAtEnd: 이미 보이면 움직이지 않고, 가려져 있으면 필요한
+        // 만큼만 내려 캘린더가 화면에서 통째로 밀려나지 않게 한다.
+        Scrollable.ensureVisible(
+          panelContext,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        );
+      });
+    }
+
+    // ── 연속 추가 중 대상 날짜 줄을 시트 위로 끌어올리기 ──
+    final gridKey = useMemoized(() => GlobalKey(), const []);
+
+    void scrollAddTargetIntoView(({DateTime date, double sheetFactor}) focus) {
+      final gridContext = gridKey.currentContext;
+      if (gridContext == null || !scrollCtrl.hasClients) return;
+      final box = gridContext.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize) return;
+      final home = ref.read(homeViewModelProvider).valueOrNull;
+      // 주간 보기는 한 줄뿐이라 가려질 일이 없다.
+      if (home == null || home.viewMode != CalendarViewMode.month) return;
+      final month = home.focusedMonth;
+      if (month.year != focus.date.year || month.month != focus.date.month) {
+        return;
+      }
+
+      // 대상 날짜가 이 달 격자에서 몇 번째 주인지 — 첫 주의 앞 빈칸 수로 계산.
+      final firstWeekday = DateTime(month.year, month.month, 1).weekday;
+      final startWeekday =
+          startingDay == StartingDayOfWeek.sunday ? DateTime.sunday : DateTime.monday;
+      final leading = (firstWeekday - startWeekday + 7) % 7;
+      final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
+      final rowCount = ((leading + daysInMonth) / 7).ceil();
+      final rowIndex = ((leading + focus.date.day - 1) / 7).floor();
+
+      // 격자는 카드 아래쪽에 붙어 있다 (카드 하단 패딩 8px 위).
+      const cardVerticalPadding = 8.0;
+      final gridBottom =
+          box.localToGlobal(Offset.zero).dy + box.size.height - cardVerticalPadding;
+      final gridTop = gridBottom - rowCount * _kCalendarRowHeight;
+      final rowBottom = gridTop + (rowIndex + 1) * _kCalendarRowHeight;
+
+      final media = MediaQuery.of(context);
+      final sheetTop = media.size.height -
+          (media.size.height - media.padding.top) * focus.sheetFactor;
+      final overflow = rowBottom + 12 - sheetTop;
+      if (overflow <= 0) return; // 이미 시트 위에 보인다
+      scrollCtrl.animateTo(
+        (scrollCtrl.offset + overflow).clamp(
+          0.0,
+          scrollCtrl.position.maxScrollExtent,
+        ),
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    }
+
+    ref.listen(addSheetFocusProvider, (_, next) {
+      if (next == null) return;
+      // 방금 추가한 근무가 셀에 그려진 다음 프레임에 위치를 재야 정확하다.
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => scrollAddTargetIntoView(next),
+      );
+    });
 
     final currentUser = ref.watch(currentUserProvider);
     final userMeta = currentUser?.userMetadata;
@@ -245,7 +338,8 @@ class CalendarScreen extends HookConsumerWidget {
                   focusedDay: state.focusedMonth,
                   selectedDay: state.selectedDate,
                   startingDayOfWeek: startingDay,
-                  rowHeight: 80,
+                  gridKey: gridKey,
+                  rowHeight: _kCalendarRowHeight,
                   onTodayPressed: () {
                     final today = DateTime.now();
                     final todayDate =
@@ -268,6 +362,8 @@ class CalendarScreen extends HookConsumerWidget {
                         sameDay && (nowMs - last!.at) < 350;
                     if (isDouble) {
                       // 두 번째 빠른 탭 → 펼치기/닫기 토글
+                      // (첫 탭이 예약한 포커스 스크롤은 취소)
+                      focusTimer.value?.cancel();
                       final cur = ref.read(dateExpandedProvider);
                       final next = !cur;
                       ref.read(dateExpandedProvider.notifier).state = next;
@@ -290,6 +386,7 @@ class CalendarScreen extends HookConsumerWidget {
                       ref
                           .read(homeViewModelProvider.notifier)
                           .selectDate(selected);
+                      focusSelectedDatePanel();
                     }
                   },
                   onDayLongPressed: (day, focused) {
@@ -366,10 +463,13 @@ class CalendarScreen extends HookConsumerWidget {
                     final evts = monthlyEvents[key];
 
                     // 1) 팀(서버) 근무: 디폴트로 항상 최신 팀 근무를 표시.
-                    //    "팀 근무 숨기기" 토글이 ON이면 스킵.
+                    //    "팀 근무 숨기기" 토글이 ON이거나 그 달을 "근무 삭제"로
+                    //    치운 날이면 스킵. (숨김은 팀 원본을 건드리지 않는다)
                     final hideTeamShiftsPv =
                         ref.watch(hideTeamShiftsInPersonalProvider);
-                    final dayShifts = hideTeamShiftsPv
+                    final isHiddenDay =
+                        ref.watch(hiddenShiftDatesProvider).contains(key);
+                    final dayShifts = (hideTeamShiftsPv || isHiddenDay)
                         ? const <ShiftWithType>[]
                         : (state.monthlyShifts[key] ?? const []);
                     // 팀 근무가 있는 날은 가져온(import) 근무가 같은 근무의 중복이므로
@@ -459,11 +559,13 @@ class CalendarScreen extends HookConsumerWidget {
                     final hasAnyWork = result.any((p) => p.isWork);
                     // 발행된 스케줄 기간(coverage)에 속한 날은 근무가 없으면 OFF.
                     // (서버 근무가 일부 날만 있어도 빈 날을 정확히 OFF로 채운다)
-                    final isScheduledDay =
-                        !hideTeamShiftsPv && state.teamScheduledDates.contains(key);
+                    final isScheduledDay = !hideTeamShiftsPv &&
+                        !isHiddenDay &&
+                        state.teamScheduledDates.contains(key);
                     // import 근무가 있으면 "팀 근무 숨기기" 토글과 무관하게 OFF를 채운다
                     // (앱에서 토글이 켜져 있어도 import 근무가 보이므로 OFF도 보여야 함).
                     if (!hasAnyWork &&
+                        !isHiddenDay &&
                         (isScheduledDay ||
                             ((monthHasServerSource || monthHasImportWork) &&
                                 isInFocusedMonth))) {
@@ -500,8 +602,14 @@ class CalendarScreen extends HookConsumerWidget {
                     });
                   },
                   child: DateItemsPanel(
+                    focusKey: panelKey,
                     date: state.selectedDate,
-                    shifts: state.selectedDateShifts ?? [],
+                    // "근무 삭제"로 치운 날은 팀 근무 카드도 함께 감춘다.
+                    shifts: ref
+                            .watch(hiddenShiftDatesProvider)
+                            .contains(state.selectedDate)
+                        ? const []
+                        : (state.selectedDateShifts ?? []),
                     events: dateEvents,
                     notes: dateNotes,
                     monthHasImportWork: monthHasImportWork,
@@ -509,6 +617,12 @@ class CalendarScreen extends HookConsumerWidget {
                     // team-import 일정이 1건이라도 있고, 선택된 날도 focused month이며
                     // 그 날 본인 근무가 없으면 OFF로 간주.
                     hasTeamSchedule: () {
+                      // 숨긴 날은 오프로도 채우지 않는다 — 그 달 근무를 지운 것이므로.
+                      if (ref
+                          .watch(hiddenShiftDatesProvider)
+                          .contains(state.selectedDate)) {
+                        return false;
+                      }
                       final isInFocusedMonth = state.selectedDate.year ==
                               state.focusedMonth.year &&
                           state.selectedDate.month ==

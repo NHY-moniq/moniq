@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/presentation/router/bottom_sheet_visibility_provider.dart';
@@ -34,6 +37,12 @@ Future<T?> showMoniqBottomSheet<T>({
   bool useSafeArea = true,
   // 모든 바텀시트의 기본 최대 높이 — 팀원 선택 시트 기준(화면의 약 56%).
   double maxHeightFactor = 0.56,
+  /// 시트가 열려 있는 동안 높이를 바꿔야 할 때 쓰는 값. 넘기면 [maxHeightFactor]
+  /// 대신 이 값을 따르고, 값이 바뀌면 시트 높이가 애니메이션 없이 즉시 반영된다.
+  /// (예: 근무 연속 추가 중에는 시트를 줄여 뒤 캘린더가 보이게)
+  ValueListenable<double>? heightFactor,
+  /// 뒤 화면을 보면서 조작해야 하는 시트는 배리어를 옅게 준다.
+  Color? barrierColor,
 }) async {
   // Hide the app shell's floating bottom dock while the sheet is open so it
   // does not bleed through the semi-transparent barrier. The counter is
@@ -51,11 +60,12 @@ Future<T?> showMoniqBottomSheet<T>({
       // ShellRoute의 BottomNavigation을 가리도록 root Navigator 사용
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.42),
+      barrierColor: barrierColor ?? Colors.black.withValues(alpha: 0.42),
       builder: (ctx) => MoniqBottomSheetShell(
         title: title,
         eyebrow: eyebrow,
         maxHeightFactor: maxHeightFactor,
+        heightFactor: heightFactor,
         child: child,
       ),
     );
@@ -73,6 +83,7 @@ class MoniqBottomSheetShell extends StatelessWidget {
     this.title,
     this.eyebrow,
     this.maxHeightFactor = 0.56,
+    this.heightFactor,
   });
 
   final Widget child;
@@ -83,26 +94,44 @@ class MoniqBottomSheetShell extends StatelessWidget {
   /// 내부에서 스크롤된다(예: 멤버 선택 목록이 길어 시트가 화면을 가득 채우는 문제 방지).
   final double maxHeightFactor;
 
+  /// 열려 있는 동안 높이를 바꿀 때 쓰는 값. null이면 [maxHeightFactor] 고정.
+  final ValueListenable<double>? heightFactor;
+
   @override
   Widget build(BuildContext context) {
+    final listenable = heightFactor;
+    if (listenable == null) return _build(context, maxHeightFactor);
+    return ValueListenableBuilder<double>(
+      valueListenable: listenable,
+      builder: (ctx, factor, _) => _build(ctx, factor),
+    );
+  }
+
+  Widget _build(BuildContext context, double maxHeightFactor) {
     final cs = Theme.of(context).colorScheme;
     final media = MediaQuery.of(context);
     final viewInsets = media.viewInsets;
-    // 내용이 적어도 시트가 너무 납작해지지 않도록 최소 높이를 보장한다.
-    final minHeight = media.size.height * 0.28;
     // 키보드/세이프영역을 제외한 가용 높이 기준으로 최대 높이를 제한한다.
     final available =
         media.size.height - viewInsets.bottom - media.padding.top;
     final maxHeight = available * maxHeightFactor;
+    // 내용이 적어도 시트가 너무 납작해지지 않도록 최소 높이를 보장한다.
+    // 단, 일부러 낮춘 시트(heightFactor로 축소)까지 28%로 끌어올리지는 않는다.
+    final minHeight = math.min(media.size.height * 0.28, maxHeight);
     final sheetColor = cs.brightness == Brightness.dark
         ? cs.surface
         : Colors.white;
 
     return Padding(
       padding: viewInsets,
-      child: Container(
+      // 입력창 바깥(시트의 빈 영역·라벨 등)을 탭하면 키보드를 내린다.
+      // translucent + 최상위 배치라 버튼/입력창 등 자식 제스처가 우선한다.
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Container(
         constraints: BoxConstraints(
-          minHeight: minHeight > maxHeight ? maxHeight : minHeight,
+          minHeight: minHeight,
           maxHeight: maxHeight,
         ),
         decoration: BoxDecoration(
@@ -177,6 +206,7 @@ class MoniqBottomSheetShell extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

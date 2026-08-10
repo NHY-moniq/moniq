@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/app_typography.dart';
@@ -31,6 +32,7 @@ class MoniqCalendar extends StatefulWidget {
     this.onFormatChanged,
     this.markerBuilder,
     this.cornerBadgeBuilder,
+    this.gridKey,
     this.startingDayOfWeek = StartingDayOfWeek.monday,
     this.previewBuilder,
     this.rowHeight = 58,
@@ -55,6 +57,10 @@ class MoniqCalendar extends StatefulWidget {
   final StartingDayOfWeek startingDayOfWeek;
   final List<CalendarPreview> Function(DateTime day)? previewBuilder;
   final double rowHeight;
+
+  /// 날짜 격자 카드에 붙는 키. 바깥에서 특정 주(week) 줄의 화면 위치를 계산해
+  /// 스크롤을 맞추는 데 쓴다. (카드 = 상하 8px 패딩 + 요일줄 + 주 × [rowHeight])
+  final GlobalKey? gridKey;
   final VoidCallback? onTodayPressed;
 
   /// 범례 항목 (null이면 기본 DAY/EVENING/NIGHT/OFF)
@@ -115,6 +121,7 @@ class _MoniqCalendarState extends State<MoniqCalendar> {
           // Scaffold 배경(surfaceContainerLow) 위에 카드가 한 단계 대비되는 표면으로
           // 떠 보이도록: 라이트=흰색(surfaceContainerLowest), 다크=surfaceContainer + soft shadow.
           Container(
+            key: widget.gridKey,
             decoration: BoxDecoration(
               color: isDark ? cs.surfaceContainer : cs.surfaceContainerLowest,
               borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -507,6 +514,8 @@ class _MoniqCalendarState extends State<MoniqCalendar> {
     if (preview.isWork) {
       // 근무: 셀 가로 폭을 가득 채우는 컬러 박스 (D/E/N/O 단문자).
       // 테두리 없이 fill alpha만 적용.
+      // 배경은 근무 색 그대로, 글자는 오프(#D5EBFF)처럼 옅은 파스텔도 읽히게
+      // 명도를 낮춘 잉크 색을 쓴다.
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
@@ -519,7 +528,7 @@ class _MoniqCalendarState extends State<MoniqCalendar> {
           preview.text,
           style: TextStyle(
             fontSize: 9,
-            color: color,
+            color: readableInk(color),
             fontWeight: FontWeight.w800,
             height: 1.1,
             letterSpacing: 0.2,

@@ -27,10 +27,15 @@ class DateItemsPanel extends ConsumerWidget {
     required this.notes,
     this.hasTeamSchedule = false,
     this.monthHasImportWork = false,
+    this.focusKey,
   });
 
   final DateTime date;
   final List<ShiftWithType> shifts;
+
+  /// 날짜를 탭했을 때 스크롤로 맞춰줄 지점 (패널 전체).
+  /// 캘린더 화면이 `Scrollable.ensureVisible`로 이 패널을 화면 안으로 끌어온다.
+  final GlobalKey? focusKey;
 
   /// 이 날 표시할 일정 — 여러 날에 걸친 일정의 중간/마지막 날도 포함된다.
   /// 각 항목이 저장 위치(시작일 + 인덱스)를 갖고 있어 수정/삭제에 그대로 쓴다.
@@ -74,23 +79,6 @@ class DateItemsPanel extends ConsumerWidget {
     final hasImportWorkToday = events.any((o) =>
         (o.event.description?.startsWith(kPersonalTeamImportMarker) ?? false) &&
         !(o.event.description?.endsWith(':off') ?? false));
-    // 팀 스케줄이 있고 이 날 근무가 없으면 오프로 간주.
-    // 캘린더 셀과 동일하게: import 근무가 있는 달이면 "팀 근무 숨기기" 토글과
-    // 무관하게 오프를 표시한다. (그렇지 않으면 토글 OFF일 때만)
-    final isTeamOff = hasTeamSchedule &&
-        visibleShifts.isEmpty &&
-        !hasImportWorkToday &&
-        (monthHasImportWork || !hideTeamShifts);
-    final hasItems =
-        visibleShifts.isNotEmpty ||
-        isTeamOff ||
-        events.isNotEmpty ||
-        notes.isNotEmpty;
-    final offCount = isTeamOff ? 1 : 0;
-    final totalItems =
-        visibleShifts.length + offCount + events.length + notes.length;
-    final dateKey = DateTime(date.year, date.month, date.day);
-    final isExpanded = ref.watch(dateExpandedProvider);
 
     // 근무로 분류: (1) 팀에서 가져온(team-import) 일정 — OFF 포함, 또는
     //            (2) 개인 근무 유형 이름과 매칭되는 일정.
@@ -117,7 +105,28 @@ class DateItemsPanel extends ConsumerWidget {
         .where((o) => !isWorkEvent(o.event) && !isImportOff(o.event))
         .toList();
 
+    // 팀 스케줄이 있고 이 날 근무가 없으면 오프로 간주.
+    // 캘린더 셀과 동일하게: import 근무가 있는 달이면 "팀 근무 숨기기" 토글과
+    // 무관하게 오프를 표시한다. (그렇지 않으면 토글 OFF일 때만)
+    // 개인 근무를 직접 넣은 날은 그게 이 날의 근무이므로 오프를 덧붙이지 않는다.
+    final isTeamOff = hasTeamSchedule &&
+        visibleShifts.isEmpty &&
+        !hasImportWorkToday &&
+        shiftEvents.isEmpty &&
+        (monthHasImportWork || !hideTeamShifts);
+    final hasItems =
+        visibleShifts.isNotEmpty ||
+        isTeamOff ||
+        events.isNotEmpty ||
+        notes.isNotEmpty;
+    final offCount = isTeamOff ? 1 : 0;
+    final totalItems =
+        visibleShifts.length + offCount + events.length + notes.length;
+    final dateKey = DateTime(date.year, date.month, date.day);
+    final isExpanded = ref.watch(dateExpandedProvider);
+
     return Padding(
+      key: focusKey,
       padding: AppSpacing.screenHorizontal,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,7 +199,7 @@ class DateItemsPanel extends ConsumerWidget {
             if (isTeamOff)
               _buildShiftCard(
                 theme: theme,
-                shiftColor: AppColors.onSurfaceVariant,
+                shiftColor: AppColors.shiftOff,
                 code: 'O',
                 name: '오프',
               ),
@@ -259,7 +268,8 @@ class DateItemsPanel extends ConsumerWidget {
                     _ItemAction(
                       icon: Icons.edit_outlined,
                       label: '\uC218\uC815',
-                      onTap: () => showEventForm(
+                      // 근무는 "어떤 유형인가"가 거의 전부라 유형 칩부터 보여준다.
+                      onTap: () => showShiftTypeChangeSheet(
                         context,
                         ref,
                         occurrence.originDate,
@@ -481,14 +491,19 @@ class DateItemsPanel extends ConsumerWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.access_time, size: 12, color: shiftColor),
+                        // 오프 같은 파스텔 색은 글자로 쓰면 안 보여 잉크 톤으로 낮춘다.
+                        Icon(
+                          Icons.access_time,
+                          size: 12,
+                          color: readableInk(shiftColor),
+                        ),
                         const SizedBox(width: 3),
                         Text(
                           '$startTime ~ ${endTime ?? ''}',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
-                            color: shiftColor,
+                            color: readableInk(shiftColor),
                           ),
                         ),
                       ],

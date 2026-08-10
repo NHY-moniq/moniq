@@ -64,6 +64,21 @@ class PersonalHiddenShiftsLocalDataSource {
     return hideDates(dates);
   }
 
+  /// 주어진 날짜들의 숨김을 해제.
+  ///
+  /// "근무 삭제"는 그 달 전체를 숨김 목록에 넣으므로, 이후 같은 달에 근무를
+  /// 새로 추가하면 넣자마자 다시 가려진다. 근무를 쓸 때 그 날을 풀어줘야 한다.
+  Future<void> unhideDates(Iterable<DateTime> dates) async {
+    final cur = (_prefs.getStringList(_key) ?? const []).toSet();
+    if (cur.isEmpty) return;
+    var changed = false;
+    for (final d in dates) {
+      if (cur.remove(_fmt(DateTime(d.year, d.month, d.day)))) changed = true;
+    }
+    if (!changed) return;
+    await _prefs.setStringList(_key, cur.toList());
+  }
+
   /// 모든 숨김 해제 (예: 팀 근무를 다시 가져오기 할 때).
   Future<void> clearAll() async {
     await _prefs.remove(_key);

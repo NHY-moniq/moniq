@@ -123,6 +123,46 @@ final dateNotesProvider = Provider.family<List<PersonalNote>, DateTime>(
 bool _isImportWork(PersonalEvent e) =>
     e.description?.startsWith(kPersonalTeamImportMarker) ?? false;
 
+/// "근무"로 볼 수 있는 일정 제목 모음 — 개인 근무 유형 + 즐겨찾기 팀 근무 유형.
+/// 빠른 추가로 넣은 근무는 import 마커가 없어 제목으로만 구분된다.
+final shiftEventTitlesProvider = Provider<Set<String>>((ref) {
+  final personal = ref.watch(personalShiftTypesProvider).map((t) => t.name);
+  Iterable<String> team = const [];
+  try {
+    team =
+        ref
+            .watch(favoriteTeamShiftTypesProvider)
+            .valueOrNull
+            ?.map((t) => t.name) ??
+        const [];
+  } catch (_) {
+    // Supabase 미초기화 등으로 팀 유형을 못 읽어도 개인 유형만으로 판별한다.
+  }
+  return {...personal, ...team};
+});
+
+/// 근무를 연속으로 넣는 동안 뒤 캘린더가 따라가야 할 날짜.
+///
+/// 시트가 화면 아래쪽을 가려서, 대상 날짜가 아래 주(week)로 내려가면 가려진다.
+/// 캘린더 화면이 이 값을 보고 그 줄이 시트 위로 올라오도록 스크롤한다.
+/// [sheetFactor]는 시트가 차지하는 화면 높이 비율.
+final addSheetFocusProvider =
+    StateProvider<({DateTime date, double sheetFactor})?>((ref) => null);
+
+/// "근무 삭제"로 숨긴 날짜들. 팀 근무·개인 근무 모두 이 날짜에서 감춘다.
+final hiddenShiftDatesProvider = Provider<Set<DateTime>>((ref) {
+  ref.watch(eventRefreshProvider);
+  return ref.watch(personalHiddenShiftsDataSourceProvider).getHiddenDates();
+});
+
+/// 숨긴 날짜에서 지워야 할 항목인지 — 가져온 근무이거나 근무 유형 이름과 같은 일정.
+///
+/// "팀 근무 숨기기" 토글은 팀에서 온 근무만 감추면 되지만, "근무 삭제"는
+/// 그 달의 근무를 통째로 치우는 동작이라 직접 넣은 근무도 함께 사라져야 한다.
+/// (제목이 근무 유형과 무관한 일반 일정·메모는 그대로 남는다)
+bool _isShiftEvent(PersonalEvent e, Set<String> shiftTitles) =>
+    _isImportWork(e) || shiftTitles.contains(e.title);
+
 /// 캘린더 셀 표시용 월간 일정. 여러 날에 걸친 일정은 걸쳐 있는 모든 날짜에
 /// 나타난다 (표시 전용 — 수정/삭제 인덱스로는 [dateEventOccurrencesProvider] 사용).
 ///
@@ -135,17 +175,22 @@ final monthlyEventsProvider =
     final all = ref
         .watch(personalEventDataSourceProvider)
         .getMonthlyEventsIncludingSpans(month);
-    final hidden = ref.watch(personalHiddenShiftsDataSourceProvider).getHiddenDates();
+    final hidden = ref.watch(hiddenShiftDatesProvider);
     final hideTeamShifts = ref.watch(hideTeamShiftsInPersonalProvider);
     if (hidden.isEmpty && !hideTeamShifts) return all;
+    // 숨긴 날이 없으면 근무 유형 목록을 들여다볼 필요도 없다.
+    final shiftTitles = hidden.isEmpty
+        ? const <String>{}
+        : ref.watch(shiftEventTitlesProvider);
     final out = <DateTime, List<PersonalEvent>>{};
     all.forEach((date, evts) {
-      if (hideTeamShifts || hidden.contains(date)) {
-        final kept = evts.where((e) => !_isImportWork(e)).toList();
-        if (kept.isNotEmpty) out[date] = kept;
-      } else {
-        out[date] = evts;
-      }
+      // 숨긴 날은 근무 전체를, 토글만 켜져 있으면 팀에서 온 근무만 제외.
+      final kept = hidden.contains(date)
+          ? evts.where((e) => !_isShiftEvent(e, shiftTitles)).toList()
+          : hideTeamShifts
+          ? evts.where((e) => !_isImportWork(e)).toList()
+          : evts;
+      if (kept.isNotEmpty) out[date] = kept;
     });
     return out;
   },
@@ -156,10 +201,11 @@ final dateEventsProvider = Provider.family<List<PersonalEvent>, DateTime>(
   (ref, date) {
     ref.watch(eventRefreshProvider);
     final all = ref.watch(personalEventDataSourceProvider).getEvents(date);
-    final hidden = ref.watch(personalHiddenShiftsDataSourceProvider).getHiddenDates();
+    final hidden = ref.watch(hiddenShiftDatesProvider);
     final key = DateTime(date.year, date.month, date.day);
     if (!hidden.contains(key)) return all;
-    return all.where((e) => !_isImportWork(e)).toList();
+    final shiftTitles = ref.watch(shiftEventTitlesProvider);
+    return all.where((e) => !_isShiftEvent(e, shiftTitles)).toList();
   },
 );
 
@@ -173,11 +219,14 @@ final dateEventOccurrencesProvider =
   (ref, date) {
     ref.watch(eventRefreshProvider);
     final all = ref.watch(personalEventDataSourceProvider).getOccurrences(date);
-    final hidden =
-        ref.watch(personalHiddenShiftsDataSourceProvider).getHiddenDates();
+    final hidden = ref.watch(hiddenShiftDatesProvider);
     final hideTeamShifts = ref.watch(hideTeamShiftsInPersonalProvider);
     final key = DateTime(date.year, date.month, date.day);
-    if (!hideTeamShifts && !hidden.contains(key)) return all;
+    if (hidden.contains(key)) {
+      final shiftTitles = ref.watch(shiftEventTitlesProvider);
+      return all.where((o) => !_isShiftEvent(o.event, shiftTitles)).toList();
+    }
+    if (!hideTeamShifts) return all;
     return all.where((o) => !_isImportWork(o.event)).toList();
   },
 );
@@ -192,10 +241,10 @@ final dateEventsIncludingSpansProvider =
     final all = ref
         .watch(personalEventDataSourceProvider)
         .getEventsIncludingSpans(date);
-    final hidden =
-        ref.watch(personalHiddenShiftsDataSourceProvider).getHiddenDates();
+    final hidden = ref.watch(hiddenShiftDatesProvider);
     final key = DateTime(date.year, date.month, date.day);
     if (!hidden.contains(key)) return all;
-    return all.where((e) => !_isImportWork(e)).toList();
+    final shiftTitles = ref.watch(shiftEventTitlesProvider);
+    return all.where((e) => !_isShiftEvent(e, shiftTitles)).toList();
   },
 );
