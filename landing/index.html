@@ -41,6 +41,81 @@
     .phone-stack { flex-direction: column; gap: 28px; }
     .phone-stack-item { margin-left: 0 !important; transform: none !important; }
   }
+
+  /* ── 모바일 대응 ──
+     레이아웃이 인라인 style로 잡혀 있어서, 미디어 쿼리로 되돌리려면
+     !important가 필요하다 (인라인 선언을 이기는 유일한 방법).
+
+     2단 그리드는 좁은 화면에서 각 칸이 내용 최소폭보다 작아지면서
+     컨테이너 밖으로 삐져나가 잘렸다. 1단으로 접어 해결한다. */
+  /* 그리드·플렉스 칸의 기본 min-width는 auto(=내용 최소 폭)라, 안에 고정 폭
+     목업(폰 340 / 노트북 1040)이 들어가면 칸이 그만큼 벌어져 화면 밖으로 나간다.
+     0으로 풀어야 칸이 줄고, 그래야 FitWidth의 100% 계산도 제대로 먹는다. */
+  .split-grid > *, .triple-grid > *, .mini-grid > *, .footer-grid > *,
+  .phone-stack > *, .landing-section > div { min-width: 0; }
+
+  @media (max-width: 900px) {
+    .landing-section { padding-left: 20px !important; padding-right: 20px !important; }
+    .split-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
+    .triple-grid { grid-template-columns: 1fr !important; }
+    .footer-grid { grid-template-columns: 1fr 1fr !important; gap: 28px !important; }
+    /* 본문 옆에 절대 위치로 띄운 패널 — 좁은 화면에선 겹쳐서 읽기를 방해한다 */
+    .floating-panel { display: none !important; }
+    /* 노트북 목업(1000px)은 줄이면 안쪽 근무표 글자가 읽을 수 없게 작아진다.
+       페이지를 밀어내는 대신 이 블록 안에서만 가로로 넘겨 보게 한다. */
+    .wide-mock-scroll {
+      overflow-x: auto;
+      overflow-y: hidden;
+      justify-content: flex-start !important;
+      max-width: 100%;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+
+  /* 플로팅 내비 — 링크까지 모두 넣으면 폭이 모자라 글자가 한 자씩 쪼개진다.
+     모바일에선 로고 + CTA만 남긴다. */
+  @media (max-width: 760px) {
+    .landing-nav-wrap { top: 16px !important; padding: 0 16px; }
+    .landing-nav { padding: 8px 8px 8px 16px !important; max-width: 100%; }
+    .landing-nav-link { display: none !important; }
+    .landing-nav-logo { margin-right: 12px !important; }
+  }
+
+  @media (max-width: 560px) {
+    .landing-section { padding-top: 72px !important; padding-bottom: 72px !important; }
+    .mini-grid { grid-template-columns: 1fr !important; }
+    .footer-grid { grid-template-columns: 1fr !important; }
+  }
+
+  /* 제목 크기 — 인라인 font 단축 속성으로 박혀 있어 longhand + !important로 덮는다.
+     데스크톱 기준(56~72px)을 그대로 두면 모바일에서 한 줄이 화면을 넘어간다. */
+  @media (max-width: 760px) {
+    .hero-headline { font-size: 44px !important; line-height: 1.15 !important; }
+    .landing-section h1 { font-size: 38px !important; line-height: 1.2 !important; }
+    .landing-section h2 { font-size: 30px !important; line-height: 1.25 !important; }
+    .landing-section h3 { font-size: 21px !important; line-height: 1.35 !important; }
+    .landing-section p { font-size: 16px !important; }
+    /* 데스크톱 기준으로 넣어둔 <br> 줄바꿈은 좁은 화면에서 오히려 넘치게 만든다.
+       모바일에선 무시하고 자연스럽게 흐르도록 둔다. (히어로 h1은 그대로 유지) */
+    .landing-section p br,
+    .landing-section h2 br,
+    .landing-section h3 br { display: none; }
+    /* 한국어는 단어 중간에서 끊지 않고, 그래도 넘치면 강제로 줄바꿈 */
+    .landing-section h1, .landing-section h2, .landing-section h3,
+    .landing-section p, .hero-headline {
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+    }
+  }
+  @media (max-width: 400px) {
+    .hero-headline { font-size: 36px !important; }
+    .landing-section h1 { font-size: 32px !important; }
+    .landing-section h2 { font-size: 26px !important; }
+  }
+
+  /* 가로 스크롤 방지 — 고정 폭 요소가 뷰포트를 넘지 않게 */
+  img, svg { max-width: 100%; }
+  .landing-section, .landing-section > div { max-width: 100%; }
 </style>
 </head>
 <body>

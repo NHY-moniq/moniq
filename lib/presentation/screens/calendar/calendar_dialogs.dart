@@ -6,6 +6,9 @@ import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/core/utils/time_utils.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
+import 'package:moniq/data/datasources/personal_event_remote_data_source.dart'
+    show kPersonalTeamImportMarker;
+import 'package:moniq/data/datasources/personal_hidden_shifts_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_shift_override_remote_data_source.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
@@ -18,6 +21,7 @@ import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_date_picker_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_time_picker_sheet.dart';
 
+import 'calendar_drawer.dart' show PersonalShiftTypeSheet;
 import 'calendar_providers.dart';
 
 part 'calendar_dialogs_forms.dart';
@@ -56,7 +60,15 @@ PersonalShiftType personalTypeFromTeam(ShiftTypeModel t) => PersonalShiftType(
 
 // ── Dialog / Bottom Sheet functions ──
 
+/// 근무를 연속으로 넣는 동안 시트를 이 비율까지 줄여 뒤 캘린더가 보이게 한다.
+const _kAddSheetCompactFactor = 0.34;
+
 void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
+  // 연속 추가 모드로 들어가면 시트를 줄인다 — 뒤 캘린더에 근무가 하나씩
+  // 채워지는 걸 보면서 이어서 누를 수 있어야 하기 때문.
+  final heightFactor = ValueNotifier<double>(0.8);
+  // 시트가 닫힌 뒤에도 안전하게 정리할 수 있도록 미리 잡아둔다.
+  final focusNotifier = ref.read(addSheetFocusProvider.notifier);
   showMoniqBottomSheet<void>(
     context: context,
     eyebrow: 'ADD',
@@ -64,151 +76,484 @@ void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
     // 근무 유형 개수만큼 칩이 줄바꿈되어 높이가 사용자마다 다르다.
     // 기본 상한(0.56)으로는 유형이 5개만 돼도 하단이 잘렸다.
     maxHeightFactor: 0.8,
-    child: Consumer(
-      builder: (ctx, ref2, _) {
-        // 즐겨찾기 팀이 있으면 그 팀의 근무 유형을 우선 사용.
-        // 없으면 개인 근무 유형, 그마저 비어 있으면(전체 삭제됨) 빠른 근무
-        // 추가가 사라지지 않도록 기본 근무 유형(데이/이브닝/나이트)으로 대체한다.
-        // (reactive watch만 ref2 사용. 시트 닫힌 뒤 실행되는 read/액션은
-        //  dispose되지 않는 바깥 ref를 써야 한다.)
-        final teamTypes = ref2
-            .watch(favoriteTeamShiftTypesProvider)
-            .valueOrNull;
-        final shiftTypes = (teamTypes != null && teamTypes.isNotEmpty)
-            ? teamTypes.map(personalTypeFromTeam).toList()
-            : (ref.read(personalShiftTypesProvider).isNotEmpty
-                  ? ref.read(personalShiftTypesProvider)
-                  : PersonalShiftTypeLocalDataSource.defaultTypes);
-        final cs = Theme.of(ctx).colorScheme;
-        final dateKey = DateTime(date.year, date.month, date.day);
-        // 개인 근무 일정(이름이 근무유형과 매칭)의 저장 인덱스.
-        // 화면에 보이는 목록(숨김/팀 근무 숨기기 필터 적용)에서 찾되, 변경·삭제는
-        // 저장 위치(originIndex)로 해야 다른 일정이 잘못 바뀌지 않는다.
-        // 이 날 시작하는 일정만 대상 — 이어지는 다일 일정은 시작일에서 다룬다.
-        final personalShiftIndex =
-            ref
-                .read(dateEventOccurrencesProvider(date))
-                .where(
-                  (o) =>
-                      !o.isContinuation &&
-                      shiftTypes.any((st) => st.name == o.event.title),
-                )
-                .firstOrNull
-                ?.originIndex ??
-            -1;
-        final hasPersonalShift = personalShiftIndex >= 0;
-        // 팀(서버) 근무
-        final teamShifts =
-            ref
-                .read(homeViewModelProvider)
-                .valueOrNull
-                ?.monthlyShifts[dateKey] ??
-            const <ShiftWithType>[];
-        final teamShift = teamShifts.isNotEmpty ? teamShifts.first : null;
+    heightFactor: heightFactor,
+    // 축소 모드에서 뒤 캘린더를 읽을 수 있도록 배리어를 옅게.
+    barrierColor: Colors.black.withValues(alpha: 0.18),
+    child: _AddMenuSheet(
+      hostContext: context,
+      date: date,
+      heightFactor: heightFactor,
+    ),
+  ).whenComplete(() {
+    heightFactor.dispose();
+    focusNotifier.state = null;
+  });
+}
 
-        // 상한을 올려도 유형이 더 많으면 넘칠 수 있으므로 스크롤로 받아준다.
-        return SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── 근무 섹션 ──
-              if (teamShift != null) ...[
-                // 팀(서버) 근무가 있으면 근무 수정 옵션 제공
-                MoniqSheetOption(
-                  icon: Icons.swap_horiz,
-                  label: '근무 수정',
-                  description: '${teamShift.shiftType.name} · 근무 유형 변경',
-                  accentColor: parseHexColor(teamShift.shiftType.color),
-                  trailing: const SizedBox.shrink(),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    editTeamShiftAsPersonal(context, ref, date, teamShift);
-                  },
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Divider(height: 1, color: cs.outlineVariant),
-                const SizedBox(height: AppSpacing.sm),
-              ] else if (shiftTypes.isNotEmpty) ...[
-                // ── 근무 일정 빠른 추가/변경 (근무 유형 칩) ──
-                Text(
-                  hasPersonalShift ? '근무 변경' : '근무 일정 추가',
-                  style: Theme.of(ctx).textTheme.labelLarge?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+/// [showAddMenu]의 본문.
+///
+/// 근무 유형 칩을 누르면 시트를 닫지 않고 그 자리에서 근무를 추가한 뒤 대상
+/// 날짜를 하루 앞으로 옮긴다 → 연속으로 누르면 연속한 날짜에 근무가 쌓인다.
+/// (일정/메모 추가처럼 다른 화면으로 넘어가는 항목은 기존대로 시트를 닫는다)
+class _AddMenuSheet extends ConsumerStatefulWidget {
+  const _AddMenuSheet({
+    required this.hostContext,
+    required this.date,
+    required this.heightFactor,
+  });
+
+  /// 시트가 닫힌 뒤 다음 화면(일정 폼 등)을 띄울 때 쓸 바깥 컨텍스트.
+  final BuildContext hostContext;
+  final DateTime date;
+
+  /// 연속 추가 모드에서 시트를 줄이기 위해 셸과 공유하는 높이 비율.
+  final ValueNotifier<double> heightFactor;
+
+  @override
+  ConsumerState<_AddMenuSheet> createState() => _AddMenuSheetState();
+}
+
+class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
+  /// 다음 근무가 추가될 날짜. 칩을 누를 때마다 하루씩 앞으로 간다.
+  late DateTime _target = DateTime(
+    widget.date.year,
+    widget.date.month,
+    widget.date.day,
+  );
+
+  /// 이번 시트에서 연속으로 추가한 일수 — 0이면 아직 아무것도 안 넣은 상태.
+  int _addedDays = 0;
+
+  /// 저장이 끝나기 전에 다음 탭이 들어오면 같은 날짜에 두 번 쓰게 된다.
+  /// 저장 작업을 넣는 직렬 큐. 로컬 저장은 read-modify-write라 겹치면
+  /// 서로의 결과를 덮어쓸 수 있어 순서대로 흘려보낸다.
+  Future<void> _writes = Future<void>.value();
+
+  /// 근무 칩 탭 — **저장을 기다리지 않고** 즉시 다음 날짜로 넘어간다.
+  ///
+  /// 연속 추가는 빠르게 연타하는 동작이라, 저장이 끝날 때까지 탭을 막으면
+  /// 그 사이 누른 것이 통째로 사라진다. 대상 날짜는 탭 시점에 확정하고
+  /// (그래서 같은 날에 두 번 쓰이지 않는다) 저장만 큐에 얹는다.
+  void _onShiftTypeTap(PersonalShiftType st) {
+    final target = _target;
+    // 시트가 닫힌 뒤 저장이 끝나도 안전하도록 await 전에 잡아둔다.
+    final writer = ShiftEventWriter(ref);
+    final shiftTitles = ref.read(shiftEventTitlesProvider);
+    final home = ref.read(homeViewModelProvider.notifier);
+    final focused = ref.read(homeViewModelProvider).valueOrNull?.focusedMonth;
+
+    // DateTime.add 대신 필드 산술 — 월/연 경계를 정확히 넘긴다.
+    final next = DateTime(target.year, target.month, target.day + 1);
+    setState(() {
+      _target = next;
+      _addedDays++;
+    });
+    // 첫 추가부터 시트를 줄여 뒤 캘린더가 드러나게 한다.
+    widget.heightFactor.value = _kAddSheetCompactFactor;
+    // 뒤 캘린더의 선택/포커스도 함께 옮겨 어디에 들어가는지 눈으로 따라가게 한다.
+    if (focused != null &&
+        (focused.year != next.year || focused.month != next.month)) {
+      home.changeMonth(next);
+    }
+    home.selectDate(next);
+    // 대상 줄이 시트에 가리면 캘린더가 그만큼 스크롤되도록 알린다.
+    ref.read(addSheetFocusProvider.notifier).state = (
+      date: next,
+      sheetFactor: _kAddSheetCompactFactor,
+    );
+
+    _writes = _writes
+        .then((_) => writer.setShift(target, st, shiftTitles))
+        // 한 건이 실패해도 큐가 멈추면 이후 탭이 모두 유실된다.
+        .catchError((_) {});
+  }
+
+  void _showShiftTypeManager() {
+    showMoniqBottomSheet<void>(
+      context: context,
+      eyebrow: 'MY SHIFT',
+      title: '근무 유형 설정',
+      child: const PersonalShiftTypeSheet(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    // 즐겨찾기 팀이 있으면 그 팀의 근무 유형을 우선 사용.
+    // 없으면 개인 근무 유형, 그마저 비어 있으면(전체 삭제됨) 빠른 근무
+    // 추가가 사라지지 않도록 기본 근무 유형으로 대체한다.
+    final teamTypes = ref.watch(favoriteTeamShiftTypesProvider).valueOrNull;
+    final personalTypes = ref.watch(personalShiftTypesProvider);
+    final rawTypes = (teamTypes != null && teamTypes.isNotEmpty)
+        ? teamTypes.map(personalTypeFromTeam).toList()
+        : (personalTypes.isNotEmpty
+              ? personalTypes
+              : PersonalShiftTypeLocalDataSource.defaultTypes);
+    // 오프 → 데이 → 이브닝 → 나이트 → 교육 → 그 외 순으로 노출.
+    final shiftTypes = sortShiftTypesForDisplay(rawTypes);
+
+    // 개인 근무 일정(이름이 근무유형과 매칭)의 저장 인덱스.
+    // 화면에 보이는 목록(숨김/팀 근무 숨기기 필터 적용)에서 찾되, 변경·삭제는
+    // 저장 위치(originIndex)로 해야 다른 일정이 잘못 바뀌지 않는다.
+    // 이 날 시작하는 일정만 대상 — 이어지는 다일 일정은 시작일에서 다룬다.
+    final personalShiftIndex =
+        ref
+            .watch(dateEventOccurrencesProvider(_target))
+            .where(
+              (o) =>
+                  !o.isContinuation &&
+                  shiftTypes.any((st) => st.name == o.event.title),
+            )
+            .firstOrNull
+            ?.originIndex ??
+        -1;
+    final hasPersonalShift = personalShiftIndex >= 0;
+
+    // 팀(서버) 근무
+    final teamShifts =
+        ref.watch(homeViewModelProvider).valueOrNull?.monthlyShifts[_target] ??
+        const <ShiftWithType>[];
+    final teamShift = teamShifts.isNotEmpty ? teamShifts.first : null;
+
+    // 연속 추가 중에는 시트를 줄여 뒤 캘린더를 보여주므로, 근무 칩 외의
+    // 부가 항목(일정/메모 추가)은 접어 자리를 비운다.
+    final compact = _addedDays > 0;
+
+    // 근무 유형이 많아도 시트 전체가 늘어나지 않도록 칩 영역만 스크롤시킨다.
+    // (Flexible + 내부 스크롤 → 아래 고정 항목은 항상 보인다)
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+          // ── 근무 섹션 ──
+          if (teamShift != null) ...[
+            // 팀(서버) 근무가 있으면 근무 수정 옵션 제공
+            MoniqSheetOption(
+              icon: Icons.swap_horiz,
+              label: '근무 수정',
+              description: '${teamShift.shiftType.name} · 근무 유형 변경',
+              accentColor: parseHexColor(teamShift.shiftType.color),
+              trailing: const SizedBox.shrink(),
+              onTap: () {
+                final target = _target;
+                Navigator.pop(context);
+                editTeamShiftAsPersonal(
+                  widget.hostContext,
+                  ref,
+                  target,
+                  teamShift,
+                );
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Divider(height: 1, color: cs.outlineVariant),
+            const SizedBox(height: AppSpacing.sm),
+          ] else if (shiftTypes.isNotEmpty) ...[
+            // ── 근무 일정 빠른 추가/변경 (근무 유형 칩) ──
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    hasPersonalShift ? '근무 변경' : '근무 일정 추가',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.md),
-                Wrap(
+                // 대상 날짜 — 연속 추가 중에는 어디에 들어가는지가 핵심 정보다.
+                _TargetDateBadge(date: _target),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            // 유형이 늘어나도 이 영역만 스크롤된다.
+            Flexible(
+              child: SingleChildScrollView(
+                child: Wrap(
                   spacing: AppSpacing.sm,
                   runSpacing: AppSpacing.sm,
-                  children: shiftTypes.map((st) {
-                    final color = parseHexColor(st.color);
-                    return _ShiftQuickChip(
-                      color: color,
-                      label: st.name,
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        hasPersonalShift
-                            ? changeShiftEvent(
-                                ref,
-                                date,
-                                personalShiftIndex,
-                                st,
-                              )
-                            : addShiftEvent(ref, date, st);
-                      },
-                    );
-                  }).toList(),
+                  children: [
+                    ...shiftTypes.map(
+                      (st) => _ShiftQuickChip(
+                        color: parseHexColor(st.color),
+                        label: st.name,
+                        onTap: () => _onShiftTypeTap(st),
+                      ),
+                    ),
+                    // 마지막 근무 유형 오른쪽에 붙는 + 칩 —
+                    // 누르면 "내 근무 유형 설정"과 같은 [근무 유형 설정] 시트.
+                    _AddShiftTypeChip(onTap: _showShiftTypeManager),
+                  ],
                 ),
-                if (hasPersonalShift) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  MoniqSheetOption(
-                    icon: Icons.delete_outline,
-                    label: '근무 삭제',
-                    description: '이 날의 개인 근무 일정을 삭제',
-                    accentColor: AppColors.error,
-                    trailing: const SizedBox.shrink(),
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      removeShiftEvent(ref, date, personalShiftIndex);
-                    },
-                  ),
-                ],
-                const SizedBox(height: AppSpacing.xl),
-                Divider(height: 1, color: cs.outlineVariant),
-                const SizedBox(height: AppSpacing.sm),
-              ],
-              // ── 일정 추가 ──
-              MoniqSheetOption(
-                icon: Icons.event,
-                label: '일정 추가',
-                description: '시간, 색상, 설명을 포함한 일정',
-                accentColor: AppColors.success,
-                trailing: const SizedBox.shrink(),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  showEventForm(context, ref, date, null, null);
-                },
               ),
-              // ── 메모 추가 ──
+            ),
+            if (_addedDays > 0) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '$_addedDays일 추가됨 · 계속 누르면 ${formatEventDate(_target)}부터 이어집니다',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+            if (hasPersonalShift) ...[
+              const SizedBox(height: AppSpacing.md),
               MoniqSheetOption(
-                icon: Icons.edit_note,
-                label: '메모 추가',
-                description: '간단한 텍스트 메모',
-                accentColor: cs.tertiary,
+                icon: Icons.delete_outline,
+                label: '근무 삭제',
+                description: '이 날의 개인 근무 일정을 삭제',
+                accentColor: AppColors.error,
                 trailing: const SizedBox.shrink(),
                 onTap: () {
-                  Navigator.pop(ctx);
-                  showNoteForm(context, ref, date, null, null);
+                  final target = _target;
+                  // pop 후에는 ref가 무효해지므로 writer를 먼저 만든다.
+                  final writer = ShiftEventWriter(ref);
+                  Navigator.pop(context);
+                  writer.remove(target, personalShiftIndex);
                 },
               ),
             ],
-          ),
-        );
-      },
+            if (!compact) ...[
+              const SizedBox(height: AppSpacing.xl),
+              Divider(height: 1, color: cs.outlineVariant),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+          ],
+          if (!compact) ...[
+            // ── 일정 추가 ──
+            MoniqSheetOption(
+              icon: Icons.event,
+              label: '일정 추가',
+              description: '시간, 색상, 설명을 포함한 일정',
+              accentColor: AppColors.success,
+              trailing: const SizedBox.shrink(),
+              onTap: () {
+                final target = _target;
+                Navigator.pop(context);
+                showEventForm(widget.hostContext, ref, target, null, null);
+              },
+            ),
+            // ── 메모 추가 ──
+            MoniqSheetOption(
+              icon: Icons.edit_note,
+              label: '메모 추가',
+              description: '간단한 텍스트 메모',
+              accentColor: cs.tertiary,
+              trailing: const SizedBox.shrink(),
+              onTap: () {
+                final target = _target;
+                Navigator.pop(context);
+                showNoteForm(widget.hostContext, ref, target, null, null);
+              },
+            ),
+          ],
+          // 연속 추가를 끝낼 때 쓰는 명시적 출구 — 칩을 눌러도 시트가 닫히지
+          // 않으므로, 다 넣었다는 신호를 줄 버튼이 필요하다.
+          if (_addedDays > 0) ...[
+            const SizedBox(height: AppSpacing.lg),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(context),
+                style: FilledButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: AppRadius.borderRadiusFull,
+                  ),
+                ),
+                child: const Text('완료'),
+              ),
+            ),
+          ],
+      ],
+    );
+  }
+}
+
+/// 개인 근무 카드의 "수정" — 근무 유형 칩 중에서 고르게 한다.
+///
+/// 제목/시간/색을 직접 치는 일반 일정 폼보다, 근무는 유형을 바꾸는 게 거의 전부다.
+/// 세부 항목을 손봐야 할 때를 위해 아래에 "상세 수정"을 남겨둔다.
+void showShiftTypeChangeSheet(
+  BuildContext context,
+  WidgetRef ref,
+  DateTime date,
+  int index,
+  PersonalEvent existing,
+) {
+  showMoniqBottomSheet<void>(
+    context: context,
+    eyebrow: 'SHIFT',
+    title: '근무 변경',
+    maxHeightFactor: 0.7,
+    child: _ShiftTypeChangeBody(
+      hostContext: context,
+      date: date,
+      index: index,
+      existing: existing,
     ),
   );
+}
+
+class _ShiftTypeChangeBody extends ConsumerWidget {
+  const _ShiftTypeChangeBody({
+    required this.hostContext,
+    required this.date,
+    required this.index,
+    required this.existing,
+  });
+
+  final BuildContext hostContext;
+  final DateTime date;
+  final int index;
+  final PersonalEvent existing;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    // 빠른 추가 시트와 같은 목록·같은 순서(오프→데이→이브닝→나이트→교육).
+    final teamTypes = ref.watch(favoriteTeamShiftTypesProvider).valueOrNull;
+    final personalTypes = ref.watch(personalShiftTypesProvider);
+    final shiftTypes = sortShiftTypesForDisplay(
+      (teamTypes != null && teamTypes.isNotEmpty)
+          ? teamTypes.map(personalTypeFromTeam).toList()
+          : (personalTypes.isNotEmpty
+                ? personalTypes
+                : PersonalShiftTypeLocalDataSource.defaultTypes),
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                existing.title,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            _TargetDateBadge(date: date),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Flexible(
+          child: SingleChildScrollView(
+            child: Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                ...shiftTypes.map(
+                  (st) => _ShiftQuickChip(
+                    color: parseHexColor(st.color),
+                    label: st.name,
+                    selected: st.name == existing.title,
+                    onTap: () {
+                      final writer = ShiftEventWriter(ref);
+                      final titles = ref.read(shiftEventTitlesProvider);
+                      Navigator.pop(context);
+                      writer.setShift(date, st, titles);
+                    },
+                  ),
+                ),
+                _AddShiftTypeChip(
+                  onTap: () => showMoniqBottomSheet<void>(
+                    context: context,
+                    eyebrow: 'MY SHIFT',
+                    title: '근무 유형 설정',
+                    child: const PersonalShiftTypeSheet(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Divider(height: 1, color: cs.outlineVariant),
+        const SizedBox(height: AppSpacing.sm),
+        MoniqSheetOption(
+          icon: Icons.tune_rounded,
+          label: '상세 수정',
+          description: '제목, 시간, 색상, 설명 직접 편집',
+          trailing: const SizedBox.shrink(),
+          onTap: () {
+            Navigator.pop(context);
+            showEventForm(hostContext, ref, date, index, existing,
+                isShift: true);
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// 근무 칩 줄 맨 끝에 붙는 `+` 칩 — [근무 유형 설정] 시트를 연다.
+/// 근무 유형과 같은 크기/모양이라 "유형을 하나 더 만든다"는 뜻이 바로 읽힌다.
+class _AddShiftTypeChip extends StatelessWidget {
+  const _AddShiftTypeChip({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      shape: StadiumBorder(side: BorderSide(color: cs.outlineVariant)),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Icon(Icons.add, size: 18, color: cs.onSurfaceVariant),
+        ),
+      ),
+    );
+  }
+}
+
+/// 연속 추가의 대상 날짜를 보여주는 작은 배지 (예: `7.27 (월)`).
+class _TargetDateBadge extends StatelessWidget {
+  const _TargetDateBadge({required this.date});
+
+  final DateTime date;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: AppRadius.borderRadiusFull,
+      ),
+      child: Text(
+        formatEventDate(date),
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: cs.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
 }
 
 /// 근무 유형 빠른 선택 칩 — 색 점 + 이름. 흰색 셸 위에서 단정한 톤.
@@ -217,21 +562,29 @@ class _ShiftQuickChip extends StatelessWidget {
     required this.color,
     required this.label,
     required this.onTap,
+    this.selected = false,
   });
 
   final Color color;
   final String label;
   final VoidCallback? onTap;
 
+  /// 현재 근무 유형 — 변경 시트에서 지금 값을 알려주기 위해 테두리로 강조.
+  final bool selected;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Material(
       color: cs.surfaceContainerHighest,
-      borderRadius: AppRadius.borderRadiusFull,
+      shape: StadiumBorder(
+        side: selected
+            ? BorderSide(color: cs.primary, width: 1.5)
+            : BorderSide.none,
+      ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: AppRadius.borderRadiusFull,
+        customBorder: const StadiumBorder(),
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md,
@@ -362,24 +715,87 @@ class _ShiftTypePickerTile extends StatelessWidget {
   }
 }
 
+/// 근무 유형 하나로 만드는 개인 일정.
+PersonalEvent _shiftEventOf(DateTime date, PersonalShiftType st) => PersonalEvent(
+  date: DateTime(date.year, date.month, date.day),
+  title: st.name,
+  startTime: st.startTime,
+  endTime: st.endTime,
+  color: st.color,
+  createdAt: DateTime.now(),
+);
+
+/// 저장이 끝난 뒤에도 안전하게 화면을 갱신하기 위한 핸들.
+///
+/// 시트에서 근무를 넣는 동안 사용자가 시트를 닫으면 위젯이 dispose되고,
+/// 그 뒤 `ref`를 쓰면 "Cannot use ref after the widget was disposed"로 터진다.
+/// await **전에** 필요한 것만 뽑아두면 저장이 늦게 끝나도 갱신이 유실되지 않는다.
+class ShiftEventWriter {
+  ShiftEventWriter(WidgetRef ref)
+    : _ds = ref.read(personalEventDataSourceProvider),
+      _hidden = ref.read(personalHiddenShiftsDataSourceProvider),
+      _refresh = ref.read(eventRefreshProvider.notifier);
+
+  final PersonalEventLocalDataSource _ds;
+  final PersonalHiddenShiftsLocalDataSource _hidden;
+  final StateController<int> _refresh;
+
+  /// 근무를 새로 넣은 날은 "근무 삭제"로 숨긴 상태를 푼다.
+  /// (그 달을 통째로 숨겨둔 경우, 풀지 않으면 넣자마자 다시 가려진다)
+  Future<void> _unhide(DateTime date) => _hidden.unhideDates([date]);
+
+  /// 근무 유형으로 빠르게 일정 추가
+  Future<void> add(DateTime date, PersonalShiftType st) async {
+    await _ds.addEvent(_shiftEventOf(date, st));
+    await _unhide(date);
+    _refresh.state++;
+  }
+
+  /// 그 날의 개인 근무를 [st]로 **교체**한다 — 하루에 개인 근무는 하나뿐.
+  ///
+  /// 화면에서 읽은 인덱스로 add/change를 나누면, 빠르게 두 번 누를 때 두 탭이
+  /// 모두 "근무 없음"으로 판단해 같은 날에 근무가 두 개 쌓인다. 저장 직전에
+  /// 실제 저장된 목록을 다시 보고 기존 근무를 지운 뒤 넣어 그 경우를 막는다.
+  /// 팀에서 가져온(import) 근무는 팀 데이터라 건드리지 않는다.
+  Future<void> setShift(
+    DateTime date,
+    PersonalShiftType st,
+    Set<String> shiftTitles,
+  ) async {
+    final existing = _ds.getEvents(date);
+    for (var i = existing.length - 1; i >= 0; i--) {
+      final e = existing[i];
+      final isImport =
+          e.description?.startsWith(kPersonalTeamImportMarker) ?? false;
+      if (!isImport && shiftTitles.contains(e.title)) {
+        await _ds.removeEvent(date, i);
+      }
+    }
+    await _ds.addEvent(_shiftEventOf(date, st));
+    await _unhide(date);
+    _refresh.state++;
+  }
+
+  /// 기존 개인 근무 일정을 다른 근무 유형으로 교체(변경).
+  Future<void> change(DateTime date, int index, PersonalShiftType st) async {
+    await _ds.updateEvent(date, index, _shiftEventOf(date, st));
+    await _unhide(date);
+    _refresh.state++;
+  }
+
+  /// 개인 근무 일정 삭제.
+  Future<void> remove(DateTime date, int index) async {
+    await _ds.removeEvent(date, index);
+    _refresh.state++;
+  }
+}
+
 /// 근무 유형으로 빠르게 일정 추가
 Future<void> addShiftEvent(
   WidgetRef ref,
   DateTime date,
   PersonalShiftType st,
-) async {
-  final event = PersonalEvent(
-    date: DateTime(date.year, date.month, date.day),
-    title: st.name,
-    startTime: st.startTime,
-    endTime: st.endTime,
-    color: st.color,
-    createdAt: DateTime.now(),
-  );
-  final ds = ref.read(personalEventDataSourceProvider);
-  await ds.addEvent(event);
-  refreshAll(ref, date);
-}
+) => ShiftEventWriter(ref).add(date, st);
 
 /// 기존 개인 근무 일정을 다른 근무 유형으로 교체(변경).
 Future<void> changeShiftEvent(
@@ -387,26 +803,11 @@ Future<void> changeShiftEvent(
   DateTime date,
   int index,
   PersonalShiftType st,
-) async {
-  final event = PersonalEvent(
-    date: DateTime(date.year, date.month, date.day),
-    title: st.name,
-    startTime: st.startTime,
-    endTime: st.endTime,
-    color: st.color,
-    createdAt: DateTime.now(),
-  );
-  final ds = ref.read(personalEventDataSourceProvider);
-  await ds.updateEvent(date, index, event);
-  refreshAll(ref, date);
-}
+) => ShiftEventWriter(ref).change(date, index, st);
 
 /// 개인 근무 일정 삭제.
-Future<void> removeShiftEvent(WidgetRef ref, DateTime date, int index) async {
-  final ds = ref.read(personalEventDataSourceProvider);
-  await ds.removeEvent(date, index);
-  refreshAll(ref, date);
-}
+Future<void> removeShiftEvent(WidgetRef ref, DateTime date, int index) =>
+    ShiftEventWriter(ref).remove(date, index);
 
 /// 팀 캘린더 근무를 팀 근무 유형 중 하나로 변경 (팀 shift 레코드 직접 수정)
 Future<void> editTeamShiftAsPersonal(

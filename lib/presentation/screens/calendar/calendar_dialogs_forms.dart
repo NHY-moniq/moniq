@@ -7,6 +7,9 @@ void showEventForm(
   int? index,
   PersonalEvent? existing, {
   String? descriptionMarker,
+  /// 근무 카드에서 연 경우 — 헤더를 "근무 일정 추가/수정"으로 바꾼다.
+  /// (같은 폼이지만 사용자가 방금 누른 항목이 근무임을 잃지 않게)
+  bool isShift = false,
 }) {
   final titleController = TextEditingController(text: existing?.title ?? '');
   final descController = TextEditingController(
@@ -55,8 +58,10 @@ void showEventForm(
   // 로그아웃·근무 유형 시트와 동일한 MoniqBottomSheetShell 스타일로 통일.
   showMoniqBottomSheet<void>(
     context: context,
-    eyebrow: 'SCHEDULE',
-    title: index == null ? '일정 추가' : '일정 수정',
+    eyebrow: isShift ? 'SHIFT' : 'SCHEDULE',
+    title: isShift
+        ? (index == null ? '근무 일정 추가' : '근무 일정 수정')
+        : (index == null ? '일정 추가' : '일정 수정'),
     // 일시/색상/설명/반복 네 섹션이 세로로 쌓이므로 기본 높이(0.56)로는
     // 폼이 답답해진다. 키보드가 올라온 상태에서도 저장 버튼까지 닿도록 넉넉히.
     maxHeightFactor: 0.8,
@@ -71,9 +76,10 @@ void showEventForm(
             children: [
               // 제목 — 시트의 주인공. prefix 아이콘을 빼서 아래 섹션들과
               // 같은 좌측 정렬 축을 공유하게 했다.
+              // 시트가 열리자마자 키보드가 올라와 폼을 가리지 않도록 autofocus는
+              // 두지 않는다 — 입력창을 직접 탭했을 때만 키보드가 뜬다.
               TextField(
                 controller: titleController,
-                autofocus: true,
                 maxLength: 30,
                 maxLengthEnforcement: MaxLengthEnforcement.enforced,
                 inputFormatters: [LengthLimitingTextInputFormatter(30)],
@@ -404,9 +410,9 @@ void showNoteForm(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // 일정 폼과 동일 — 열자마자 키보드가 화면을 덮지 않게 autofocus 제거.
             TextField(
               controller: controller,
-              autofocus: true,
               decoration: const InputDecoration(hintText: '메모를 입력하세요'),
               maxLines: 3,
               maxLength: 1000,

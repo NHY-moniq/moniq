@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart'
+    show isOffShiftName;
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
@@ -41,6 +43,11 @@ class ShiftThemeData {
   static const coolBackground = Color(0xFFF4F8FC);
   static const coolScaffold = Color(0xFFF8FBFE);
   static const coolElevated = Color(0xFFEDF3F9);
+  /// 오프 테마의 강조색 — 옅은 하늘색.
+  static const offBlue = Color(0xFFD5EBFF);
+
+  /// 오프 색 위에 얹는 글자색. [offBlue]가 아주 밝아 흰 글자는 보이지 않는다.
+  static const onOffBlue = Color(0xFF1A365D);
   static const darkBackground = Color(0xFF121212);
   static const darkScaffold = Color(0xFF181818);
   static const darkElevated = Color(0xFF282828);
@@ -97,13 +104,13 @@ class ShiftThemeData {
   );
 
   static const off = ShiftThemeData(
-    primary: Color(0xFFA0AEC0),
-    onPrimary: Color(0xFFFFFFFF),
+    primary: offBlue,
+    onPrimary: onOffBlue,
     background: coolBackground,
     scaffoldBackground: coolScaffold,
     elevatedSurface: coolElevated,
-    cardColor: Color(0xFFA0AEC0),
-    accentText: Color(0xFF718096),
+    cardColor: offBlue,
+    accentText: Color(0xFF2C5282),
     displayName: 'OFF',
     characterAsset: 'assets/images/off.png',
     characterType: CharacterType.grey,
@@ -150,13 +157,13 @@ class ShiftThemeData {
   );
 
   static const offDark = ShiftThemeData(
-    primary: Color(0xFFA0AEC0),
-    onPrimary: Color(0xFFFFFFFF),
+    primary: offBlue,
+    onPrimary: onOffBlue,
     background: darkBackground,
     scaffoldBackground: darkScaffold,
     elevatedSurface: darkElevated,
-    cardColor: Color(0xFFA0AEC0),
-    accentText: Color(0xFFA0AEC0),
+    cardColor: offBlue,
+    accentText: offBlue,
     displayName: 'OFF',
     characterAsset: 'assets/images/off.png',
     characterType: CharacterType.grey,
@@ -240,7 +247,8 @@ class ShiftThemeData {
 /// Reactive provider that resolves today's shift theme.
 ///
 /// Priority:
-/// 1. Server shifts from [homeViewModelProvider]
+/// 1. Server shifts from [homeViewModelProvider] — 개인 근무 수정(오버라이드)이
+///    있으면 그 색/이름을 우선 적용해 테마가 즉시 따라오게 한다.
 /// 2. Personal calendar shifts from [dateEventsIncludingSpansProvider] +
 ///    [personalShiftTypesProvider]
 /// 3. Fallback: [ShiftThemeData.off]
@@ -263,13 +271,18 @@ final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
   );
 
   if (serverShifts != null && serverShifts.isNotEmpty) {
-    final code = serverShifts.first.shiftType.code.toUpperCase();
-    if (code == 'OFF') {
+    final shift = serverShifts.first;
+    // "근무 수정"으로 만든 개인 오버라이드가 있으면 그쪽이 실제로 보이는 근무다.
+    // (오버라이드는 개인 캘린더/홈 카드에 이미 반영되므로 테마도 같이 따라간다)
+    final override =
+        ref.watch(personalShiftOverridesProvider).valueOrNull?[shift.shift.id];
+    final name = override?.name ?? shift.shiftType.name;
+    final code = override?.code ?? shift.shiftType.code;
+    if (isOffShiftName(name, code)) {
       return isDark ? ShiftThemeData.offDark : ShiftThemeData.off;
     }
-    final color = parseHexColor(serverShifts.first.shiftType.color);
-    return ShiftThemeData.fromColor(color,
-        isDark: isDark, displayName: serverShifts.first.shiftType.name);
+    final color = parseHexColor(override?.color ?? shift.shiftType.color);
+    return ShiftThemeData.fromColor(color, isDark: isDark, displayName: name);
   }
 
   // 2. Fallback to personal calendar (may throw if SharedPreferences not ready)
@@ -288,7 +301,7 @@ final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
           .where((st) => st.name == personalShiftEvent.title)
           .firstOrNull;
       if (matchedType != null) {
-        if (matchedType.code.toUpperCase() == 'OFF') {
+        if (isOffShiftName(matchedType.name, matchedType.code)) {
           return isDark ? ShiftThemeData.offDark : ShiftThemeData.off;
         }
         final color = parseHexColor(matchedType.color);

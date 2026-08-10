@@ -39,7 +39,8 @@ class TeamCalendarState with _$TeamCalendarState {
     required String teamName,
     required DateTime focusedMonth,
     required DateTime selectedDate,
-    @Default(CalendarViewMode.month) CalendarViewMode viewMode,
+    // 팀 캘린더는 한 주치 근무를 훑는 용도가 대부분이라 주 단위로 시작한다.
+    @Default(CalendarViewMode.week) CalendarViewMode viewMode,
     @Default({}) Map<DateTime, List<ShiftWithType>> monthlyShifts,
     @Default([]) List<RosterEntry> selectedDateRoster,
     @Default([]) List<ShiftTypeModel> shiftTypes,
@@ -108,26 +109,34 @@ class TeamCalendarViewModel
         ? DateTime(pendingFocus.year, pendingFocus.month, pendingFocus.day)
         : DateTime(now.year, now.month, now.day);
 
+    // 월간 근무·근무 유형·팀원·선택일 로스터를 한 번에 받는다.
+    // (예전엔 shift_types를 3번, 팀 shifts를 2번 받아 왕복이 배로 들었다)
     final results = await Future.wait([
       _teamRepository.getTeamById(teamId),
-      _shiftRepository.getShiftTypes(teamId),
-      _shiftRepository.getTeamMonthlyShifts(teamId: teamId, month: focusMonth),
-      _shiftRepository.getTeamRoster(teamId: teamId, date: selected),
+      _shiftRepository.getTeamCalendarMonth(
+        teamId: teamId,
+        month: focusMonth,
+        selectedDate: selected,
+      ),
     ]);
 
     final team = results[0] as TeamModel;
-    final shiftTypes = results[1] as List<ShiftTypeModel>;
-    final monthlyShifts = results[2] as Map<DateTime, List<ShiftWithType>>;
-    final roster = results[3] as List<RosterEntry>;
+    final calendar =
+        results[1]
+            as ({
+              Map<DateTime, List<ShiftWithType>> monthlyShifts,
+              List<RosterEntry> roster,
+              List<ShiftTypeModel> shiftTypes,
+            });
 
     return TeamCalendarState(
       teamId: teamId,
       teamName: team.name,
       focusedMonth: focusMonth,
       selectedDate: selected,
-      monthlyShifts: monthlyShifts,
-      selectedDateRoster: roster,
-      shiftTypes: shiftTypes,
+      monthlyShifts: calendar.monthlyShifts,
+      selectedDateRoster: calendar.roster,
+      shiftTypes: calendar.shiftTypes,
     );
   }
 
@@ -136,14 +145,30 @@ class TeamCalendarViewModel
     if (current == null) return;
 
     final dateKey = DateTime(date.year, date.month, date.day);
-    final roster = await _shiftRepository.getTeamRoster(
-      teamId: current.teamId,
-      date: dateKey,
-    );
+    // 선택은 먼저 반영해 탭이 즉시 반응하게 하고, 로스터만 뒤따라 채운다.
+    state = AsyncData(current.copyWith(selectedDate: dateKey));
 
-    state = AsyncData(
-      current.copyWith(selectedDate: dateKey, selectedDateRoster: roster),
-    );
+    // 선택한 날이 이미 받아둔 달 안이면 네트워크 없이 로스터를 만든다.
+    // 날짜를 탭할 때마다 왕복하던 것이 체감 지연의 큰 몫이었다.
+    final inLoadedMonth =
+        dateKey.year == current.focusedMonth.year &&
+        dateKey.month == current.focusedMonth.month;
+
+    final roster = inLoadedMonth
+        ? await _shiftRepository.getTeamRosterFromMonthly(
+            teamId: current.teamId,
+            date: dateKey,
+            monthlyShifts: current.monthlyShifts,
+          )
+        : await _shiftRepository.getTeamRoster(
+            teamId: current.teamId,
+            date: dateKey,
+          );
+
+    // 빠르게 여러 날짜를 누르면 오래된 응답이 최신 선택을 덮어쓸 수 있다.
+    final latest = state.valueOrNull;
+    if (latest == null || latest.selectedDate != dateKey) return;
+    state = AsyncData(latest.copyWith(selectedDateRoster: roster));
   }
 
   Future<void> changeMonth(DateTime month) async {
@@ -164,21 +189,15 @@ class TeamCalendarViewModel
       ),
     );
 
-    // 2) 두 네트워크 요청을 병렬로 수행 (이전엔 순차였음).
+    // 2) 월간 근무와 로스터를 한 번의 조회로 함께 만든다.
     try {
-      final results = await Future.wait([
-        _shiftRepository.getTeamMonthlyShifts(
-          teamId: current.teamId,
-          month: month,
-        ),
-        _shiftRepository.getTeamRoster(
-          teamId: current.teamId,
-          date: selectedDate,
-        ),
-      ]);
-      final monthlyShifts =
-          results[0] as Map<DateTime, List<ShiftWithType>>;
-      final roster = results[1] as List<RosterEntry>;
+      final calendar = await _shiftRepository.getTeamCalendarMonth(
+        teamId: current.teamId,
+        month: month,
+        selectedDate: selectedDate,
+      );
+      final monthlyShifts = calendar.monthlyShifts;
+      final roster = calendar.roster;
 
       // 빠른 연속 이동 시 오래된 응답이 최신 화면(다른 달)을 덮어쓰지 않도록 가드.
       final latest = state.valueOrNull;
@@ -326,18 +345,19 @@ class TeamCalendarViewModel
     }
   }
 
+  /// 근무 변경/새로고침 후 현재 월을 다시 읽는다.
+  /// 캐시(근무 유형·팀원)도 함께 갱신해 최신 값을 보장한다.
   Future<void> _reloadCurrent(TeamCalendarState current) async {
-    final monthlyShifts = await _shiftRepository.getTeamMonthlyShifts(
+    final calendar = await _shiftRepository.getTeamCalendarMonth(
       teamId: current.teamId,
       month: current.focusedMonth,
-    );
-    final roster = await _shiftRepository.getTeamRoster(
-      teamId: current.teamId,
-      date: current.selectedDate,
+      selectedDate: current.selectedDate,
+      forceRefresh: true,
     );
     state = AsyncData(current.copyWith(
-      monthlyShifts: monthlyShifts,
-      selectedDateRoster: roster,
+      monthlyShifts: calendar.monthlyShifts,
+      selectedDateRoster: calendar.roster,
+      shiftTypes: calendar.shiftTypes,
     ));
   }
 

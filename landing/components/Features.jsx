@@ -3,7 +3,7 @@
 // Feature 1: Personal calendar — team shifts auto-sync + personal events
 const FeaturePersonalCalendar = () => (
   <Section paddingY={140}>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
+    <div className="split-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
       <div>
         <LandingEyebrow style={{ color: '#B8860B' }}>Feature · 07</LandingEyebrow>
         <h2 style={{ font: '900 40px/1.15 var(--font-family)', letterSpacing: -1.2, color: '#312F23', marginTop: 18, textWrap: 'balance', wordBreak: 'keep-all' }}>
@@ -13,7 +13,7 @@ const FeaturePersonalCalendar = () => (
           팀에 등록된 근무가 내 캘린더에 그대로 흘러들어와요.<br />
           그 위에 개인 일정·메모도 같이 적어두면, 근무와 사생활을 한 화면에서 정리할 수 있어요.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 36 }}>
+        <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 36 }}>
           {[
             { icon: 'sync', title: '자동 동기화', sub: '팀 근무 등록 → 내 캘린더에 즉시 반영' },
             { icon: 'edit_note', title: '개인 일정·메모', sub: '약속, 휴가 계획, 한 줄 메모까지' },
@@ -44,7 +44,7 @@ const FeaturePersonalCalendar = () => (
 // Feature 2: Team calendar — free team creation + shared schedule view
 const FeatureTeamCalendar = () => (
   <Section bg="#F7F1DC" paddingY={140}>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
+    <div className="split-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {/* 팀 캘린더 — 메인, 원래 사이즈 */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, zIndex: 2 }}>
@@ -130,7 +130,7 @@ const FeatureTeamCalendar = () => (
           병동이든, 함께 일하는 사람이라면 팀이 돼요.<br />
           한 화면에서 누가 언제 들어오고 누가 쉬는지 한눈에 확인해요.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 32 }}>
+        <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 32 }}>
           {[
             { icon: 'group_add', title: '팀 자유 생성', sub: '직군 · 규모 제한 없이 만들어요' },
             { icon: 'visibility', title: '팀원 근무 한눈에', sub: '오늘 누가 들어오는지 바로 확인' },
@@ -156,7 +156,7 @@ const FeatureTeamCalendar = () => (
 // Feature 4: Swap request
 const FeatureSwap = () => (
   <Section paddingY={140}>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
+    <div className="split-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
       <div>
         <LandingEyebrow style={{ color: '#0061A4' }}>Feature · 05</LandingEyebrow>
         <h2 style={{ font: '900 60px/1.02 var(--font-family)', letterSpacing: -1.8, color: '#312F23', marginTop: 18, textWrap: 'balance' }}>
@@ -205,7 +205,7 @@ const FeatureWantedCollection = () => {
   ];
   return (
     <Section bg="#FCF6E3" paddingY={140}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
+      <div className="split-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <div style={{ position: 'relative' }}>
             <PhoneFrame width={340} height={660}>
@@ -227,7 +227,7 @@ const FeatureWantedCollection = () => {
             팀원이 직접 원하는 날짜·시프트를 1·2순위로 입력해요.<br />
             <span style={{ whiteSpace: 'nowrap' }}>수집이 끝나면 자동생성에 그대로 흘러들어가요.</span>
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 32 }}>
+          <div className="mini-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 32 }}>
             {cards.map(f => (
               <div key={f.title} style={{ background: '#FFFDF7', borderRadius: 24, padding: 18, display: 'flex', gap: 12, alignItems: 'flex-start', border: '1px solid rgba(178,173,156,.25)' }}>
                 <div style={{ width: 38, height: 38, borderRadius: 14, background: '#FFECB3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -291,7 +291,7 @@ const FeatureScheduleAutoGen = () => {
         style={{ marginBottom: 28 }}
       />
       {/* Hero visual: 노트북 그리드 + 제약조건 패널 + 자동 생성 버튼이 레이어로 */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8, marginBottom: 64 }}>
+      <div className="wide-mock-scroll" style={{ display: 'flex', justifyContent: 'center', marginTop: 8, marginBottom: 64 }}>
         <div style={{ position: 'relative' }}>
           <LaptopFrame width={1000}>
             <MiniScheduleGenScreen />
@@ -315,7 +315,7 @@ const FeatureScheduleAutoGen = () => {
         </div>
       </div>
       {/* Rule cards — 3 카드 가로 배열 + 강조 CTA 카드 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 8 }}>
+      <div className="triple-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 8 }}>
         {rules.map(r => (
           <div key={r.label} style={{
             background: '#FFFDF7', borderRadius: 24, padding: '24px 26px',
@@ -394,7 +394,7 @@ const FeatureAIReport = () => {
           숙련도·기피 패턴은 물론, 반영되지 못한 요청까지 한눈에 보여줘요.
         </p>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center', marginTop: 32, position: 'relative' }}>
+      <div className="split-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center', marginTop: 32, position: 'relative' }}>
         {/* Left: phone + 수치 클로즈업 디테일 */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <div style={{ position: 'relative' }}>
@@ -482,7 +482,7 @@ const FeatureCustomRules = () => {
           반드시 지킬 규칙(하드)과 가급적 지킬 규칙(소프트)의 우선순위를 직접 설정해요.
         </p>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center', marginTop: 32, position: 'relative' }}>
+      <div className="split-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center', marginTop: 32, position: 'relative' }}>
         {/* Left: chat-like input mock */}
         <div style={{
           background: 'rgba(252,246,227,.06)',

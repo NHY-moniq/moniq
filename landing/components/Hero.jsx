@@ -1,10 +1,10 @@
 // Nav — floating pill at top
 const LandingNav = () => (
-  <div style={{
+  <div className="landing-nav-wrap" style={{
     position: 'fixed', top: 64, left: 0, right: 0, zIndex: 50,
     display: 'flex', justifyContent: 'center', pointerEvents: 'none',
   }}>
-    <div style={{
+    <div className="landing-nav" style={{
       display: 'flex', alignItems: 'center', gap: 8,
       background: 'rgba(255,253,247,.88)', backdropFilter: 'blur(16px)',
       border: '1px solid rgba(178,173,156,.3)',
@@ -12,11 +12,11 @@ const LandingNav = () => (
       boxShadow: '0 12px 32px rgba(49,47,35,.08)',
       pointerEvents: 'auto',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 24 }}>
+      <div className="landing-nav-logo" style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 24 }}>
         <img src="assets/app_logo.png" alt="OnorOff" style={{ height: 28, objectFit: 'contain' }} />
       </div>
       {['기능', '팀 스케줄', '요청하기', 'FAQ'].map(l => (
-        <a key={l} href="#" style={{ font: '700 13px/1 var(--font-family)', color: '#5F5C4D', textDecoration: 'none', padding: '10px 14px', borderRadius: 9999 }}>{l}</a>
+        <a className="landing-nav-link" key={l} href="#" style={{ font: '700 13px/1 var(--font-family)', color: '#5F5C4D', textDecoration: 'none', padding: '10px 14px', borderRadius: 9999, whiteSpace: 'nowrap' }}>{l}</a>
       ))}
       <LandingButton kind="primary" small>준비 중</LandingButton>
     </div>

@@ -55,6 +55,46 @@ bool _isKoreanStandardName(String name) =>
     name.contains('나이트') ||
     name.contains('오프');
 
+/// 근무 유형이 "오프"인지 — 이름/코드 어느 쪽으로도 판별한다.
+/// (기본 오프 유형의 코드는 'O'지만, 팀에서 가져온 유형은 'OFF'를 쓴다)
+bool isOffShiftName(String name, String code) {
+  final c = code.trim().toUpperCase();
+  return c == 'O' ||
+      c == 'OFF' ||
+      name.contains('오프') ||
+      name.toLowerCase().contains('off');
+}
+
+/// 빠른 추가 시트의 표시 순서 — 오프 → 데이 → 이브닝 → 나이트 → 교육 → 그 외.
+int _displayOrderOf(String name, String code) {
+  final c = code.trim().toUpperCase();
+  final lower = name.toLowerCase();
+  if (isOffShiftName(name, code)) return 0;
+  if (c == 'D' || name.contains('데이') || lower.contains('day')) return 1;
+  if (c == 'E' || name.contains('이브닝')) return 2;
+  if (c == 'N' || name.contains('나이트') || lower.contains('night')) return 3;
+  if (c == 'ED' || c == 'EDU' || name.contains('교육')) return 4;
+  return 5;
+}
+
+/// 근무 유형을 [오프, 데이, 이브닝, 나이트, 교육, 그 외] 순으로 정렬.
+///
+/// 같은 그룹 안에서는 원래 순서를 유지한다 (Dart의 `List.sort`는 unstable이라
+/// 원본 인덱스를 tie-breaker로 함께 비교한다).
+List<PersonalShiftType> sortShiftTypesForDisplay(
+  List<PersonalShiftType> types,
+) {
+  final indexed = [for (var i = 0; i < types.length; i++) (i, types[i])];
+  indexed.sort((a, b) {
+    final cmp = _displayOrderOf(
+      a.$2.name,
+      a.$2.code,
+    ).compareTo(_displayOrderOf(b.$2.name, b.$2.code));
+    return cmp != 0 ? cmp : a.$1.compareTo(b.$1);
+  });
+  return [for (final e in indexed) e.$2];
+}
+
 /// 다른 shift type과 같은 1글자 라벨이 충돌하면 이름 앞 2글자를 반환.
 /// 표준 한국어 이름(데이/이브닝/나이트/오프)은 충돌해도 1글자 우선권 유지.
 ///
@@ -81,12 +121,14 @@ class PersonalShiftTypeLocalDataSource {
   })  : _prefs = prefs,
         _key = 'personal_shift_types:$userId',
         _initKey = 'personal_shift_types_initialized:$userId',
-        _eduMigrationKey = 'personal_shift_types_edu_added:$userId';
+        _eduMigrationKey = 'personal_shift_types_edu_added:$userId',
+        _offMigrationKey = 'personal_shift_types_off_added:$userId';
 
   final SharedPreferences _prefs;
   final String _key;
   final String _initKey;
   final String _eduMigrationKey;
+  final String _offMigrationKey;
 
   List<PersonalShiftType> getAll() {
     // 사용자가 한 번이라도 초기화를 끝냈으면 빈 리스트도 그대로 존중
@@ -102,8 +144,11 @@ class PersonalShiftTypeLocalDataSource {
             PersonalShiftType.fromJson(jsonDecode(s) as Map<String, dynamic>))
         .toList();
 
-    // 1회성 마이그레이션: 기존 사용자에게도 기본 '교육(ED)' 유형을 추가한다.
-    // 별도 플래그로 한 번만 실행 → 사용자가 추가/삭제한 경우 다시 건드리지 않는다.
+    // 1회성 마이그레이션: 기존 사용자에게도 기본 유형을 채워준다.
+    // 유형별 플래그로 한 번만 실행 → 사용자가 추가/삭제한 경우 다시 건드리지 않는다.
+    var migrated = false;
+
+    // '교육(ED)'
     if (!(_prefs.getBool(_eduMigrationKey) ?? false)) {
       _prefs.setBool(_eduMigrationKey, true);
       final hasEducation = list.any(
@@ -111,11 +156,45 @@ class PersonalShiftTypeLocalDataSource {
       );
       if (!hasEducation) {
         list.add(defaultTypes.firstWhere((t) => t.id == 'education'));
-        _prefs.setStringList(
-          _key,
-          list.map((t) => jsonEncode(t.toJson())).toList(),
-        );
+        migrated = true;
       }
+    }
+
+    // '오프(O)' — 근무 유형 목록의 맨 앞에 오도록 insert.
+    if (!(_prefs.getBool(_offMigrationKey) ?? false)) {
+      _prefs.setBool(_offMigrationKey, true);
+      final hasOff = list.any((t) => isOffShiftName(t.name, t.code));
+      if (!hasOff) {
+        list.insert(0, defaultTypes.firstWhere((t) => t.id == 'off'));
+        migrated = true;
+      }
+    }
+
+    // 자동 생성한 오프 유형의 색을 현재 기본값으로 맞춘다.
+    // (앱이 정한 오프 색이 바뀌어도 기존 기기에 옛 색이 남지 않도록.
+    //  사용자가 직접 만든 유형이나 이름을 바꾼 유형은 건드리지 않는다)
+    final offDefault = defaultTypes.firstWhere((t) => t.id == 'off');
+    final autoOffIdx = list.indexWhere(
+      (t) => t.id == 'off' && t.name == offDefault.name,
+    );
+    if (autoOffIdx >= 0 && list[autoOffIdx].color != offDefault.color) {
+      final cur = list[autoOffIdx];
+      list[autoOffIdx] = PersonalShiftType(
+        id: cur.id,
+        name: cur.name,
+        code: cur.code,
+        startTime: cur.startTime,
+        endTime: cur.endTime,
+        color: offDefault.color,
+      );
+      migrated = true;
+    }
+
+    if (migrated) {
+      _prefs.setStringList(
+        _key,
+        list.map((t) => jsonEncode(t.toJson())).toList(),
+      );
     }
     return list;
   }
@@ -147,9 +226,17 @@ class PersonalShiftTypeLocalDataSource {
     await save(list);
   }
 
-  /// 기본 근무 유형 목록 (저장하지 않음). OFF는 캘린더가 자동 처리하므로 제외.
+  /// 기본 근무 유형 목록 (저장하지 않음). 빠른 근무 추가 순서와 동일하게
+  /// 오프 → 데이 → 이브닝 → 나이트 → 교육 순으로 둔다.
   /// 빠른 근무 추가에서 개인 근무 유형이 비어 있을 때의 폴백으로도 사용된다.
+  ///
+  /// 오프의 코드는 'O' — 캘린더 셀/근무 카드가 오프를 'O'로 표시하므로
+  /// 사용자가 설정 화면에서 보는 뱃지와 캘린더 표시를 일치시킨다.
   static List<PersonalShiftType> get defaultTypes => [
+        PersonalShiftType(
+          id: 'off', name: '오프', code: 'O',
+          startTime: null, endTime: null, color: '#D5EBFF',
+        ),
         PersonalShiftType(
           id: 'day', name: '데이', code: 'D',
           startTime: '07:00', endTime: '15:00', color: '#FFD700',
