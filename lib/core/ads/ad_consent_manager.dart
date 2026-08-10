@@ -17,11 +17,20 @@ class AdConsentManager {
   static final AdConsentManager instance = AdConsentManager._();
 
   bool _mobileAdsInitialized = false;
+  Future<void>? _initFuture;
 
   bool get isMobileAdsReady => _mobileAdsInitialized;
 
   /// 동의 수집 후 AdMob을 초기화한다. (모바일 전용, 웹/데스크톱은 no-op)
-  Future<void> gatherConsentAndInitialize() async {
+  ///
+  /// 여러 번 호출해도 실제 초기화는 한 번만 수행하고 같은 Future를 반환한다.
+  /// 광고를 요청하는 위젯은 이 Future를 await 해야 한다 —
+  /// 초기화 전에 `BannerAd.load()`를 호출하면 반드시 실패한다.
+  Future<void> gatherConsentAndInitialize() {
+    return _initFuture ??= _gatherConsentAndInitialize();
+  }
+
+  Future<void> _gatherConsentAndInitialize() async {
     if (kIsWeb) return;
     final isMobile =
         defaultTargetPlatform == TargetPlatform.android ||

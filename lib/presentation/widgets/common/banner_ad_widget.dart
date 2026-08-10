@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/core/ads/ad_consent_manager.dart';
 import 'package:moniq/core/ads/ad_helper.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
@@ -22,23 +25,35 @@ class BannerAdWidget extends ConsumerStatefulWidget {
 }
 
 class _BannerAdWidgetState extends ConsumerState<BannerAdWidget> {
+  /// 로드 실패 시 재시도 횟수 상한. 초기화 지연·일시적 무응답을 흡수하는 용도.
+  static const int _maxAttempts = 4;
+
   BannerAd? _bannerAd;
   bool _isLoaded = false;
   bool _didRequest = false;
+  int _attempts = 0;
+  Timer? _retryTimer;
 
   Future<void> _loadAd(double maxWidth) async {
     // 컨테이너 안쪽 좌우 padding(xs*2)을 뺀 폭으로 adaptive 사이즈를 계산한다.
     final width = (maxWidth - AppSpacing.xs * 2).truncate();
     if (width <= 0) return;
 
+    // MobileAds 초기화(UMP 동의·ATT 팝업 뒤에 완료)보다 먼저 load하면 무조건
+    // 실패하므로 초기화 완료를 기다린다. 이미 완료됐으면 즉시 통과한다.
+    await AdConsentManager.instance.gatherConsentAndInitialize();
+    if (!mounted) return;
+
     final size = await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(
       width,
     );
+    if (!mounted) return;
     if (size == null) {
       debugPrint('[ads] adaptive 배너 사이즈 계산 실패');
       return;
     }
 
+    _attempts++;
     final ad = BannerAd(
       adUnitId: AdHelper.bannerAdUnitId,
       size: size,
@@ -48,23 +63,39 @@ class _BannerAdWidgetState extends ConsumerState<BannerAdWidget> {
           if (!mounted) return;
           setState(() => _isLoaded = true);
         },
-        onAdFailedToLoad: (ad, error) {
-          debugPrint('[ads] 배너 로드 실패: $error');
-          ad.dispose();
+        onAdFailedToLoad: (failedAd, error) {
+          debugPrint('[ads] 배너 로드 실패($_attempts/$_maxAttempts): $error');
+          failedAd.dispose();
+          if (identical(_bannerAd, failedAd)) _bannerAd = null;
+          if (!mounted || _attempts >= _maxAttempts) return;
+          _scheduleRetry(maxWidth);
         },
       ),
     );
 
-    await ad.load();
-    if (!mounted) {
-      ad.dispose();
-      return;
-    }
+    // load() 이전에 참조를 확정한다 — onAdLoaded가 먼저 도착해도
+    // build가 광고를 그릴 수 있고, 중도 dispose 시 누수도 없다.
     _bannerAd = ad;
+    await ad.load();
+  }
+
+  /// 지수 백오프로 재시도한다 (15s, 30s, 60s).
+  ///
+  /// 간격을 짧게 잡으면 AdMob이 동일 광고 단위의 연속 실패 요청을 차단해
+  /// ("Too many recently failed requests", code 0) 오히려 재시도가 무의미해진다.
+  /// no fill은 즉시 해소되는 문제도 아니므로 넉넉히 띄운다.
+  void _scheduleRetry(double maxWidth) {
+    _retryTimer?.cancel();
+    final delay = Duration(seconds: 15 * (1 << (_attempts - 1)));
+    _retryTimer = Timer(delay, () {
+      if (!mounted) return;
+      _loadAd(maxWidth);
+    });
   }
 
   @override
   void dispose() {
+    _retryTimer?.cancel();
     _bannerAd?.dispose();
     super.dispose();
   }
