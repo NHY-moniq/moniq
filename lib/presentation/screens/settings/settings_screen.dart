@@ -289,11 +289,8 @@ Color _settingsCardTint(BuildContext context, WidgetRef ref) {
 ///
 /// 오늘 시프트 색을 그대로 쓰면 컨트롤이 너무 튀어서, 색조는 유지하고
 /// 채도만 살짝 낮춘다.
-Color _settingsControlColor(WidgetRef ref) {
-  final shift = ref.watch(todayShiftThemeProvider);
-  final hsl = HSLColor.fromColor(shift.primary);
-  return hsl.withSaturation((hsl.saturation * 0.72).clamp(0.0, 1.0)).toColor();
-}
+Color _settingsControlColor(WidgetRef ref) =>
+    shiftControlColor(ref.watch(todayShiftThemeProvider));
 
 class _AppSettingsSection extends ConsumerWidget {
   const _AppSettingsSection();

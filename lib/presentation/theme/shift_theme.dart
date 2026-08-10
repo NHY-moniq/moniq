@@ -244,6 +244,16 @@ class ShiftThemeData {
   }
 }
 
+/// 스위치·세그먼트 같은 컨트롤에 쓰는 근무 색.
+///
+/// primary를 그대로 쓰면 채도가 높아 컨트롤이 화면에서 너무 튄다.
+/// 설정 탭의 푸시 알림 토글이 쓰던 톤을 공용으로 뽑아, 근무 유형 폼 등
+/// 다른 화면의 토글도 같은 색감을 따르게 한다.
+Color shiftControlColor(ShiftThemeData shift) {
+  final hsl = HSLColor.fromColor(shift.primary);
+  return hsl.withSaturation((hsl.saturation * 0.72).clamp(0.0, 1.0)).toColor();
+}
+
 /// Reactive provider that resolves today's shift theme.
 ///
 /// Priority:

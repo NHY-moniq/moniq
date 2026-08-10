@@ -7,6 +7,7 @@ import 'package:moniq/data/providers/auth_providers.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/widgets/common/moniq_action_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_time_picker_sheet.dart';
@@ -389,6 +390,11 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
         ? _parseTimeOfDay(existing!.endTime!)
         : const TimeOfDay(hour: 15, minute: 0);
     String selectedColor = existing?.color ?? '#FF8C00';
+    // 오프처럼 시간 개념이 없는 유형을 위해 근무 시간을 끌 수 있다.
+    // 기존 유형은 저장된 값이 있으면 켜진 상태로 연다.
+    bool useTime = existing == null
+        ? true
+        : (existing.startTime != null && existing.startTime!.isNotEmpty);
 
     const colorOptions = [
       '#FFD700',
@@ -506,15 +512,37 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
 
                 const SizedBox(height: AppSpacing.xxl),
 
-                // 근무 시간
-                Text(
-                  '근무 시간',
-                  style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+                // 근무 시간 — 토글로 끄면 시간 없는 유형(오프 등)이 된다.
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '근무 시간',
+                        style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
+                          color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    // 설정 탭의 푸시 알림 토글과 같은 톤 — 오늘 근무 색을 따른다.
+                    Switch.adaptive(
+                      value: useTime,
+                      activeTrackColor: shiftControlColor(
+                        ref.read(todayShiftThemeProvider),
+                      ),
+                      onChanged: (v) => setSheetState(() => useTime = v),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: AppSpacing.sm),
+                if (!useTime)
+                  Text(
+                    '시간 없이 저장돼요 (오프처럼 시간 개념이 없는 근무)',
+                    style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                else
                 Row(
                   children: [
                     // 시작
@@ -701,8 +729,8 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                           DateTime.now().millisecondsSinceEpoch.toString(),
                       name: name,
                       code: code,
-                      startTime: formatT(startTime),
-                      endTime: formatT(endTime),
+                      startTime: useTime ? formatT(startTime) : null,
+                      endTime: useTime ? formatT(endTime) : null,
                       color: selectedColor,
                     );
 
