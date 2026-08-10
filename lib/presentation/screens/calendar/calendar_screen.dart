@@ -423,10 +423,13 @@ class CalendarScreen extends HookConsumerWidget {
                     final teamTypes = ref
                         .watch(favoriteTeamShiftTypesProvider)
                         .valueOrNull;
-                    final personalShiftTypes =
-                        (teamTypes != null && teamTypes.isNotEmpty)
-                            ? teamTypes.map(personalTypeFromTeam).toList()
-                            : ref.read(personalShiftTypesProvider);
+                    // 빠른 추가 칩과 동일한 목록(기본 오프 포함)을 써야
+                    // 오프로 넣은 날이 개인 일정이 아니라 근무로 그려진다.
+                    final personalShiftTypes = shiftTypesForQuickPick(
+                      (teamTypes != null && teamTypes.isNotEmpty)
+                          ? teamTypes.map(personalTypeFromTeam).toList()
+                          : ref.read(personalShiftTypesProvider),
+                    );
                     final shiftTypeByName = {
                       for (final st in personalShiftTypes) st.name: st,
                     };

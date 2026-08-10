@@ -138,7 +138,12 @@ final shiftEventTitlesProvider = Provider<Set<String>>((ref) {
   } catch (_) {
     // Supabase 미초기화 등으로 팀 유형을 못 읽어도 개인 유형만으로 판별한다.
   }
-  return {...personal, ...team};
+  // 빠른 추가 칩에는 팀/개인 목록에 없어도 기본 '오프'가 항상 끼어 있다.
+  // 그렇게 넣은 오프가 개인 일정으로 분류되지 않도록 이름을 함께 넣는다.
+  final offName = PersonalShiftTypeLocalDataSource.defaultTypes
+      .firstWhere((t) => t.id == 'off')
+      .name;
+  return {...personal, ...team, offName};
 });
 
 /// 근무를 연속으로 넣는 동안 뒤 캘린더가 따라가야 할 날짜.

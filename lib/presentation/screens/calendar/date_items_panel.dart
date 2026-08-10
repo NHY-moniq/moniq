@@ -82,10 +82,9 @@ class DateItemsPanel extends ConsumerWidget {
 
     // 근무로 분류: (1) 팀에서 가져온(team-import) 일정 — OFF 포함, 또는
     //            (2) 개인 근무 유형 이름과 매칭되는 일정.
-    final shiftTypeNames = ref
-        .watch(personalShiftTypesProvider)
-        .map((st) => st.name)
-        .toSet();
+    // 팀 유형·개인 유형·기본 오프를 모두 포함한 판별 목록.
+    // 개인 유형만 보면 팀 근무 유형이나 오프가 개인 일정으로 새어 나간다.
+    final shiftTypeNames = ref.watch(shiftEventTitlesProvider);
     bool isImportWork(PersonalEvent e) =>
         e.description?.startsWith(kPersonalTeamImportMarker) ?? false;
     // 가져온 OFF 항목 — OFF는 팀 근무 경로에서 처리하므로 목록에서 제외(중복 방지).
@@ -251,10 +250,10 @@ class DateItemsPanel extends ConsumerWidget {
               final eventColor = event.color != null
                   ? parseHexColor(event.color!)
                   : AppColors.shiftDay;
-              final matchedType = ref
-                  .read(personalShiftTypesProvider)
-                  .where((st) => st.name == event.title)
-                  .firstOrNull;
+              // 코드·시간 표시는 빠른 추가와 같은 목록에서 찾는다(오프 포함).
+              final matchedType = shiftTypesForQuickPick(
+                ref.read(personalShiftTypesProvider),
+              ).where((st) => st.name == event.title).firstOrNull;
               return _buildShiftCard(
                 theme: theme,
                 shiftColor: eventColor,

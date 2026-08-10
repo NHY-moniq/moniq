@@ -58,10 +58,31 @@ PersonalShiftType personalTypeFromTeam(ShiftTypeModel t) => PersonalShiftType(
   color: t.color,
 );
 
+/// 빠른 추가/변경 칩에 쓸 근무 유형 목록 — **항상 '오프'가 맨 앞**에 오게 한다.
+///
+/// 즐겨찾기 팀이 있으면 팀 근무 유형을 쓰는데, 팀에 오프 유형이 없는 경우가
+/// 많다. 개인 캘린더에서 오프를 찍는 일은 잦으므로 없으면 기본 오프를 끼워
+/// 넣고, 그다음 오프→데이→이브닝→나이트→교육 순으로 정렬한다.
+List<PersonalShiftType> shiftTypesForQuickPick(List<PersonalShiftType> types) {
+  final hasOff = types.any((t) => isOffShiftName(t.name, t.code));
+  final withOff = hasOff
+      ? types
+      : [
+          PersonalShiftTypeLocalDataSource.defaultTypes
+              .firstWhere((t) => t.id == 'off'),
+          ...types,
+        ];
+  return sortShiftTypesForDisplay(withOff);
+}
+
 // ── Dialog / Bottom Sheet functions ──
 
 /// 근무를 연속으로 넣는 동안 시트를 이 비율까지 줄여 뒤 캘린더가 보이게 한다.
 const _kAddSheetCompactFactor = 0.34;
+
+/// 근무 칩·삭제·설정 버튼의 최소 높이 — 연타하는 버튼이라 터치 영역을 키우되,
+/// 시트가 두꺼워 보이지 않게 42로 맞춘다(기본 36은 손가락이 자주 빗나갔다).
+const double kMinShiftChipHeight = 42;
 
 void showAddMenu(BuildContext context, WidgetRef ref, DateTime date) {
   // 연속 추가 모드로 들어가면 시트를 줄인다 — 뒤 캘린더에 근무가 하나씩
@@ -168,6 +189,33 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
         .catchError((_) {});
   }
 
+  /// 삭제 칩 — 지금 보고 있는 날짜의 근무를 지우고 **전날로** 이동한다.
+  /// 추가가 앞으로 나아가는 것과 대칭으로, 연속해서 뒤로 지워나갈 수 있다.
+  void _onDeleteTap() {
+    final target = _target;
+    final writer = ShiftEventWriter(ref);
+    final shiftTitles = ref.read(shiftEventTitlesProvider);
+    final home = ref.read(homeViewModelProvider.notifier);
+    final focused = ref.read(homeViewModelProvider).valueOrNull?.focusedMonth;
+
+    final previous = DateTime(target.year, target.month, target.day - 1);
+    setState(() => _target = previous);
+    widget.heightFactor.value = _kAddSheetCompactFactor;
+    if (focused != null &&
+        (focused.year != previous.year || focused.month != previous.month)) {
+      home.changeMonth(previous);
+    }
+    home.selectDate(previous);
+    ref.read(addSheetFocusProvider.notifier).state = (
+      date: previous,
+      sheetFactor: _kAddSheetCompactFactor,
+    );
+
+    _writes = _writes
+        .then((_) => writer.removeShiftsOn(target, shiftTitles))
+        .catchError((_) {});
+  }
+
   void _showShiftTypeManager() {
     showMoniqBottomSheet<void>(
       context: context,
@@ -193,7 +241,7 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
               ? personalTypes
               : PersonalShiftTypeLocalDataSource.defaultTypes);
     // 오프 → 데이 → 이브닝 → 나이트 → 교육 → 그 외 순으로 노출.
-    final shiftTypes = sortShiftTypesForDisplay(rawTypes);
+    final shiftTypes = shiftTypesForQuickPick(rawTypes);
 
     // 개인 근무 일정(이름이 근무유형과 매칭)의 저장 인덱스.
     // 화면에 보이는 목록(숨김/팀 근무 숨기기 필터 적용)에서 찾되, 변경·삭제는
@@ -283,6 +331,8 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
                         onTap: () => _onShiftTypeTap(st),
                       ),
                     ),
+                    // 삭제 칩 — 추가가 앞으로 가는 것과 대칭으로 뒤로 지워나간다.
+                    _DeleteShiftChip(onTap: _onDeleteTap),
                     // 마지막 근무 유형 오른쪽에 붙는 + 칩 —
                     // 누르면 "내 근무 유형 설정"과 같은 [근무 유형 설정] 시트.
                     _AddShiftTypeChip(onTap: _showShiftTypeManager),
@@ -297,23 +347,6 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: cs.onSurfaceVariant,
                 ),
-              ),
-            ],
-            if (hasPersonalShift) ...[
-              const SizedBox(height: AppSpacing.md),
-              MoniqSheetOption(
-                icon: Icons.delete_outline,
-                label: '근무 삭제',
-                description: '이 날의 개인 근무 일정을 삭제',
-                accentColor: AppColors.error,
-                trailing: const SizedBox.shrink(),
-                onTap: () {
-                  final target = _target;
-                  // pop 후에는 ref가 무효해지므로 writer를 먼저 만든다.
-                  final writer = ShiftEventWriter(ref);
-                  Navigator.pop(context);
-                  writer.remove(target, personalShiftIndex);
-                },
               ),
             ],
             if (!compact) ...[
@@ -350,27 +383,56 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
               },
             ),
           ],
-          // 연속 추가를 끝낼 때 쓰는 명시적 출구 — 칩을 눌러도 시트가 닫히지
-          // 않으므로, 다 넣었다는 신호를 줄 버튼이 필요하다.
-          if (_addedDays > 0) ...[
-            const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: FilledButton(
-                onPressed: () => Navigator.pop(context),
-                style: FilledButton.styleFrom(
-                  backgroundColor: cs.primary,
-                  foregroundColor: cs.onPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: AppRadius.borderRadiusFull,
-                  ),
-                ),
-                child: const Text('완료'),
-              ),
-            ),
-          ],
+          // 저장은 누르는 즉시 반영되므로 별도 "완료" 버튼을 두지 않는다.
+          // 시트는 아래로 쓸어내리거나 바깥을 탭해 닫는다.
       ],
+    );
+  }
+}
+
+/// 근무 칩 줄 끝의 삭제 칩 — 지금 날짜의 근무를 지우고 전날로 이동한다.
+class _DeleteShiftChip extends StatelessWidget {
+  const _DeleteShiftChip({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: AppColors.error.withValues(alpha: 0.10),
+      shape: const StadiumBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: kMinShiftChipHeight),
+          child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.delete_outline_rounded,
+                size: 18,
+                color: AppColors.error,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '삭제',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -421,7 +483,7 @@ class _ShiftTypeChangeBody extends ConsumerWidget {
     // 빠른 추가 시트와 같은 목록·같은 순서(오프→데이→이브닝→나이트→교육).
     final teamTypes = ref.watch(favoriteTeamShiftTypesProvider).valueOrNull;
     final personalTypes = ref.watch(personalShiftTypesProvider);
-    final shiftTypes = sortShiftTypesForDisplay(
+    final shiftTypes = shiftTypesForQuickPick(
       (teamTypes != null && teamTypes.isNotEmpty)
           ? teamTypes.map(personalTypeFromTeam).toList()
           : (personalTypes.isNotEmpty
@@ -514,12 +576,18 @@ class _AddShiftTypeChip extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         customBorder: const StadiumBorder(),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: kMinShiftChipHeight),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.sm,
+            ),
+            child: Center(
+              widthFactor: 1,
+              child: Icon(Icons.add, size: 20, color: cs.onSurfaceVariant),
+            ),
           ),
-          child: Icon(Icons.add, size: 18, color: cs.onSurfaceVariant),
         ),
       ),
     );
@@ -585,9 +653,15 @@ class _ShiftQuickChip extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         customBorder: const StadiumBorder(),
-        child: Padding(
+        child: ConstrainedBox(
+          // 연속으로 빠르게 누르는 버튼이라 손가락이 빗나가지 않게 넉넉히.
+          // (iOS 권장 최소 터치 영역 44pt)
+          // alignment를 주면 폭까지 늘어나 Wrap이 한 줄에 하나씩 놓으므로,
+          // 높이만 키우는 ConstrainedBox를 쓴다.
+          constraints: const BoxConstraints(minHeight: kMinShiftChipHeight),
+          child: Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
+            horizontal: AppSpacing.lg,
             vertical: AppSpacing.sm,
           ),
           child: Row(
@@ -607,6 +681,7 @@ class _ShiftQuickChip extends StatelessWidget {
                 ),
               ),
             ],
+          ),
           ),
         ),
       ),
@@ -781,6 +856,23 @@ class ShiftEventWriter {
     await _ds.updateEvent(date, index, _shiftEventOf(date, st));
     await _unhide(date);
     _refresh.state++;
+  }
+
+  /// 그 날의 개인 근무를 모두 지운다 (팀에서 가져온 근무는 그대로 둔다).
+  /// 지울 게 없으면 조용히 넘어간다 — 연속 삭제 중 빈 날을 지나갈 수 있다.
+  Future<void> removeShiftsOn(DateTime date, Set<String> shiftTitles) async {
+    final existing = _ds.getEvents(date);
+    var removed = false;
+    for (var i = existing.length - 1; i >= 0; i--) {
+      final e = existing[i];
+      final isImport =
+          e.description?.startsWith(kPersonalTeamImportMarker) ?? false;
+      if (!isImport && shiftTitles.contains(e.title)) {
+        await _ds.removeEvent(date, i);
+        removed = true;
+      }
+    }
+    if (removed) _refresh.state++;
   }
 
   /// 개인 근무 일정 삭제.
