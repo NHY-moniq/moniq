@@ -43,8 +43,13 @@ class ShiftThemeData {
   static const coolBackground = Color(0xFFF4F8FC);
   static const coolScaffold = Color(0xFFF8FBFE);
   static const coolElevated = Color(0xFFEDF3F9);
-  /// 오프 테마의 강조색 — 옅은 하늘색.
+  /// 오프 테마의 강조색 — 옅은 하늘색. (카드 배경 등 면 채움용)
   static const offBlue = Color(0xFFD5EBFF);
+
+  /// 오프 테마의 "잉크" 강조색 — 옅은 하늘색을 글자/아이콘/테두리에 그대로
+  /// 쓰면 밝은 배경에서 안 보이므로, ColorScheme.primary에는 이 진한
+  /// 스틸블루를 쓴다 (흰 배경 대비 4.5:1 이상).
+  static const offBlueInk = Color(0xFF4A7AB5);
 
   /// 오프 색 위에 얹는 글자색. [offBlue]가 아주 밝아 흰 글자는 보이지 않는다.
   static const onOffBlue = Color(0xFF1A365D);
@@ -104,7 +109,9 @@ class ShiftThemeData {
   );
 
   static const off = ShiftThemeData(
-    primary: offBlue,
+    // primary는 전앱 강조색(텍스트·아이콘·버튼)으로 퍼지므로 잉크 톤을 쓰고,
+    // 파스텔 느낌은 cardColor(히어로 카드 면)로만 유지한다.
+    primary: offBlueInk,
     onPrimary: onOffBlue,
     background: coolBackground,
     scaffoldBackground: coolScaffold,

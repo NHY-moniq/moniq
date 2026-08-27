@@ -197,6 +197,9 @@ class PreviewView extends HookConsumerWidget {
       final color = type != null
           ? parseHexColor(type.color)
           : AppColors.shiftOff;
+      // 오프처럼 옅은 파스텔 색은 글자/테두리에 그대로 쓰면 안 보이므로
+      // 잉크 톤으로 낮춰 대비를 확보한다 (면 채움은 원색 유지).
+      final ink = readableInk(color);
       final label = type != null ? canonicalCode(type) : 'O';
       final wantedColor = wantedStatus == null
           ? null
@@ -210,7 +213,7 @@ class PreviewView extends HookConsumerWidget {
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(AppRadius.xs),
-          border: Border.all(color: color.withValues(alpha: 0.5)),
+          border: Border.all(color: ink.withValues(alpha: 0.55)),
         ),
         child: Stack(
           children: [
@@ -218,7 +221,7 @@ class PreviewView extends HookConsumerWidget {
               child: Text(
                 label,
                 style: theme.textTheme.labelMedium?.copyWith(
-                  color: color,
+                  color: ink,
                   fontWeight: FontWeight.w700,
                 ),
               ),

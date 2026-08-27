@@ -204,17 +204,13 @@ Future<Uint8List> _renderCalendarBytes(
           (e) => e.description?.startsWith(kPersonalTeamImportMarker) == true,
         )
         .toList();
-    final personalEvents = allEvents
-        .where(
-          (e) => e.description?.startsWith(kPersonalTeamImportMarker) != true,
-        )
-        .toList();
     final hasShift = shifts != null && shifts.isNotEmpty;
     // 서버 근무가 있으면 import 근무는 중복이므로 무시(이중 출력 방지).
     final hasWork = hasShift || importEvents.isNotEmpty;
     // 근무가 전혀 없고 발행된 스케줄 기간(coverage)에 속한 날 → OFF.
     final showOff = !hasWork && state.teamScheduledDates.contains(date);
-    final hasContent = hasWork || personalEvents.isNotEmpty || showOff;
+    // 내보내기 이미지에는 근무 일정만 담는다 — 직접 만든 개인 일정은 제외.
+    final hasContent = hasWork || showOff;
 
     // 날짜 숫자 색상
     Color dayColor = _columnColor(col);
@@ -307,28 +303,6 @@ Future<Uint8List> _renderCalendarBytes(
       tagCount++;
     }
 
-    // 3) 개인 일정 태그 (박스 없이 텍스트만)
-    if (personalEvents.isNotEmpty) {
-      for (final e in personalEvents) {
-        if (tagCount >= 4) break;
-        final eventColor = e.color != null
-            ? parseHexColor(e.color!)
-            : const Color(0xFF38A169);
-        drawPreviewTag(
-          canvas,
-          x,
-          tagY,
-          cellW,
-          e.title,
-          eventColor,
-          isWork: false,
-          fontSize: tagFontSize,
-          tagHeight: tagHeight,
-        );
-        tagY += tagStep;
-        tagCount++;
-      }
-    }
   }
 
   _drawWatermark(canvas, width, height);

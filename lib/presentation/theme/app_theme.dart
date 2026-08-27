@@ -22,7 +22,14 @@ abstract final class AppTheme {
     final cool = shift?.isCoolTone ?? false;
 
     final primary = shift?.primary ?? AppColors.primary;
-    final onPrimary = shift?.onPrimary ?? AppColors.onPrimary;
+    // primary가 진한 색이면 흰 글자, 밝은 파스텔이면 시프트의 잉크색을 쓴다.
+    // (primary 위 글자가 어떤 시프트에서도 항상 읽히도록 밝기 기준으로 결정)
+    final onPrimary = shift == null
+        ? AppColors.onPrimary
+        : (ThemeData.estimateBrightnessForColor(shift.primary) ==
+                  Brightness.dark
+              ? Colors.white
+              : shift.onPrimary);
     // primaryContainer(아이콘 배지 등)는 시프트 색을 옅게 깐다.
     final primaryContainer =
         shift == null ? AppColors.primaryContainer : _tint(primary, 0.88);
@@ -208,7 +215,14 @@ abstract final class AppTheme {
   /// 다크 모드의 surface는 원래 무채색이라 웜/쿨 구분 없이 항상 적용한다.
   static ThemeData dark({ShiftThemeData? shift}) {
     final primary = shift?.primary ?? AppColors.primary;
-    final onPrimary = shift?.onPrimary ?? AppColors.onPrimary;
+    // primary가 진한 색이면 흰 글자, 밝은 파스텔이면 시프트의 잉크색을 쓴다.
+    // (primary 위 글자가 어떤 시프트에서도 항상 읽히도록 밝기 기준으로 결정)
+    final onPrimary = shift == null
+        ? AppColors.onPrimary
+        : (ThemeData.estimateBrightnessForColor(shift.primary) ==
+                  Brightness.dark
+              ? Colors.white
+              : shift.onPrimary);
     final primaryContainer =
         shift == null ? AppColors.primaryContainerDark : _tint(primary, 0.18);
     final onPrimaryContainer =
