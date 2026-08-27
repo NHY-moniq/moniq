@@ -7,8 +7,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/core/utils/shift_code_utils.dart';
 import 'package:moniq/data/datasources/personal_event_remote_data_source.dart'
     show kPersonalTeamImportMarker;
+import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
@@ -302,7 +304,6 @@ Future<Uint8List> _renderCalendarBytes(
       tagY += tagStep;
       tagCount++;
     }
-
   }
 
   _drawWatermark(canvas, width, height);
@@ -428,6 +429,40 @@ Future<File> generateTeamImageWithNames(
   return file;
 }
 
+// ── 팀 로스터 그리드 레이아웃 상수 ──
+// 행=멤버, 열=1일~말일. 이름 열 + 31열이 가로형 캔버스에 모두 들어가도록
+// 셀 폭을 고정하고 전체 폭을 날짜 수로부터 계산한다 (31일 기준 약 1592px).
+const _kRosterNameColW = 132.0;
+const _kRosterDayCellW = 44.0;
+const _kRosterTitleZoneH = 84.0; // 카드 상단 ~ 그리드 시작
+const _kRosterColHeaderH = 52.0; // 날짜 숫자 + 요일 1글자
+const _kRosterRowH = 46.0;
+const _kRosterBottomPad = 24.0;
+const _kRosterEmptyBodyH = 120.0; // 멤버 0명일 때 안내 문구 영역
+
+/// D/E/N 우선 정렬용 (기타 근무는 뒤로)
+int _rosterCodePriority(String code) {
+  switch (code) {
+    case 'D':
+      return 0;
+    case 'E':
+      return 1;
+    case 'N':
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+/// 같은 날 복수 근무 셀 라벨: 1개면 코드, 2개면 'D·N', 3개 이상 'D+2'
+String _rosterCellLabel(List<String> codes) {
+  if (codes.length == 1) return codes.first;
+  if (codes.length == 2) return codes.join('·');
+  return '${codes.first}+${codes.length - 1}';
+}
+
+/// 팀 캘린더 이미지 — 엑셀 근무표 스타일 로스터 그리드.
+/// 행=멤버(이름 열 고정), 열=해당 월 날짜, 셀=근무 코드 칩.
 Future<Uint8List> _renderTeamImageBytes(
   TeamCalendarState state,
   Map<String, String> memberNames,
@@ -439,24 +474,46 @@ Future<Uint8List> _renderTeamImageBytes(
     0,
   ).day;
 
+  // ── 로스터 데이터 구성: userId → (day → shifts) ──
+  // 행 순서는 memberNames(팀 멤버 목록) 순서를 따르고, 목록에 없는
+  // userId(탈퇴 멤버 등)의 근무가 있으면 뒤에 덧붙여 데이터 유실을 막는다.
+  final rowUserIds = <String>[...memberNames.keys];
+  final byMemberDay = <String, Map<int, List<ShiftWithType>>>{};
+  // 팀 근무가 하나라도 발행된 날 — 이 날짜의 빈 셀에만 옅은 'O'(오프) 표기.
+  final coveredDays = <int>{};
+  state.monthlyShifts.forEach((date, shifts) {
+    if (date.year != focusedMonth.year || date.month != focusedMonth.month) {
+      return;
+    }
+    if (shifts.isEmpty) return;
+    coveredDays.add(date.day);
+    for (final s in shifts) {
+      final uid = s.shift.userId;
+      if (!rowUserIds.contains(uid)) rowUserIds.add(uid);
+      byMemberDay
+          .putIfAbsent(uid, () => <int, List<ShiftWithType>>{})
+          .putIfAbsent(date.day, () => <ShiftWithType>[])
+          .add(s);
+    }
+  });
+
+  // ── 캔버스 크기 산식 ──
+  final gridW = _kRosterNameColW + daysInMonth * _kRosterDayCellW;
+  final width = gridW + 2 * _kGridLeft;
+  final gridTop = _kOuterMargin + _kRosterTitleZoneH;
+  final bodyH = rowUserIds.isEmpty
+      ? _kRosterEmptyBodyH
+      : rowUserIds.length * _kRosterRowH;
+  final height =
+      gridTop + _kRosterColHeaderH + bodyH + _kRosterBottomPad + _kFooterH;
+
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
-
-  const width = 780.0;
-  const totalHeight = 1180.0;
-  const headerH = 100.0;
-  const dowH = 40.0;
-  final cellW = _gridWidth(width) / 7;
-  final firstWeekday =
-      DateTime(focusedMonth.year, focusedMonth.month, 1).weekday - 1;
-  final rows = ((daysInMonth + firstWeekday) / 7).ceil();
-  const height = totalHeight;
-  final rowH = (height - _kFooterH - headerH - dowH - 12) / rows;
 
   // 웜 크림 캔버스 + 카드
   _drawFrame(canvas, width, height);
 
-  // 헤더
+  // ── 헤더 타이틀 (기존 스타일 유지) ──
   final headerPainter = TextPainter(
     text: TextSpan(
       text: '${state.teamName} · ${focusedMonth.year}년 ${focusedMonth.month}월',
@@ -468,96 +525,291 @@ Future<Uint8List> _renderTeamImageBytes(
       ),
     ),
     textDirection: TextDirection.ltr,
+    maxLines: 1,
+    ellipsis: '…',
   )..layout(maxWidth: width - 2 * _kGridLeft);
-  headerPainter.paint(canvas, Offset((width - headerPainter.width) / 2, 40));
+  headerPainter.paint(
+    canvas,
+    Offset(
+      (width - headerPainter.width) / 2,
+      _kOuterMargin + (_kRosterTitleZoneH - headerPainter.height) / 2,
+    ),
+  );
 
-  // 요일 헤더
-  const days = ['월', '화', '수', '목', '금', '토', '일'];
-  for (int i = 0; i < 7; i++) {
-    final dowColor = _columnColor(i, weekday: _kWeekday);
-    final tp = TextPainter(
+  final dayColsLeft = _kGridLeft + _kRosterNameColW;
+  final bodyTop = gridTop + _kRosterColHeaderH;
+  final today = DateTime.now();
+  final isThisMonth =
+      today.year == focusedMonth.year && today.month == focusedMonth.month;
+
+  // ── 열 배경 틴트 (주말·오늘) — 그리드 선/칩보다 먼저 깐다 ──
+  for (int d = 1; d <= daysInMonth; d++) {
+    final weekday = DateTime(focusedMonth.year, focusedMonth.month, d).weekday;
+    final colX = dayColsLeft + (d - 1) * _kRosterDayCellW;
+    Color? tint;
+    if (weekday == DateTime.saturday) {
+      tint = _kSat.withValues(alpha: 0.06);
+    } else if (weekday == DateTime.sunday) {
+      tint = const Color(0xFFFF5252).withValues(alpha: 0.05);
+    }
+    if (tint != null) {
+      canvas.drawRect(
+        Rect.fromLTWH(
+          colX,
+          gridTop,
+          _kRosterDayCellW,
+          bodyTop - gridTop + bodyH,
+        ),
+        Paint()..color = tint,
+      );
+    }
+    if (isThisMonth && d == today.day) {
+      // 오늘 열: 은은한 브랜드 틴트 + 헤더 칩
+      canvas.drawRect(
+        Rect.fromLTWH(
+          colX,
+          gridTop,
+          _kRosterDayCellW,
+          bodyTop - gridTop + bodyH,
+        ),
+        Paint()..color = const Color(0xFFFFC107).withValues(alpha: 0.08),
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            colX + 3,
+            gridTop + 3,
+            _kRosterDayCellW - 6,
+            _kRosterColHeaderH - 6,
+          ),
+          const Radius.circular(10),
+        ),
+        Paint()..color = _kTodayCircle,
+      );
+    }
+  }
+
+  // ── 행 줄무늬 (짝수 행 옅게) ──
+  for (int r = 0; r < rowUserIds.length; r++) {
+    if (r.isOdd) {
+      canvas.drawRect(
+        Rect.fromLTWH(
+          _kGridLeft,
+          bodyTop + r * _kRosterRowH,
+          gridW,
+          _kRosterRowH,
+        ),
+        Paint()..color = _kInk.withValues(alpha: 0.025),
+      );
+    }
+  }
+
+  // ── 열 헤더: 날짜 숫자 + 요일 1글자 (토=파랑, 일=빨강) ──
+  const weekdayChars = ['월', '화', '수', '목', '금', '토', '일'];
+  for (int d = 1; d <= daysInMonth; d++) {
+    final weekday = DateTime(focusedMonth.year, focusedMonth.month, d).weekday;
+    final colX = dayColsLeft + (d - 1) * _kRosterDayCellW;
+    final isToday = isThisMonth && d == today.day;
+    Color numColor = weekday == DateTime.sunday
+        ? _kSun
+        : weekday == DateTime.saturday
+        ? _kSat
+        : _kInk;
+    if (isToday) numColor = _kTodayNum;
+    final dowColor = weekday == DateTime.sunday
+        ? _kSun
+        : weekday == DateTime.saturday
+        ? _kSat
+        : _kWeekday;
+
+    final numTp = TextPainter(
       text: TextSpan(
-        text: days[i],
+        text: '$d',
         style: GoogleFonts.plusJakartaSans(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
+          fontSize: 16,
+          fontWeight: isToday ? FontWeight.w800 : FontWeight.w700,
+          color: numColor,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    numTp.paint(
+      canvas,
+      Offset(colX + (_kRosterDayCellW - numTp.width) / 2, gridTop + 6),
+    );
+
+    final dowTp = TextPainter(
+      text: TextSpan(
+        text: weekdayChars[weekday - 1],
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
           color: dowColor,
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(
+    dowTp.paint(
       canvas,
-      Offset(_kGridLeft + cellW * i + (cellW - tp.width) / 2, headerH + 8),
+      Offset(colX + (_kRosterDayCellW - dowTp.width) / 2, gridTop + 28),
     );
   }
 
-  // 셀
-  final today = DateTime.now();
-  final todayKey = DateTime(today.year, today.month, today.day);
+  // ── 그리드 선 ──
+  final headerLine = Paint()
+    ..color = _kCardBorder
+    ..strokeWidth = 1.2;
+  canvas.drawLine(
+    Offset(_kGridLeft, bodyTop),
+    Offset(_kGridLeft + gridW, bodyTop),
+    headerLine,
+  );
+  // 이름 열 구분선
+  canvas.drawLine(
+    Offset(dayColsLeft, gridTop),
+    Offset(dayColsLeft, bodyTop + bodyH),
+    headerLine,
+  );
+  // 행 구분선 (옅게)
+  final rowLine = Paint()
+    ..color = _kCardBorder.withValues(alpha: 0.35)
+    ..strokeWidth = 1;
+  for (int r = 1; r <= rowUserIds.length; r++) {
+    final y = bodyTop + r * _kRosterRowH;
+    canvas.drawLine(
+      Offset(_kGridLeft, y),
+      Offset(_kGridLeft + gridW, y),
+      rowLine,
+    );
+  }
 
-  for (int d = 1; d <= daysInMonth; d++) {
-    final date = DateTime(focusedMonth.year, focusedMonth.month, d);
-    final col = (firstWeekday + d - 1) % 7;
-    final row = (firstWeekday + d - 1) ~/ 7;
-    final x = _kGridLeft + cellW * col;
-    final y = headerH + dowH + row * rowH;
-
-    final isToday = date == todayKey;
-    final shifts = state.monthlyShifts[date];
-    final hasContent = shifts != null && shifts.isNotEmpty;
-
-    Color dayColor = _columnColor(col);
-
-    if (isToday) {
-      final circlePaint = Paint()..color = _kTodayCircle;
-      canvas.drawCircle(Offset(x + cellW / 2, y + 22), 17, circlePaint);
-      dayColor = _kTodayNum;
-    }
-
-    final dayTextY = hasContent ? y + 8 : y + 16;
-    final dayPainter = TextPainter(
+  // ── 멤버 0명: 안내 문구 ──
+  if (rowUserIds.isEmpty) {
+    final emptyTp = TextPainter(
       text: TextSpan(
-        text: '$d',
+        text: '표시할 근무 데이터가 없어요',
         style: GoogleFonts.plusJakartaSans(
-          fontSize: 21,
-          fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
-          color: dayColor,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: _kWeekday,
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    dayPainter.paint(
+    emptyTp.paint(
       canvas,
-      Offset(x + (cellW - dayPainter.width) / 2, dayTextY),
+      Offset(
+        (width - emptyTp.width) / 2,
+        bodyTop + (bodyH - emptyTp.height) / 2,
+      ),
+    );
+  }
+
+  // ── 멤버 행: 이름 + 날짜별 근무 코드 칩 ──
+  for (int r = 0; r < rowUserIds.length; r++) {
+    final uid = rowUserIds[r];
+    final rowY = bodyTop + r * _kRosterRowH;
+    final name = memberNames[uid] ?? '알 수 없음';
+
+    // 이름 (긴 이름은 말줄임)
+    final nameTp = TextPainter(
+      text: TextSpan(
+        text: name,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          color: _kInk,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: _kRosterNameColW - 20);
+    nameTp.paint(
+      canvas,
+      Offset(_kGridLeft + 10, rowY + (_kRosterRowH - nameTp.height) / 2),
     );
 
-    // 근무 태그 (근무유형 + 담당자 이름)
-    double tagY = dayTextY + 28;
-    int tagCount = 0;
+    final dayShifts = byMemberDay[uid] ?? const <int, List<ShiftWithType>>{};
+    for (int d = 1; d <= daysInMonth; d++) {
+      final colX = dayColsLeft + (d - 1) * _kRosterDayCellW;
+      final shifts = dayShifts[d];
 
-    if (shifts != null) {
-      for (final s in shifts) {
-        if (tagCount >= 4) break;
-        final shiftColor = parseHexColor(s.shiftType.color);
-        final name = memberNames[s.shift.userId] ?? '';
-        final label = name.isNotEmpty
-            ? '${s.shiftType.name} $name'
-            : s.shiftType.name;
-        drawPreviewTag(
-          canvas,
-          x,
-          tagY,
-          cellW,
-          label,
-          shiftColor,
-          isWork: true,
-          fontSize: 18,
-          tagHeight: 34,
-        );
-        tagY += 39;
-        tagCount++;
+      if (shifts == null || shifts.isEmpty) {
+        // 근무 없음 — 발행된 날이면 옅은 'O'(오프), 아니면 빈 셀.
+        if (coveredDays.contains(d)) {
+          final offTp = TextPainter(
+            text: TextSpan(
+              text: 'O',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _kWeekday.withValues(alpha: 0.4),
+              ),
+            ),
+            textDirection: TextDirection.ltr,
+          )..layout();
+          offTp.paint(
+            canvas,
+            Offset(
+              colX + (_kRosterDayCellW - offTp.width) / 2,
+              rowY + (_kRosterRowH - offTp.height) / 2,
+            ),
+          );
+        }
+        continue;
       }
+
+      // D → E → N → 기타 순 정렬 후 코드 라벨 구성
+      final sorted = [...shifts]
+        ..sort((a, b) {
+          final ca = canonicalShiftCode(a.shiftType.code, a.shiftType.name);
+          final cb = canonicalShiftCode(b.shiftType.code, b.shiftType.name);
+          return _rosterCodePriority(ca).compareTo(_rosterCodePriority(cb));
+        });
+      final codes = sorted
+          .map((s) => canonicalShiftCode(s.shiftType.code, s.shiftType.name))
+          .toList();
+      final color = parseHexColor(sorted.first.shiftType.color);
+      final ink = readableInk(color);
+
+      // 근무색 배경 칩 + 잉크 테두리 (앱 로스터 셀과 동일 문법)
+      final chipRect = Rect.fromLTWH(
+        colX + 3,
+        rowY + 5,
+        _kRosterDayCellW - 6,
+        _kRosterRowH - 10,
+      );
+      final rrect = RRect.fromRectAndRadius(chipRect, const Radius.circular(8));
+      canvas.drawRRect(rrect, Paint()..color = color.withValues(alpha: 0.22));
+      canvas.drawRRect(
+        rrect,
+        Paint()
+          ..color = ink.withValues(alpha: 0.55)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+
+      final labelTp = TextPainter(
+        text: TextSpan(
+          text: _rosterCellLabel(codes),
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: ink,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+        ellipsis: '‥',
+      )..layout(maxWidth: chipRect.width - 4);
+      labelTp.paint(
+        canvas,
+        Offset(
+          chipRect.left + (chipRect.width - labelTp.width) / 2,
+          chipRect.top + (chipRect.height - labelTp.height) / 2,
+        ),
+      );
     }
   }
 

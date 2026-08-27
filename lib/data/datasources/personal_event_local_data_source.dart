@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:moniq/core/utils/recurrence_rule.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'personal_event_remote_data_source.dart';
@@ -392,36 +393,14 @@ class PersonalEventLocalDataSource {
     await _prefs.setStringList(key, current);
   }
 
-  /// 반복 단위에 따라 날짜 목록 생성 (최대 1년)
-  List<DateTime> _generateRecurrenceDates(DateTime start, String? recurrence) {
-    if (recurrence == null || recurrence == 'none') {
-      return [start];
-    }
-
-    final dates = <DateTime>[start];
-    final maxDate = start.add(const Duration(days: 365));
-
-    DateTime next = start;
-    while (true) {
-      switch (recurrence) {
-        case 'daily':
-          next = next.add(const Duration(days: 1));
-        case 'weekly':
-          next = next.add(const Duration(days: 7));
-        case 'biweekly':
-          next = next.add(const Duration(days: 14));
-        case 'monthly':
-          next = DateTime(next.year, next.month + 1, start.day);
-        case 'yearly':
-          next = DateTime(next.year + 1, start.month, start.day);
-        default:
-          return dates;
-      }
-      if (next.isAfter(maxDate)) break;
-      dates.add(next);
-    }
-    return dates;
-  }
+  /// 반복 값에 따라 날짜 목록 생성.
+  ///
+  /// 레거시 값(none/daily/weekly/biweekly/monthly/yearly)은 기존과 동일하게
+  /// 최대 1년 전개하고, `custom:` 포맷은 interval/요일 집합/매달 N일·마지막
+  /// 요일/count·until 종료를 반영한다. 로직은 단위 테스트 가능한
+  /// [expandRecurrenceDates]에 있다.
+  List<DateTime> _generateRecurrenceDates(DateTime start, String? recurrence) =>
+      expandRecurrenceDates(start, recurrence);
 
   Future<void> removeEvent(DateTime date, int index) async {
     final key = _userDateKey(date);

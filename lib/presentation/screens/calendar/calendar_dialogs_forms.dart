@@ -36,23 +36,14 @@ void showEventForm(
       : startDate;
   String selectedColor = existing?.color ?? '#38A169';
   String selectedRecurrence = existing?.recurrence ?? 'none';
-  // 설명·반복은 기본 폼에서 숨겨 시트를 짧게 유지한다.
-  // 수정 시 기존 값이 있으면 해당 섹션은 처음부터 펼친 상태로 시작한다.
+  // 설명은 기본 폼에서 숨겨 시트를 짧게 유지한다.
+  // 수정 시 기존 값이 있으면 처음부터 펼친 상태로 시작한다.
   bool showDescField = descController.text.trim().isNotEmpty;
-  bool showRecurrenceField = index == null && selectedRecurrence != 'none';
+  // 더보기 칩으로 방금 연 경우에만 autofocus — 수정 진입 시 기존 설명이
+  // 있어 펼쳐진 상태에서는 키보드가 먼저 올라오지 않게 한다.
+  bool descAutofocus = false;
   // "+ 더보기" 행의 펼침 여부 — 추가 가능한 항목 칩(반복/설명) 노출 토글.
   bool moreFieldsExpanded = false;
-  // 종료 시간이 시작 이하로 선택돼 자동 보정됐을 때 안내 문구 노출.
-  bool endTimeAutoFixed = false;
-
-  const recurrenceOptions = [
-    ('none', '반복 안함'),
-    ('daily', '매일'),
-    ('weekly', '매주'),
-    ('biweekly', '2주'),
-    ('monthly', '매달'),
-    ('yearly', '매년'),
-  ];
 
   const colorOptions = [
     '#38A169',
@@ -78,8 +69,30 @@ void showEventForm(
         final cs = Theme.of(ctx).colorScheme;
         final tt = Theme.of(ctx).textTheme;
         // 더보기 행에 아직 추가할 수 있는 항목 — 반복은 새 일정에서만.
-        final canAddRecurrence = index == null && !showRecurrenceField;
+        final canAddRecurrence = index == null && selectedRecurrence == 'none';
         final canAddDesc = !showDescField;
+        final isAllDay = startTime == null && endTime == null;
+
+        // 날짜+시간을 하나의 DateTime으로 합친 값 — 휠 피커의 기준.
+        DateTime composeStart() => DateTime(
+          startDate.year,
+          startDate.month,
+          startDate.day,
+          startTime?.hour ?? 0,
+          startTime?.minute ?? 0,
+        );
+
+        // 반복 시트 열기 — 더보기 칩과 요약 행 탭이 같은 흐름을 공유한다.
+        Future<void> pickRecurrence() async {
+          final picked = await _showRecurrencePickerSheet(
+            ctx,
+            current: selectedRecurrence,
+            startDate: startDate,
+          );
+          if (picked == null) return;
+          setSheetState(() => selectedRecurrence = picked);
+        }
+
         return SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -91,6 +104,9 @@ void showEventForm(
               // 두지 않는다 — 입력창을 직접 탭했을 때만 키보드가 뜬다.
               TextField(
                 controller: titleController,
+                textCapitalization: TextCapitalization.sentences,
+                keyboardType: TextInputType.text,
+                textInputAction: TextInputAction.done,
                 maxLength: 30,
                 maxLengthEnforcement: MaxLengthEnforcement.enforced,
                 inputFormatters: [LengthLimitingTextInputFormatter(30)],
@@ -144,10 +160,9 @@ void showEventForm(
               // 일시 — 종일/시작/종료가 같은 라벨 축을 공유하는 세 줄.
               const _FormSectionLabel('일시'),
               _EventAllDayCheckbox(
-                selected: startTime == null && endTime == null,
+                selected: isAllDay,
                 onChanged: (v) {
                   setSheetState(() {
-                    endTimeAutoFixed = false;
                     if (v) {
                       startTime = null;
                       endTime = null;
@@ -159,140 +174,150 @@ void showEventForm(
                 },
               ),
               const SizedBox(height: AppSpacing.sm),
-              _EventDateTimeRow(
-                label: '시작',
-                dateField: _EventTimeButton(
-                  label: '시작일',
-                  value: formatEventDate(startDate),
-                  onTap: () async {
-                    final picked = await showMoniqDatePickerSheet(
-                      context: ctx,
-                      initialDate: startDate,
-                      firstDate: DateTime(startDate.year - 3, 1, 1),
-                      lastDate: DateTime(startDate.year + 5, 12, 31),
-                      title: '시작 일자',
-                    );
-                    if (picked == null) return;
-                    setSheetState(() {
-                      endTimeAutoFixed = false;
-                      startDate = DateTime(
-                        picked.year,
-                        picked.month,
-                        picked.day,
+              if (isAllDay) ...[
+                // 종일 — 날짜만 고르는 기존 피커 유지.
+                _EventDateTimeRow(
+                  label: '시작',
+                  dateField: _EventTimeButton(
+                    label: '시작일',
+                    value: formatEventDate(startDate),
+                    onTap: () async {
+                      final picked = await showMoniqDatePickerSheet(
+                        context: ctx,
+                        initialDate: startDate,
+                        firstDate: DateTime(startDate.year - 3, 1, 1),
+                        lastDate: DateTime(startDate.year + 5, 12, 31),
+                        title: '시작 일자',
                       );
-                      // 시작일이 종료일보다 뒤로 가면 종료일을 함께 밀어준다.
-                      if (endDate.isBefore(startDate)) {
-                        endDate = startDate;
-                      }
-                    });
-                  },
-                ),
-                timeField: _EventTimeButton(
-                  label: '시작 시간',
-                  value: startTime != null ? formatTime(startTime!) : '--:--',
-                  muted: startTime == null,
-                  onTap: () async {
-                    final picked = await showMoniqTimePickerSheet(
-                      context: ctx,
-                      initialTime: startTime ??
-                          const TimeOfDay(hour: 9, minute: 0),
-                      title: '시작 시간',
-                    );
-                    if (picked == null) return;
-                    setSheetState(() {
-                      endTimeAutoFixed = false;
-                      startTime = picked;
-                      // 종료는 항상 시작 +1시간으로 자동 설정한다.
-                      endTime = TimeOfDay(
-                        hour: (picked.hour + 1) % 24,
-                        minute: picked.minute,
-                      );
-                      // +1시간이 자정을 넘으면(23시대) 종료 일자도
-                      // 다음 날로 함께 민다. 이미 다일 일정이면 유지.
-                      if (picked.hour == 23 &&
-                          !endDate.isAfter(startDate)) {
-                        endDate = startDate.add(const Duration(days: 1));
-                      }
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              _EventDateTimeRow(
-                label: '종료',
-                dateField: _EventTimeButton(
-                  label: '종료일',
-                  value: formatEventDate(endDate),
-                  onTap: () async {
-                    // firstDate를 시작일로 제한해 시작일보다 앞선
-                    // 종료일은 아예 선택할 수 없게 한다.
-                    final picked = await showMoniqDatePickerSheet(
-                      context: ctx,
-                      initialDate: endDate.isBefore(startDate)
-                          ? startDate
-                          : endDate,
-                      firstDate: startDate,
-                      lastDate: DateTime(startDate.year + 5, 12, 31),
-                      title: '종료 일자',
-                    );
-                    if (picked == null) return;
-                    setSheetState(() {
-                      endTimeAutoFixed = false;
-                      endDate = DateTime(picked.year, picked.month, picked.day);
-                    });
-                  },
-                ),
-                timeField: _EventTimeButton(
-                  label: '종료 시간',
-                  value: endTime != null ? formatTime(endTime!) : '--:--',
-                  muted: endTime == null,
-                  onTap: () async {
-                    final picked = await showMoniqTimePickerSheet(
-                      context: ctx,
-                      initialTime: endTime ??
-                          TimeOfDay(
-                            hour: ((startTime?.hour ?? 9) + 1) % 24,
-                            minute: startTime?.minute ?? 0,
-                          ),
-                      title: '종료 시간',
-                    );
-                    if (picked == null) return;
-                    setSheetState(() {
-                      // 같은 날인데 종료가 시작 이하면 시작 +1시간으로
-                      // 자동 보정한다 (자정을 넘으면 종료일 +1일).
-                      final sameDay = !endDate.isAfter(startDate);
-                      if (sameDay &&
-                          startTime != null &&
-                          _minutesOf(picked) <= _minutesOf(startTime!)) {
-                        endTime = TimeOfDay(
-                          hour: (startTime!.hour + 1) % 24,
-                          minute: startTime!.minute,
+                      if (picked == null) return;
+                      setSheetState(() {
+                        startDate = DateTime(
+                          picked.year,
+                          picked.month,
+                          picked.day,
                         );
-                        if (startTime!.hour == 23) {
-                          endDate = startDate.add(const Duration(days: 1));
+                        // 시작일이 종료일보다 뒤로 가면 종료일을 함께 밀어준다.
+                        if (endDate.isBefore(startDate)) {
+                          endDate = startDate;
                         }
-                        endTimeAutoFixed = true;
-                      } else {
-                        endTime = picked;
-                        endTimeAutoFixed = false;
-                      }
-                    });
-                  },
-                ),
-              ),
-              // 자동 보정 안내 — 종료 행 라벨 축에 맞춰 짧게 보여준다.
-              if (endTimeAutoFixed) ...[
-                const SizedBox(height: AppSpacing.xs),
-                Padding(
-                  padding: const EdgeInsets.only(
-                    left: _eventRowLabelWidth + AppSpacing.xs,
+                      });
+                    },
                   ),
-                  child: Text(
-                    '종료가 시작보다 빨라 시작 +1시간으로 맞췄어요',
-                    style: tt.labelSmall?.copyWith(
-                      color: cs.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _EventDateTimeRow(
+                  label: '종료',
+                  dateField: _EventTimeButton(
+                    label: '종료일',
+                    value: formatEventDate(endDate),
+                    onTap: () async {
+                      // firstDate를 시작일로 제한해 시작일보다 앞선
+                      // 종료일은 아예 선택할 수 없게 한다.
+                      final picked = await showMoniqDatePickerSheet(
+                        context: ctx,
+                        initialDate: endDate.isBefore(startDate)
+                            ? startDate
+                            : endDate,
+                        firstDate: startDate,
+                        lastDate: DateTime(startDate.year + 5, 12, 31),
+                        title: '종료 일자',
+                      );
+                      if (picked == null) return;
+                      setSheetState(() {
+                        endDate = DateTime(
+                          picked.year,
+                          picked.month,
+                          picked.day,
+                        );
+                      });
+                    },
+                  ),
+                ),
+              ] else ...[
+                // 시간 사용 — 날짜·시·분·오전/오후를 한 휠에서 고른다.
+                _EventDateTimeRow(
+                  label: '시작',
+                  dateField: _EventTimeButton(
+                    label: '시작 일시',
+                    value:
+                        '${formatEventDate(startDate)}'
+                        ' ${startTime != null ? formatTime(startTime!) : '--:--'}',
+                    onTap: () async {
+                      final picked = await showMoniqDateTimePickerSheet(
+                        context: ctx,
+                        initialDateTime: composeStart(),
+                        minimumDate: DateTime(startDate.year - 3, 1, 1),
+                        maximumDate: DateTime(
+                          startDate.year + 5,
+                          12,
+                          31,
+                          23,
+                          59,
+                        ),
+                        title: '시작 일시',
+                      );
+                      if (picked == null) return;
+                      setSheetState(() {
+                        startDate = DateTime(
+                          picked.year,
+                          picked.month,
+                          picked.day,
+                        );
+                        startTime = TimeOfDay.fromDateTime(picked);
+                        // 종료는 항상 시작 +1시간 — 날짜 포함 DateTime이라
+                        // 자정을 넘어도 종료 일자가 자연히 따라간다.
+                        final end = picked.add(const Duration(hours: 1));
+                        endDate = DateTime(end.year, end.month, end.day);
+                        endTime = TimeOfDay.fromDateTime(end);
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _EventDateTimeRow(
+                  label: '종료',
+                  dateField: _EventTimeButton(
+                    label: '종료 일시',
+                    value:
+                        '${formatEventDate(endDate)}'
+                        ' ${endTime != null ? formatTime(endTime!) : '--:--'}',
+                    onTap: () async {
+                      final startAt = composeStart();
+                      // 시작 이하로는 휠 스크롤 자체가 되지 않게 막는다.
+                      final minimum = startAt.add(const Duration(minutes: 1));
+                      var initial = DateTime(
+                        endDate.year,
+                        endDate.month,
+                        endDate.day,
+                        endTime?.hour ?? startAt.hour,
+                        endTime?.minute ?? startAt.minute,
+                      );
+                      if (initial.isBefore(minimum)) {
+                        initial = startAt.add(const Duration(hours: 1));
+                      }
+                      final picked = await showMoniqDateTimePickerSheet(
+                        context: ctx,
+                        initialDateTime: initial,
+                        minimumDate: minimum,
+                        maximumDate: DateTime(
+                          startDate.year + 5,
+                          12,
+                          31,
+                          23,
+                          59,
+                        ),
+                        title: '종료 일시',
+                      );
+                      if (picked == null) return;
+                      setSheetState(() {
+                        endDate = DateTime(
+                          picked.year,
+                          picked.month,
+                          picked.day,
+                        );
+                        endTime = TimeOfDay.fromDateTime(picked);
+                      });
+                    },
                   ),
                 ),
               ],
@@ -312,14 +337,13 @@ void showEventForm(
                   }).toList(),
                 ),
               ),
-              // 반복 (새 일정만) — 기본은 숨김, 더보기에서 추가했거나
-              // 수정 중 기존 값이 있으면 인라인으로 펼친다.
-              if (showRecurrenceField) ...[
+              // 반복 — 값이 있으면 요약 라벨 행만 보여주고, 행을 탭하면
+              // 반복 시트를 다시 연다 (수정 화면에서는 표기만, 변경 불가).
+              if (selectedRecurrence != 'none') ...[
                 const SizedBox(height: AppSpacing.xl),
-                _RecurrenceField(
-                  value: selectedRecurrence,
-                  options: recurrenceOptions,
-                  onChanged: (v) => setSheetState(() => selectedRecurrence = v),
+                _RecurrenceSummaryRow(
+                  label: recurrenceSummaryLabel(selectedRecurrence),
+                  onTap: index == null ? pickRecurrence : null,
                 ),
               ],
               // 설명 — 섹션 라벨이 역할을 알려주므로 필드 안 아이콘은 뺐다.
@@ -329,6 +353,11 @@ void showEventForm(
                 TextField(
                   controller: descController,
                   maxLines: 2,
+                  // 더보기 칩으로 방금 열었을 때만 바로 타이핑 가능하게.
+                  autofocus: descAutofocus,
+                  keyboardType: TextInputType.multiline,
+                  textCapitalization: TextCapitalization.sentences,
+                  textInputAction: TextInputAction.newline,
                   style: tt.bodyMedium?.copyWith(color: cs.onSurface),
                   decoration: InputDecoration(
                     hintText: '자세한 내용 (선택)',
@@ -367,17 +396,21 @@ void showEventForm(
                   ),
                   chips: [
                     if (canAddRecurrence)
+                      // 칩을 누르면 곧바로 반복 선택 시트 — 인라인 드롭다운을
+                      // 한 번 더 누르던 중간 단계를 없앤다.
                       _AddFieldChip(
                         icon: Icons.repeat_rounded,
                         label: '반복',
-                        onTap: () =>
-                            setSheetState(() => showRecurrenceField = true),
+                        onTap: pickRecurrence,
                       ),
                     if (canAddDesc)
                       _AddFieldChip(
                         icon: Icons.notes_rounded,
                         label: '설명',
-                        onTap: () => setSheetState(() => showDescField = true),
+                        onTap: () => setSheetState(() {
+                          showDescField = true;
+                          descAutofocus = true;
+                        }),
                       ),
                   ],
                 ),
@@ -433,7 +466,12 @@ void showEventForm(
                       description: desc,
                       color: selectedColor,
                       createdAt: DateTime.now(),
-                      recurrence: index == null ? selectedRecurrence : null,
+                      // 새 일정만 반복을 전개한다. 수정 시에는 기존 반복
+                      // 표식을 보존해 "이후 일정 모두 삭제" 매칭이 깨지지
+                      // 않게 한다.
+                      recurrence: index == null
+                          ? selectedRecurrence
+                          : existing?.recurrence,
                     );
                     final container = sheetContainer(ctx);
                     final ds = container.read(personalEventDataSourceProvider);

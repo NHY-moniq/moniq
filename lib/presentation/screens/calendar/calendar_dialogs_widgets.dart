@@ -130,19 +130,13 @@ class _MiniSwitch extends StatelessWidget {
   }
 }
 
-/// 시작/종료 한 줄 — 왼쪽 라벨 축 + 오른쪽 날짜·시간 값 필드.
-/// 라벨을 행이 책임지므로 값 필드는 값만 보여주면 되고, 그만큼 테두리 박스가
-/// 반복되던 무게가 사라진다.
+/// 시작/종료 한 줄 — 왼쪽 라벨 축 + 오른쪽 값 필드 하나.
+/// 값 필드는 종일이면 날짜, 시간 사용이면 날짜+시간을 합친 단일 버튼이다.
 class _EventDateTimeRow extends StatelessWidget {
-  const _EventDateTimeRow({
-    required this.label,
-    required this.dateField,
-    required this.timeField,
-  });
+  const _EventDateTimeRow({required this.label, required this.dateField});
 
   final String label;
   final Widget dateField;
-  final Widget timeField;
 
   @override
   Widget build(BuildContext context) {
@@ -161,9 +155,7 @@ class _EventDateTimeRow extends StatelessWidget {
               ),
             ),
           ),
-          Expanded(flex: 5, child: dateField),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(flex: 4, child: timeField),
+          Expanded(child: dateField),
         ],
       ),
     );
@@ -178,15 +170,11 @@ class _EventTimeButton extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onTap,
-    this.muted = false,
   });
 
   final String label;
   final String value;
   final VoidCallback onTap;
-
-  /// 아직 정해지지 않은 값(`--:--`)일 때 톤을 낮춰 placeholder처럼 보이게 한다.
-  final bool muted;
 
   @override
   Widget build(BuildContext context) {
@@ -212,9 +200,7 @@ class _EventTimeButton extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: muted
-                      ? cs.onSurfaceVariant.withValues(alpha: 0.55)
-                      : cs.onSurface,
+                  color: cs.onSurface,
                   fontWeight: FontWeight.w400,
                   letterSpacing: 0.2,
                 ),
@@ -400,70 +386,99 @@ class _AddFieldChip extends StatelessWidget {
   }
 }
 
-/// 반복 선택 — 다른 입력과 동일한 fill bg + radius로 통일.
-class _RecurrenceField extends StatelessWidget {
-  const _RecurrenceField({
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
-
-  final String value;
-  final List<(String, String)> options;
-  final ValueChanged<String> onChanged;
-
-  /// 각 옵션 값에 매핑되는 아이콘 — 빈도의 의미를 시각적으로 보조.
-  IconData _iconFor(String val) {
-    switch (val) {
-      case 'none':
-        return Icons.do_disturb_alt_outlined;
-      case 'daily':
-        return Icons.today_outlined;
-      case 'weekly':
-        return Icons.calendar_view_week_rounded;
-      case 'biweekly':
-        return Icons.event_repeat_rounded;
-      case 'monthly':
-        return Icons.calendar_month_outlined;
-      case 'yearly':
-        return Icons.cake_outlined;
-      default:
-        return Icons.repeat_rounded;
-    }
+/// 반복 옵션 아이콘 — 빈도의 의미를 시각적으로 보조.
+IconData _recurrenceIconFor(String val) {
+  switch (val) {
+    case 'none':
+      return Icons.do_disturb_alt_outlined;
+    case 'daily':
+      return Icons.today_outlined;
+    case 'weekly':
+      return Icons.calendar_view_week_rounded;
+    case 'biweekly':
+      return Icons.event_repeat_rounded;
+    case 'monthly':
+      return Icons.calendar_month_outlined;
+    case 'yearly':
+      return Icons.cake_outlined;
+    case 'custom':
+      return Icons.tune_rounded;
+    default:
+      return Icons.repeat_rounded;
   }
+}
 
-  String _labelFor(String val) {
-    return options
-        .firstWhere((o) => o.$1 == val, orElse: () => options.first)
-        .$2;
-  }
+/// 반복 선택 바텀시트 — 원탭 옵션 + 맨 아래 "커스텀…".
+///
+/// 반환값: 선택된 반복 저장 문자열
+/// (`none`/레거시 토큰/`custom:…`), 취소 시 null.
+Future<String?> _showRecurrencePickerSheet(
+  BuildContext context, {
+  required String current,
+  required DateTime startDate,
+}) {
+  final weekday = weekdayShortKo(startDate.weekday);
+  final options = <(String, String)>[
+    ('none', '반복 안 함'),
+    ('daily', '매일'),
+    ('weekly', '매주 ($weekday요일)'),
+    ('biweekly', '2주마다'),
+    ('monthly', '매달 (${startDate.day}일)'),
+    ('yearly', '매년'),
+  ];
+  final isCustom = isCustomRecurrence(current);
 
-  Future<void> _openPicker(BuildContext context) async {
-    final selected = await showMoniqBottomSheet<String>(
-      context: context,
-      title: '일정 반복',
-      eyebrow: 'RECURRENCE',
-      child: SingleChildScrollView(
+  return showMoniqBottomSheet<String>(
+    context: context,
+    title: '일정 반복',
+    eyebrow: 'RECURRENCE',
+    maxHeightFactor: 0.8,
+    child: Builder(
+      builder: (sheetCtx) => SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final opt in options) ...[
               _RecurrenceOptionTile(
-                icon: _iconFor(opt.$1),
+                icon: _recurrenceIconFor(opt.$1),
                 label: opt.$2,
-                selected: opt.$1 == value,
+                selected: opt.$1 == current,
                 onTap: () =>
-                    Navigator.of(context, rootNavigator: true).pop(opt.$1),
+                    Navigator.of(sheetCtx, rootNavigator: true).pop(opt.$1),
               ),
               const SizedBox(height: 6),
             ],
+            _RecurrenceOptionTile(
+              icon: _recurrenceIconFor('custom'),
+              // 현재 값이 커스텀이면 그 요약을 그대로 보여줘 "지금 상태"가
+              // 어느 행인지 읽히게 한다.
+              label: isCustom ? recurrenceSummaryLabel(current) : '커스텀…',
+              selected: isCustom,
+              onTap: () async {
+                final encoded = await _showCustomRecurrenceSheet(
+                  sheetCtx,
+                  startDate: startDate,
+                  initial: isCustom ? RecurrenceRule.parse(current) : null,
+                );
+                if (encoded == null || !sheetCtx.mounted) return;
+                Navigator.of(sheetCtx, rootNavigator: true).pop(encoded);
+              },
+            ),
           ],
         ),
       ),
-    );
-    if (selected != null && selected != value) onChanged(selected);
-  }
+    ),
+  );
+}
+
+/// 폼에 표시되는 반복 요약 라벨 행 (예: "반복 · 2주마다 · 월·수").
+/// [onTap]이 있으면 탭 시 반복 시트를 다시 연다 (새 일정에서만).
+class _RecurrenceSummaryRow extends StatelessWidget {
+  const _RecurrenceSummaryRow({required this.label, this.onTap});
+
+  final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -473,14 +488,13 @@ class _RecurrenceField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 라벨은 폼의 다른 섹션과 같은 위젯을 써서 축·톤을 맞춘다.
         const _FormSectionLabel('반복'),
         Material(
           color: cs.surfaceContainerHigh,
           borderRadius: AppRadius.borderRadiusLg,
           child: InkWell(
             borderRadius: AppRadius.borderRadiusLg,
-            onTap: () => _openPicker(context),
+            onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.md,
@@ -488,23 +502,481 @@ class _RecurrenceField extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(_iconFor(value), size: 20, color: cs.onSurfaceVariant),
+                  Icon(
+                    Icons.repeat_rounded,
+                    size: 20,
+                    color: cs.onSurfaceVariant,
+                  ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
-                      _labelFor(value),
+                      label,
                       style: tt.bodyMedium?.copyWith(
                         color: cs.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
-                  Icon(Icons.expand_more_rounded, color: cs.onSurfaceVariant),
+                  if (onTap != null)
+                    Icon(Icons.expand_more_rounded, color: cs.onSurfaceVariant),
                 ],
               ),
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// 커스텀 반복 바텀시트 — 단위/주기/요일/월 기준/종료를 한 시트에서 설정한다.
+/// 확인 시 인코딩된 저장 문자열을, 취소 시 null을 반환한다.
+Future<String?> _showCustomRecurrenceSheet(
+  BuildContext context, {
+  required DateTime startDate,
+  RecurrenceRule? initial,
+}) {
+  return showMoniqBottomSheet<String>(
+    context: context,
+    title: '커스텀 반복',
+    eyebrow: 'RECURRENCE',
+    maxHeightFactor: 0.85,
+    child: _CustomRecurrenceSheetBody(startDate: startDate, initial: initial),
+  );
+}
+
+enum _RecurrenceEndMode { never, count, until }
+
+class _CustomRecurrenceSheetBody extends StatefulWidget {
+  const _CustomRecurrenceSheetBody({required this.startDate, this.initial});
+
+  final DateTime startDate;
+  final RecurrenceRule? initial;
+
+  @override
+  State<_CustomRecurrenceSheetBody> createState() =>
+      _CustomRecurrenceSheetBodyState();
+}
+
+class _CustomRecurrenceSheetBodyState
+    extends State<_CustomRecurrenceSheetBody> {
+  late RecurrenceFreq _freq;
+  late int _interval;
+  late Set<int> _weekdays;
+  late bool _monthlyLastWeekday;
+  late _RecurrenceEndMode _endMode;
+  late int _endCount;
+  late DateTime _untilDate;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _freq = initial?.freq ?? RecurrenceFreq.weekly;
+    _interval = initial?.interval ?? 1;
+    _weekdays = {
+      ...(initial != null && initial.weekdays.isNotEmpty
+          ? initial.weekdays
+          : {widget.startDate.weekday}),
+    };
+    _monthlyLastWeekday = initial?.byLastWeekday != null;
+    _endMode = initial?.count != null
+        ? _RecurrenceEndMode.count
+        : (initial?.until != null
+              ? _RecurrenceEndMode.until
+              : _RecurrenceEndMode.never);
+    _endCount = initial?.count ?? 10;
+    _untilDate = initial?.until ??
+        DateTime(
+          widget.startDate.year,
+          widget.startDate.month + 1,
+          widget.startDate.day,
+        );
+  }
+
+  /// 현재 선택을 저장 문자열로 인코딩. 단순한 조합(매주 1회 등)은
+  /// [RecurrenceRule.encode]가 레거시 토큰으로 정규화한다.
+  String _encode() {
+    final startWeekday = widget.startDate.weekday;
+    // 시작일 요일 하나뿐이면 생략 — 전개 시 시작일 요일이 기본값이라
+    // 의미가 같고, 레거시 토큰으로 정규화될 수 있다.
+    final weekdays =
+        _weekdays.length == 1 && _weekdays.contains(startWeekday)
+        ? const <int>{}
+        : _weekdays;
+    return RecurrenceRule(
+      freq: _freq,
+      interval: _interval,
+      weekdays: _freq == RecurrenceFreq.weekly ? weekdays : const <int>{},
+      byLastWeekday: _freq == RecurrenceFreq.monthly && _monthlyLastWeekday
+          ? startWeekday
+          : null,
+      count: _endMode == _RecurrenceEndMode.count ? _endCount : null,
+      until: _endMode == _RecurrenceEndMode.until ? _untilDate : null,
+    ).encode();
+  }
+
+  String get _intervalLabel {
+    final unit = switch (_freq) {
+      RecurrenceFreq.daily => '일',
+      RecurrenceFreq.weekly => '주',
+      RecurrenceFreq.monthly => '달',
+      RecurrenceFreq.yearly => '년',
+    };
+    if (_interval == 1) {
+      return switch (_freq) {
+        RecurrenceFreq.daily => '매일',
+        RecurrenceFreq.weekly => '매주',
+        RecurrenceFreq.monthly => '매달',
+        RecurrenceFreq.yearly => '매년',
+      };
+    }
+    return '$_interval$unit마다';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final startWeekdayKo = weekdayShortKo(widget.startDate.weekday);
+
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 단위 탭 — 매일/매주/매달/매년.
+          const _FormSectionLabel('단위'),
+          _SegmentedChoiceRow<RecurrenceFreq>(
+            values: RecurrenceFreq.values,
+            selected: _freq,
+            labelOf: (f) => switch (f) {
+              RecurrenceFreq.daily => '매일',
+              RecurrenceFreq.weekly => '매주',
+              RecurrenceFreq.monthly => '매달',
+              RecurrenceFreq.yearly => '매년',
+            },
+            onChanged: (f) => setState(() => _freq = f),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          // 반복 주기 (Repeat every N).
+          const _FormSectionLabel('주기'),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _intervalLabel,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              _StepperControl(
+                value: _interval,
+                min: 1,
+                max: 99,
+                onChanged: (v) => setState(() => _interval = v),
+              ),
+            ],
+          ),
+          if (_freq == RecurrenceFreq.weekly) ...[
+            const SizedBox(height: AppSpacing.xl),
+            const _FormSectionLabel('요일'),
+            _WeekdayMultiSelect(
+              selected: _weekdays,
+              onToggle: (d) => setState(() {
+                if (_weekdays.contains(d)) {
+                  // 최소 한 개 요일은 남긴다.
+                  if (_weekdays.length > 1) _weekdays.remove(d);
+                } else {
+                  _weekdays.add(d);
+                }
+              }),
+            ),
+          ],
+          if (_freq == RecurrenceFreq.monthly) ...[
+            const SizedBox(height: AppSpacing.xl),
+            const _FormSectionLabel('기준'),
+            _SegmentedChoiceRow<bool>(
+              values: const [false, true],
+              selected: _monthlyLastWeekday,
+              labelOf: (last) => last
+                  ? '마지막 $startWeekdayKo요일'
+                  : '${widget.startDate.day}일',
+              onChanged: (v) => setState(() => _monthlyLastWeekday = v),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.xl),
+          // 종료 — 안 함 / N회 후 / 특정 날짜에.
+          const _FormSectionLabel('종료'),
+          _SegmentedChoiceRow<_RecurrenceEndMode>(
+            values: _RecurrenceEndMode.values,
+            selected: _endMode,
+            labelOf: (m) => switch (m) {
+              _RecurrenceEndMode.never => '안 함',
+              _RecurrenceEndMode.count => '횟수',
+              _RecurrenceEndMode.until => '날짜',
+            },
+            onChanged: (m) => setState(() => _endMode = m),
+          ),
+          if (_endMode == _RecurrenceEndMode.count) ...[
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '$_endCount회 반복 후 종료',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                _StepperControl(
+                  value: _endCount,
+                  min: 1,
+                  max: 99,
+                  onChanged: (v) => setState(() => _endCount = v),
+                ),
+              ],
+            ),
+          ],
+          if (_endMode == _RecurrenceEndMode.until) ...[
+            const SizedBox(height: AppSpacing.md),
+            SizedBox(
+              height: 46,
+              child: _EventTimeButton(
+                label: '종료 날짜',
+                value: '${formatEventDate(_untilDate)} 까지',
+                onTap: () async {
+                  final picked = await showMoniqDatePickerSheet(
+                    context: context,
+                    initialDate: _untilDate,
+                    firstDate: widget.startDate,
+                    lastDate: DateTime(widget.startDate.year + 5, 12, 31),
+                    title: '반복 종료 날짜',
+                  );
+                  if (picked == null || !mounted) return;
+                  setState(() {
+                    _untilDate = DateTime(
+                      picked.year,
+                      picked.month,
+                      picked.day,
+                    );
+                  });
+                },
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.xxl),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.borderRadiusFull,
+                      ),
+                      side: BorderSide(color: cs.outlineVariant),
+                    ),
+                    child: const Text('취소'),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  flex: 2,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(context, _encode()),
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.borderRadiusFull,
+                      ),
+                    ),
+                    child: const Text('확인'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 가로로 꽉 차는 단일 선택 세그먼트 행 (단위/기준/종료 선택에 공용).
+class _SegmentedChoiceRow<T> extends StatelessWidget {
+  const _SegmentedChoiceRow({
+    required this.values,
+    required this.selected,
+    required this.labelOf,
+    required this.onChanged,
+  });
+
+  final List<T> values;
+  final T selected;
+  final String Function(T) labelOf;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: AppRadius.borderRadiusFull,
+      ),
+      child: Row(
+        children: [
+          for (final v in values)
+            Expanded(
+              child: Material(
+                color: v == selected ? cs.primary : Colors.transparent,
+                borderRadius: AppRadius.borderRadiusFull,
+                child: InkWell(
+                  borderRadius: AppRadius.borderRadiusFull,
+                  onTap: () => onChanged(v),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.sm,
+                    ),
+                    child: Text(
+                      labelOf(v),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: v == selected ? cs.onPrimary : cs.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// `- N +` 숫자 스테퍼 (1~99 등 좁은 범위 정수 입력).
+class _StepperControl extends StatelessWidget {
+  const _StepperControl({
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+  });
+
+  final int value;
+  final int min;
+  final int max;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    Widget button(IconData icon, bool enabled, VoidCallback onTap) {
+      return Material(
+        color: cs.surfaceContainerHigh,
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Icon(
+              icon,
+              size: 18,
+              color: enabled
+                  ? cs.onSurface
+                  : cs.onSurfaceVariant.withValues(alpha: 0.35),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        button(
+          Icons.remove_rounded,
+          value > min,
+          () => onChanged(value - 1),
+        ),
+        SizedBox(
+          width: 44,
+          child: Text(
+            '$value',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        button(
+          Icons.add_rounded,
+          value < max,
+          () => onChanged(value + 1),
+        ),
+      ],
+    );
+  }
+}
+
+/// 요일 다중 선택 칩 (일~토 순서로 표시, 값은 `DateTime.weekday`).
+class _WeekdayMultiSelect extends StatelessWidget {
+  const _WeekdayMultiSelect({required this.selected, required this.onToggle});
+
+  final Set<int> selected;
+  final ValueChanged<int> onToggle;
+
+  /// 표시 순서: 일 월 화 수 목 금 토.
+  static const _order = [7, 1, 2, 3, 4, 5, 6];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        for (final d in _order)
+          Material(
+            color: selected.contains(d) ? cs.primary : cs.surfaceContainerHigh,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: () => onToggle(d),
+              customBorder: const CircleBorder(),
+              child: SizedBox(
+                width: 40,
+                height: 40,
+                child: Center(
+                  child: Text(
+                    weekdayShortKo(d),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: selected.contains(d)
+                          ? cs.onPrimary
+                          : cs.onSurface,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/core/utils/recurrence_rule.dart';
 import 'package:moniq/core/utils/time_utils.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_event_remote_data_source.dart'
@@ -19,7 +20,7 @@ import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_date_picker_sheet.dart';
-import 'package:moniq/presentation/widgets/common/moniq_time_picker_sheet.dart';
+import 'package:moniq/presentation/widgets/common/moniq_date_time_picker_sheet.dart';
 
 import 'calendar_drawer.dart' show PersonalShiftTypeSheet;
 import 'calendar_providers.dart';
