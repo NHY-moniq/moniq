@@ -47,10 +47,15 @@ class ShiftThemeData {
   static const offBlue = Color(0xFFD5EBFF);
 
   /// 오프 테마의 "잉크" 강조색 — 옅은 하늘색을 글자/아이콘/테두리에 그대로
-  /// 쓰면 밝은 배경에서 안 보이므로, ColorScheme.primary에는 채도를 낮춘
-  /// 슬레이트블루를 쓴다 (흰 배경 대비 4.0:1, 쿨 배경 대비 3.9:1).
-  /// 나이트(#0061A4·#2196F3, 고채도 파랑)와 구분되도록 채도를 억제했다.
-  static const offBlueInk = Color(0xFF5F82A8);
+  /// 쓰면 밝은 배경에서 안 보이므로 진한 잉크색을 따로 둔다.
+  ///
+  /// 은은한 페리윙클(H225 S34 L53). 나이트(#0061A4·#2196F3)는 hue 205° 부근의
+  /// 시안 쪽 순수 파랑이라, 같은 hue대에서 채도만 낮춘 슬레이트(#5F82A8)는
+  /// "탁해진 나이트"로 읽혀 구분에 실패했다. hue를 225°로 밀어 보라 기운을
+  /// 살짝 얹으면 나란히 놓아도 한눈에 다른 색으로 인지되고, 파스텔
+  /// [offBlue](#D5EBFF)와는 같은 쿨블루 가족으로 조화된다.
+  /// 대비: 흰 배경 4.6:1, 쿨 스캐폴드(#F8FBFE) 4.4:1, offBlue 카드 위 3.8:1.
+  static const offBlueInk = Color(0xFF5E73B0);
 
   /// 오프 색 위에 얹는 글자색. [offBlue]가 아주 밝아 흰 글자는 보이지 않는다.
   static const onOffBlue = Color(0xFF1A365D);

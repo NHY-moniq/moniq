@@ -282,6 +282,124 @@ class _ColorChip extends StatelessWidget {
   }
 }
 
+/// "+ 더보기" 행 — 설명·반복처럼 기본 폼에서 숨긴 항목의 진입점.
+/// 탭하면 추가 가능한 항목 칩들이 나타나고, 칩을 누르면 해당 섹션이
+/// 폼에 인라인으로 펼쳐진다. 남은 칩이 없으면 폼에서 행 자체를 숨긴다.
+class _MoreFieldsRow extends StatelessWidget {
+  const _MoreFieldsRow({
+    required this.expanded,
+    required this.onToggle,
+    required this.chips,
+  });
+
+  final bool expanded;
+  final VoidCallback onToggle;
+  final List<Widget> chips;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onToggle,
+            borderRadius: AppRadius.borderRadiusMd,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.xs,
+                vertical: AppSpacing.sm,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 펼치면 +가 ×로 돌아가 닫기 역할임을 암시한다.
+                  AnimatedRotation(
+                    turns: expanded ? 0.125 : 0,
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOut,
+                    child: Icon(
+                      Icons.add_rounded,
+                      size: 18,
+                      color: cs.primary,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    '더보기',
+                    style: tt.labelLarge?.copyWith(
+                      color: cs.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (expanded) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: chips,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// 더보기 행에서 노출되는 추가 항목 칩 (예: 반복, 설명).
+class _AddFieldChip extends StatelessWidget {
+  const _AddFieldChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Material(
+      color: cs.surfaceContainerHigh,
+      borderRadius: AppRadius.borderRadiusFull,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.borderRadiusFull,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: cs.onSurfaceVariant),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                label,
+                style: tt.labelMedium?.copyWith(
+                  color: cs.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 반복 선택 — 다른 입력과 동일한 fill bg + radius로 통일.
 class _RecurrenceField extends StatelessWidget {
   const _RecurrenceField({

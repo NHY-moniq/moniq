@@ -36,6 +36,14 @@ void showEventForm(
       : startDate;
   String selectedColor = existing?.color ?? '#38A169';
   String selectedRecurrence = existing?.recurrence ?? 'none';
+  // 설명·반복은 기본 폼에서 숨겨 시트를 짧게 유지한다.
+  // 수정 시 기존 값이 있으면 해당 섹션은 처음부터 펼친 상태로 시작한다.
+  bool showDescField = descController.text.trim().isNotEmpty;
+  bool showRecurrenceField = index == null && selectedRecurrence != 'none';
+  // "+ 더보기" 행의 펼침 여부 — 추가 가능한 항목 칩(반복/설명) 노출 토글.
+  bool moreFieldsExpanded = false;
+  // 종료 시간이 시작 이하로 선택돼 자동 보정됐을 때 안내 문구 노출.
+  bool endTimeAutoFixed = false;
 
   const recurrenceOptions = [
     ('none', '반복 안함'),
@@ -69,6 +77,9 @@ void showEventForm(
       builder: (ctx, setSheetState) {
         final cs = Theme.of(ctx).colorScheme;
         final tt = Theme.of(ctx).textTheme;
+        // 더보기 행에 아직 추가할 수 있는 항목 — 반복은 새 일정에서만.
+        final canAddRecurrence = index == null && !showRecurrenceField;
+        final canAddDesc = !showDescField;
         return SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -136,6 +147,7 @@ void showEventForm(
                 selected: startTime == null && endTime == null,
                 onChanged: (v) {
                   setSheetState(() {
+                    endTimeAutoFixed = false;
                     if (v) {
                       startTime = null;
                       endTime = null;
@@ -162,6 +174,7 @@ void showEventForm(
                     );
                     if (picked == null) return;
                     setSheetState(() {
+                      endTimeAutoFixed = false;
                       startDate = DateTime(
                         picked.year,
                         picked.month,
@@ -187,11 +200,19 @@ void showEventForm(
                     );
                     if (picked == null) return;
                     setSheetState(() {
+                      endTimeAutoFixed = false;
                       startTime = picked;
-                      endTime ??= TimeOfDay(
+                      // 종료는 항상 시작 +1시간으로 자동 설정한다.
+                      endTime = TimeOfDay(
                         hour: (picked.hour + 1) % 24,
                         minute: picked.minute,
                       );
+                      // +1시간이 자정을 넘으면(23시대) 종료 일자도
+                      // 다음 날로 함께 민다. 이미 다일 일정이면 유지.
+                      if (picked.hour == 23 &&
+                          !endDate.isAfter(startDate)) {
+                        endDate = startDate.add(const Duration(days: 1));
+                      }
                     });
                   },
                 ),
@@ -216,6 +237,7 @@ void showEventForm(
                     );
                     if (picked == null) return;
                     setSheetState(() {
+                      endTimeAutoFixed = false;
                       endDate = DateTime(picked.year, picked.month, picked.day);
                     });
                   },
@@ -235,10 +257,45 @@ void showEventForm(
                       title: '종료 시간',
                     );
                     if (picked == null) return;
-                    setSheetState(() => endTime = picked);
+                    setSheetState(() {
+                      // 같은 날인데 종료가 시작 이하면 시작 +1시간으로
+                      // 자동 보정한다 (자정을 넘으면 종료일 +1일).
+                      final sameDay = !endDate.isAfter(startDate);
+                      if (sameDay &&
+                          startTime != null &&
+                          _minutesOf(picked) <= _minutesOf(startTime!)) {
+                        endTime = TimeOfDay(
+                          hour: (startTime!.hour + 1) % 24,
+                          minute: startTime!.minute,
+                        );
+                        if (startTime!.hour == 23) {
+                          endDate = startDate.add(const Duration(days: 1));
+                        }
+                        endTimeAutoFixed = true;
+                      } else {
+                        endTime = picked;
+                        endTimeAutoFixed = false;
+                      }
+                    });
                   },
                 ),
               ),
+              // 자동 보정 안내 — 종료 행 라벨 축에 맞춰 짧게 보여준다.
+              if (endTimeAutoFixed) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: _eventRowLabelWidth + AppSpacing.xs,
+                  ),
+                  child: Text(
+                    '종료가 시작보다 빨라 시작 +1시간으로 맞췄어요',
+                    style: tt.labelSmall?.copyWith(
+                      color: cs.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: AppSpacing.xl),
               // 색상
               const _FormSectionLabel('색상'),
@@ -255,45 +312,74 @@ void showEventForm(
                   }).toList(),
                 ),
               ),
-              const SizedBox(height: AppSpacing.xl),
-              // 설명 — 섹션 라벨이 역할을 알려주므로 필드 안 아이콘은 뺐다.
-              const _FormSectionLabel('설명'),
-              TextField(
-                controller: descController,
-                maxLines: 2,
-                style: tt.bodyMedium?.copyWith(color: cs.onSurface),
-                decoration: InputDecoration(
-                  hintText: '자세한 내용 (선택)',
-                  hintStyle: tt.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-                  ),
-                  filled: true,
-                  fillColor: cs.surfaceContainerHigh,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
-                    vertical: AppSpacing.md,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: AppRadius.borderRadiusLg,
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: AppRadius.borderRadiusLg,
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: AppRadius.borderRadiusLg,
-                    borderSide: BorderSide(color: cs.primary, width: 1.5),
-                  ),
-                ),
-              ),
-              // 반복 설정 (새 일정만)
-              if (index == null) ...[
+              // 반복 (새 일정만) — 기본은 숨김, 더보기에서 추가했거나
+              // 수정 중 기존 값이 있으면 인라인으로 펼친다.
+              if (showRecurrenceField) ...[
                 const SizedBox(height: AppSpacing.xl),
                 _RecurrenceField(
                   value: selectedRecurrence,
                   options: recurrenceOptions,
                   onChanged: (v) => setSheetState(() => selectedRecurrence = v),
+                ),
+              ],
+              // 설명 — 섹션 라벨이 역할을 알려주므로 필드 안 아이콘은 뺐다.
+              if (showDescField) ...[
+                const SizedBox(height: AppSpacing.xl),
+                const _FormSectionLabel('설명'),
+                TextField(
+                  controller: descController,
+                  maxLines: 2,
+                  style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+                  decoration: InputDecoration(
+                    hintText: '자세한 내용 (선택)',
+                    hintStyle: tt.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                    ),
+                    filled: true,
+                    fillColor: cs.surfaceContainerHigh,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.md,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: AppRadius.borderRadiusLg,
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.borderRadiusLg,
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.borderRadiusLg,
+                      borderSide: BorderSide(color: cs.primary, width: 1.5),
+                    ),
+                  ),
+                ),
+              ],
+              // "+ 더보기" — 숨긴 항목이 남아 있을 때만 노출.
+              // 두 항목이 모두 추가되면 행 자체가 사라진다.
+              if (canAddRecurrence || canAddDesc) ...[
+                const SizedBox(height: AppSpacing.lg),
+                _MoreFieldsRow(
+                  expanded: moreFieldsExpanded,
+                  onToggle: () => setSheetState(
+                    () => moreFieldsExpanded = !moreFieldsExpanded,
+                  ),
+                  chips: [
+                    if (canAddRecurrence)
+                      _AddFieldChip(
+                        icon: Icons.repeat_rounded,
+                        label: '반복',
+                        onTap: () =>
+                            setSheetState(() => showRecurrenceField = true),
+                      ),
+                    if (canAddDesc)
+                      _AddFieldChip(
+                        icon: Icons.notes_rounded,
+                        label: '설명',
+                        onTap: () => setSheetState(() => showDescField = true),
+                      ),
+                  ],
                 ),
               ],
               const SizedBox(height: AppSpacing.xxl),
