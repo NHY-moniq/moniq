@@ -34,6 +34,15 @@ void refreshAll(WidgetRef ref, DateTime date) {
   ref.read(eventRefreshProvider.notifier).state++;
 }
 
+/// 바텀시트 저장 핸들러용 컨테이너.
+///
+/// 시트를 띄운 화면의 [WidgetRef]를 클로저로 잡으면 그 화면이 리빌드/이탈로
+/// dispose됐을 때 "Cannot use ref after the widget was disposed"로 저장이
+/// 실패한다. 시트 자신의 context에서 컨테이너를 얻으면 호출자 수명과 무관하게
+/// 안전하다.
+ProviderContainer sheetContainer(BuildContext ctx) =>
+    ProviderScope.containerOf(ctx, listen: false);
+
 TimeOfDay parseTime(String time) {
   final parts = time.split(':');
   return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));

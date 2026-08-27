@@ -349,7 +349,8 @@ void showEventForm(
                       createdAt: DateTime.now(),
                       recurrence: index == null ? selectedRecurrence : null,
                     );
-                    final ds = ref.read(personalEventDataSourceProvider);
+                    final container = sheetContainer(ctx);
+                    final ds = container.read(personalEventDataSourceProvider);
                     if (index == null) {
                       await ds.addEvent(event);
                     } else if (startDate != baseDate) {
@@ -360,7 +361,7 @@ void showEventForm(
                     } else {
                       await ds.updateEvent(date, index, event);
                     }
-                    refreshAll(ref, date);
+                    container.read(eventRefreshProvider.notifier).state++;
                     if (ctx.mounted) Navigator.pop(ctx);
                   },
                   style: FilledButton.styleFrom(
@@ -435,13 +436,14 @@ void showNoteForm(
                     );
                     return;
                   }
-                  final ds = ref.read(personalNoteDataSourceProvider);
+                  final container = sheetContainer(ctx);
+                  final ds = container.read(personalNoteDataSourceProvider);
                   if (index == null) {
                     await ds.addNote(date, text);
                   } else {
                     await ds.updateNote(date, index, text);
                   }
-                  refreshAll(ref, date);
+                  container.read(eventRefreshProvider.notifier).state++;
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
                 style: ElevatedButton.styleFrom(
@@ -525,7 +527,10 @@ void showEventEditWithShiftTypes(
                             ? BorderSide(color: color, width: 1.5)
                             : null,
                         onPressed: () {
-                          final ds = ref.read(personalEventDataSourceProvider);
+                          final container = sheetContainer(ctx);
+                          final ds = container.read(
+                            personalEventDataSourceProvider,
+                          );
                           final updated = PersonalEvent(
                             date: DateTime(date.year, date.month, date.day),
                             title: st.name,
@@ -535,7 +540,7 @@ void showEventEditWithShiftTypes(
                             createdAt: DateTime.now(),
                           );
                           ds.updateEvent(date, index, updated);
-                          refreshAll(ref, date);
+                          container.read(eventRefreshProvider.notifier).state++;
                           Navigator.pop(ctx);
                         },
                       );
