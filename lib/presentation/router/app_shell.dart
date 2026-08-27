@@ -394,6 +394,9 @@ class _FixedSidebar extends StatelessWidget {
             icon: isActive ? item.activeIcon : item.icon,
             label: item.label,
             isActive: isActive,
+            // 사이드바 활성 표시는 글자·아이콘·도트(잉크 용도)가 주인공이고
+            // 배경은 10% 워시뿐이라 primary(오프면 잉크 파랑)를 유지한다.
+            // cardColor(파스텔)를 쓰면 흰 사이드바 위에서 글자가 안 보인다.
             activeColor: shiftTheme.primary,
             onTap: () => onTabSelect(index),
           );
@@ -1491,7 +1494,10 @@ class _FloatingNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final activeColor = shiftTheme.primary;
+    // 활성 pill은 면 요소 — 오프면 파스텔(cardColor #D5EBFF), 그 위 아이콘·
+    // 라벨은 onPrimary(오프면 잉크 남색 #1A365D). 오프 외 시프트는
+    // cardColor == primary라 기존 모습 그대로다.
+    final activeColor = shiftTheme.cardColor;
     final activeTextColor = shiftTheme.onPrimary;
     final inactiveColor = colorScheme.onSurface.withValues(alpha: 0.6);
 

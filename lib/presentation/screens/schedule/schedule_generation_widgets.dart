@@ -129,7 +129,11 @@ class _MemberSwitchTile extends StatelessWidget {
                 child: Switch.adaptive(
                   value: !isExcluded,
                   onChanged: (_) => onToggle(),
-                  activeTrackColor: colorScheme.primary,
+                  // 활성 트랙은 면 색(ShiftFillColors.fill) — 오프면
+                  // 파스텔, 다른 시프트는 fill == primary라 기존과 동일.
+                  activeTrackColor:
+                      Theme.of(context).extension<ShiftFillColors>()?.fill ??
+                      colorScheme.primary,
                   activeThumbColor: colorScheme.surface,
                   inactiveTrackColor: colorScheme.outlineVariant.withValues(
                     alpha: 0.9,

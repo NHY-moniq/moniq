@@ -545,6 +545,120 @@ class PersonalEventLocalDataSource {
     }
   }
 
+  /// 같은 반복 그룹인지 판별.
+  ///
+  /// 반복 일정은 생성 시점에 각 회차가 개별 행으로 전개 저장되며, 모든
+  /// 회차가 같은 `createdAt`과 같은 `recurrence` 문자열을 공유한다. 여기에
+  /// (수정 전) 제목까지 세 값이 모두 같으면 한 그룹으로 본다.
+  /// 레거시 데이터는 createdAt이 없을 수 있어, 어느 한쪽이라도 null이면
+  /// 제목+반복만으로 판별한다 ([removeRecurringEventsFrom]과 같은 기준).
+  static bool _isSameRecurrenceGroup(
+    PersonalEvent e, {
+    required String title,
+    required String recurrence,
+    DateTime? createdAt,
+  }) {
+    if (e.title != title || e.recurrence != recurrence) return false;
+    if (createdAt == null || e.createdAt == null) return true;
+    return e.createdAt!.isAtSameMomentAs(createdAt);
+  }
+
+  /// [fromDate](당일 포함) 이후 1년 안의 같은 반복 그룹 회차를 날짜순으로
+  /// 조회한다. 각 항목은 저장 위치(originDate/originIndex)를 함께 담는다.
+  List<PersonalEventOccurrence> getRecurringEventsFrom({
+    required DateTime fromDate,
+    required String title,
+    required String recurrence,
+    DateTime? createdAt,
+  }) {
+    final out = <PersonalEventOccurrence>[];
+    var current = _dateOnly(fromDate);
+    final maxDate = _addDays(current, 366);
+    while (!current.isAfter(maxDate)) {
+      final events = getEvents(current);
+      for (var i = 0; i < events.length; i++) {
+        if (_isSameRecurrenceGroup(
+          events[i],
+          title: title,
+          recurrence: recurrence,
+          createdAt: createdAt,
+        )) {
+          out.add(PersonalEventOccurrence(
+            event: events[i],
+            originDate: current,
+            originIndex: i,
+            isContinuation: false,
+          ));
+        }
+      }
+      current = _addDays(current, 1);
+    }
+    return out;
+  }
+
+  /// [fromDate] 당일 포함 이후의 같은 반복 그룹 회차 전체에 [template]의
+  /// 내용을 적용한다. 적용 필드: 제목·시작/종료 시간·색상·설명·기간 길이
+  /// (template의 endDate-date 일수). **각 회차의 날짜 자체는 유지**되고,
+  /// 그룹 판별 키(createdAt·recurrence)도 원본 값을 보존해 이후의
+  /// "모두 수정/삭제"가 계속 같은 그룹을 찾을 수 있게 한다.
+  ///
+  /// 원격 반영은 [updateEvent]와 같은 경로 — id가 있으면 update,
+  /// 없으면(로컬 전용) insert 후 발급 id를 채운다. 실패해도 로컬은 반영.
+  ///
+  /// 반환값: 변경된 회차 수.
+  Future<int> updateRecurringEventsFrom({
+    required DateTime fromDate,
+    required String title,
+    required String recurrence,
+    DateTime? createdAt,
+    required PersonalEvent template,
+  }) async {
+    final spanDays = template.endDate != null
+        ? _dateOnly(template.endDate!)
+            .difference(_dateOnly(template.date))
+            .inDays
+        : 0;
+    await _rememberSpan(template);
+
+    final matches = getRecurringEventsFrom(
+      fromDate: fromDate,
+      title: title,
+      recurrence: recurrence,
+      createdAt: createdAt,
+    );
+    var updatedCount = 0;
+    for (final m in matches) {
+      final old = m.event;
+      var updated = PersonalEvent(
+        id: old.id,
+        date: old.date,
+        title: template.title,
+        endDate: spanDays > 0 ? _addDays(old.date, spanDays) : null,
+        startTime: template.startTime,
+        endTime: template.endTime,
+        description: template.description,
+        color: template.color,
+        createdAt: old.createdAt,
+        recurrence: old.recurrence,
+      );
+      try {
+        if (updated.id != null) {
+          await _remote.update(updated);
+        } else {
+          updated = await _remote.insert(updated);
+        }
+      } catch (_) {}
+      final key = _userDateKey(m.originDate);
+      final list = _prefs.getStringList(key) ?? [];
+      if (m.originIndex < list.length) {
+        list[m.originIndex] = jsonEncode(updated.toJson());
+        await _prefs.setStringList(key, list);
+        updatedCount++;
+      }
+    }
+    return updatedCount;
+  }
+
   Future<void> updateEvent(DateTime date, int index, PersonalEvent event) async {
     await _rememberSpan(event);
     final key = _userDateKey(date);

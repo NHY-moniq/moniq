@@ -11,6 +11,7 @@ import 'package:moniq/data/models/team_member_with_user.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/viewmodels/schedule_generation_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';

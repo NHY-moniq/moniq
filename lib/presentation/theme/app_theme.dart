@@ -30,6 +30,18 @@ abstract final class AppTheme {
                   Brightness.dark
               ? Colors.white
               : shift.onPrimary);
+    // 면(fill) 강조색 — 채움 버튼 배경·스위치 활성 트랙처럼 "면적이 큰"
+    // 요소 전용. 오프만 cardColor(파스텔 #D5EBFF)가 primary(잉크)와 달라
+    // 옅어지고, 나머지 시프트는 cardColor == primary라 기존과 동일하다.
+    final fill = shift?.cardColor ?? primary;
+    // fill 위 글자색 — onPrimary와 같은 규칙을 cardColor 기준으로 적용.
+    // (오프 파스텔 위에서는 흰 글자가 안 보이므로 잉크 남색 #1A365D)
+    final onFill = shift == null
+        ? onPrimary
+        : (ThemeData.estimateBrightnessForColor(shift.cardColor) ==
+                  Brightness.dark
+              ? Colors.white
+              : shift.onPrimary);
     // primaryContainer(아이콘 배지 등)는 시프트 색을 옅게 깐다.
     final primaryContainer =
         shift == null ? AppColors.primaryContainer : _tint(primary, 0.88);
@@ -102,6 +114,9 @@ abstract final class AppTheme {
       colorScheme: colorScheme,
       textTheme: textTheme,
       scaffoldBackgroundColor: background,
+      // 면 색을 위젯에서 직접 조회할 수 있게 노출한다.
+      // (트랙 색을 명시해야 하는 Switch.adaptive 소비처 등)
+      extensions: [ShiftFillColors(fill: fill, onFill: onFill)],
       appBarTheme: AppBarTheme(
         backgroundColor: surface.withValues(alpha: 0.8),
         foregroundColor: AppColors.onSurface,
@@ -113,18 +128,36 @@ abstract final class AppTheme {
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
+        // 주요 채움 CTA(저장·발행하기류)는 면 요소 — 오프면 파스텔 배경에
+        // 잉크 남색 글자, 다른 시프트는 fill == primary라 기존과 동일.
         style: ElevatedButton.styleFrom(
-          backgroundColor: primary,
-          foregroundColor: onPrimary,
+          backgroundColor: fill,
+          foregroundColor: onFill,
           minimumSize: const Size.fromHeight(AppSizing.buttonHeight),
           shape: RoundedRectangleBorder(
             borderRadius: AppRadius.borderRadiusFull,
           ),
           elevation: 4,
-          shadowColor: primary.withValues(alpha: 0.3),
+          shadowColor: fill.withValues(alpha: 0.3),
           textStyle: AppTypography.labelLarge,
         ),
       ),
+      // 스위치 활성 트랙도 면 요소라 fill을 따른다. 비활성 상태(null)는
+      // 플랫폼 기본값 그대로. 면과 잉크가 갈라진 시프트(현재는 오프)에만
+      // 테마를 얹는다 — 무조건 얹으면 iOS의 Switch.adaptive가 쓰던
+      // Cupertino 기본 트랙(초록)까지 다른 시프트에서 primary로 바뀐다.
+      switchTheme: fill == primary
+          ? null
+          : SwitchThemeData(
+              trackColor: WidgetStateProperty.resolveWith(
+                (states) =>
+                    states.contains(WidgetState.selected) ? fill : null,
+              ),
+              thumbColor: WidgetStateProperty.resolveWith(
+                (states) =>
+                    states.contains(WidgetState.selected) ? onFill : null,
+              ),
+            ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.onSurface,

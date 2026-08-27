@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 
 // ── 우선순위 항목 모델 ──
 
@@ -126,10 +127,14 @@ class ScheduleRulePatternToggleRow extends StatelessWidget {
               ),
             ),
           ),
+          // 활성 트랙은 면 색(ShiftFillColors.fill) — 오프면 파스텔,
+          // 다른 시프트는 fill == primary라 기존과 동일.
           Switch.adaptive(
             value: value,
             onChanged: readOnly ? null : onChanged,
-            activeTrackColor: colorScheme.primary,
+            activeTrackColor:
+                Theme.of(context).extension<ShiftFillColors>()?.fill ??
+                colorScheme.primary,
           ),
         ],
       ),
@@ -181,10 +186,13 @@ class ScheduleRuleToggleRow extends StatelessWidget {
               ],
             ),
           ),
+          // 활성 트랙은 면 색(ShiftFillColors.fill) — 오프면 파스텔.
           Switch.adaptive(
             value: value,
             onChanged: readOnly ? null : onChanged,
-            activeTrackColor: Theme.of(context).colorScheme.primary,
+            activeTrackColor:
+                Theme.of(context).extension<ShiftFillColors>()?.fill ??
+                Theme.of(context).colorScheme.primary,
           ),
         ],
       ),

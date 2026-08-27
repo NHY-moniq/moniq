@@ -81,6 +81,44 @@ void showEventForm(
           startTime?.hour ?? 0,
           startTime?.minute ?? 0,
         );
+        DateTime composeEnd() => DateTime(
+          endDate.year,
+          endDate.month,
+          endDate.day,
+          endTime?.hour ?? 0,
+          endTime?.minute ?? 0,
+        );
+
+        // 통합 시트 — 시작·종료를 헤더 탭으로 오가며 한 번의 확인으로
+        // 두 값을 함께 반영한다. 취소하면 둘 다 원복.
+        Future<void> pickRange() async {
+          final picked = await showMoniqDateTimeRangePickerSheet(
+            context: ctx,
+            initialStart: composeStart(),
+            initialEnd: composeEnd(),
+            allDay: isAllDay,
+            minimumDate: DateTime(startDate.year - 3, 1, 1),
+            maximumDate: DateTime(startDate.year + 5, 12, 31, 23, 59),
+            title: isAllDay ? '기간 선택' : '일시 선택',
+          );
+          if (picked == null) return;
+          setSheetState(() {
+            startDate = DateTime(
+              picked.start.year,
+              picked.start.month,
+              picked.start.day,
+            );
+            endDate = DateTime(
+              picked.end.year,
+              picked.end.month,
+              picked.end.day,
+            );
+            if (!isAllDay) {
+              startTime = TimeOfDay.fromDateTime(picked.start);
+              endTime = TimeOfDay.fromDateTime(picked.end);
+            }
+          });
+        }
 
         // 반복 시트 열기 — 더보기 칩과 요약 행 탭이 같은 흐름을 공유한다.
         Future<void> pickRecurrence() async {
@@ -174,153 +212,18 @@ void showEventForm(
                 },
               ),
               const SizedBox(height: AppSpacing.sm),
-              if (isAllDay) ...[
-                // 종일 — 날짜만 고르는 기존 피커 유지.
-                _EventDateTimeRow(
-                  label: '시작',
-                  dateField: _EventTimeButton(
-                    label: '시작일',
-                    value: formatEventDate(startDate),
-                    onTap: () async {
-                      final picked = await showMoniqDatePickerSheet(
-                        context: ctx,
-                        initialDate: startDate,
-                        firstDate: DateTime(startDate.year - 3, 1, 1),
-                        lastDate: DateTime(startDate.year + 5, 12, 31),
-                        title: '시작 일자',
-                      );
-                      if (picked == null) return;
-                      setSheetState(() {
-                        startDate = DateTime(
-                          picked.year,
-                          picked.month,
-                          picked.day,
-                        );
-                        // 시작일이 종료일보다 뒤로 가면 종료일을 함께 밀어준다.
-                        if (endDate.isBefore(startDate)) {
-                          endDate = startDate;
-                        }
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _EventDateTimeRow(
-                  label: '종료',
-                  dateField: _EventTimeButton(
-                    label: '종료일',
-                    value: formatEventDate(endDate),
-                    onTap: () async {
-                      // firstDate를 시작일로 제한해 시작일보다 앞선
-                      // 종료일은 아예 선택할 수 없게 한다.
-                      final picked = await showMoniqDatePickerSheet(
-                        context: ctx,
-                        initialDate: endDate.isBefore(startDate)
-                            ? startDate
-                            : endDate,
-                        firstDate: startDate,
-                        lastDate: DateTime(startDate.year + 5, 12, 31),
-                        title: '종료 일자',
-                      );
-                      if (picked == null) return;
-                      setSheetState(() {
-                        endDate = DateTime(
-                          picked.year,
-                          picked.month,
-                          picked.day,
-                        );
-                      });
-                    },
-                  ),
-                ),
-              ] else ...[
-                // 시간 사용 — 날짜·시·분·오전/오후를 한 휠에서 고른다.
-                _EventDateTimeRow(
-                  label: '시작',
-                  dateField: _EventTimeButton(
-                    label: '시작 일시',
-                    value:
-                        '${formatEventDate(startDate)}'
-                        ' ${startTime != null ? formatTime(startTime!) : '--:--'}',
-                    onTap: () async {
-                      final picked = await showMoniqDateTimePickerSheet(
-                        context: ctx,
-                        initialDateTime: composeStart(),
-                        minimumDate: DateTime(startDate.year - 3, 1, 1),
-                        maximumDate: DateTime(
-                          startDate.year + 5,
-                          12,
-                          31,
-                          23,
-                          59,
-                        ),
-                        title: '시작 일시',
-                      );
-                      if (picked == null) return;
-                      setSheetState(() {
-                        startDate = DateTime(
-                          picked.year,
-                          picked.month,
-                          picked.day,
-                        );
-                        startTime = TimeOfDay.fromDateTime(picked);
-                        // 종료는 항상 시작 +1시간 — 날짜 포함 DateTime이라
-                        // 자정을 넘어도 종료 일자가 자연히 따라간다.
-                        final end = picked.add(const Duration(hours: 1));
-                        endDate = DateTime(end.year, end.month, end.day);
-                        endTime = TimeOfDay.fromDateTime(end);
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _EventDateTimeRow(
-                  label: '종료',
-                  dateField: _EventTimeButton(
-                    label: '종료 일시',
-                    value:
-                        '${formatEventDate(endDate)}'
-                        ' ${endTime != null ? formatTime(endTime!) : '--:--'}',
-                    onTap: () async {
-                      final startAt = composeStart();
-                      // 시작 이하로는 휠 스크롤 자체가 되지 않게 막는다.
-                      final minimum = startAt.add(const Duration(minutes: 1));
-                      var initial = DateTime(
-                        endDate.year,
-                        endDate.month,
-                        endDate.day,
-                        endTime?.hour ?? startAt.hour,
-                        endTime?.minute ?? startAt.minute,
-                      );
-                      if (initial.isBefore(minimum)) {
-                        initial = startAt.add(const Duration(hours: 1));
-                      }
-                      final picked = await showMoniqDateTimePickerSheet(
-                        context: ctx,
-                        initialDateTime: initial,
-                        minimumDate: minimum,
-                        maximumDate: DateTime(
-                          startDate.year + 5,
-                          12,
-                          31,
-                          23,
-                          59,
-                        ),
-                        title: '종료 일시',
-                      );
-                      if (picked == null) return;
-                      setSheetState(() {
-                        endDate = DateTime(
-                          picked.year,
-                          picked.month,
-                          picked.day,
-                        );
-                        endTime = TimeOfDay.fromDateTime(picked);
-                      });
-                    },
-                  ),
-                ),
-              ],
+              // 시작 → 종료가 함께 보이는 단일 행 — 탭하면 통합 시트가 열린다.
+              _EventRangeButton(
+                startValue: isAllDay
+                    ? formatEventDate(startDate)
+                    : '${formatEventDate(startDate)}'
+                          ' ${startTime != null ? formatTime(startTime!) : '--:--'}',
+                endValue: isAllDay
+                    ? formatEventDate(endDate)
+                    : '${formatEventDate(endDate)}'
+                          ' ${endTime != null ? formatTime(endTime!) : '--:--'}',
+                onTap: pickRange,
+              ),
               const SizedBox(height: AppSpacing.xl),
               // 색상
               const _FormSectionLabel('색상'),
@@ -473,6 +376,13 @@ void showEventForm(
                           ? selectedRecurrence
                           : existing?.recurrence,
                     );
+                    // 반복 일정 수정인지 — 전개 저장된 회차는 recurrence
+                    // 표식을 공유하므로 이 값만으로 그룹 소속을 알 수 있다.
+                    final isRecurringEdit =
+                        index != null &&
+                        existing?.recurrence != null &&
+                        existing!.recurrence != 'none';
+
                     final container = sheetContainer(ctx);
                     final ds = container.read(personalEventDataSourceProvider);
                     if (index == null) {
@@ -480,8 +390,26 @@ void showEventForm(
                     } else if (startDate != baseDate) {
                       // 시작 일자가 바뀌면 저장되는 날짜 키 자체가 달라지므로
                       // 기존 항목을 지우고 새 날짜로 다시 등록한다.
+                      // 반복 일정이라도 날짜를 옮긴 수정은 회차별 날짜 축과
+                      // 어긋나므로 "이 일정만"으로만 처리한다 (질문 없음).
                       await ds.removeEvent(baseDate, index);
                       await ds.addEvent(event);
+                    } else if (isRecurringEdit) {
+                      // 저장 직전에 적용 범위를 묻는다 — 취소하면 폼 유지.
+                      final scope = await _showRecurringEditScopeSheet(ctx);
+                      if (scope == null) return;
+                      if (scope == _RecurringEditScope.thisAndFollowing) {
+                        await ds.updateRecurringEventsFrom(
+                          fromDate: baseDate,
+                          // 그룹 판별은 수정 **전** 값 기준.
+                          title: existing.title,
+                          recurrence: existing.recurrence!,
+                          createdAt: existing.createdAt,
+                          template: event,
+                        );
+                      } else {
+                        await ds.updateEvent(date, index, event);
+                      }
                     } else {
                       await ds.updateEvent(date, index, event);
                     }
@@ -506,6 +434,65 @@ void showEventForm(
               ),
             ],
           ),
+        );
+      },
+    ),
+  );
+}
+
+/// 반복 일정 수정의 적용 범위.
+enum _RecurringEditScope { onlyThis, thisAndFollowing }
+
+/// 반복 일정 저장 직전에 적용 범위를 묻는 확인 시트.
+/// 반환: 선택된 범위, 취소(버튼/스와이프/배리어) 시 null.
+Future<_RecurringEditScope?> _showRecurringEditScopeSheet(
+  BuildContext context,
+) {
+  return showMoniqBottomSheet<_RecurringEditScope>(
+    context: context,
+    eyebrow: 'RECURRENCE',
+    title: '반복 일정 수정',
+    child: Builder(
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            MoniqSheetOption(
+              icon: Icons.event_rounded,
+              label: '이 일정만 수정',
+              description: '이 날짜의 일정에만 변경 내용을 적용합니다',
+              trailing: const SizedBox.shrink(),
+              onTap: () =>
+                  Navigator.pop(ctx, _RecurringEditScope.onlyThis),
+            ),
+            MoniqSheetOption(
+              icon: Icons.repeat_rounded,
+              label: '이후 반복 일정 모두 수정',
+              description: '이 일정과 이후의 모든 반복 일정에 적용합니다',
+              trailing: const SizedBox.shrink(),
+              onTap: () =>
+                  Navigator.pop(ctx, _RecurringEditScope.thisAndFollowing),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.borderRadiusFull,
+                ),
+                side: BorderSide(color: cs.outlineVariant),
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                '취소',
+                style: Theme.of(ctx).textTheme.labelLarge?.copyWith(
+                  color: cs.onSurface,
+                ),
+              ),
+            ),
+          ],
         );
       },
     ),

@@ -94,8 +94,13 @@ class _MiniSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // 스위치 트랙은 "면" 요소 — 오프처럼 면(cardColor)과 잉크(primary)가
+    // 갈라진 시프트에서는 파스텔 면색을 쓴다 (ShiftFillColors 참고).
+    final fills = Theme.of(context).extension<ShiftFillColors>();
+    final trackOn = fills?.fill ?? cs.primary;
+    final knobOn = fills?.onFill ?? cs.onPrimary;
     final knobColor = on
-        ? cs.onPrimary
+        ? knobOn
         : (cs.brightness == Brightness.dark
               ? cs.onSurface
               : cs.surfaceContainerLowest);
@@ -108,7 +113,7 @@ class _MiniSwitch extends StatelessWidget {
       padding: const EdgeInsets.all(3),
       alignment: on ? Alignment.centerRight : Alignment.centerLeft,
       decoration: BoxDecoration(
-        color: on ? cs.primary : cs.onSurfaceVariant.withValues(alpha: 0.22),
+        color: on ? trackOn : cs.onSurfaceVariant.withValues(alpha: 0.22),
         borderRadius: AppRadius.borderRadiusFull,
       ),
       child: Container(
@@ -130,33 +135,73 @@ class _MiniSwitch extends StatelessWidget {
   }
 }
 
-/// 시작/종료 한 줄 — 왼쪽 라벨 축 + 오른쪽 값 필드 하나.
-/// 값 필드는 종일이면 날짜, 시간 사용이면 날짜+시간을 합친 단일 버튼이다.
-class _EventDateTimeRow extends StatelessWidget {
-  const _EventDateTimeRow({required this.label, required this.dateField});
+/// 일시 영역의 단일 진입점 — "시작 → 종료" 두 값이 함께 보이는 한 줄 버튼.
+/// 탭하면 시작·종료를 한 시트에서 오가며 고르는 통합 피커가 열린다.
+class _EventRangeButton extends StatelessWidget {
+  const _EventRangeButton({
+    required this.startValue,
+    required this.endValue,
+    required this.onTap,
+  });
 
-  final String label;
-  final Widget dateField;
+  final String startValue;
+  final String endValue;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 46,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: _eventRowLabelWidth,
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final valueStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: cs.onSurface,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.2,
+    );
+
+    return Semantics(
+      button: true,
+      label: '일시',
+      value: '$startValue부터 $endValue까지',
+      child: Material(
+        color: cs.surfaceContainerHigh,
+        borderRadius: AppRadius.borderRadiusMd,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.borderRadiusMd,
+          child: SizedBox(
+            height: 46,
             child: Padding(
-              padding: const EdgeInsets.only(left: AppSpacing.xs),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(label, style: _eventRowLabelStyle(context)),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      startValue,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: valueStyle,
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 16,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  Expanded(
+                    child: Text(
+                      endValue,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: valueStyle,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          Expanded(child: dateField),
-        ],
+        ),
       ),
     );
   }
