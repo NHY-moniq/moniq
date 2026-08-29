@@ -203,9 +203,15 @@ class MyAnnouncementsScreen extends HookConsumerWidget {
       return;
     }
     String? teamId;
+    final filterTeamId = ref.read(selectedAnnouncementTeamFilterProvider);
     if (teams.length == 1) {
       teamId = teams.first.id;
+    } else if (filterTeamId != null &&
+        teams.any((t) => t.id == filterTeamId)) {
+      // 필터가 특정 팀으로 선택된 상태면 팀 선택 시트 없이 바로 작성.
+      teamId = filterTeamId;
     } else {
+      // 필터가 '전체'일 때만 팀 선택 시트 표시.
       teamId = await _pickTeam(context, teams);
     }
     if (teamId == null || !context.mounted) return;

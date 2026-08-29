@@ -422,20 +422,26 @@ class _AnnouncementDetailPageState
               ),
             ),
           ),
-          // 댓글 입력
+          // 댓글 입력 — Scaffold의 resizeToAvoidBottomInset(기본 true)이
+          // 키보드 높이만큼 body를 줄여주므로 viewInsets를 다시 더하면
+          // 입력창이 이중으로 밀려 올라간다. 여기서는 고정 여백만 준다.
           SafeArea(
             child: Padding(
-              padding: EdgeInsets.only(
-                left: AppSpacing.lg,
-                right: AppSpacing.lg,
-                top: AppSpacing.sm,
-                bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.sm,
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.lg,
+                AppSpacing.sm,
               ),
               child: Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _commentC,
+                      textCapitalization: TextCapitalization.sentences,
+                      keyboardType: TextInputType.text,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: _posting ? null : (_) => _addComment(),
                       decoration: const InputDecoration(
                         hintText: '댓글 입력',
                         isDense: true,

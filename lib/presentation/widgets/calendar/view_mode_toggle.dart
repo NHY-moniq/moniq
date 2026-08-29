@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 
 enum CalendarViewMode { month, week }
 
@@ -16,6 +17,11 @@ class ViewModeToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    // 활성 pill은 면 요소 — 오프면 파스텔(ShiftFillColors.fill),
+    // 다른 시프트는 fill == primary라 기존과 동일.
+    final fills = shiftFillOf(context);
+    final fill = fills.fill;
+    final onFill = fills.onFill;
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -42,14 +48,12 @@ class ViewModeToggle extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? colorScheme.primary
-                      : Colors.transparent,
+                  color: isSelected ? fill : Colors.transparent,
                   borderRadius: BorderRadius.circular(999),
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: colorScheme.primary.withValues(alpha: 0.3),
+                            color: fill.withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -62,7 +66,7 @@ class ViewModeToggle extends StatelessWidget {
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: isSelected
-                        ? colorScheme.onPrimary
+                        ? onFill
                         : colorScheme.onSurfaceVariant,
                   ),
                 ),

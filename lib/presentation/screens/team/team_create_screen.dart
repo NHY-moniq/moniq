@@ -79,8 +79,9 @@ class TeamCreateScreen extends HookConsumerWidget {
           final teamRepo = ref.read(teamRepositoryProvider);
           final favorite = await teamRepo.getFavoriteTeam();
           if (favorite == null) {
-            await teamRepo.setFavoriteTeam(team.id);
-            ref.invalidate(favoriteTeamProvider);
+            await ref
+                .read(favoriteTeamProvider.notifier)
+                .select(team.id, team: team);
             // 개인 캘린더가 즉시 즐겨찾기 팀 근무를 반영하도록 갱신
             ref.invalidate(homeViewModelProvider);
           }

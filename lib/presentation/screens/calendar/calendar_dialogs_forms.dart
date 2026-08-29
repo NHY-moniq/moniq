@@ -36,15 +36,14 @@ void showEventForm(
       : startDate;
   String selectedColor = existing?.color ?? '#38A169';
   String selectedRecurrence = existing?.recurrence ?? 'none';
-
-  const recurrenceOptions = [
-    ('none', '반복 안함'),
-    ('daily', '매일'),
-    ('weekly', '매주'),
-    ('biweekly', '2주'),
-    ('monthly', '매달'),
-    ('yearly', '매년'),
-  ];
+  // 설명은 기본 폼에서 숨겨 시트를 짧게 유지한다.
+  // 수정 시 기존 값이 있으면 처음부터 펼친 상태로 시작한다.
+  bool showDescField = descController.text.trim().isNotEmpty;
+  // 더보기 칩으로 방금 연 경우에만 autofocus — 수정 진입 시 기존 설명이
+  // 있어 펼쳐진 상태에서는 키보드가 먼저 올라오지 않게 한다.
+  bool descAutofocus = false;
+  // "+ 더보기" 행의 펼침 여부 — 추가 가능한 항목 칩(반복/설명) 노출 토글.
+  bool moreFieldsExpanded = false;
 
   const colorOptions = [
     '#38A169',
@@ -69,6 +68,69 @@ void showEventForm(
       builder: (ctx, setSheetState) {
         final cs = Theme.of(ctx).colorScheme;
         final tt = Theme.of(ctx).textTheme;
+        // 더보기 행에 아직 추가할 수 있는 항목 — 반복은 새 일정에서만.
+        final canAddRecurrence = selectedRecurrence == 'none';
+        final canAddDesc = !showDescField;
+        final isAllDay = startTime == null && endTime == null;
+
+        // 날짜+시간을 하나의 DateTime으로 합친 값 — 휠 피커의 기준.
+        DateTime composeStart() => DateTime(
+          startDate.year,
+          startDate.month,
+          startDate.day,
+          startTime?.hour ?? 0,
+          startTime?.minute ?? 0,
+        );
+        DateTime composeEnd() => DateTime(
+          endDate.year,
+          endDate.month,
+          endDate.day,
+          endTime?.hour ?? 0,
+          endTime?.minute ?? 0,
+        );
+
+        // 통합 시트 — 시작·종료를 헤더 탭으로 오가며 한 번의 확인으로
+        // 두 값을 함께 반영한다. 취소하면 둘 다 원복.
+        Future<void> pickRange() async {
+          final picked = await showMoniqDateTimeRangePickerSheet(
+            context: ctx,
+            initialStart: composeStart(),
+            initialEnd: composeEnd(),
+            allDay: isAllDay,
+            minimumDate: DateTime(startDate.year - 3, 1, 1),
+            maximumDate: DateTime(startDate.year + 5, 12, 31, 23, 59),
+            title: isAllDay ? '기간 선택' : '일시 선택',
+          );
+          if (picked == null) return;
+          setSheetState(() {
+            startDate = DateTime(
+              picked.start.year,
+              picked.start.month,
+              picked.start.day,
+            );
+            endDate = DateTime(
+              picked.end.year,
+              picked.end.month,
+              picked.end.day,
+            );
+            if (!isAllDay) {
+              startTime = TimeOfDay.fromDateTime(picked.start);
+              endTime = TimeOfDay.fromDateTime(picked.end);
+            }
+          });
+        }
+
+        // 반복 시트 열기 — 더보기 칩과 요약 행 탭이 같은 흐름을 공유한다.
+        Future<void> pickRecurrence() async {
+          final picked = await _showRecurrencePickerSheet(
+            ctx,
+            current: selectedRecurrence,
+            startDate: startDate,
+          );
+          if (picked == null) return;
+          setSheetState(() => selectedRecurrence = picked);
+        }
+
         return SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -80,6 +142,9 @@ void showEventForm(
               // 두지 않는다 — 입력창을 직접 탭했을 때만 키보드가 뜬다.
               TextField(
                 controller: titleController,
+                textCapitalization: TextCapitalization.sentences,
+                keyboardType: TextInputType.text,
+                textInputAction: TextInputAction.done,
                 maxLength: 30,
                 maxLengthEnforcement: MaxLengthEnforcement.enforced,
                 inputFormatters: [LengthLimitingTextInputFormatter(30)],
@@ -133,7 +198,7 @@ void showEventForm(
               // 일시 — 종일/시작/종료가 같은 라벨 축을 공유하는 세 줄.
               const _FormSectionLabel('일시'),
               _EventAllDayCheckbox(
-                selected: startTime == null && endTime == null,
+                selected: isAllDay,
                 onChanged: (v) {
                   setSheetState(() {
                     if (v) {
@@ -147,97 +212,17 @@ void showEventForm(
                 },
               ),
               const SizedBox(height: AppSpacing.sm),
-              _EventDateTimeRow(
-                label: '시작',
-                dateField: _EventTimeButton(
-                  label: '시작일',
-                  value: formatEventDate(startDate),
-                  onTap: () async {
-                    final picked = await showMoniqDatePickerSheet(
-                      context: ctx,
-                      initialDate: startDate,
-                      firstDate: DateTime(startDate.year - 3, 1, 1),
-                      lastDate: DateTime(startDate.year + 5, 12, 31),
-                      title: '시작 일자',
-                    );
-                    if (picked == null) return;
-                    setSheetState(() {
-                      startDate = DateTime(
-                        picked.year,
-                        picked.month,
-                        picked.day,
-                      );
-                      // 시작일이 종료일보다 뒤로 가면 종료일을 함께 밀어준다.
-                      if (endDate.isBefore(startDate)) {
-                        endDate = startDate;
-                      }
-                    });
-                  },
-                ),
-                timeField: _EventTimeButton(
-                  label: '시작 시간',
-                  value: startTime != null ? formatTime(startTime!) : '--:--',
-                  muted: startTime == null,
-                  onTap: () async {
-                    final picked = await showMoniqTimePickerSheet(
-                      context: ctx,
-                      initialTime: startTime ??
-                          const TimeOfDay(hour: 9, minute: 0),
-                      title: '시작 시간',
-                    );
-                    if (picked == null) return;
-                    setSheetState(() {
-                      startTime = picked;
-                      endTime ??= TimeOfDay(
-                        hour: (picked.hour + 1) % 24,
-                        minute: picked.minute,
-                      );
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              _EventDateTimeRow(
-                label: '종료',
-                dateField: _EventTimeButton(
-                  label: '종료일',
-                  value: formatEventDate(endDate),
-                  onTap: () async {
-                    // firstDate를 시작일로 제한해 시작일보다 앞선
-                    // 종료일은 아예 선택할 수 없게 한다.
-                    final picked = await showMoniqDatePickerSheet(
-                      context: ctx,
-                      initialDate: endDate.isBefore(startDate)
-                          ? startDate
-                          : endDate,
-                      firstDate: startDate,
-                      lastDate: DateTime(startDate.year + 5, 12, 31),
-                      title: '종료 일자',
-                    );
-                    if (picked == null) return;
-                    setSheetState(() {
-                      endDate = DateTime(picked.year, picked.month, picked.day);
-                    });
-                  },
-                ),
-                timeField: _EventTimeButton(
-                  label: '종료 시간',
-                  value: endTime != null ? formatTime(endTime!) : '--:--',
-                  muted: endTime == null,
-                  onTap: () async {
-                    final picked = await showMoniqTimePickerSheet(
-                      context: ctx,
-                      initialTime: endTime ??
-                          TimeOfDay(
-                            hour: ((startTime?.hour ?? 9) + 1) % 24,
-                            minute: startTime?.minute ?? 0,
-                          ),
-                      title: '종료 시간',
-                    );
-                    if (picked == null) return;
-                    setSheetState(() => endTime = picked);
-                  },
-                ),
+              // 시작 → 종료가 함께 보이는 단일 행 — 탭하면 통합 시트가 열린다.
+              _EventRangeButton(
+                startValue: isAllDay
+                    ? formatEventDate(startDate)
+                    : '${formatEventDate(startDate)}'
+                          ' ${startTime != null ? formatTime(startTime!) : '--:--'}',
+                endValue: isAllDay
+                    ? formatEventDate(endDate)
+                    : '${formatEventDate(endDate)}'
+                          ' ${endTime != null ? formatTime(endTime!) : '--:--'}',
+                onTap: pickRange,
               ),
               const SizedBox(height: AppSpacing.xl),
               // 색상
@@ -255,45 +240,83 @@ void showEventForm(
                   }).toList(),
                 ),
               ),
-              const SizedBox(height: AppSpacing.xl),
+              // 반복 — 값이 있으면 요약 라벨 행을 보여주고, 탭하면 시트를
+              // 다시 연다. 수정 화면에서도 바꿀 수 있다(아래 저장 로직이
+              // 규칙이 바뀐 경우 이후 회차를 새 규칙으로 다시 전개한다).
+              if (selectedRecurrence != 'none') ...[
+                const SizedBox(height: AppSpacing.xl),
+                _RecurrenceSummaryRow(
+                  label: recurrenceSummaryLabel(selectedRecurrence),
+                  onTap: pickRecurrence,
+                ),
+              ],
               // 설명 — 섹션 라벨이 역할을 알려주므로 필드 안 아이콘은 뺐다.
-              const _FormSectionLabel('설명'),
-              TextField(
-                controller: descController,
-                maxLines: 2,
-                style: tt.bodyMedium?.copyWith(color: cs.onSurface),
-                decoration: InputDecoration(
-                  hintText: '자세한 내용 (선택)',
-                  hintStyle: tt.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-                  ),
-                  filled: true,
-                  fillColor: cs.surfaceContainerHigh,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
-                    vertical: AppSpacing.md,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: AppRadius.borderRadiusLg,
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: AppRadius.borderRadiusLg,
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: AppRadius.borderRadiusLg,
-                    borderSide: BorderSide(color: cs.primary, width: 1.5),
+              if (showDescField) ...[
+                const SizedBox(height: AppSpacing.xl),
+                const _FormSectionLabel('설명'),
+                TextField(
+                  controller: descController,
+                  maxLines: 2,
+                  // 더보기 칩으로 방금 열었을 때만 바로 타이핑 가능하게.
+                  autofocus: descAutofocus,
+                  keyboardType: TextInputType.multiline,
+                  textCapitalization: TextCapitalization.sentences,
+                  textInputAction: TextInputAction.newline,
+                  style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+                  decoration: InputDecoration(
+                    hintText: '자세한 내용 (선택)',
+                    hintStyle: tt.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                    ),
+                    filled: true,
+                    fillColor: cs.surfaceContainerHigh,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.md,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: AppRadius.borderRadiusLg,
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.borderRadiusLg,
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: AppRadius.borderRadiusLg,
+                      borderSide: BorderSide(color: cs.primary, width: 1.5),
+                    ),
                   ),
                 ),
-              ),
-              // 반복 설정 (새 일정만)
-              if (index == null) ...[
-                const SizedBox(height: AppSpacing.xl),
-                _RecurrenceField(
-                  value: selectedRecurrence,
-                  options: recurrenceOptions,
-                  onChanged: (v) => setSheetState(() => selectedRecurrence = v),
+              ],
+              // "+ 더보기" — 숨긴 항목이 남아 있을 때만 노출.
+              // 두 항목이 모두 추가되면 행 자체가 사라진다.
+              if (canAddRecurrence || canAddDesc) ...[
+                const SizedBox(height: AppSpacing.lg),
+                _MoreFieldsRow(
+                  expanded: moreFieldsExpanded,
+                  onToggle: () => setSheetState(
+                    () => moreFieldsExpanded = !moreFieldsExpanded,
+                  ),
+                  chips: [
+                    if (canAddRecurrence)
+                      // 칩을 누르면 곧바로 반복 선택 시트 — 인라인 드롭다운을
+                      // 한 번 더 누르던 중간 단계를 없앤다.
+                      _AddFieldChip(
+                        icon: Icons.repeat_rounded,
+                        label: '반복',
+                        onTap: pickRecurrence,
+                      ),
+                    if (canAddDesc)
+                      _AddFieldChip(
+                        icon: Icons.notes_rounded,
+                        label: '설명',
+                        onTap: () => setSheetState(() {
+                          showDescField = true;
+                          descAutofocus = true;
+                        }),
+                      ),
+                  ],
                 ),
               ],
               const SizedBox(height: AppSpacing.xxl),
@@ -347,25 +370,72 @@ void showEventForm(
                       description: desc,
                       color: selectedColor,
                       createdAt: DateTime.now(),
-                      recurrence: index == null ? selectedRecurrence : null,
+                      // 수정 시에도 사용자가 고른 값을 싣는다. 규칙이 바뀌면
+                      // 아래에서 이후 회차를 지우고 새 규칙으로 다시 전개한다.
+                      recurrence: selectedRecurrence,
                     );
-                    final ds = ref.read(personalEventDataSourceProvider);
+                    // 반복 일정 수정인지 — 전개 저장된 회차는 recurrence
+                    // 표식을 공유하므로 이 값만으로 그룹 소속을 알 수 있다.
+                    final isRecurringEdit =
+                        index != null &&
+                        existing?.recurrence != null &&
+                        existing!.recurrence != 'none';
+                    // 수정 중 반복 규칙이 바뀌었는지 (없음 ↔ 있음 포함).
+                    final recurrenceChanged =
+                        index != null &&
+                        selectedRecurrence != (existing?.recurrence ?? 'none');
+
+                    final container = sheetContainer(ctx);
+                    final ds = container.read(personalEventDataSourceProvider);
                     if (index == null) {
                       await ds.addEvent(event);
                     } else if (startDate != baseDate) {
                       // 시작 일자가 바뀌면 저장되는 날짜 키 자체가 달라지므로
                       // 기존 항목을 지우고 새 날짜로 다시 등록한다.
+                      // 반복 일정이라도 날짜를 옮긴 수정은 회차별 날짜 축과
+                      // 어긋나므로 "이 일정만"으로만 처리한다 (질문 없음).
                       await ds.removeEvent(baseDate, index);
                       await ds.addEvent(event);
+                    } else if (recurrenceChanged) {
+                      // 반복 규칙 자체가 바뀐 수정 — 이후 회차를 지우고
+                      // 새 규칙으로 다시 전개한다. (회차별 날짜 축이 통째로
+                      // 달라지므로 개별 수정으로는 표현할 수 없다)
+                      if (isRecurringEdit) {
+                        await ds.removeRecurringEventsFrom(
+                          date: baseDate,
+                          title: existing.title,
+                          recurrence: existing.recurrence!,
+                        );
+                      } else {
+                        await ds.removeEvent(baseDate, index);
+                      }
+                      await ds.addEvent(event);
+                    } else if (isRecurringEdit) {
+                      // 저장 직전에 적용 범위를 묻는다 — 취소하면 폼 유지.
+                      final scope = await _showRecurringEditScopeSheet(ctx);
+                      if (scope == null) return;
+                      if (scope == _RecurringEditScope.thisAndFollowing) {
+                        await ds.updateRecurringEventsFrom(
+                          fromDate: baseDate,
+                          // 그룹 판별은 수정 **전** 값 기준.
+                          title: existing.title,
+                          recurrence: existing.recurrence!,
+                          createdAt: existing.createdAt,
+                          template: event,
+                        );
+                      } else {
+                        await ds.updateEvent(date, index, event);
+                      }
                     } else {
                       await ds.updateEvent(date, index, event);
                     }
-                    refreshAll(ref, date);
+                    container.read(eventRefreshProvider.notifier).state++;
                     if (ctx.mounted) Navigator.pop(ctx);
                   },
                   style: FilledButton.styleFrom(
-                    backgroundColor: cs.primary,
-                    foregroundColor: cs.onPrimary,
+                    // 저장 버튼은 면 요소 — 오프면 파스텔 배경 + 잉크 글자.
+                    backgroundColor: shiftFillOf(ctx).fill,
+                    foregroundColor: shiftFillOf(ctx).onFill,
                     elevation: 2,
                     shadowColor: cs.primary.withValues(alpha: 0.35),
                     shape: RoundedRectangleBorder(
@@ -381,6 +451,65 @@ void showEventForm(
               ),
             ],
           ),
+        );
+      },
+    ),
+  );
+}
+
+/// 반복 일정 수정의 적용 범위.
+enum _RecurringEditScope { onlyThis, thisAndFollowing }
+
+/// 반복 일정 저장 직전에 적용 범위를 묻는 확인 시트.
+/// 반환: 선택된 범위, 취소(버튼/스와이프/배리어) 시 null.
+Future<_RecurringEditScope?> _showRecurringEditScopeSheet(
+  BuildContext context,
+) {
+  return showMoniqBottomSheet<_RecurringEditScope>(
+    context: context,
+    eyebrow: 'RECURRENCE',
+    title: '반복 일정 수정',
+    child: Builder(
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            MoniqSheetOption(
+              icon: Icons.event_rounded,
+              label: '이 일정만 수정',
+              description: '이 날짜의 일정에만 변경 내용을 적용합니다',
+              trailing: const SizedBox.shrink(),
+              onTap: () =>
+                  Navigator.pop(ctx, _RecurringEditScope.onlyThis),
+            ),
+            MoniqSheetOption(
+              icon: Icons.repeat_rounded,
+              label: '이후 반복 일정 모두 수정',
+              description: '이 일정과 이후의 모든 반복 일정에 적용합니다',
+              trailing: const SizedBox.shrink(),
+              onTap: () =>
+                  Navigator.pop(ctx, _RecurringEditScope.thisAndFollowing),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.borderRadiusFull,
+                ),
+                side: BorderSide(color: cs.outlineVariant),
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                '취소',
+                style: Theme.of(ctx).textTheme.labelLarge?.copyWith(
+                  color: cs.onSurface,
+                ),
+              ),
+            ),
+          ],
         );
       },
     ),
@@ -435,13 +564,14 @@ void showNoteForm(
                     );
                     return;
                   }
-                  final ds = ref.read(personalNoteDataSourceProvider);
+                  final container = sheetContainer(ctx);
+                  final ds = container.read(personalNoteDataSourceProvider);
                   if (index == null) {
                     await ds.addNote(date, text);
                   } else {
                     await ds.updateNote(date, index, text);
                   }
-                  refreshAll(ref, date);
+                  container.read(eventRefreshProvider.notifier).state++;
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
                 style: ElevatedButton.styleFrom(
@@ -525,7 +655,10 @@ void showEventEditWithShiftTypes(
                             ? BorderSide(color: color, width: 1.5)
                             : null,
                         onPressed: () {
-                          final ds = ref.read(personalEventDataSourceProvider);
+                          final container = sheetContainer(ctx);
+                          final ds = container.read(
+                            personalEventDataSourceProvider,
+                          );
                           final updated = PersonalEvent(
                             date: DateTime(date.year, date.month, date.day),
                             title: st.name,
@@ -535,7 +668,7 @@ void showEventEditWithShiftTypes(
                             createdAt: DateTime.now(),
                           );
                           ds.updateEvent(date, index, updated);
-                          refreshAll(ref, date);
+                          container.read(eventRefreshProvider.notifier).state++;
                           Navigator.pop(ctx);
                         },
                       );

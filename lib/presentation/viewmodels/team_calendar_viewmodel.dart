@@ -1,6 +1,11 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moniq/data/datasources/home_cache_local_data_source.dart';
 import 'package:moniq/data/datasources/notification_service.dart';
+import 'package:moniq/data/providers/home_cache_providers.dart';
 import 'package:moniq/data/datasources/push_service.dart';
 import 'package:moniq/data/models/roster_entry.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
@@ -64,16 +69,115 @@ final pendingTeamCalendarFocusProvider =
 /// 이 값만 변경한다. 앱 재시작 시 초기화돼 다시 favorite으로 돌아간다.
 final viewingTeamIdOverrideProvider = StateProvider<String?>((ref) => null);
 
-final favoriteTeamProvider = FutureProvider<TeamModel?>((ref) async {
-  final authState = ref.watch(authStateChangesProvider);
-  final userId = authState.whenOrNull(data: (auth) => auth.session?.user.id);
-  if (userId == null) {
-    return null;
+/// 즐겨찾기 팀 — 로컬 캐시로 즉시 emit 후 백그라운드로 갱신(SWR).
+///
+/// 외부 사용처 관점의 인터페이스(`AsyncValue<TeamModel?>`, `.future`,
+/// `ref.invalidate`)는 기존 FutureProvider와 동일하다.
+final favoriteTeamProvider =
+    AsyncNotifierProvider<FavoriteTeamNotifier, TeamModel?>(
+  FavoriteTeamNotifier.new,
+);
+
+class FavoriteTeamNotifier extends AsyncNotifier<TeamModel?> {
+  TeamRepository? _repository;
+  HomeCacheLocalDataSource? _cache;
+  Future<TeamModel?>? _inflight;
+
+  /// **서버 기준** 최신 즐겨찾기 팀.
+  ///
+  /// 캐시로 먼저 emit한 경우 `future`는 캐시값으로 이미 완료돼 있으므로,
+  /// "지금 보고 있는 팀이 여전히 맞는지" 확인하려면 이 future를 봐야 한다.
+  /// 진행 중인 요청을 재사용하므로 왕복이 늘지 않는다.
+  Future<TeamModel?> get fresh => _inflight ?? future;
+
+  @override
+  FutureOr<TeamModel?> build() {
+    ref.watch(authStateChangesProvider);
+    final userId = ref.watch(currentUserIdProvider);
+    if (userId == null) {
+      _inflight = Future.value(null);
+      return null;
+    }
+
+    _repository = ref.watch(teamRepositoryProvider);
+    _cache = ref.watch(homeCacheProvider);
+
+    var disposed = false;
+    ref.onDispose(() => disposed = true);
+
+    final request = _fetch();
+    _inflight = request;
+
+    final cached = _cache?.getFavoriteTeam();
+    if (cached == null) return request;
+
+    // 캐시가 있으면 즉시 그리고(동기 반환 → 로딩 프레임 없음), 응답이 오면
+    // 값이 달라진 경우에만 실질적으로 화면이 갱신된다.
+    request.then(
+      (team) {
+        if (disposed) return;
+        state = AsyncData(team);
+      },
+      onError: (Object e, StackTrace _) {
+        // 네트워크 실패 시에는 캐시를 그대로 유지한다 (오프라인 동작).
+        debugPrint('[cache] 즐겨찾기 팀 갱신 실패 — 캐시 유지: $e');
+      },
+    );
+    return cached.value;
   }
 
-  final teamRepo = ref.watch(teamRepositoryProvider);
-  return teamRepo.getFavoriteTeam();
-});
+  Future<TeamModel?> _fetch() async {
+    final team = await _repository!.getFavoriteTeam();
+    await _cache?.setFavoriteTeam(team);
+    return team;
+  }
+
+  /// 네트워크에서 다시 받아 상태·캐시를 갱신한다 (pull-to-refresh 등).
+  Future<TeamModel?> reload() async {
+    if (_repository == null) return null;
+    final request = _fetch();
+    _inflight = request;
+    final team = await request;
+    state = AsyncData(team);
+    return team;
+  }
+
+  /// 즐겨찾기 팀을 [teamId]로 바꾼다 (null이면 해제).
+  ///
+  /// 캐시를 **먼저** 갱신해야 한다 — 그러지 않으면 다음 콜드 스타트에서 이전
+  /// 즐겨찾기 팀이 캐시에서 되살아난다. [team]을 알고 있으면 화면도 즉시
+  /// 그 팀으로 맞춘다(낙관적 갱신).
+  Future<void> select(String? teamId, {TeamModel? team}) async {
+    final repository = _repository;
+    if (repository == null) return;
+
+    if (teamId == null) {
+      await _cache?.setFavoriteTeam(null);
+      state = const AsyncData(null);
+    } else if (team != null) {
+      await _cache?.setFavoriteTeam(team);
+      state = AsyncData(team);
+    } else {
+      await _cache?.removeFavoriteTeam();
+    }
+
+    if (teamId == null) {
+      await repository.clearFavoriteTeam();
+    } else {
+      await repository.setFavoriteTeam(teamId);
+    }
+    // 서버 기준 값으로 한 번 더 맞춘다 (낙관적 값이 틀렸을 경우 보정).
+    unawaited(_reloadQuietly());
+  }
+
+  Future<void> _reloadQuietly() async {
+    try {
+      await reload();
+    } catch (e) {
+      debugPrint('[cache] 즐겨찾기 팀 재확인 실패 — 현재 값 유지: $e');
+    }
+  }
+}
 
 class TeamCalendarViewModel
     extends FamilyAsyncNotifier<TeamCalendarState, String> {

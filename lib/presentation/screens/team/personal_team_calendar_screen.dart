@@ -11,13 +11,14 @@ import 'package:moniq/presentation/screens/team/appointment_management_screen.da
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/viewmodels/personal_team_calendar_viewmodel.dart';
-import 'package:moniq/presentation/widgets/common/moniq_time_picker_sheet.dart';
+import 'package:moniq/presentation/widgets/common/moniq_date_time_picker_sheet.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/presentation/widgets/calendar/weekly_member_grid.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart' show shiftFillOf;
 
 import 'personal_team_calendar_widgets.dart';
 
@@ -51,8 +52,7 @@ class PersonalTeamCalendarScreen extends ConsumerWidget {
           onRetry: () =>
               ref.invalidate(personalTeamCalendarViewModelProvider(teamId)),
         ),
-        data: (state) =>
-            PersonalTeamCalendarBody(state: state, teamId: teamId),
+        data: (state) => PersonalTeamCalendarBody(state: state, teamId: teamId),
       ),
     );
   }
@@ -548,203 +548,218 @@ class _PersonalTeamCalendarBodyState
     final cs = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
 
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          Padding(
-            padding: AppSpacing.screenHorizontal,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerLowest,
-                borderRadius: AppRadius.borderRadiusLg,
-                border: Border.all(
-                  color: cs.outlineVariant.withValues(alpha: 0.38),
+    return RefreshIndicator(
+      // 개인 캘린더에서 근무를 바꾼 뒤 이 화면으로 오면 수동으로도 즉시
+      // 최신 상태를 받아올 수 있게 한다.
+      onRefresh: () async {
+        ref.invalidate(personalTeamCalendarViewModelProvider(widget.teamId));
+        await ref.read(
+          personalTeamCalendarViewModelProvider(widget.teamId).future,
+        );
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            Padding(
+              padding: AppSpacing.screenHorizontal,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: cs.shadow.withValues(alpha: 0.06),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerLowest,
+                  borderRadius: AppRadius.borderRadiusLg,
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.38),
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        '겹침 많은 날',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.xs),
-                      IconButton(
-                        onPressed: () => _showOverlapInfo(context),
-                        icon: const Icon(Icons.info_outline_rounded, size: 18),
-                        visualDensity: VisualDensity.compact,
-                        tooltip: '표시 기준',
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () {
-                          setState(() {
-                            _isOverlapCardExpanded = !_isOverlapCardExpanded;
-                          });
-                        },
-                        icon: Icon(
-                          _isOverlapCardExpanded
-                              ? Icons.keyboard_arrow_up_rounded
-                              : Icons.keyboard_arrow_down_rounded,
-                        ),
-                        tooltip: _isOverlapCardExpanded ? '접기' : '펼치기',
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.xs,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      _OverlapControlChip(
-                        icon: Icons.people_alt_outlined,
-                        label: '${selectedMembers.length}명',
-                        onTap: () =>
-                            _showMemberSelectionSheet(context, state, vm),
-                      ),
-                      _OverlapControlChip(
-                        label: '데이 포함',
-                        selected: _includeDay,
-                        onTap: () => setState(() => _includeDay = !_includeDay),
-                      ),
-                      // 과반수 이상 겹치는 날이 있을 때만 노출 — 전체/과반수만 2분할 토글
-                      if (hasMajorityDays)
-                        _OverlapScopeToggle(
-                          showAll: _showAllOverlaps,
-                          onChanged: (v) =>
-                              setState(() => _showAllOverlaps = v),
-                        ),
-                    ],
-                  ),
-                  if (_isOverlapCardExpanded) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    Center(
-                      child: Text(
-                        monthFormat.format(state.focusedMonth),
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: cs.shadow.withValues(alpha: 0.06),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    if (overlapDays.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                          vertical: AppSpacing.lg,
-                        ),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHighest.withValues(
-                            alpha: 0.5,
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '겹침 많은 날',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
                           ),
-                          borderRadius: AppRadius.borderRadiusMd,
                         ),
+                        const SizedBox(width: AppSpacing.xs),
+                        IconButton(
+                          onPressed: () => _showOverlapInfo(context),
+                          icon: const Icon(
+                            Icons.info_outline_rounded,
+                            size: 18,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          tooltip: '표시 기준',
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: () {
+                            setState(() {
+                              _isOverlapCardExpanded = !_isOverlapCardExpanded;
+                            });
+                          },
+                          icon: Icon(
+                            _isOverlapCardExpanded
+                                ? Icons.keyboard_arrow_up_rounded
+                                : Icons.keyboard_arrow_down_rounded,
+                          ),
+                          tooltip: _isOverlapCardExpanded ? '접기' : '펼치기',
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _OverlapControlChip(
+                          icon: Icons.people_alt_outlined,
+                          label: '${selectedMembers.length}명',
+                          onTap: () =>
+                              _showMemberSelectionSheet(context, state, vm),
+                        ),
+                        _OverlapControlChip(
+                          label: '데이 포함',
+                          selected: _includeDay,
+                          onTap: () =>
+                              setState(() => _includeDay = !_includeDay),
+                        ),
+                        // 과반수 이상 겹치는 날이 있을 때만 노출 — 전체/과반수만 2분할 토글
+                        if (hasMajorityDays)
+                          _OverlapScopeToggle(
+                            showAll: _showAllOverlaps,
+                            onChanged: (v) =>
+                                setState(() => _showAllOverlaps = v),
+                          ),
+                      ],
+                    ),
+                    if (_isOverlapCardExpanded) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Center(
                         child: Text(
-                          '선택한 기준에 해당하는 근무가 없습니다.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
+                          monthFormat.format(state.focusedMonth),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
-                      )
-                    else
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (final entry in overlapSectionEntries) ...[
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: AppSpacing.sm,
-                              ),
-                              child: _OverlapDaySection(
-                                count: entry.value.key,
-                                days: entry.value.value,
-                                dateFormat: dateFormat,
-                                onSelectDate: (date) {
-                                  _selectOverlapDate(vm, date);
-                                },
-                              ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      if (overlapDays.isEmpty)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.lg,
+                          ),
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHighest.withValues(
+                              alpha: 0.5,
                             ),
-                            if (entry.key < overlapSectionEntries.length - 1)
+                            borderRadius: AppRadius.borderRadiusMd,
+                          ),
+                          child: Text(
+                            '선택한 기준에 해당하는 근무가 없습니다.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      else
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (final entry in overlapSectionEntries) ...[
                               Padding(
                                 padding: const EdgeInsets.only(
                                   bottom: AppSpacing.sm,
                                 ),
-                                child: Divider(
-                                  color: cs.outlineVariant.withValues(
-                                    alpha: 0.45,
-                                  ),
-                                  height: 1,
+                                child: _OverlapDaySection(
+                                  count: entry.value.key,
+                                  days: entry.value.value,
+                                  dateFormat: dateFormat,
+                                  onSelectDate: (date) {
+                                    _selectOverlapDate(vm, date);
+                                  },
                                 ),
                               ),
+                              if (entry.key < overlapSectionEntries.length - 1)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    bottom: AppSpacing.sm,
+                                  ),
+                                  child: Divider(
+                                    color: cs.outlineVariant.withValues(
+                                      alpha: 0.45,
+                                    ),
+                                    height: 1,
+                                  ),
+                                ),
+                            ],
                           ],
-                        ],
-                      ),
+                        ),
+                    ],
                   ],
-                ],
-              ),
-            ),
-          ),
-          // ② 이 날 약속 잡기 카드 — 그리드 위로 끌어올려 주요 행동을 강조.
-          const SizedBox(height: AppSpacing.md),
-          Padding(
-            padding: AppSpacing.screenHorizontal,
-            child: _AppointmentEntryCard(
-              dateLabel: _fullDateLabel(state.selectedDate),
-              participantCount: selectedMembers.length,
-              overlapCount: selectedDateOverlapCount,
-              onTap: () => _showAppointmentSheet(context, state, vm),
-            ),
-          ),
-          // ③ 멤버 근무 그리드 — 주/월 공통, 좌우 여백은 최소화.
-          const SizedBox(height: AppSpacing.lg),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-            child: MemberShiftGrid(
-              selectedDate: state.selectedDate,
-              focusedMonth: state.focusedMonth,
-              members: selectedMembers,
-              monthlyData: state.monthlyData,
-              startsOnSunday: startsOnSunday,
-              currentUserId: currentUserId,
-              viewMode: state.viewMode,
-              overlapDates: highlightedOverlapCountByDate.keys.toSet(),
-              onViewModeChanged: vm.setViewMode,
-              onDateSelected: vm.selectDate,
-              onMoveWeek: (delta) => vm.moveWeek(delta),
-              onMoveMonth: (delta) => vm.changeMonth(
-                DateTime(
-                  state.focusedMonth.year,
-                  state.focusedMonth.month + delta,
                 ),
               ),
-              onToday: () => state.viewMode == CalendarViewMode.month
-                  ? vm.goToTodayMonth()
-                  : vm.goToTodayWeek(startsOnSunday),
-              onSelectMembers: () =>
-                  _showMemberSelectionSheet(context, state, vm),
             ),
-          ),
-          const SizedBox(height: AppSpacing.xxxl),
-        ],
+            // ② 이 날 약속 잡기 카드 — 그리드 위로 끌어올려 주요 행동을 강조.
+            const SizedBox(height: AppSpacing.md),
+            Padding(
+              padding: AppSpacing.screenHorizontal,
+              child: _AppointmentEntryCard(
+                dateLabel: _fullDateLabel(state.selectedDate),
+                participantCount: selectedMembers.length,
+                overlapCount: selectedDateOverlapCount,
+                onTap: () => _showAppointmentSheet(context, state, vm),
+              ),
+            ),
+            // ③ 멤버 근무 그리드 — 주/월 공통, 좌우 여백은 최소화.
+            const SizedBox(height: AppSpacing.lg),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              child: MemberShiftGrid(
+                selectedDate: state.selectedDate,
+                focusedMonth: state.focusedMonth,
+                members: selectedMembers,
+                monthlyData: state.monthlyData,
+                startsOnSunday: startsOnSunday,
+                currentUserId: currentUserId,
+                viewMode: state.viewMode,
+                overlapDates: highlightedOverlapCountByDate.keys.toSet(),
+                onViewModeChanged: vm.setViewMode,
+                onDateSelected: vm.selectDate,
+                onMoveWeek: (delta) => vm.moveWeek(delta),
+                onMoveMonth: (delta) => vm.changeMonth(
+                  DateTime(
+                    state.focusedMonth.year,
+                    state.focusedMonth.month + delta,
+                  ),
+                ),
+                onToday: () => state.viewMode == CalendarViewMode.month
+                    ? vm.goToTodayMonth()
+                    : vm.goToTodayWeek(startsOnSunday),
+                onSelectMembers: () =>
+                    _showMemberSelectionSheet(context, state, vm),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xxxl),
+          ],
+        ),
       ),
     );
   }
@@ -816,29 +831,19 @@ class _AppointmentSheetContentState
     });
   }
 
-  Future<void> _pickTime({required bool isStart}) async {
-    final initial = isStart
-        ? _startTime ?? const TimeOfDay(hour: 9, minute: 0)
-        : _endTime ??
-            TimeOfDay(
-              hour: ((_startTime?.hour ?? 9) + 1) % 24,
-              minute: _startTime?.minute ?? 0,
-            );
-
-    final picked = await showMoniqTimePickerSheet(
+  /// 시작·종료를 한 시트에서 함께 고른다 — 개인 일정 폼과 같은 통합 피커.
+  /// 약속은 날짜가 이미 정해져 있어 시간 전용 모드를 쓴다.
+  Future<void> _pickTimeRange() async {
+    final picked = await showMoniqTimeRangePickerSheet(
       context: context,
-      initialTime: initial,
-      title: isStart ? '시작 시간' : '종료 시간',
+      initialStart: _startTime ?? const TimeOfDay(hour: 9, minute: 0),
+      initialEnd: _endTime ?? const TimeOfDay(hour: 10, minute: 0),
     );
     if (picked == null || !mounted) return;
 
     setState(() {
-      if (isStart) {
-        _startTime = picked;
-        _endTime ??= picked.replacing(hour: (picked.hour + 1) % 24);
-      } else {
-        _endTime = picked;
-      }
+      _startTime = picked.start;
+      _endTime = picked.end;
     });
   }
 
@@ -991,24 +996,17 @@ class _AppointmentSheetContentState
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
+              // 시작 → 종료가 한 줄에 붙은 단일 버튼 — 탭하면 통합 시트가
+              // 열려 두 값을 한 번의 확인으로 함께 정한다.
               Expanded(
                 child: SizedBox(
                   height: 50,
-                  child: _AppointmentTimeButton(
-                    label: '시작',
-                    value: _timeLabel(_startTime, fallback: '--:--'),
-                    onTap: () => _pickTime(isStart: true),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: SizedBox(
-                  height: 50,
-                  child: _AppointmentTimeButton(
-                    label: '종료',
-                    value: _timeLabel(_endTime, fallback: '--:--'),
-                    onTap: () => _pickTime(isStart: false),
+                  child: _AppointmentRangeButton(
+                    startValue: _timeLabel(_startTime, fallback: '--:--'),
+                    endValue: _timeLabel(_endTime, fallback: '--:--'),
+                    // 종일이면 고를 시간이 없어 '하루 종일'만 보여준다.
+                    allDay: _isAllDay,
+                    onTap: _pickTimeRange,
                   ),
                 ),
               ),

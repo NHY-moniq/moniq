@@ -20,8 +20,9 @@ import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/widgets/calendar/moniq_calendar.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
+import 'package:moniq/core/utils/perf_trace.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
-import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
+import 'package:moniq/presentation/widgets/common/moniq_skeleton.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import 'calendar_dialogs.dart';
@@ -214,6 +215,9 @@ class CalendarScreen extends HookConsumerWidget {
     }
 
     return calendarAsync.when(
+      // 백그라운드 갱신 중에는 이미 그려진 달력을 유지한다 (stale-while-revalidate).
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
       loading: () => Scaffold(
         appBar: MoniqAppBar(
           title: calendarTitle,
@@ -221,7 +225,8 @@ class CalendarScreen extends HookConsumerWidget {
           showBack: false,
           leading: buildAvatarLeading(),
         ),
-        body: const MoniqLoadingView(),
+        // 캐시가 없는 첫 실행에서만 도달 — 달력 격자 뼈대를 먼저 그린다.
+        body: const MoniqCalendarScreenSkeleton(),
       ),
       error: (e, _) => Scaffold(
         appBar: MoniqAppBar(
@@ -236,6 +241,7 @@ class CalendarScreen extends HookConsumerWidget {
         ),
       ),
       data: (state) {
+        PerfTrace.mark('calendar first paint');
         final monthlyEvents =
             ref.watch(monthlyEventsProvider(state.focusedMonth));
         final monthlyNotes =
@@ -304,9 +310,12 @@ class CalendarScreen extends HookConsumerWidget {
             padding: const EdgeInsets.only(bottom: 72),
             child: FloatingActionButton.small(
               onPressed: () => showAddMenu(context, ref, state.selectedDate),
-              backgroundColor: Theme.of(context).colorScheme.primary,
+              // FAB는 면 요소 — 오프면 파스텔(ShiftFillColors.fill),
+              // 다른 시프트는 fill == primary라 기존과 동일.
+              backgroundColor:
+                  shiftFillOf(context).fill,
               foregroundColor:
-                  Theme.of(context).colorScheme.onPrimary,
+                  shiftFillOf(context).onFill,
               elevation: 3,
               child: const Icon(Icons.add),
             ),
@@ -358,8 +367,7 @@ class CalendarScreen extends HookConsumerWidget {
                         last.day.year == selected.year &&
                         last.day.month == selected.month &&
                         last.day.day == selected.day;
-                    final isDouble =
-                        sameDay && (nowMs - last!.at) < 350;
+                    final isDouble = sameDay && (nowMs - last.at) < 350;
                     if (isDouble) {
                       // 두 번째 빠른 탭 → 펼치기/닫기 토글
                       // (첫 탭이 예약한 포커스 스크롤은 취소)

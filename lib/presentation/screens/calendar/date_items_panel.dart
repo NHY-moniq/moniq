@@ -550,10 +550,6 @@ class DateItemsPanel extends ConsumerWidget {
     Color eventColor,
   ) {
     final event = occurrence.event;
-    // 여러 날에 걸친 일정은 며칠째인지 함께 보여준다 (예: 2/3일).
-    final dayCounter = event.spansMultipleDays
-        ? '${_dayIndexOf(event)}/${_totalDaysOf(event)}일'
-        : null;
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.symmetric(
@@ -588,30 +584,13 @@ class DateItemsPanel extends ConsumerWidget {
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          event.title,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (dayCounter != null) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          dayCounter,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: eventColor.withValues(alpha: 0.85),
-                          ),
-                        ),
-                      ],
-                    ],
+                  child: Text(
+                    event.title,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Container(
@@ -667,23 +646,6 @@ class DateItemsPanel extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  /// 선택된 날짜가 다일 일정의 몇 번째 날인지 (1부터).
-  int _dayIndexOf(PersonalEvent event) {
-    final start = DateTime(event.date.year, event.date.month, event.date.day);
-    final today = DateTime(date.year, date.month, date.day);
-    return today.difference(start).inDays + 1;
-  }
-
-  int _totalDaysOf(PersonalEvent event) {
-    final start = DateTime(event.date.year, event.date.month, event.date.day);
-    final end = DateTime(
-      event.endDate!.year,
-      event.endDate!.month,
-      event.endDate!.day,
-    );
-    return end.difference(start).inDays + 1;
   }
 
   void _deleteEvent(

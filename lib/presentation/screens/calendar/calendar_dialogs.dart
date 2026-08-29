@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moniq/core/utils/color_utils.dart';
+import 'package:moniq/core/utils/recurrence_rule.dart';
 import 'package:moniq/core/utils/time_utils.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/datasources/personal_event_remote_data_source.dart'
@@ -16,10 +17,11 @@ import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart' show shiftFillOf;
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_date_picker_sheet.dart';
-import 'package:moniq/presentation/widgets/common/moniq_time_picker_sheet.dart';
+import 'package:moniq/presentation/widgets/common/moniq_date_time_picker_sheet.dart';
 
 import 'calendar_drawer.dart' show PersonalShiftTypeSheet;
 import 'calendar_providers.dart';
@@ -33,6 +35,15 @@ void refreshAll(WidgetRef ref, DateTime date) {
   // 모든 이벤트/노트 provider 캐시를 한번에 갱신
   ref.read(eventRefreshProvider.notifier).state++;
 }
+
+/// 바텀시트 저장 핸들러용 컨테이너.
+///
+/// 시트를 띄운 화면의 [WidgetRef]를 클로저로 잡으면 그 화면이 리빌드/이탈로
+/// dispose됐을 때 "Cannot use ref after the widget was disposed"로 저장이
+/// 실패한다. 시트 자신의 context에서 컨테이너를 얻으면 호출자 수명과 무관하게
+/// 안전하다.
+ProviderContainer sheetContainer(BuildContext ctx) =>
+    ProviderScope.containerOf(ctx, listen: false);
 
 TimeOfDay parseTime(String time) {
   final parts = time.split(':');
@@ -63,6 +74,27 @@ PersonalShiftType personalTypeFromTeam(ShiftTypeModel t) => PersonalShiftType(
 /// 즐겨찾기 팀이 있으면 팀 근무 유형을 쓰는데, 팀에 오프 유형이 없는 경우가
 /// 많다. 개인 캘린더에서 오프를 찍는 일은 잦으므로 없으면 기본 오프를 끼워
 /// 넣고, 그다음 오프→데이→이브닝→나이트→교육 순으로 정렬한다.
+/// 빠른 추가/변경 칩에 노출할 근무 유형 — **팀 유형과 개인 유형을 병합**한다.
+///
+/// 즐겨찾기 팀이 있어도 사용자가 직접 추가한 개인 근무 유형이 사라지지
+/// 않도록, 팀 유형을 우선하되 같은 이름이 없는 개인 유형을 뒤에 붙인다.
+/// 둘 다 비어 있으면 기본 유형으로 대체해 빠른 추가가 항상 동작하게 한다.
+List<PersonalShiftType> mergedQuickPickTypes({
+  required List<ShiftTypeModel>? teamTypes,
+  required List<PersonalShiftType> personalTypes,
+}) {
+  final team = (teamTypes ?? const <ShiftTypeModel>[])
+      .map(personalTypeFromTeam)
+      .toList();
+  final teamNames = team.map((t) => t.name).toSet();
+  final merged = [
+    ...team,
+    ...personalTypes.where((p) => !teamNames.contains(p.name)),
+  ];
+  if (merged.isEmpty) return PersonalShiftTypeLocalDataSource.defaultTypes;
+  return merged;
+}
+
 List<PersonalShiftType> shiftTypesForQuickPick(List<PersonalShiftType> types) {
   final hasOff = types.any((t) => isOffShiftName(t.name, t.code));
   final withOff = hasOff
@@ -73,6 +105,75 @@ List<PersonalShiftType> shiftTypesForQuickPick(List<PersonalShiftType> types) {
           ...types,
         ];
   return sortShiftTypesForDisplay(withOff);
+}
+
+/// 근무 칩/근무 수정 시트에서 고른 근무 유형을 그 날짜에 적용한다.
+///
+/// 팀(서버) 근무가 있는 날인지, 고른 유형이 **팀 유형**인지에 따라 경로가
+/// 갈린다. 오프는 팀 근무 유형으로 존재하지 않는다 — 이 앱에서 오프는
+/// "근무 행이 없는 날"이라, 팀 유형 목록·근무표 생성·통계가 모두 그 전제로
+/// 동작하기 때문이다. 그래서 오프는 오버라이드 대신 **팀 근무 숨김**으로
+/// 표현한다.
+///
+/// - 팀 근무 없음 → 개인 근무 일정으로 저장(기존 동작)
+/// - 팀 근무 있음 + 팀 유형 선택 → 개인 오버라이드로 교체
+///   (원래 팀 유형을 다시 고르면 오버라이드 삭제 = 복원)
+/// - 팀 근무 있음 + 오프 → 그 날 팀 근무를 숨기고 개인 근무도 정리
+/// - 팀 근무 있음 + 팀에 없는 개인 유형 → 팀 근무를 숨기고 개인 근무로 표시
+Future<void> applyShiftPick({
+  required DateTime date,
+  required PersonalShiftType type,
+  required ShiftWithType? teamShift,
+  required Set<String> teamTypeIds,
+  required ShiftEventWriter writer,
+  required PersonalShiftOverrideRemoteDataSource overrideRepo,
+  required PersonalHiddenShiftsLocalDataSource hidden,
+  required Set<String> shiftTitles,
+  required StateController<int> refresh,
+}) async {
+  if (teamShift == null) {
+    await writer.setShift(date, type, shiftTitles);
+    return;
+  }
+
+  if (teamTypeIds.contains(type.id)) {
+    // 오프/삭제로 가려둔 날일 수 있으므로 먼저 표시를 풀어야 한다.
+    // (안 그러면 오버라이드를 걸어도 팀 근무가 계속 가려져 화면이 그대로다)
+    await hidden.clearOffDates([date]);
+    await hidden.unhideDates([date]);
+    if (type.id == teamShift.shift.shiftTypeId) {
+      await overrideRepo.remove(teamShift.shift.id);
+    } else {
+      await overrideRepo.upsert(
+        PersonalShiftOverrideRemote(
+          shiftId: teamShift.shift.id,
+          shiftTypeId: type.id,
+          code: type.code,
+          name: type.name,
+          color: type.color,
+          startTime: (type.startTime?.isEmpty ?? true) ? null : type.startTime,
+          endTime: (type.endTime?.isEmpty ?? true) ? null : type.endTime,
+        ),
+      );
+    }
+    refresh.state++;
+    return;
+  }
+
+  // 팀 유형이 아닌 선택(오프·개인 전용 유형) — 팀 근무를 개인 캘린더에서 가린다.
+  // setShift/removeShiftsOn이 내부에서 unhide를 호출하므로 표시는 그 뒤에 건다.
+  if (isOffShiftName(type.name, type.code)) {
+    await writer.removeShiftsOn(date, shiftTitles);
+    // 삭제(빈 칸)와 달리 오프는 'O' 표시가 남아야 하므로 전용 목록을 쓴다.
+    await hidden.markOffDates([date]);
+  } else {
+    await writer.setShift(date, type, shiftTitles);
+    // "삭제 숨김"은 그 날의 개인 근무 일정까지 함께 가리므로 여기서 쓸 수 없다
+    // (방금 넣은 근무가 같이 사라진다). 팀 근무만 가리는 오프 마크를 쓴다 —
+    // 개인 근무가 있으니 'O'는 표시되지 않는다.
+    await hidden.markOffDates([date]);
+  }
+  refresh.state++;
 }
 
 // ── Dialog / Bottom Sheet functions ──
@@ -162,6 +263,28 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
     final shiftTitles = ref.read(shiftEventTitlesProvider);
     final home = ref.read(homeViewModelProvider.notifier);
     final focused = ref.read(homeViewModelProvider).valueOrNull?.focusedMonth;
+    // 그 날 팀(서버) 근무가 있으면 개인 근무를 덧붙이는 대신 그 근무를
+    // 바꿔야 한다 — 안 그러면 한 날에 팀 근무 + 개인 근무가 함께 남는다.
+    // 오프/삭제 표시가 반영된 화면 데이터가 아니라 **원본** 팀 근무로 판단해야
+    // 오프로 바꿔둔 날에 근무가 덧붙지 않는다.
+    final teamShift = ref
+        .read(homeViewModelProvider.notifier)
+        .rawTeamShiftOn(target);
+    final overrideRepo = ref.read(personalShiftOverrideRemoteProvider);
+    // 오버라이드는 shift_types FK를 요구하므로 **팀 유형**일 때만 가능하다.
+    // 오프·개인 전용 유형은 팀 근무를 숨기는 방식으로 대체한다.
+    final teamTypeIds =
+        ref
+            .read(favoriteTeamShiftTypesProvider)
+            .valueOrNull
+            ?.map((t) => t.id)
+            .toSet() ??
+        const <String>{};
+    final hidden = ref.read(personalHiddenShiftsDataSourceProvider);
+    final refresh = ref.read(eventRefreshProvider.notifier);
+    // 로컬 표시(숨김·오프)는 서버 데이터가 아니라 화면 계산에만 쓰이므로,
+    // 쓰기 후 홈 상태를 다시 계산해야 캘린더에 바로 반영된다.
+    final homeVm = ref.read(homeViewModelProvider.notifier);
 
     // DateTime.add 대신 필드 산술 — 월/연 경계를 정확히 넘긴다.
     final next = DateTime(target.year, target.month, target.day + 1);
@@ -184,7 +307,19 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
     );
 
     _writes = _writes
-        .then((_) => writer.setShift(target, st, shiftTitles))
+        .then(
+          (_) => applyShiftPick(
+            date: target,
+            type: st,
+            teamShift: teamShift,
+            teamTypeIds: teamTypeIds,
+            writer: writer,
+            overrideRepo: overrideRepo,
+            hidden: hidden,
+            shiftTitles: shiftTitles,
+            refresh: refresh,
+          ).then((_) => homeVm.reapplyLocalMarks()),
+        )
         // 한 건이 실패해도 큐가 멈추면 이후 탭이 모두 유실된다.
         .catchError((_) {});
   }
@@ -230,18 +365,13 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
-    // 즐겨찾기 팀이 있으면 그 팀의 근무 유형을 우선 사용.
-    // 없으면 개인 근무 유형, 그마저 비어 있으면(전체 삭제됨) 빠른 근무
-    // 추가가 사라지지 않도록 기본 근무 유형으로 대체한다.
+    // 즐겨찾기 팀 유형 + 개인 근무 유형 병합 (팀 우선, 이름 중복 제거).
     final teamTypes = ref.watch(favoriteTeamShiftTypesProvider).valueOrNull;
     final personalTypes = ref.watch(personalShiftTypesProvider);
-    final rawTypes = (teamTypes != null && teamTypes.isNotEmpty)
-        ? teamTypes.map(personalTypeFromTeam).toList()
-        : (personalTypes.isNotEmpty
-              ? personalTypes
-              : PersonalShiftTypeLocalDataSource.defaultTypes);
     // 오프 → 데이 → 이브닝 → 나이트 → 교육 → 그 외 순으로 노출.
-    final shiftTypes = shiftTypesForQuickPick(rawTypes);
+    final shiftTypes = shiftTypesForQuickPick(
+      mergedQuickPickTypes(teamTypes: teamTypes, personalTypes: personalTypes),
+    );
 
     // 개인 근무 일정(이름이 근무유형과 매칭)의 저장 인덱스.
     // 화면에 보이는 목록(숨김/팀 근무 숨기기 필터 적용)에서 찾되, 변경·삭제는
@@ -261,14 +391,18 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
     final hasPersonalShift = personalShiftIndex >= 0;
 
     // 팀(서버) 근무
-    final teamShifts =
-        ref.watch(homeViewModelProvider).valueOrNull?.monthlyShifts[_target] ??
-        const <ShiftWithType>[];
-    final teamShift = teamShifts.isNotEmpty ? teamShifts.first : null;
+    // 화면 데이터에는 오프/삭제 표시가 반영돼 있으므로, 근무 수정 대상은
+    // 원본 팀 근무로 판단한다 (오프로 바꾼 날도 다시 바꿀 수 있어야 한다).
+    ref.watch(homeViewModelProvider);
+    final teamShift = ref
+        .read(homeViewModelProvider.notifier)
+        .rawTeamShiftOn(_target);
 
     // 연속 추가 중에는 시트를 줄여 뒤 캘린더를 보여주므로, 근무 칩 외의
     // 부가 항목(일정/메모 추가)은 접어 자리를 비운다.
-    final compact = _addedDays > 0;
+    // 시트가 축소된 상태(연속 추가/삭제 진행 중)면 부가 항목을 접는다.
+    // 추가 횟수만 보면 '삭제'로 축소된 경우가 빠져 칩 영역이 0으로 눌린다.
+    final compact = widget.heightFactor.value <= _kAddSheetCompactFactor;
 
     // 근무 유형이 많아도 시트 전체가 늘어나지 않도록 칩 영역만 스크롤시킨다.
     // (Flexible + 내부 스크롤 → 아래 고정 항목은 항상 보인다)
@@ -277,7 +411,9 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
           // ── 근무 섹션 ──
-          if (teamShift != null) ...[
+          // 연속 추가 중(compact)에는 시트가 줄어들어 자리가 없으므로
+          // 근무 수정 행을 접고 칩만 남긴다 — 칩이 잘리면 연속 입력이 끊긴다.
+          if (teamShift != null && !compact) ...[
             // 팀(서버) 근무가 있으면 근무 수정 옵션 제공
             MoniqSheetOption(
               icon: Icons.swap_horiz,
@@ -299,7 +435,11 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
             const SizedBox(height: AppSpacing.sm),
             Divider(height: 1, color: cs.outlineVariant),
             const SizedBox(height: AppSpacing.sm),
-          ] else if (shiftTypes.isNotEmpty) ...[
+          ],
+          // 팀 근무가 있는 날에도 근무 유형 칩은 계속 노출한다.
+          // (연속 추가 중 근무가 이미 있는 날을 만나면 칩이 사라져 흐름이
+          //  끊기던 문제 — 수정 옵션과 칩은 함께 보여야 한다)
+          if (shiftTypes.isNotEmpty) ...[
             // ── 근무 일정 빠른 추가/변경 (근무 유형 칩) ──
             Row(
               children: [
@@ -484,11 +624,7 @@ class _ShiftTypeChangeBody extends ConsumerWidget {
     final teamTypes = ref.watch(favoriteTeamShiftTypesProvider).valueOrNull;
     final personalTypes = ref.watch(personalShiftTypesProvider);
     final shiftTypes = shiftTypesForQuickPick(
-      (teamTypes != null && teamTypes.isNotEmpty)
-          ? teamTypes.map(personalTypeFromTeam).toList()
-          : (personalTypes.isNotEmpty
-                ? personalTypes
-                : PersonalShiftTypeLocalDataSource.defaultTypes),
+      mergedQuickPickTypes(teamTypes: teamTypes, personalTypes: personalTypes),
     );
 
     return Column(
@@ -798,6 +934,8 @@ PersonalEvent _shiftEventOf(DateTime date, PersonalShiftType st) => PersonalEven
   endTime: st.endTime,
   color: st.color,
   createdAt: DateTime.now(),
+  // 근무 칩으로 만든 일정 — 친목 팀 겹침 보기에서 근무로 인식되도록 표시.
+  isShift: true,
 );
 
 /// 저장이 끝난 뒤에도 안전하게 화면을 갱신하기 위한 핸들.
@@ -817,7 +955,11 @@ class ShiftEventWriter {
 
   /// 근무를 새로 넣은 날은 "근무 삭제"로 숨긴 상태를 푼다.
   /// (그 달을 통째로 숨겨둔 경우, 풀지 않으면 넣자마자 다시 가려진다)
-  Future<void> _unhide(DateTime date) => _hidden.unhideDates([date]);
+  /// 그 날짜의 숨김·오프 표시를 모두 해제 — 근무를 새로 쓰면 다시 보여야 한다.
+  Future<void> _unhide(DateTime date) async {
+    await _hidden.unhideDates([date]);
+    await _hidden.clearOffDates([date]);
+  }
 
   /// 근무 유형으로 빠르게 일정 추가
   Future<void> add(DateTime date, PersonalShiftType st) async {
@@ -842,7 +984,7 @@ class ShiftEventWriter {
       final e = existing[i];
       final isImport =
           e.description?.startsWith(kPersonalTeamImportMarker) ?? false;
-      if (!isImport && shiftTitles.contains(e.title)) {
+      if (!isImport && (e.isShift || shiftTitles.contains(e.title))) {
         await _ds.removeEvent(date, i);
       }
     }
@@ -867,7 +1009,7 @@ class ShiftEventWriter {
       final e = existing[i];
       final isImport =
           e.description?.startsWith(kPersonalTeamImportMarker) ?? false;
-      if (!isImport && shiftTitles.contains(e.title)) {
+      if (!isImport && (e.isShift || shiftTitles.contains(e.title))) {
         await _ds.removeEvent(date, i);
         removed = true;
       }
@@ -909,9 +1051,29 @@ Future<void> editTeamShiftAsPersonal(
   ShiftWithType shift,
 ) async {
   final shiftRepo = ref.read(shiftRepositoryProvider);
-  final List<ShiftTypeModel> types = await shiftRepo
+  final teamTypes = await shiftRepo
       .getShiftTypes(shift.shift.teamId)
       .catchError((_) => <ShiftTypeModel>[]);
+
+  // 오프는 팀 근무 유형으로 존재하지 않지만(= 근무 행이 없는 날) 사용자는
+  // "이 날은 쉰다"로 바꾸고 싶어 한다. 목록 맨 앞에 오프를 끼워 넣고,
+  // 고르면 오버라이드 대신 팀 근무 숨김으로 처리한다.
+  final offType = PersonalShiftTypeLocalDataSource.defaultTypes.firstWhere(
+    (t) => t.id == 'off',
+  );
+  final hasOff = teamTypes.any((t) => isOffShiftName(t.name, t.code));
+  final List<ShiftTypeModel> types = [
+    if (!hasOff)
+      ShiftTypeModel(
+        id: offType.id,
+        teamId: shift.shift.teamId,
+        name: offType.name,
+        code: offType.code,
+        color: offType.color,
+        displayOrder: -1,
+      ),
+    ...teamTypes,
+  ];
 
   if (!context.mounted) return;
 
@@ -927,6 +1089,8 @@ Future<void> editTeamShiftAsPersonal(
     context: context,
     eyebrow: 'SELECT',
     title: '근무 유형 변경',
+    // 팀 유형 + 오프까지 나열되므로 기본 상한(0.56)으로는 목록이 잘린다.
+    maxHeightFactor: 0.8,
     child: Builder(
       builder: (ctx) {
         final cs = Theme.of(ctx).colorScheme;
@@ -951,7 +1115,7 @@ Future<void> editTeamShiftAsPersonal(
             else
               ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(ctx).size.height * 0.5,
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.44,
                 ),
                 child: ListView.separated(
                   shrinkWrap: true,
@@ -991,30 +1155,30 @@ Future<void> editTeamShiftAsPersonal(
   // 팀 근무 레코드는 그대로 두고, 개인 오버라이드만 upsert 한다.
   // (승인 불필요 — 변경은 내 개인 캘린더에만 반영되고 기기 간 동기화됨)
   // 단, 원본 팀 근무를 다시 고른 경우엔 오버라이드를 삭제해 완전 복원한다.
+  // 오프는 팀 유형이 아니므로 [applyShiftPick]이 팀 근무 숨김으로 처리한다.
   final isRestoreToOriginal = selected.id == shift.shift.shiftTypeId;
+  final isOff = isOffShiftName(selected.name, selected.code);
   try {
-    final overrideRepo = ref.read(personalShiftOverrideRemoteProvider);
-    if (isRestoreToOriginal) {
-      await overrideRepo.remove(shift.shift.id);
-    } else {
-      await overrideRepo.upsert(
-        PersonalShiftOverrideRemote(
-          shiftId: shift.shift.id,
-          shiftTypeId: selected.id,
-          code: selected.code,
-          name: selected.name,
-          color: selected.color,
-          startTime: selected.startTime,
-          endTime: selected.endTime,
-        ),
-      );
-    }
+    await applyShiftPick(
+      date: date,
+      type: personalTypeFromTeam(selected),
+      teamShift: shift,
+      teamTypeIds: teamTypes.map((t) => t.id).toSet(),
+      writer: ShiftEventWriter(ref),
+      overrideRepo: ref.read(personalShiftOverrideRemoteProvider),
+      hidden: ref.read(personalHiddenShiftsDataSourceProvider),
+      shiftTitles: ref.read(shiftEventTitlesProvider),
+      refresh: ref.read(eventRefreshProvider.notifier),
+    );
+    ref.read(homeViewModelProvider.notifier).reapplyLocalMarks();
     refreshAll(ref, date);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isRestoreToOriginal
+            isOff
+                ? '오프로 변경되었습니다'
+                : isRestoreToOriginal
                 ? '팀 근무로 복원되었습니다'
                 : '"${selected.name}"(으)로 변경되었습니다',
           ),

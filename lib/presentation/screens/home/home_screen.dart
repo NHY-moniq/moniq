@@ -8,8 +8,9 @@ import 'package:moniq/presentation/layout/adaptive_layout.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
+import 'package:moniq/core/utils/perf_trace.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
-import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
+import 'package:moniq/presentation/widgets/common/moniq_skeleton.dart';
 import 'package:moniq/presentation/screens/home/home_body.dart';
 import 'package:moniq/presentation/screens/home/home_widgets.dart';
 
@@ -46,12 +47,16 @@ class HomeScreen extends HookConsumerWidget {
     }
 
     return calendarAsync.when(
+      // 백그라운드 갱신 중에는 이미 그려진 화면을 유지한다 (stale-while-revalidate).
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
       loading: () => Scaffold(
         backgroundColor: shiftTheme.scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : buildAppBar(),
-        body: const MoniqLoadingView(),
+        // 캐시가 없는 첫 실행에서만 도달 — 스피너 대신 화면 뼈대를 보여준다.
+        body: const MoniqHomeSkeleton(),
       ),
       error: (e, _) => Scaffold(
         backgroundColor: shiftTheme.scaffoldBackground,
@@ -64,6 +69,7 @@ class HomeScreen extends HookConsumerWidget {
         ),
       ),
       data: (state) {
+        PerfTrace.mark('home first paint');
         return Scaffold(
           backgroundColor: shiftTheme.scaffoldBackground,
           appBar: AdaptiveLayout.isWide(context)

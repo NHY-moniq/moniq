@@ -3,6 +3,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart' show shiftFillOf;
 
 /// 팀 목록 섹션 헤더 — 구분 라벨 + 개수 + 한 줄 안내.
 ///
@@ -177,8 +178,8 @@ class TeamListTile extends StatelessWidget {
             children: [
               SlidableAction(
                 onPressed: (_) => onDetail(),
-                backgroundColor: cs.primary,
-                foregroundColor: cs.onPrimary,
+                backgroundColor: shiftFillOf(context).fill,
+                foregroundColor: shiftFillOf(context).onFill,
                 icon: Icons.settings_outlined,
                 label: '설정',
               ),

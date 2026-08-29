@@ -3,10 +3,12 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart'
     show isOffShiftName;
+import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/character_blob.dart';
+import 'package:moniq/data/providers/home_cache_providers.dart';
 
 /// Per-shift UI theme data that drives scaffold bg, card colors, character asset.
 class ShiftThemeData {
@@ -43,8 +45,20 @@ class ShiftThemeData {
   static const coolBackground = Color(0xFFF4F8FC);
   static const coolScaffold = Color(0xFFF8FBFE);
   static const coolElevated = Color(0xFFEDF3F9);
-  /// 오프 테마의 강조색 — 옅은 하늘색.
+  /// 오프 테마의 강조색 — 옅은 하늘색. "면적이 큰" 요소 전용:
+  /// 히어로 카드 배경, 채움 버튼(저장·발행) 배경, 스위치 활성 트랙,
+  /// 하단 독 활성 pill 등. 테마에서는 [cardColor]로 소비된다.
   static const offBlue = Color(0xFFD5EBFF);
+
+  /// 오프 테마의 "잉크" 강조색 — 글자·아이콘·테두리 전용. 옅은 하늘색을
+  /// 그대로 쓰면 밝은 배경에서 안 보이므로 진한 잉크색을 따로 둔다.
+  /// 면(배경) 채움에는 쓰지 않는다 — 면은 [offBlue]([cardColor])가 담당.
+  ///
+  /// 밝고 채도 높은 스카이블루. 슬레이트/페리윙클 계열은 탁하거나 보라로
+  /// 읽힌다는 피드백으로 확정된 값. 나이트 라이트 primary(#0061A4, 어두운
+  /// 남색)와는 명도 차로 구분되고, 파스텔 [offBlue](#D5EBFF)와 같은 쿨블루
+  /// 계열을 유지한다. 대비: 흰 배경 3.7:1, 쿨 스캐폴드 3.5:1.
+  static const offBlueInk = Color(0xFF1E88E5);
 
   /// 오프 색 위에 얹는 글자색. [offBlue]가 아주 밝아 흰 글자는 보이지 않는다.
   static const onOffBlue = Color(0xFF1A365D);
@@ -104,7 +118,10 @@ class ShiftThemeData {
   );
 
   static const off = ShiftThemeData(
-    primary: offBlue,
+    // primary는 전앱 강조색 중 "잉크"(텍스트·아이콘·링크)로 퍼지므로 잉크
+    // 톤을 쓰고, 면(채움 버튼 배경·스위치 트랙·독 활성 pill·히어로 카드)은
+    // cardColor(파스텔)가 담당한다. app_theme의 fill/onFill 참고.
+    primary: offBlueInk,
     onPrimary: onOffBlue,
     background: coolBackground,
     scaffoldBackground: coolScaffold,
@@ -244,13 +261,60 @@ class ShiftThemeData {
   }
 }
 
+/// 시프트 "면" 강조색을 위젯에서 조회하는 테마 확장.
+///
+/// [fill]은 채움 버튼 배경·스위치 활성 트랙처럼 면적이 큰 요소용이고,
+/// [onFill]은 그 위 글자·아이콘 색이다. 오프(라이트)만 fill이 파스텔
+/// ([ShiftThemeData.offBlue])로 primary(잉크)와 갈라지고, 나머지 시프트는
+/// fill == primary다. 등록은 `AppTheme.light`에서 하며, 미등록 테마(다크 등)
+/// 에서는 소비처가 `?.fill ?? colorScheme.primary`로 폴백한다.
+/// 면(fill) 색과 그 위 글자색을 한 번에 얻는다.
+///
+/// 채움 버튼·FAB·토글 트랙처럼 "면적이 큰" 요소에서 쓴다. 테마에
+/// [ShiftFillColors]가 없으면 ColorScheme.primary/onPrimary로 폴백하므로
+/// 어느 테마에서든 안전하다.
+({Color fill, Color onFill}) shiftFillOf(BuildContext context) {
+  final theme = Theme.of(context);
+  final ext = theme.extension<ShiftFillColors>();
+  return (
+    fill: ext?.fill ?? theme.colorScheme.primary,
+    onFill: ext?.onFill ?? theme.colorScheme.onPrimary,
+  );
+}
+
+class ShiftFillColors extends ThemeExtension<ShiftFillColors> {
+  const ShiftFillColors({required this.fill, required this.onFill});
+
+  final Color fill;
+  final Color onFill;
+
+  @override
+  ShiftFillColors copyWith({Color? fill, Color? onFill}) => ShiftFillColors(
+        fill: fill ?? this.fill,
+        onFill: onFill ?? this.onFill,
+      );
+
+  @override
+  ShiftFillColors lerp(ShiftFillColors? other, double t) {
+    if (other == null) return this;
+    return ShiftFillColors(
+      fill: Color.lerp(fill, other.fill, t)!,
+      onFill: Color.lerp(onFill, other.onFill, t)!,
+    );
+  }
+}
+
 /// 스위치·세그먼트 같은 컨트롤에 쓰는 근무 색.
 ///
-/// primary를 그대로 쓰면 채도가 높아 컨트롤이 화면에서 너무 튄다.
+/// 원색을 그대로 쓰면 채도가 높아 컨트롤이 화면에서 너무 튄다.
 /// 설정 탭의 푸시 알림 토글이 쓰던 톤을 공용으로 뽑아, 근무 유형 폼 등
 /// 다른 화면의 토글도 같은 색감을 따르게 한다.
+///
+/// 기준색은 [ShiftThemeData.cardColor](면 채움색)다 — 컨트롤 트랙은 면
+/// 요소라, 오프에서는 잉크(primary)가 아닌 파스텔을 따라야 한다.
+/// 오프 외 시프트는 cardColor == primary라 결과가 기존과 동일하다.
 Color shiftControlColor(ShiftThemeData shift) {
-  final hsl = HSLColor.fromColor(shift.primary);
+  final hsl = HSLColor.fromColor(shift.cardColor);
   return hsl.withSaturation((hsl.saturation * 0.72).clamp(0.0, 1.0)).toColor();
 }
 
@@ -275,10 +339,30 @@ final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
   };
 
   // 1. Try server shifts
+  //
+  // monthlyShifts는 **보고 있는 달**만 담고 있어, 지난 달을 넘겨보면 오늘이
+  // 빠져 테마가 오프로 떨어진다. 그럴 땐 캐시에서 오늘 달을 직접 본다.
   final calendarAsync = ref.watch(homeViewModelProvider);
-  final serverShifts = calendarAsync.whenOrNull(
+  var serverShifts = calendarAsync.whenOrNull(
     data: (state) => state.monthlyShifts[todayKey],
   );
+  if (serverShifts == null || serverShifts.isEmpty) {
+    final marks = ref.watch(personalHiddenShiftsDataSourceProvider);
+    // 오늘을 오프/삭제로 표시했으면 근무가 없는 게 맞다.
+    final marked =
+        marks.getHiddenDates().contains(todayKey) ||
+        marks.getOffDates().contains(todayKey);
+    if (!marked) {
+      final cache = ref.watch(homeCacheProvider);
+      final teamId = cache?.getFavoriteTeamId();
+      if (teamId != null) {
+        serverShifts = cache
+            ?.getMonth(teamId: teamId, month: todayKey)
+            ?.value
+            .mine[todayKey];
+      }
+    }
+  }
 
   if (serverShifts != null && serverShifts.isNotEmpty) {
     final shift = serverShifts.first;
@@ -300,24 +384,42 @@ final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
     final personalEvents =
         ref.watch(dateEventsIncludingSpansProvider(todayKey));
     final personalShiftTypes = ref.watch(personalShiftTypesProvider);
-    final shiftTypeNames = personalShiftTypes.map((st) => st.name).toSet();
+    // 빠른 추가 칩은 즐겨찾기 팀 유형(커스텀 포함) 기준으로 근무를 만들므로,
+    // 개인 유형 목록에 없는 이름도 팀 유형까지 대조해야 근무로 인식된다.
+    // (빠지면 커스텀 근무인 날 홈 테마가 오프로 떨어지는 버그)
+    final favTeamTypes =
+        ref.watch(favoriteTeamShiftTypesProvider).valueOrNull ??
+        const <ShiftTypeModel>[];
 
-    final personalShiftEvent = personalEvents
-        .where((e) => shiftTypeNames.contains(e.title))
-        .firstOrNull;
-
-    if (personalShiftEvent != null) {
-      final matchedType = personalShiftTypes
-          .where((st) => st.name == personalShiftEvent.title)
+    String? matchedName;
+    String? matchedCode;
+    String? matchedColor;
+    for (final e in personalEvents) {
+      final personal = personalShiftTypes
+          .where((st) => st.name == e.title)
           .firstOrNull;
-      if (matchedType != null) {
-        if (isOffShiftName(matchedType.name, matchedType.code)) {
-          return isDark ? ShiftThemeData.offDark : ShiftThemeData.off;
-        }
-        final color = parseHexColor(matchedType.color);
-        return ShiftThemeData.fromColor(color,
-            isDark: isDark, displayName: matchedType.name);
+      if (personal != null) {
+        matchedName = personal.name;
+        matchedCode = personal.code;
+        matchedColor = personal.color;
+        break;
       }
+      final team = favTeamTypes.where((st) => st.name == e.title).firstOrNull;
+      if (team != null) {
+        matchedName = team.name;
+        matchedCode = team.code;
+        matchedColor = team.color;
+        break;
+      }
+    }
+
+    if (matchedName != null) {
+      if (isOffShiftName(matchedName, matchedCode ?? '')) {
+        return isDark ? ShiftThemeData.offDark : ShiftThemeData.off;
+      }
+      final color = parseHexColor(matchedColor!);
+      return ShiftThemeData.fromColor(color,
+          isDark: isDark, displayName: matchedName);
     }
   } catch (_) {
     // SharedPreferences not yet initialized

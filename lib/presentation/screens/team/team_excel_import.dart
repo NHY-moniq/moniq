@@ -19,6 +19,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/app_typography.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart' show shiftFillOf;
 
 /// Excel 파일에서 팀 일정을 가져오는 함수
 ///
@@ -599,8 +600,8 @@ class _NonMemberDialog extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.xxl),
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: cs.primary,
-                  foregroundColor: cs.onPrimary,
+                  backgroundColor: shiftFillOf(context).fill,
+                  foregroundColor: shiftFillOf(context).onFill,
                   padding: const EdgeInsets.symmetric(
                     vertical: AppSpacing.md,
                   ),
@@ -790,8 +791,8 @@ class _MonthExistsDialog extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.xxl),
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: cs.primary,
-                  foregroundColor: cs.onPrimary,
+                  backgroundColor: shiftFillOf(context).fill,
+                  foregroundColor: shiftFillOf(context).onFill,
                   padding: const EdgeInsets.symmetric(
                     vertical: AppSpacing.md,
                   ),
@@ -1035,8 +1036,8 @@ class _ImportPreviewDialog extends StatelessWidget {
                       flex: 2,
                       child: FilledButton(
                         style: FilledButton.styleFrom(
-                          backgroundColor: cs.primary,
-                          foregroundColor: cs.onPrimary,
+                          backgroundColor: shiftFillOf(context).fill,
+                          foregroundColor: shiftFillOf(context).onFill,
                           padding: const EdgeInsets.symmetric(
                             vertical: AppSpacing.md,
                           ),

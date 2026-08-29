@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -6,17 +8,23 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:moniq/app.dart';
 import 'package:moniq/core/constants/supabase_constants.dart';
+import 'package:moniq/core/utils/perf_trace.dart';
+import 'package:moniq/data/datasources/home_cache_local_data_source.dart';
 import 'package:moniq/data/datasources/fcm_messaging_handler.dart';
 import 'package:moniq/data/datasources/fcm_token_service.dart';
 import 'package:moniq/data/datasources/notification_service.dart';
 import 'package:moniq/firebase_options.dart';
 import 'package:moniq/data/datasources/personal_event_local_data_source.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
+import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
+import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 Future<void> main() async {
+  PerfTrace.start();
   WidgetsFlutterBinding.ensureInitialized();
 
   await dotenv.load(fileName: '.env');
@@ -45,6 +53,9 @@ Future<void> main() async {
   });
 
   final prefs = await SharedPreferences.getInstance();
+  PerfTrace.mark('prefs ready');
+  // 이전 스키마 버전으로 저장된 홈 캐시는 폐기한다 (포맷 변경 안전장치).
+  unawaited(HomeCacheLocalDataSource.purgeStaleVersions(prefs));
 
   // 광고 동의(UMP) → 앱 추적 권한(ATT) → AdMob 초기화.
   // 실패해도 앱 진입을 막지 않도록 fire-and-forget.
@@ -86,9 +97,22 @@ Future<void> main() async {
   }
   debugPrint('[boot] runApp 호출');
 
+  // 컨테이너를 직접 만들어 첫 프레임 **이전에** 홈/캘린더/팀 데이터를 워밍한다.
+  // 세션은 이미 복원돼 있으므로, 캐시가 있으면 즉시 채워지고 네트워크 갱신은
+  // 위젯 트리가 올라오는 동안 병렬로 진행된다.
+  final container = ProviderContainer(
+    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+  );
+  if (Supabase.instance.client.auth.currentUser != null) {
+    container.read(favoriteTeamProvider);
+    container.read(homeViewModelProvider);
+    container.read(teamViewModelProvider);
+    PerfTrace.mark('providers warmed');
+  }
+
   runApp(
-    ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    UncontrolledProviderScope(
+      container: container,
       child: const MoniqApp(),
     ),
   );

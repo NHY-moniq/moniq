@@ -3,6 +3,8 @@ import 'package:moniq/data/models/personal_team_member_shift.dart';
 import 'package:moniq/data/providers/supabase_providers.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
+import 'package:moniq/presentation/screens/calendar/calendar_providers.dart'
+    show eventRefreshProvider;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PersonalTeamAppointmentSetupException implements Exception {
@@ -83,6 +85,9 @@ class PersonalTeamCalendarViewModel
   Future<PersonalTeamCalendarState> build(String teamId) async {
     // Re-fetch whenever team membership changes (e.g. new member joins).
     ref.watch(teamViewModelProvider);
+    // 개인 캘린더에서 근무를 바꾸면(조직 팀이 없는 멤버는 개인 근무가 겹침
+    // 그리드의 소스다) 이 화면도 따라와야 한다.
+    ref.watch(eventRefreshProvider);
 
     final now = DateTime.now();
     final selected = DateTime(now.year, now.month, now.day);

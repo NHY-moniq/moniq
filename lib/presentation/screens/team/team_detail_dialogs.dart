@@ -14,6 +14,7 @@ import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_calendar_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/viewmodels/team_viewmodel.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart' show shiftFillOf;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Confirm leave team dialog (handles lastAdmin, onlyMember, canLeave cases)
@@ -311,13 +312,13 @@ void showEditTeamSheet({
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: Theme.of(ctx).colorScheme.primary,
+                          color: shiftFillOf(ctx).fill,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           Icons.camera_alt,
                           size: 14,
-                          color: Theme.of(ctx).colorScheme.surface,
+                          color: shiftFillOf(ctx).onFill,
                         ),
                       ),
                     ),
@@ -346,7 +347,9 @@ void showEditTeamSheet({
             const SizedBox(height: AppSpacing.xxl),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(ctx).colorScheme.primary,
+                // 채움 버튼은 면 요소 — 오프면 파스텔, 그 외엔 기존과 동일.
+                backgroundColor: shiftFillOf(ctx).fill,
+                foregroundColor: shiftFillOf(ctx).onFill,
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                 shape: RoundedRectangleBorder(
                   borderRadius: AppRadius.borderRadiusFull,
