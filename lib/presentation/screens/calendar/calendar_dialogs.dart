@@ -984,7 +984,7 @@ class ShiftEventWriter {
       final e = existing[i];
       final isImport =
           e.description?.startsWith(kPersonalTeamImportMarker) ?? false;
-      if (!isImport && shiftTitles.contains(e.title)) {
+      if (!isImport && (e.isShift || shiftTitles.contains(e.title))) {
         await _ds.removeEvent(date, i);
       }
     }
@@ -1009,7 +1009,7 @@ class ShiftEventWriter {
       final e = existing[i];
       final isImport =
           e.description?.startsWith(kPersonalTeamImportMarker) ?? false;
-      if (!isImport && shiftTitles.contains(e.title)) {
+      if (!isImport && (e.isShift || shiftTitles.contains(e.title))) {
         await _ds.removeEvent(date, i);
         removed = true;
       }
