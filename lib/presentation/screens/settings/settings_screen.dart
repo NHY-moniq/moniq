@@ -16,6 +16,7 @@ import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_card.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 /// Refactored Settings screen.
 ///
@@ -571,10 +572,14 @@ class _InfoSection extends ConsumerWidget {
             'https://onoroff.notion.site/OnorOff-37c4dc2094dd80d1b788d31396f89a2c',
           ),
         ),
-        const MoniqCardRow(
-          icon: Icons.info_outline_rounded,
-          label: '앱 버전',
-          valuePill: '1.0.0',
+        // 버전은 패키지 정보에서 읽는다 — 하드코딩하면 배포 때마다 어긋난다.
+        FutureBuilder<PackageInfo>(
+          future: PackageInfo.fromPlatform(),
+          builder: (context, snapshot) => MoniqCardRow(
+            icon: Icons.info_outline_rounded,
+            label: '앱 버전',
+            valuePill: snapshot.data?.version ?? '—',
+          ),
         ),
       ],
     );
