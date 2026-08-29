@@ -745,6 +745,18 @@ class WantedRequestClosedView extends HookConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
+                  // 채움 버튼은 면 요소 — 오프면 파스텔(fill/onFill),
+                  // 다른 시프트는 fill == primary라 기존과 동일.
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context)
+                            .extension<ShiftFillColors>()
+                            ?.fill ??
+                        Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context)
+                            .extension<ShiftFillColors>()
+                            ?.onFill ??
+                        Theme.of(context).colorScheme.onPrimary,
+                  ),
                   onPressed: () => ref
                       .read(wantedAdminViewModelProvider(teamId).notifier)
                       .startNewCollection(),

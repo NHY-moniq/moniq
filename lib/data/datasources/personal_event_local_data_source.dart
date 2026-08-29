@@ -17,6 +17,7 @@ class PersonalEvent {
     this.color,
     this.createdAt,
     this.recurrence,
+    this.isShift = false,
   });
 
   /// Supabase row id (로컬 전용 이벤트는 null).
@@ -35,6 +36,12 @@ class PersonalEvent {
   final DateTime? createdAt;
   final String? recurrence; // none, daily, weekly, biweekly, monthly, yearly
 
+  /// 근무 유형 칩으로 만든 "근무" 일정인지 (일반 일정과 구분).
+  ///
+  /// 친목 팀의 겹치는 근무 보기에서, 조직 팀이 없는 멤버는 이 플래그가 붙은
+  /// 개인 일정을 근무로 삼는다.
+  final bool isShift;
+
   PersonalEvent copyWith({String? id}) => PersonalEvent(
         id: id ?? this.id,
         date: date,
@@ -46,6 +53,7 @@ class PersonalEvent {
         color: color,
         createdAt: createdAt,
         recurrence: recurrence,
+        isShift: isShift,
       );
 
   Map<String, dynamic> toJson() => {
@@ -59,6 +67,7 @@ class PersonalEvent {
         'color': color,
         'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
         'recurrence': recurrence,
+        'isShift': isShift,
       };
 
   factory PersonalEvent.fromJson(Map<String, dynamic> json) {
@@ -75,6 +84,7 @@ class PersonalEvent {
           ? DateTime.parse(json['createdAt'] as String)
           : null,
       recurrence: json['recurrence'] as String?,
+      isShift: json['isShift'] as bool? ?? false,
     );
   }
 

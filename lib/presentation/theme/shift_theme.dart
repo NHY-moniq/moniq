@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/datasources/personal_shift_type_local_data_source.dart'
     show isOffShiftName;
+import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
@@ -348,24 +349,42 @@ final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
     final personalEvents =
         ref.watch(dateEventsIncludingSpansProvider(todayKey));
     final personalShiftTypes = ref.watch(personalShiftTypesProvider);
-    final shiftTypeNames = personalShiftTypes.map((st) => st.name).toSet();
+    // 빠른 추가 칩은 즐겨찾기 팀 유형(커스텀 포함) 기준으로 근무를 만들므로,
+    // 개인 유형 목록에 없는 이름도 팀 유형까지 대조해야 근무로 인식된다.
+    // (빠지면 커스텀 근무인 날 홈 테마가 오프로 떨어지는 버그)
+    final favTeamTypes =
+        ref.watch(favoriteTeamShiftTypesProvider).valueOrNull ??
+        const <ShiftTypeModel>[];
 
-    final personalShiftEvent = personalEvents
-        .where((e) => shiftTypeNames.contains(e.title))
-        .firstOrNull;
-
-    if (personalShiftEvent != null) {
-      final matchedType = personalShiftTypes
-          .where((st) => st.name == personalShiftEvent.title)
+    String? matchedName;
+    String? matchedCode;
+    String? matchedColor;
+    for (final e in personalEvents) {
+      final personal = personalShiftTypes
+          .where((st) => st.name == e.title)
           .firstOrNull;
-      if (matchedType != null) {
-        if (isOffShiftName(matchedType.name, matchedType.code)) {
-          return isDark ? ShiftThemeData.offDark : ShiftThemeData.off;
-        }
-        final color = parseHexColor(matchedType.color);
-        return ShiftThemeData.fromColor(color,
-            isDark: isDark, displayName: matchedType.name);
+      if (personal != null) {
+        matchedName = personal.name;
+        matchedCode = personal.code;
+        matchedColor = personal.color;
+        break;
       }
+      final team = favTeamTypes.where((st) => st.name == e.title).firstOrNull;
+      if (team != null) {
+        matchedName = team.name;
+        matchedCode = team.code;
+        matchedColor = team.color;
+        break;
+      }
+    }
+
+    if (matchedName != null) {
+      if (isOffShiftName(matchedName, matchedCode ?? '')) {
+        return isDark ? ShiftThemeData.offDark : ShiftThemeData.off;
+      }
+      final color = parseHexColor(matchedColor!);
+      return ShiftThemeData.fromColor(color,
+          isDark: isDark, displayName: matchedName);
     }
   } catch (_) {
     // SharedPreferences not yet initialized

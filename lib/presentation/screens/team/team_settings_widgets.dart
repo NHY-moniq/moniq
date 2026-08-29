@@ -3,6 +3,7 @@ import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
@@ -195,10 +196,14 @@ class ToggleRuleRow extends StatelessWidget {
               ],
             ),
           ),
+          // 활성 트랙은 면 색(ShiftFillColors.fill) — 오프면 파스텔,
+          // 다른 시프트는 fill == primary라 기존과 동일.
           Switch.adaptive(
             value: value,
             onChanged: readOnly ? null : onChanged,
-            activeColor: Theme.of(context).colorScheme.primary,
+            activeTrackColor:
+                Theme.of(context).extension<ShiftFillColors>()?.fill ??
+                    Theme.of(context).colorScheme.primary,
           ),
         ],
       ),

@@ -419,7 +419,8 @@ class _FontScalePickerState extends State<_FontScalePicker> {
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             trackHeight: 6,
-            activeTrackColor: cs.primary,
+            // 활성 트랙은 면 요소 — 다른 설정 컨트롤과 같은 톤을 따른다.
+            activeTrackColor: _settingsControlColor(widget.ref),
             inactiveTrackColor: cs.surfaceContainerLow,
           ),
           child: Slider(

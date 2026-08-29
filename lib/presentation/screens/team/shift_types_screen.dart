@@ -4,6 +4,7 @@ import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/core/utils/time_utils.dart';
 import 'package:moniq/data/models/shift_type_model.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
@@ -312,10 +313,14 @@ class _ShiftTypeTile extends StatelessWidget {
                   ))
           : null,
       trailing: isAdmin
+          // 활성 트랙은 면 색(ShiftFillColors.fill) — 오프면 파스텔,
+          // 다른 시프트는 fill == primary라 기존과 동일.
           ? Switch.adaptive(
               value: shiftType.isActive,
               onChanged: onToggle,
-              activeColor: Theme.of(context).colorScheme.primary,
+              activeTrackColor:
+                  Theme.of(context).extension<ShiftFillColors>()?.fill ??
+                      Theme.of(context).colorScheme.primary,
             )
           : null,
       onTap: onTap,

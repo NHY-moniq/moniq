@@ -48,6 +48,7 @@ class PersonalEventRemoteDataSource {
         'description': event.description,
         'color': event.color,
         'recurrence': event.recurrence,
+        'is_shift': event.isShift,
       };
 
   /// insert 후 발급된 id를 포함한 이벤트 반환.
@@ -72,6 +73,7 @@ class PersonalEventRemoteDataSource {
       'description': event.description,
       'color': event.color,
       'recurrence': event.recurrence,
+      'is_shift': event.isShift,
     }).eq('id', event.id!);
   }
 
@@ -151,6 +153,7 @@ class PersonalEventRemoteDataSource {
       createdAt: row['created_at'] != null
           ? DateTime.parse(row['created_at'] as String)
           : null,
+      isShift: row['is_shift'] as bool? ?? false,
     );
   }
 }

@@ -75,6 +75,27 @@ PersonalShiftType personalTypeFromTeam(ShiftTypeModel t) => PersonalShiftType(
 /// 즐겨찾기 팀이 있으면 팀 근무 유형을 쓰는데, 팀에 오프 유형이 없는 경우가
 /// 많다. 개인 캘린더에서 오프를 찍는 일은 잦으므로 없으면 기본 오프를 끼워
 /// 넣고, 그다음 오프→데이→이브닝→나이트→교육 순으로 정렬한다.
+/// 빠른 추가/변경 칩에 노출할 근무 유형 — **팀 유형과 개인 유형을 병합**한다.
+///
+/// 즐겨찾기 팀이 있어도 사용자가 직접 추가한 개인 근무 유형이 사라지지
+/// 않도록, 팀 유형을 우선하되 같은 이름이 없는 개인 유형을 뒤에 붙인다.
+/// 둘 다 비어 있으면 기본 유형으로 대체해 빠른 추가가 항상 동작하게 한다.
+List<PersonalShiftType> mergedQuickPickTypes({
+  required List<ShiftTypeModel>? teamTypes,
+  required List<PersonalShiftType> personalTypes,
+}) {
+  final team = (teamTypes ?? const <ShiftTypeModel>[])
+      .map(personalTypeFromTeam)
+      .toList();
+  final teamNames = team.map((t) => t.name).toSet();
+  final merged = [
+    ...team,
+    ...personalTypes.where((p) => !teamNames.contains(p.name)),
+  ];
+  if (merged.isEmpty) return PersonalShiftTypeLocalDataSource.defaultTypes;
+  return merged;
+}
+
 List<PersonalShiftType> shiftTypesForQuickPick(List<PersonalShiftType> types) {
   final hasOff = types.any((t) => isOffShiftName(t.name, t.code));
   final withOff = hasOff
@@ -242,18 +263,13 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
-    // 즐겨찾기 팀이 있으면 그 팀의 근무 유형을 우선 사용.
-    // 없으면 개인 근무 유형, 그마저 비어 있으면(전체 삭제됨) 빠른 근무
-    // 추가가 사라지지 않도록 기본 근무 유형으로 대체한다.
+    // 즐겨찾기 팀 유형 + 개인 근무 유형 병합 (팀 우선, 이름 중복 제거).
     final teamTypes = ref.watch(favoriteTeamShiftTypesProvider).valueOrNull;
     final personalTypes = ref.watch(personalShiftTypesProvider);
-    final rawTypes = (teamTypes != null && teamTypes.isNotEmpty)
-        ? teamTypes.map(personalTypeFromTeam).toList()
-        : (personalTypes.isNotEmpty
-              ? personalTypes
-              : PersonalShiftTypeLocalDataSource.defaultTypes);
     // 오프 → 데이 → 이브닝 → 나이트 → 교육 → 그 외 순으로 노출.
-    final shiftTypes = shiftTypesForQuickPick(rawTypes);
+    final shiftTypes = shiftTypesForQuickPick(
+      mergedQuickPickTypes(teamTypes: teamTypes, personalTypes: personalTypes),
+    );
 
     // 개인 근무 일정(이름이 근무유형과 매칭)의 저장 인덱스.
     // 화면에 보이는 목록(숨김/팀 근무 숨기기 필터 적용)에서 찾되, 변경·삭제는
@@ -311,7 +327,11 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
             const SizedBox(height: AppSpacing.sm),
             Divider(height: 1, color: cs.outlineVariant),
             const SizedBox(height: AppSpacing.sm),
-          ] else if (shiftTypes.isNotEmpty) ...[
+          ],
+          // 팀 근무가 있는 날에도 근무 유형 칩은 계속 노출한다.
+          // (연속 추가 중 근무가 이미 있는 날을 만나면 칩이 사라져 흐름이
+          //  끊기던 문제 — 수정 옵션과 칩은 함께 보여야 한다)
+          if (shiftTypes.isNotEmpty) ...[
             // ── 근무 일정 빠른 추가/변경 (근무 유형 칩) ──
             Row(
               children: [
@@ -496,11 +516,7 @@ class _ShiftTypeChangeBody extends ConsumerWidget {
     final teamTypes = ref.watch(favoriteTeamShiftTypesProvider).valueOrNull;
     final personalTypes = ref.watch(personalShiftTypesProvider);
     final shiftTypes = shiftTypesForQuickPick(
-      (teamTypes != null && teamTypes.isNotEmpty)
-          ? teamTypes.map(personalTypeFromTeam).toList()
-          : (personalTypes.isNotEmpty
-                ? personalTypes
-                : PersonalShiftTypeLocalDataSource.defaultTypes),
+      mergedQuickPickTypes(teamTypes: teamTypes, personalTypes: personalTypes),
     );
 
     return Column(
@@ -810,6 +826,8 @@ PersonalEvent _shiftEventOf(DateTime date, PersonalShiftType st) => PersonalEven
   endTime: st.endTime,
   color: st.color,
   createdAt: DateTime.now(),
+  // 근무 칩으로 만든 일정 — 친목 팀 겹침 보기에서 근무로 인식되도록 표시.
+  isShift: true,
 );
 
 /// 저장이 끝난 뒤에도 안전하게 화면을 갱신하기 위한 핸들.

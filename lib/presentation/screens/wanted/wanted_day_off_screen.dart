@@ -10,6 +10,7 @@ import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/presentation/screens/wanted/wanted_request_widgets.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/viewmodels/wanted_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
@@ -472,6 +473,11 @@ class _EntryView extends HookConsumerWidget {
     bool isBlocked,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
+    // 채움 버튼은 면 요소 — 오프면 파스텔(ShiftFillColors.fill),
+    // 다른 시프트는 fill == primary라 기존과 동일.
+    final fills = Theme.of(context).extension<ShiftFillColors>();
+    final fill = fills?.fill ?? colorScheme.primary;
+    final onFill = fills?.onFill ?? colorScheme.onPrimary;
 
     // 나이트 전담 뷰
     if (_isNightView) {
@@ -499,6 +505,8 @@ class _EntryView extends HookConsumerWidget {
         height: AppSizing.buttonHeight,
         child: FilledButton.icon(
           style: FilledButton.styleFrom(
+            backgroundColor: fill,
+            foregroundColor: onFill,
             shape: RoundedRectangleBorder(
               borderRadius: AppRadius.borderRadiusFull,
             ),
@@ -528,8 +536,8 @@ class _EntryView extends HookConsumerWidget {
         style: FilledButton.styleFrom(
           // 고정 브랜드 앰버였다 — 화면의 다른 요소가 전부 근무 색을 따르는데
           // 이 버튼만 노랗게 겉돌았다.
-          backgroundColor: colorScheme.primary,
-          foregroundColor: colorScheme.onPrimary,
+          backgroundColor: fill,
+          foregroundColor: onFill,
           shape: RoundedRectangleBorder(
             borderRadius: AppRadius.borderRadiusFull,
           ),
@@ -1069,8 +1077,15 @@ class _EntryView extends HookConsumerWidget {
                   height: AppSizing.buttonHeight,
                   child: FilledButton(
                     style: FilledButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      // 채움 버튼은 면 요소 — 오프면 파스텔(fill/onFill).
+                      backgroundColor: Theme.of(context)
+                              .extension<ShiftFillColors>()
+                              ?.fill ??
+                          Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context)
+                              .extension<ShiftFillColors>()
+                              ?.onFill ??
+                          Theme.of(context).colorScheme.onPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: AppRadius.borderRadiusFull,
                       ),
