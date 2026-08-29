@@ -164,8 +164,10 @@ Future<void> applyShiftPick({
     await hidden.markOffDates([date]);
   } else {
     await writer.setShift(date, type, shiftTitles);
-    await hidden.clearOffDates([date]);
-    await hidden.hideDates([date]);
+    // "삭제 숨김"은 그 날의 개인 근무 일정까지 함께 가리므로 여기서 쓸 수 없다
+    // (방금 넣은 근무가 같이 사라진다). 팀 근무만 가리는 오프 마크를 쓴다 —
+    // 개인 근무가 있으니 'O'는 표시되지 않는다.
+    await hidden.markOffDates([date]);
   }
   refresh.state++;
 }
