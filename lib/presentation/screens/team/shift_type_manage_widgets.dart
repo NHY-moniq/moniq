@@ -409,7 +409,8 @@ class _ShiftTypeEditSheetState extends ConsumerState<ShiftTypeEditSheet> {
           FilledButton(
             onPressed: _saving ? null : _save,
             style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
+              backgroundColor: shiftFillOf(context).fill,
+              foregroundColor: shiftFillOf(context).onFill,
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
             ),
             child: _saving

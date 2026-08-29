@@ -743,7 +743,8 @@ class PersonalShiftTypeSheet extends HookConsumerWidget {
                     Navigator.pop(ctx);
                   },
                   style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(ctx).colorScheme.primary,
+                    backgroundColor: shiftFillOf(ctx).fill,
+                    foregroundColor: shiftFillOf(ctx).onFill,
                     padding: const EdgeInsets.symmetric(
                       vertical: AppSpacing.md,
                     ),
