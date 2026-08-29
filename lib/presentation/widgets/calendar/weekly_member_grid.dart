@@ -920,6 +920,13 @@ class _GridEmptyState extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           FilledButton.tonal(
             onPressed: onSelectMembers,
+            // tonal은 FilledButtonTheme(면색)을 공유하므로 본래 톤을 명시한다.
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+              foregroundColor: Theme.of(
+                context,
+              ).colorScheme.onSecondaryContainer,
+            ),
             child: const Text('멤버 선택'),
           ),
         ],

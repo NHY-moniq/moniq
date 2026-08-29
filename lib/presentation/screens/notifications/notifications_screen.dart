@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:moniq/data/models/notification_model.dart';
 import 'package:moniq/data/models/team_model.dart';
 import 'package:moniq/data/providers/notification_providers.dart';
-import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
@@ -771,8 +770,7 @@ Future<void> _navigateForNotification(
       }
       // 알림 발생 팀을 즐겨찾기로 설정 후 팀 탭으로 이동.
       try {
-        await ref.read(teamRepositoryProvider).setFavoriteTeam(teamId);
-        ref.invalidate(favoriteTeamProvider);
+        await ref.read(favoriteTeamProvider.notifier).select(teamId);
         ref.invalidate(teamCalendarViewModelProvider(teamId));
         // 개인 캘린더가 즉시 즐겨찾기 팀 근무를 반영하도록 갱신
         ref.invalidate(homeViewModelProvider);

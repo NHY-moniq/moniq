@@ -17,6 +17,14 @@ class PersonalHiddenShiftsLocalDataSource {
 
   String get _key => 'personal_hidden_shift_dates:$_userId';
 
+  /// 사용자가 **오프로 바꾼** 날짜 집합.
+  ///
+  /// [_key](삭제로 숨긴 날)와 달리, 이 날짜는 팀 근무만 가리고 **OFF 표시는
+  /// 남긴다**. 오프는 팀 근무 유형으로 존재하지 않아(= 근무 행이 없는 날)
+  /// 오버라이드로 표현할 수 없기 때문에, 개인 캘린더에서만 "이 날은 쉰다"를
+  /// 이 목록으로 기록한다.
+  String get _offKey => 'personal_off_dates:$_userId';
+
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
@@ -43,6 +51,39 @@ class PersonalHiddenShiftsLocalDataSource {
   bool isHidden(DateTime date) =>
       getHiddenDates().contains(DateTime(date.year, date.month, date.day));
 
+  /// 오프로 바꾼 날짜들 — 팀 근무는 가리되 OFF 표시는 유지한다.
+  Set<DateTime> getOffDates() {
+    final raw = _prefs.getStringList(_offKey) ?? const [];
+    final out = <DateTime>{};
+    for (final s in raw) {
+      final d = _parse(s);
+      if (d != null) out.add(d);
+    }
+    return out;
+  }
+
+  /// 주어진 날짜를 "오프"로 표시. 삭제 숨김과는 배타적이라 그쪽에서 제거한다.
+  Future<void> markOffDates(Iterable<DateTime> dates) async {
+    final cur = (_prefs.getStringList(_offKey) ?? const []).toSet();
+    for (final d in dates) {
+      cur.add(_fmt(DateTime(d.year, d.month, d.day)));
+    }
+    await _prefs.setStringList(_offKey, cur.toList());
+    await unhideDates(dates);
+  }
+
+  /// 오프 표시 해제 (근무를 다시 넣거나 삭제할 때).
+  Future<void> clearOffDates(Iterable<DateTime> dates) async {
+    final cur = (_prefs.getStringList(_offKey) ?? const []).toSet();
+    if (cur.isEmpty) return;
+    var changed = false;
+    for (final d in dates) {
+      if (cur.remove(_fmt(DateTime(d.year, d.month, d.day)))) changed = true;
+    }
+    if (!changed) return;
+    await _prefs.setStringList(_offKey, cur.toList());
+  }
+
   /// 주어진 날짜들을 숨김 목록에 추가. 반환값: 새로 추가된 개수.
   Future<int> hideDates(Iterable<DateTime> dates) async {
     final cur = (_prefs.getStringList(_key) ?? const []).toSet();
@@ -51,6 +92,8 @@ class PersonalHiddenShiftsLocalDataSource {
       cur.add(_fmt(DateTime(d.year, d.month, d.day)));
     }
     await _prefs.setStringList(_key, cur.toList());
+    // 삭제(빈 칸)와 오프 표시는 배타적 — 삭제한 날의 오프 표시는 지운다.
+    await clearOffDates(dates);
     return cur.length - before;
   }
 

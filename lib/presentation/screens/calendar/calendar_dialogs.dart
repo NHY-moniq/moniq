@@ -156,14 +156,17 @@ Future<void> applyShiftPick({
     return;
   }
 
-  // 팀 유형이 아닌 선택(오프·개인 전용 유형) — 팀 근무를 개인 캘린더에서 숨긴다.
-  // setShift/removeShiftsOn이 내부에서 unhide를 호출하므로 숨김은 그 뒤에 건다.
+  // 팀 유형이 아닌 선택(오프·개인 전용 유형) — 팀 근무를 개인 캘린더에서 가린다.
+  // setShift/removeShiftsOn이 내부에서 unhide를 호출하므로 표시는 그 뒤에 건다.
   if (isOffShiftName(type.name, type.code)) {
     await writer.removeShiftsOn(date, shiftTitles);
+    // 삭제(빈 칸)와 달리 오프는 'O' 표시가 남아야 하므로 전용 목록을 쓴다.
+    await hidden.markOffDates([date]);
   } else {
     await writer.setShift(date, type, shiftTitles);
+    await hidden.clearOffDates([date]);
+    await hidden.hideDates([date]);
   }
-  await hidden.hideDates([date]);
   refresh.state++;
 }
 
@@ -395,7 +398,9 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
           // ── 근무 섹션 ──
-          if (teamShift != null) ...[
+          // 연속 추가 중(compact)에는 시트가 줄어들어 자리가 없으므로
+          // 근무 수정 행을 접고 칩만 남긴다 — 칩이 잘리면 연속 입력이 끊긴다.
+          if (teamShift != null && !compact) ...[
             // 팀(서버) 근무가 있으면 근무 수정 옵션 제공
             MoniqSheetOption(
               icon: Icons.swap_horiz,
@@ -937,7 +942,11 @@ class ShiftEventWriter {
 
   /// 근무를 새로 넣은 날은 "근무 삭제"로 숨긴 상태를 푼다.
   /// (그 달을 통째로 숨겨둔 경우, 풀지 않으면 넣자마자 다시 가려진다)
-  Future<void> _unhide(DateTime date) => _hidden.unhideDates([date]);
+  /// 그 날짜의 숨김·오프 표시를 모두 해제 — 근무를 새로 쓰면 다시 보여야 한다.
+  Future<void> _unhide(DateTime date) async {
+    await _hidden.unhideDates([date]);
+    await _hidden.clearOffDates([date]);
+  }
 
   /// 근무 유형으로 빠르게 일정 추가
   Future<void> add(DateTime date, PersonalShiftType st) async {
@@ -1067,6 +1076,8 @@ Future<void> editTeamShiftAsPersonal(
     context: context,
     eyebrow: 'SELECT',
     title: '근무 유형 변경',
+    // 팀 유형 + 오프까지 나열되므로 기본 상한(0.56)으로는 목록이 잘린다.
+    maxHeightFactor: 0.8,
     child: Builder(
       builder: (ctx) {
         final cs = Theme.of(ctx).colorScheme;
@@ -1091,7 +1102,7 @@ Future<void> editTeamShiftAsPersonal(
             else
               ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(ctx).size.height * 0.5,
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.44,
                 ),
                 child: ListView.separated(
                   shrinkWrap: true,

@@ -46,7 +46,7 @@ class TeamRemoteDataSource {
         .eq('is_deleted', false)
         .single();
 
-    return TeamModel.fromJson(row as Map<String, dynamic>);
+    return TeamModel.fromJson(row);
   }
 
   Future<TeamModel> createTeam({

@@ -193,17 +193,15 @@ class TeamListScreen extends HookConsumerWidget {
     TeamModel team,
     bool isFavorite,
   ) async {
-    final teamRepo = ref.read(teamRepositoryProvider);
-    if (isFavorite) {
-      await teamRepo.clearFavoriteTeam();
-    } else {
-      await teamRepo.setFavoriteTeam(team.id);
-    }
+    // 로컬 캐시까지 함께 갱신해야 다음 콜드 스타트에 옛 즐겨찾기가 되살아나지 않는다.
+    await ref.read(favoriteTeamProvider.notifier).select(
+          isFavorite ? null : team.id,
+          team: isFavorite ? null : team,
+        );
     // 즐겨찾기 변경 시 개인/팀 캘린더 미리보기가 즉시 반영되도록 모두 갱신.
     // - 임시 보기 전환(override)을 비워 팀 탭이 새 즐겨찾기 팀을 따르게 한다.
     // - 개인 캘린더(home)와 팀 근무유형 미리보기 provider를 무효화한다.
     ref.read(viewingTeamIdOverrideProvider.notifier).state = null;
-    ref.invalidate(favoriteTeamProvider);
     ref.invalidate(favoriteTeamShiftTypesProvider);
     ref.invalidate(homeViewModelProvider);
     ref.invalidate(teamViewModelProvider);

@@ -852,7 +852,8 @@ class DrawerToggleItem extends StatelessWidget {
             Switch.adaptive(
               value: value,
               onChanged: onChanged,
-              activeThumbColor: cs.primary,
+              // 스위치는 면 요소 — 오프면 파스텔, 그 외엔 기존과 동일.
+              activeThumbColor: shiftFillOf(context).fill,
               materialTapTargetSize: compact
                   ? MaterialTapTargetSize.shrinkWrap
                   : null,

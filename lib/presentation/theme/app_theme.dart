@@ -133,6 +133,16 @@ abstract final class AppTheme {
         backgroundColor: fill,
         foregroundColor: onFill,
       ),
+      // FilledButton(확인·저장류)도 면 요소.
+      // 주의: FilledButton.tonal이 같은 테마를 공유하므로, tonal을 쓰는
+      // 두 곳(profile_edit_screen·weekly_member_grid)은 콜사이트에서
+      // secondaryContainer 톤을 명시해 기존 모습을 유지한다.
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: fill,
+          foregroundColor: onFill,
+        ),
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         // 주요 채움 CTA(저장·발행하기류)는 면 요소 — 오프면 파스텔 배경에
         // 잉크 남색 글자, 다른 시프트는 fill == primary라 기존과 동일.
