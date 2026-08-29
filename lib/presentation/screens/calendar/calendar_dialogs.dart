@@ -259,11 +259,11 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
     final focused = ref.read(homeViewModelProvider).valueOrNull?.focusedMonth;
     // 그 날 팀(서버) 근무가 있으면 개인 근무를 덧붙이는 대신 그 근무를
     // 바꿔야 한다 — 안 그러면 한 날에 팀 근무 + 개인 근무가 함께 남는다.
+    // 오프/삭제 표시가 반영된 화면 데이터가 아니라 **원본** 팀 근무로 판단해야
+    // 오프로 바꿔둔 날에 근무가 덧붙지 않는다.
     final teamShift = ref
-        .read(homeViewModelProvider)
-        .valueOrNull
-        ?.monthlyShifts[target]
-        ?.firstOrNull;
+        .read(homeViewModelProvider.notifier)
+        .rawTeamShiftOn(target);
     final overrideRepo = ref.read(personalShiftOverrideRemoteProvider);
     // 오버라이드는 shift_types FK를 요구하므로 **팀 유형**일 때만 가능하다.
     // 오프·개인 전용 유형은 팀 근무를 숨기는 방식으로 대체한다.
@@ -385,10 +385,12 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
     final hasPersonalShift = personalShiftIndex >= 0;
 
     // 팀(서버) 근무
-    final teamShifts =
-        ref.watch(homeViewModelProvider).valueOrNull?.monthlyShifts[_target] ??
-        const <ShiftWithType>[];
-    final teamShift = teamShifts.isNotEmpty ? teamShifts.first : null;
+    // 화면 데이터에는 오프/삭제 표시가 반영돼 있으므로, 근무 수정 대상은
+    // 원본 팀 근무로 판단한다 (오프로 바꾼 날도 다시 바꿀 수 있어야 한다).
+    ref.watch(homeViewModelProvider);
+    final teamShift = ref
+        .read(homeViewModelProvider.notifier)
+        .rawTeamShiftOn(_target);
 
     // 연속 추가 중에는 시트를 줄여 뒤 캘린더를 보여주므로, 근무 칩 외의
     // 부가 항목(일정/메모 추가)은 접어 자리를 비운다.

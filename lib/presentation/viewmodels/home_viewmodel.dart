@@ -368,6 +368,24 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
   }
 
   /// 강제 새로고침 (pull-to-refresh) — 즐겨찾기 팀까지 네트워크에서 다시 받는다.
+  /// 로컬 표시(숨김·오프)를 걷어낸 그 날의 팀 근무 — **쓰기 판단용**.
+  ///
+  /// 화면용 [HomeCalendarState.monthlyShifts]에는 오프·삭제 표시가 이미
+  /// 반영돼 있다. 그것만 보고 판단하면 오프로 바꿔둔 날의 팀 근무가 "없는"
+  /// 것으로 보여, 다른 근무를 찍을 때 오버라이드 대신 개인 근무가 덧붙고
+  /// 결국 한 날에 근무가 두 개로 보인다.
+  ShiftWithType? rawTeamShiftOn(DateTime date) {
+    final key = DateTime(date.year, date.month, date.day);
+    final teamId = _teamId;
+    if (teamId != null) {
+      final cached = _cache?.getMonth(teamId: teamId, month: key);
+      final raw = cached?.value.mine[key];
+      if (raw != null && raw.isNotEmpty) return raw.first;
+    }
+    // 캐시가 아직 없으면(첫 실행) 화면 데이터로 폴백한다.
+    return state.valueOrNull?.monthlyShifts[key]?.firstOrNull;
+  }
+
   /// 로컬 표시(숨김·오프)만 다시 적용한다 — 네트워크 없이 즉시 반영.
   ///
   /// 근무 칩으로 오프/삭제를 찍으면 서버 근무는 그대로고 로컬 표시만 바뀐다.
