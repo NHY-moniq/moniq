@@ -18,6 +18,7 @@ import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
 import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart' show shiftFillOf;
 
 import 'personal_team_calendar_widgets.dart';
 

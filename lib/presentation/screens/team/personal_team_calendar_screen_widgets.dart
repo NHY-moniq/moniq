@@ -428,7 +428,8 @@ class _OverlapScopeToggle extends StatelessWidget {
             vertical: 6,
           ),
           decoration: BoxDecoration(
-            color: selected ? cs.primary : Colors.transparent,
+            // 활성 pill은 면 요소 — 오프면 파스텔, 그 외엔 기존과 동일.
+            color: selected ? shiftFillOf(context).fill : Colors.transparent,
             borderRadius: AppRadius.borderRadiusFull,
           ),
           child: Text(
@@ -436,7 +437,9 @@ class _OverlapScopeToggle extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+              color: selected
+                  ? shiftFillOf(context).onFill
+                  : cs.onSurfaceVariant,
             ),
           ),
         ),
