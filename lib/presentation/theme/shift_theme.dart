@@ -8,6 +8,7 @@ import 'package:moniq/data/providers/settings_providers.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/character_blob.dart';
+import 'package:moniq/data/providers/home_cache_providers.dart';
 
 /// Per-shift UI theme data that drives scaffold bg, card colors, character asset.
 class ShiftThemeData {
@@ -338,10 +339,30 @@ final todayShiftThemeProvider = Provider<ShiftThemeData>((ref) {
   };
 
   // 1. Try server shifts
+  //
+  // monthlyShifts는 **보고 있는 달**만 담고 있어, 지난 달을 넘겨보면 오늘이
+  // 빠져 테마가 오프로 떨어진다. 그럴 땐 캐시에서 오늘 달을 직접 본다.
   final calendarAsync = ref.watch(homeViewModelProvider);
-  final serverShifts = calendarAsync.whenOrNull(
+  var serverShifts = calendarAsync.whenOrNull(
     data: (state) => state.monthlyShifts[todayKey],
   );
+  if (serverShifts == null || serverShifts.isEmpty) {
+    final marks = ref.watch(personalHiddenShiftsDataSourceProvider);
+    // 오늘을 오프/삭제로 표시했으면 근무가 없는 게 맞다.
+    final marked =
+        marks.getHiddenDates().contains(todayKey) ||
+        marks.getOffDates().contains(todayKey);
+    if (!marked) {
+      final cache = ref.watch(homeCacheProvider);
+      final teamId = cache?.getFavoriteTeamId();
+      if (teamId != null) {
+        serverShifts = cache
+            ?.getMonth(teamId: teamId, month: todayKey)
+            ?.value
+            .mine[todayKey];
+      }
+    }
+  }
 
   if (serverShifts != null && serverShifts.isNotEmpty) {
     final shift = serverShifts.first;
