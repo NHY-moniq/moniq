@@ -365,6 +365,9 @@ class PersonalEventLocalDataSource {
         color: event.color,
         createdAt: event.createdAt,
         recurrence: event.recurrence,
+        // 근무 여부는 반복 전개본에도 그대로 따라가야 한다 — 빠뜨리면
+        // 서버에 is_shift=false로 저장돼 친목 팀 겹침 그리드에서 누락된다.
+        isShift: event.isShift,
       );
       // 로컬 우선 저장 — 화면은 서버 왕복을 기다리지 않고 바로 갱신된다.
       // (근무를 연속으로 넣을 때 탭마다 insert를 기다리면 눈에 띄게 밀린다)
@@ -650,6 +653,7 @@ class PersonalEventLocalDataSource {
         color: template.color,
         createdAt: old.createdAt,
         recurrence: old.recurrence,
+        isShift: template.isShift || old.isShift,
       );
       try {
         if (updated.id != null) {
