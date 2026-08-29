@@ -107,6 +107,66 @@ List<PersonalShiftType> shiftTypesForQuickPick(List<PersonalShiftType> types) {
   return sortShiftTypesForDisplay(withOff);
 }
 
+/// 근무 칩/근무 수정 시트에서 고른 근무 유형을 그 날짜에 적용한다.
+///
+/// 팀(서버) 근무가 있는 날인지, 고른 유형이 **팀 유형**인지에 따라 경로가
+/// 갈린다. 오프는 팀 근무 유형으로 존재하지 않는다 — 이 앱에서 오프는
+/// "근무 행이 없는 날"이라, 팀 유형 목록·근무표 생성·통계가 모두 그 전제로
+/// 동작하기 때문이다. 그래서 오프는 오버라이드 대신 **팀 근무 숨김**으로
+/// 표현한다.
+///
+/// - 팀 근무 없음 → 개인 근무 일정으로 저장(기존 동작)
+/// - 팀 근무 있음 + 팀 유형 선택 → 개인 오버라이드로 교체
+///   (원래 팀 유형을 다시 고르면 오버라이드 삭제 = 복원)
+/// - 팀 근무 있음 + 오프 → 그 날 팀 근무를 숨기고 개인 근무도 정리
+/// - 팀 근무 있음 + 팀에 없는 개인 유형 → 팀 근무를 숨기고 개인 근무로 표시
+Future<void> applyShiftPick({
+  required DateTime date,
+  required PersonalShiftType type,
+  required ShiftWithType? teamShift,
+  required Set<String> teamTypeIds,
+  required ShiftEventWriter writer,
+  required PersonalShiftOverrideRemoteDataSource overrideRepo,
+  required PersonalHiddenShiftsLocalDataSource hidden,
+  required Set<String> shiftTitles,
+  required StateController<int> refresh,
+}) async {
+  if (teamShift == null) {
+    await writer.setShift(date, type, shiftTitles);
+    return;
+  }
+
+  if (teamTypeIds.contains(type.id)) {
+    if (type.id == teamShift.shift.shiftTypeId) {
+      await overrideRepo.remove(teamShift.shift.id);
+    } else {
+      await overrideRepo.upsert(
+        PersonalShiftOverrideRemote(
+          shiftId: teamShift.shift.id,
+          shiftTypeId: type.id,
+          code: type.code,
+          name: type.name,
+          color: type.color,
+          startTime: (type.startTime?.isEmpty ?? true) ? null : type.startTime,
+          endTime: (type.endTime?.isEmpty ?? true) ? null : type.endTime,
+        ),
+      );
+    }
+    refresh.state++;
+    return;
+  }
+
+  // 팀 유형이 아닌 선택(오프·개인 전용 유형) — 팀 근무를 개인 캘린더에서 숨긴다.
+  // setShift/removeShiftsOn이 내부에서 unhide를 호출하므로 숨김은 그 뒤에 건다.
+  if (isOffShiftName(type.name, type.code)) {
+    await writer.removeShiftsOn(date, shiftTitles);
+  } else {
+    await writer.setShift(date, type, shiftTitles);
+  }
+  await hidden.hideDates([date]);
+  refresh.state++;
+}
+
 // ── Dialog / Bottom Sheet functions ──
 
 /// 근무를 연속으로 넣는 동안 시트를 이 비율까지 줄여 뒤 캘린더가 보이게 한다.
@@ -202,6 +262,17 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
         ?.monthlyShifts[target]
         ?.firstOrNull;
     final overrideRepo = ref.read(personalShiftOverrideRemoteProvider);
+    // 오버라이드는 shift_types FK를 요구하므로 **팀 유형**일 때만 가능하다.
+    // 오프·개인 전용 유형은 팀 근무를 숨기는 방식으로 대체한다.
+    final teamTypeIds =
+        ref
+            .read(favoriteTeamShiftTypesProvider)
+            .valueOrNull
+            ?.map((t) => t.id)
+            .toSet() ??
+        const <String>{};
+    final hidden = ref.read(personalHiddenShiftsDataSourceProvider);
+    final refresh = ref.read(eventRefreshProvider.notifier);
 
     // DateTime.add 대신 필드 산술 — 월/연 경계를 정확히 넘긴다.
     final next = DateTime(target.year, target.month, target.day + 1);
@@ -225,37 +296,20 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
 
     _writes = _writes
         .then(
-          (_) => teamShift != null
-              // 팀 근무가 있는 날: 개인 오버라이드로 그 근무를 교체한다.
-              // (원래 팀 근무를 다시 고르면 오버라이드를 지워 복원)
-              ? _overrideTeamShift(overrideRepo, teamShift, st)
-              : writer.setShift(target, st, shiftTitles),
+          (_) => applyShiftPick(
+            date: target,
+            type: st,
+            teamShift: teamShift,
+            teamTypeIds: teamTypeIds,
+            writer: writer,
+            overrideRepo: overrideRepo,
+            hidden: hidden,
+            shiftTitles: shiftTitles,
+            refresh: refresh,
+          ),
         )
         // 한 건이 실패해도 큐가 멈추면 이후 탭이 모두 유실된다.
         .catchError((_) {});
-  }
-
-  /// 팀 근무를 개인 오버라이드로 교체 — 근무 유형 변경 시트와 같은 규칙.
-  Future<void> _overrideTeamShift(
-    PersonalShiftOverrideRemoteDataSource repo,
-    ShiftWithType teamShift,
-    PersonalShiftType st,
-  ) async {
-    if (st.id == teamShift.shift.shiftTypeId) {
-      await repo.remove(teamShift.shift.id);
-      return;
-    }
-    await repo.upsert(
-      PersonalShiftOverrideRemote(
-        shiftId: teamShift.shift.id,
-        shiftTypeId: st.id,
-        code: st.code,
-        name: st.name,
-        color: st.color,
-        startTime: (st.startTime?.isEmpty ?? true) ? null : st.startTime,
-        endTime: (st.endTime?.isEmpty ?? true) ? null : st.endTime,
-      ),
-    );
   }
 
   /// 삭제 칩 — 지금 보고 있는 날짜의 근무를 지우고 **전날로** 이동한다.
@@ -975,9 +1029,29 @@ Future<void> editTeamShiftAsPersonal(
   ShiftWithType shift,
 ) async {
   final shiftRepo = ref.read(shiftRepositoryProvider);
-  final List<ShiftTypeModel> types = await shiftRepo
+  final teamTypes = await shiftRepo
       .getShiftTypes(shift.shift.teamId)
       .catchError((_) => <ShiftTypeModel>[]);
+
+  // 오프는 팀 근무 유형으로 존재하지 않지만(= 근무 행이 없는 날) 사용자는
+  // "이 날은 쉰다"로 바꾸고 싶어 한다. 목록 맨 앞에 오프를 끼워 넣고,
+  // 고르면 오버라이드 대신 팀 근무 숨김으로 처리한다.
+  final offType = PersonalShiftTypeLocalDataSource.defaultTypes.firstWhere(
+    (t) => t.id == 'off',
+  );
+  final hasOff = teamTypes.any((t) => isOffShiftName(t.name, t.code));
+  final List<ShiftTypeModel> types = [
+    if (!hasOff)
+      ShiftTypeModel(
+        id: offType.id,
+        teamId: shift.shift.teamId,
+        name: offType.name,
+        code: offType.code,
+        color: offType.color,
+        displayOrder: -1,
+      ),
+    ...teamTypes,
+  ];
 
   if (!context.mounted) return;
 
@@ -1057,30 +1131,29 @@ Future<void> editTeamShiftAsPersonal(
   // 팀 근무 레코드는 그대로 두고, 개인 오버라이드만 upsert 한다.
   // (승인 불필요 — 변경은 내 개인 캘린더에만 반영되고 기기 간 동기화됨)
   // 단, 원본 팀 근무를 다시 고른 경우엔 오버라이드를 삭제해 완전 복원한다.
+  // 오프는 팀 유형이 아니므로 [applyShiftPick]이 팀 근무 숨김으로 처리한다.
   final isRestoreToOriginal = selected.id == shift.shift.shiftTypeId;
+  final isOff = isOffShiftName(selected.name, selected.code);
   try {
-    final overrideRepo = ref.read(personalShiftOverrideRemoteProvider);
-    if (isRestoreToOriginal) {
-      await overrideRepo.remove(shift.shift.id);
-    } else {
-      await overrideRepo.upsert(
-        PersonalShiftOverrideRemote(
-          shiftId: shift.shift.id,
-          shiftTypeId: selected.id,
-          code: selected.code,
-          name: selected.name,
-          color: selected.color,
-          startTime: selected.startTime,
-          endTime: selected.endTime,
-        ),
-      );
-    }
+    await applyShiftPick(
+      date: date,
+      type: personalTypeFromTeam(selected),
+      teamShift: shift,
+      teamTypeIds: teamTypes.map((t) => t.id).toSet(),
+      writer: ShiftEventWriter(ref),
+      overrideRepo: ref.read(personalShiftOverrideRemoteProvider),
+      hidden: ref.read(personalHiddenShiftsDataSourceProvider),
+      shiftTitles: ref.read(shiftEventTitlesProvider),
+      refresh: ref.read(eventRefreshProvider.notifier),
+    );
     refreshAll(ref, date);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isRestoreToOriginal
+            isOff
+                ? '오프로 변경되었습니다'
+                : isRestoreToOriginal
                 ? '팀 근무로 복원되었습니다'
                 : '"${selected.name}"(으)로 변경되었습니다',
           ),
