@@ -220,14 +220,18 @@ class _AllDayCheckboxButton extends StatelessWidget {
                   borderRadius: BorderRadius.circular(7),
                   border: Border.all(
                     color: selected
-                        ? cs.primary
+                        ? shiftFillOf(context).fill
                         : cs.outlineVariant.withValues(alpha: 0.9),
                     width: 1.4,
                   ),
                 ),
                 alignment: Alignment.center,
                 child: selected
-                    ? Icon(Icons.check_rounded, size: 15, color: cs.onPrimary)
+                    ? Icon(
+                        Icons.check_rounded,
+                        size: 15,
+                        color: shiftFillOf(context).onFill,
+                      )
                     : null,
               ),
               const SizedBox(height: 4),
@@ -523,14 +527,22 @@ class _MemberSelectionTile extends StatelessWidget {
                 width: 22,
                 height: 22,
                 decoration: BoxDecoration(
-                  color: selected ? cs.primary : cs.surfaceContainerHighest,
+                  color: selected
+                      ? shiftFillOf(context).fill
+                      : cs.surfaceContainerHighest,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: selected ? cs.primary : cs.outlineVariant,
+                    color: selected
+                        ? shiftFillOf(context).fill
+                        : cs.outlineVariant,
                   ),
                 ),
                 child: selected
-                    ? Icon(Icons.check_rounded, size: 15, color: cs.onPrimary)
+                    ? Icon(
+                        Icons.check_rounded,
+                        size: 15,
+                        color: shiftFillOf(context).onFill,
+                      )
                     : null,
               ),
             ],

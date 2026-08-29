@@ -69,7 +69,7 @@ void showEventForm(
         final cs = Theme.of(ctx).colorScheme;
         final tt = Theme.of(ctx).textTheme;
         // 더보기 행에 아직 추가할 수 있는 항목 — 반복은 새 일정에서만.
-        final canAddRecurrence = index == null && selectedRecurrence == 'none';
+        final canAddRecurrence = selectedRecurrence == 'none';
         final canAddDesc = !showDescField;
         final isAllDay = startTime == null && endTime == null;
 
@@ -240,13 +240,14 @@ void showEventForm(
                   }).toList(),
                 ),
               ),
-              // 반복 — 값이 있으면 요약 라벨 행만 보여주고, 행을 탭하면
-              // 반복 시트를 다시 연다 (수정 화면에서는 표기만, 변경 불가).
+              // 반복 — 값이 있으면 요약 라벨 행을 보여주고, 탭하면 시트를
+              // 다시 연다. 수정 화면에서도 바꿀 수 있다(아래 저장 로직이
+              // 규칙이 바뀐 경우 이후 회차를 새 규칙으로 다시 전개한다).
               if (selectedRecurrence != 'none') ...[
                 const SizedBox(height: AppSpacing.xl),
                 _RecurrenceSummaryRow(
                   label: recurrenceSummaryLabel(selectedRecurrence),
-                  onTap: index == null ? pickRecurrence : null,
+                  onTap: pickRecurrence,
                 ),
               ],
               // 설명 — 섹션 라벨이 역할을 알려주므로 필드 안 아이콘은 뺐다.
@@ -369,12 +370,9 @@ void showEventForm(
                       description: desc,
                       color: selectedColor,
                       createdAt: DateTime.now(),
-                      // 새 일정만 반복을 전개한다. 수정 시에는 기존 반복
-                      // 표식을 보존해 "이후 일정 모두 삭제" 매칭이 깨지지
-                      // 않게 한다.
-                      recurrence: index == null
-                          ? selectedRecurrence
-                          : existing?.recurrence,
+                      // 수정 시에도 사용자가 고른 값을 싣는다. 규칙이 바뀌면
+                      // 아래에서 이후 회차를 지우고 새 규칙으로 다시 전개한다.
+                      recurrence: selectedRecurrence,
                     );
                     // 반복 일정 수정인지 — 전개 저장된 회차는 recurrence
                     // 표식을 공유하므로 이 값만으로 그룹 소속을 알 수 있다.
@@ -382,6 +380,10 @@ void showEventForm(
                         index != null &&
                         existing?.recurrence != null &&
                         existing!.recurrence != 'none';
+                    // 수정 중 반복 규칙이 바뀌었는지 (없음 ↔ 있음 포함).
+                    final recurrenceChanged =
+                        index != null &&
+                        selectedRecurrence != (existing?.recurrence ?? 'none');
 
                     final container = sheetContainer(ctx);
                     final ds = container.read(personalEventDataSourceProvider);
@@ -393,6 +395,20 @@ void showEventForm(
                       // 반복 일정이라도 날짜를 옮긴 수정은 회차별 날짜 축과
                       // 어긋나므로 "이 일정만"으로만 처리한다 (질문 없음).
                       await ds.removeEvent(baseDate, index);
+                      await ds.addEvent(event);
+                    } else if (recurrenceChanged) {
+                      // 반복 규칙 자체가 바뀐 수정 — 이후 회차를 지우고
+                      // 새 규칙으로 다시 전개한다. (회차별 날짜 축이 통째로
+                      // 달라지므로 개별 수정으로는 표현할 수 없다)
+                      if (isRecurringEdit) {
+                        await ds.removeRecurringEventsFrom(
+                          date: baseDate,
+                          title: existing.title,
+                          recurrence: existing.recurrence!,
+                        );
+                      } else {
+                        await ds.removeEvent(baseDate, index);
+                      }
                       await ds.addEvent(event);
                     } else if (isRecurringEdit) {
                       // 저장 직전에 적용 범위를 묻는다 — 취소하면 폼 유지.

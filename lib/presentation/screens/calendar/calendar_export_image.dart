@@ -206,9 +206,19 @@ Future<Uint8List> _renderCalendarBytes(
           (e) => e.description?.startsWith(kPersonalTeamImportMarker) == true,
         )
         .toList();
+    // 근무 칩으로 직접 넣은 개인 근무도 "근무"다 — 내보내기에 포함한다.
+    // (제외되는 건 일반 일정·메모뿐)
+    final personalShiftEvents = allEvents
+        .where(
+          (e) =>
+              e.isShift &&
+              e.description?.startsWith(kPersonalTeamImportMarker) != true,
+        )
+        .toList();
     final hasShift = shifts != null && shifts.isNotEmpty;
     // 서버 근무가 있으면 import 근무는 중복이므로 무시(이중 출력 방지).
-    final hasWork = hasShift || importEvents.isNotEmpty;
+    final hasWork =
+        hasShift || importEvents.isNotEmpty || personalShiftEvents.isNotEmpty;
     // 근무가 전혀 없고 발행된 스케줄 기간(coverage)에 속한 날 → OFF.
     final showOff = !hasWork && state.teamScheduledDates.contains(date);
     // 내보내기 이미지에는 근무 일정만 담는다 — 직접 만든 개인 일정은 제외.
@@ -258,6 +268,24 @@ Future<Uint8List> _renderCalendarBytes(
           cellW,
           s.shiftType.name,
           shiftColor,
+          isWork: true,
+          fontSize: tagFontSize,
+          tagHeight: tagHeight,
+        );
+        tagY += tagStep;
+        tagCount++;
+      }
+    } else if (personalShiftEvents.isNotEmpty) {
+      // 개인 근무 — 팀 근무가 없는 날에만 그린다.
+      for (final e in personalShiftEvents) {
+        if (tagCount >= 4) break;
+        drawPreviewTag(
+          canvas,
+          x,
+          tagY,
+          cellW,
+          e.title,
+          e.color != null ? parseHexColor(e.color!) : AppColors.shiftOff,
           isWork: true,
           fontSize: tagFontSize,
           tagHeight: tagHeight,

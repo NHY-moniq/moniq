@@ -193,8 +193,10 @@ class MoniqEmptyStateAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final bg = outlined ? Colors.transparent : cs.primary;
-    final fg = outlined ? cs.onSurface : cs.onPrimary;
+    // 채움 버튼은 면 요소 — 오프면 파스텔, 그 외엔 기존과 동일.
+    final fills = shiftFillOf(context);
+    final bg = outlined ? Colors.transparent : fills.fill;
+    final fg = outlined ? cs.onSurface : fills.onFill;
 
     return Material(
       color: bg,
