@@ -392,7 +392,9 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
 
     // 연속 추가 중에는 시트를 줄여 뒤 캘린더를 보여주므로, 근무 칩 외의
     // 부가 항목(일정/메모 추가)은 접어 자리를 비운다.
-    final compact = _addedDays > 0;
+    // 시트가 축소된 상태(연속 추가/삭제 진행 중)면 부가 항목을 접는다.
+    // 추가 횟수만 보면 '삭제'로 축소된 경우가 빠져 칩 영역이 0으로 눌린다.
+    final compact = widget.heightFactor.value <= _kAddSheetCompactFactor;
 
     // 근무 유형이 많아도 시트 전체가 늘어나지 않도록 칩 영역만 스크롤시킨다.
     // (Flexible + 내부 스크롤 → 아래 고정 항목은 항상 보인다)
