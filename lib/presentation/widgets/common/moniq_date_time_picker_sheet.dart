@@ -51,6 +51,72 @@ Future<DateTime?> showMoniqDateTimePickerSheet({
   );
 }
 
+/// 통합 range 피커가 다루는 값의 정밀도.
+///
+/// - [date] : 날짜만 (종일 일정)
+/// - [dateAndTime] : 날짜 + 시간
+/// - [time] : 시간만 — 날짜가 이미 정해진 약속처럼 시각만 고르는 경우.
+///   휠은 `CupertinoDatePickerMode.time`이라 날짜 열이 없고, 내부 계산은
+///   기준일(anchor) 위에서 이뤄진다.
+enum _RangePickerMode { date, dateAndTime, time }
+
+/// 시작·종료 **시각만** 한 시트에서 함께 고르는 통합 피커.
+///
+/// 날짜가 이미 정해진 화면(예: 특정 날짜의 약속 잡기)에서 쓴다.
+/// 시작/종료 헤더 탭·자동 전환·확인 한 번에 동시 반영 등 UX는
+/// [showMoniqDateTimeRangePickerSheet]와 같고, 다루는 값만 [TimeOfDay]다.
+///
+/// 규칙: 시작을 고르면 종료 = 시작 + 1시간(하루 끝을 넘으면 23:59로 붙는다),
+/// 종료 휠은 시작 이전으로 확정되지 않는다.
+///
+/// 반환: `(start:, end:)` 레코드, 취소 시 null.
+Future<({TimeOfDay start, TimeOfDay end})?> showMoniqTimeRangePickerSheet({
+  required BuildContext context,
+  required TimeOfDay initialStart,
+  required TimeOfDay initialEnd,
+  String title = '시간 선택',
+  String? eyebrow,
+  String confirmLabel = '확인',
+  String cancelLabel = '취소',
+}) async {
+  // 시각만 다루므로 날짜는 계산용 기준일 — 화면에는 드러나지 않는다.
+  // 하루 안에서만 움직이도록 00:00~23:59로 범위를 묶는다.
+  final anchor = DateTime(2000);
+  DateTime at(TimeOfDay t) =>
+      DateTime(anchor.year, anchor.month, anchor.day, t.hour, t.minute);
+  final dayStart = at(const TimeOfDay(hour: 0, minute: 0));
+  final dayEnd = at(const TimeOfDay(hour: 23, minute: 59));
+
+  var start = at(initialStart);
+  var end = at(initialEnd);
+  if (!end.isAfter(start)) {
+    end = start.add(const Duration(hours: 1));
+    if (end.isAfter(dayEnd)) end = dayEnd;
+  }
+
+  final picked = await showMoniqBottomSheet<({DateTime start, DateTime end})>(
+    context: context,
+    title: title,
+    eyebrow: eyebrow ?? 'TIME',
+    // 탭 헤더 + 220px 휠 + 버튼이라 기본 상한(0.56)으로는 하단이 잘린다.
+    maxHeightFactor: 0.78,
+    child: _MoniqDateTimeRangePickerSheetBody(
+      initialStart: start,
+      initialEnd: end,
+      mode: _RangePickerMode.time,
+      minimumDate: dayStart,
+      maximumDate: dayEnd,
+      confirmLabel: confirmLabel,
+      cancelLabel: cancelLabel,
+    ),
+  );
+  if (picked == null) return null;
+  return (
+    start: TimeOfDay.fromDateTime(picked.start),
+    end: TimeOfDay.fromDateTime(picked.end),
+  );
+}
+
 /// 시작·종료를 **한 시트에서 함께** 고르는 통합 피커.
 ///
 /// 상단의 시작/종료 헤더 탭으로 어느 값을 편집할지 고르고(활성 쪽 강조),
@@ -103,7 +169,7 @@ Future<({DateTime start, DateTime end})?> showMoniqDateTimeRangePickerSheet({
     child: _MoniqDateTimeRangePickerSheetBody(
       initialStart: start,
       initialEnd: end,
-      allDay: allDay,
+      mode: allDay ? _RangePickerMode.date : _RangePickerMode.dateAndTime,
       minimumDate: min,
       maximumDate: max,
       confirmLabel: confirmLabel,
@@ -116,7 +182,7 @@ class _MoniqDateTimeRangePickerSheetBody extends StatefulWidget {
   const _MoniqDateTimeRangePickerSheetBody({
     required this.initialStart,
     required this.initialEnd,
-    required this.allDay,
+    required this.mode,
     required this.minimumDate,
     required this.maximumDate,
     required this.confirmLabel,
@@ -125,7 +191,7 @@ class _MoniqDateTimeRangePickerSheetBody extends StatefulWidget {
 
   final DateTime initialStart;
   final DateTime initialEnd;
-  final bool allDay;
+  final _RangePickerMode mode;
   final DateTime? minimumDate;
   final DateTime? maximumDate;
   final String confirmLabel;
@@ -162,29 +228,43 @@ class _MoniqDateTimeRangePickerSheetBodyState
     super.dispose();
   }
 
-  /// 종료 휠의 최소값 — 시간 모드는 시작 이하로 스크롤 자체가 안 되게 +1분.
-  DateTime get _endMinimum =>
-      widget.allDay ? _start : _start.add(const Duration(minutes: 1));
+  bool get _isDateOnly => widget.mode == _RangePickerMode.date;
+
+  /// 종료 휠의 최소값 — 시간을 다루면 시작 이하로 확정되지 않게 +1분.
+  /// 상한(예: 시간 전용 모드의 23:59)을 넘지 않도록 함께 조인다.
+  DateTime get _endMinimum {
+    var min = _isDateOnly ? _start : _start.add(const Duration(minutes: 1));
+    final max = widget.maximumDate;
+    if (max != null && min.isAfter(max)) min = max;
+    return min;
+  }
+
+  /// 시작에 맞춰 따라오는 종료값.
+  /// - 날짜만: 시작보다 앞설 때만 시작으로 당겨온다(기간 유지).
+  /// - 시간 포함: 항상 시작 + 1시간, 상한을 넘으면 상한에 붙인다.
+  DateTime _followingEnd(DateTime start, DateTime current) {
+    if (_isDateOnly) return current.isBefore(start) ? start : current;
+    var next = start.add(const Duration(hours: 1));
+    final max = widget.maximumDate;
+    if (max != null && next.isAfter(max)) next = max;
+    if (next.isBefore(start)) next = start;
+    return next;
+  }
 
   String _labelOf(DateTime d) {
-    final date = DateFormat('M.d (E)').format(d);
-    if (widget.allDay) return date;
     final hh = d.hour.toString().padLeft(2, '0');
     final mm = d.minute.toString().padLeft(2, '0');
+    // 시간 전용 모드는 날짜가 화면 밖(이미 정해진 날)이라 시각만 보여준다.
+    if (widget.mode == _RangePickerMode.time) return '$hh:$mm';
+    final date = DateFormat('M.d (E)').format(d);
+    if (_isDateOnly) return date;
     return '$date $hh:$mm';
   }
 
   void _onStartChanged(DateTime v) {
     setState(() {
       _start = v;
-      if (widget.allDay) {
-        // 종일 — 시작이 종료보다 뒤로 가면 종료를 함께 밀어준다.
-        if (_end.isBefore(_start)) _end = _start;
-      } else {
-        // 시간 사용 — 종료는 항상 시작 +1시간. 날짜 포함 DateTime이라
-        // 자정을 넘어도 종료 일자가 자연히 따라간다.
-        _end = _start.add(const Duration(hours: 1));
-      }
+      _end = _followingEnd(_start, _end);
     });
     _scheduleAutoAdvance();
   }
@@ -221,15 +301,17 @@ class _MoniqDateTimeRangePickerSheetBodyState
     if (endInitial.isBefore(_endMinimum)) endInitial = _endMinimum;
     final picker = CupertinoDatePicker(
       key: ValueKey(_editingEnd),
-      mode: widget.allDay
-          ? CupertinoDatePickerMode.date
-          : CupertinoDatePickerMode.dateAndTime,
+      mode: switch (widget.mode) {
+        _RangePickerMode.date => CupertinoDatePickerMode.date,
+        _RangePickerMode.dateAndTime => CupertinoDatePickerMode.dateAndTime,
+        _RangePickerMode.time => CupertinoDatePickerMode.time,
+      },
       backgroundColor: colorScheme.surfaceContainerLowest,
       initialDateTime: _editingEnd ? endInitial : _start,
       minimumDate: _editingEnd ? _endMinimum : widget.minimumDate,
       maximumDate: widget.maximumDate,
       onDateTimeChanged: (value) {
-        final v = widget.allDay
+        final v = _isDateOnly
             ? DateTime(value.year, value.month, value.day)
             : value;
         if (_editingEnd) {
@@ -315,12 +397,12 @@ class _MoniqDateTimeRangePickerSheetBodyState
                     onPressed: () {
                       // 휠이 스냅백되는 중에 눌러도 종료<시작이 나가지 않게
                       // 최종 보정 후 두 값을 함께 반환한다.
-                      var start = _start;
+                      final start = _start;
                       var end = _end;
-                      if (widget.allDay) {
-                        if (end.isBefore(start)) end = start;
-                      } else if (!end.isAfter(start)) {
-                        end = start.add(const Duration(hours: 1));
+                      if (_isDateOnly
+                          ? end.isBefore(start)
+                          : !end.isAfter(start)) {
+                        end = _followingEnd(start, end);
                       }
                       Navigator.pop(context, (start: start, end: end));
                     },

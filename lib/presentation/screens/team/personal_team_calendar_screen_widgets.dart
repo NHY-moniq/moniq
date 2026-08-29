@@ -247,75 +247,96 @@ class _AllDayCheckboxButton extends StatelessWidget {
   }
 }
 
-class _AppointmentTimeButton extends StatelessWidget {
-  const _AppointmentTimeButton({
-    required this.label,
-    required this.value,
+/// 시작 → 종료를 한 줄에 담은 일시 버튼. 탭하면 시작/종료를 함께 고르는
+/// 통합 시트가 열린다(개인 일정 폼의 `_EventRangeButton`과 같은 흐름).
+/// 종일이면 고를 시간이 없어 값 대신 '하루 종일'만 보여주고 탭을 막는다.
+class _AppointmentRangeButton extends StatelessWidget {
+  const _AppointmentRangeButton({
+    required this.startValue,
+    required this.endValue,
+    required this.allDay,
     required this.onTap,
   });
 
-  final String label;
-  final String value;
+  final String startValue;
+  final String endValue;
+  final bool allDay;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final valueStyle = theme.textTheme.labelLarge?.copyWith(
+      color: allDay ? cs.onSurfaceVariant : cs.onSurface,
+      fontSize: 13,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 0.2,
+    );
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.borderRadiusMd,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: 4,
-          ),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerLow,
-            borderRadius: AppRadius.borderRadiusMd,
-            border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: 0.62),
+    return Semantics(
+      button: !allDay,
+      label: '일시',
+      value: allDay ? '하루 종일' : '$startValue부터 $endValue까지',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: allDay ? null : onTap,
+          borderRadius: AppRadius.borderRadiusMd,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 4,
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.schedule_rounded,
-                    size: 13,
-                    color: cs.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 3),
-                  Text(
-                    label,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLow,
+              borderRadius: AppRadius.borderRadiusMd,
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.62),
+              ),
+            ),
+            child: allDay
+                ? Center(
+                    child: Text(
+                      '하루 종일',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: valueStyle,
                     ),
+                  )
+                : Row(
+                    children: [
+                      Icon(
+                        Icons.schedule_rounded,
+                        size: 14,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          startValue,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: valueStyle,
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 14,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      Expanded(
+                        child: Text(
+                          endValue,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: valueStyle,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: cs.onSurface,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ],
           ),
         ),
       ),

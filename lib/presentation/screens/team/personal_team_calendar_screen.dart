@@ -11,7 +11,7 @@ import 'package:moniq/presentation/screens/team/appointment_management_screen.da
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/viewmodels/personal_team_calendar_viewmodel.dart';
-import 'package:moniq/presentation/widgets/common/moniq_time_picker_sheet.dart';
+import 'package:moniq/presentation/widgets/common/moniq_date_time_picker_sheet.dart';
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/presentation/widgets/calendar/weekly_member_grid.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
@@ -816,29 +816,19 @@ class _AppointmentSheetContentState
     });
   }
 
-  Future<void> _pickTime({required bool isStart}) async {
-    final initial = isStart
-        ? _startTime ?? const TimeOfDay(hour: 9, minute: 0)
-        : _endTime ??
-            TimeOfDay(
-              hour: ((_startTime?.hour ?? 9) + 1) % 24,
-              minute: _startTime?.minute ?? 0,
-            );
-
-    final picked = await showMoniqTimePickerSheet(
+  /// 시작·종료를 한 시트에서 함께 고른다 — 개인 일정 폼과 같은 통합 피커.
+  /// 약속은 날짜가 이미 정해져 있어 시간 전용 모드를 쓴다.
+  Future<void> _pickTimeRange() async {
+    final picked = await showMoniqTimeRangePickerSheet(
       context: context,
-      initialTime: initial,
-      title: isStart ? '시작 시간' : '종료 시간',
+      initialStart: _startTime ?? const TimeOfDay(hour: 9, minute: 0),
+      initialEnd: _endTime ?? const TimeOfDay(hour: 10, minute: 0),
     );
     if (picked == null || !mounted) return;
 
     setState(() {
-      if (isStart) {
-        _startTime = picked;
-        _endTime ??= picked.replacing(hour: (picked.hour + 1) % 24);
-      } else {
-        _endTime = picked;
-      }
+      _startTime = picked.start;
+      _endTime = picked.end;
     });
   }
 
@@ -991,24 +981,17 @@ class _AppointmentSheetContentState
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
+              // 시작 → 종료가 한 줄에 붙은 단일 버튼 — 탭하면 통합 시트가
+              // 열려 두 값을 한 번의 확인으로 함께 정한다.
               Expanded(
                 child: SizedBox(
                   height: 50,
-                  child: _AppointmentTimeButton(
-                    label: '시작',
-                    value: _timeLabel(_startTime, fallback: '--:--'),
-                    onTap: () => _pickTime(isStart: true),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: SizedBox(
-                  height: 50,
-                  child: _AppointmentTimeButton(
-                    label: '종료',
-                    value: _timeLabel(_endTime, fallback: '--:--'),
-                    onTap: () => _pickTime(isStart: false),
+                  child: _AppointmentRangeButton(
+                    startValue: _timeLabel(_startTime, fallback: '--:--'),
+                    endValue: _timeLabel(_endTime, fallback: '--:--'),
+                    // 종일이면 고를 시간이 없어 '하루 종일'만 보여준다.
+                    allDay: _isAllDay,
+                    onTap: _pickTimeRange,
                   ),
                 ),
               ),
