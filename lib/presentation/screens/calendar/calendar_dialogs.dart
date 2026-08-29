@@ -137,6 +137,10 @@ Future<void> applyShiftPick({
   }
 
   if (teamTypeIds.contains(type.id)) {
+    // 오프/삭제로 가려둔 날일 수 있으므로 먼저 표시를 풀어야 한다.
+    // (안 그러면 오버라이드를 걸어도 팀 근무가 계속 가려져 화면이 그대로다)
+    await hidden.clearOffDates([date]);
+    await hidden.unhideDates([date]);
     if (type.id == teamShift.shift.shiftTypeId) {
       await overrideRepo.remove(teamShift.shift.id);
     } else {
