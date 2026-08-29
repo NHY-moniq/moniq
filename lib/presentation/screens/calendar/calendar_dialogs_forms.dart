@@ -417,8 +417,9 @@ void showEventForm(
                     if (ctx.mounted) Navigator.pop(ctx);
                   },
                   style: FilledButton.styleFrom(
-                    backgroundColor: cs.primary,
-                    foregroundColor: cs.onPrimary,
+                    // 저장 버튼은 면 요소 — 오프면 파스텔 배경 + 잉크 글자.
+                    backgroundColor: shiftFillOf(ctx).fill,
+                    foregroundColor: shiftFillOf(ctx).onFill,
                     elevation: 2,
                     shadowColor: cs.primary.withValues(alpha: 0.35),
                     shape: RoundedRectangleBorder(

@@ -4,6 +4,7 @@ import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/app_typography.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart' show shiftFillOf;
 import 'package:moniq/presentation/widgets/calendar/view_mode_toggle.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -725,7 +726,8 @@ class _ViewModeSegmentedPill extends StatelessWidget {
               duration: const Duration(milliseconds: 180),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
               decoration: BoxDecoration(
-                color: selected ? cs.primary : Colors.transparent,
+                // 활성 pill은 면 요소 — 오프면 파스텔, 그 외엔 기존과 동일.
+                color: selected ? shiftFillOf(context).fill : Colors.transparent,
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
@@ -733,7 +735,9 @@ class _ViewModeSegmentedPill extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+                  color: selected
+                      ? shiftFillOf(context).onFill
+                      : cs.onSurfaceVariant,
                 ),
               ),
             ),

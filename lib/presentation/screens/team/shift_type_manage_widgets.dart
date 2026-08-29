@@ -8,6 +8,7 @@ import 'package:moniq/presentation/screens/team/shift_template_data.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart' show shiftFillOf;
 
 const _protectedDefaultCodes = {'D', 'E', 'N', 'ED'};
 
@@ -278,7 +279,10 @@ class _ShiftTypeAddSheetState extends ConsumerState<ShiftTypeAddSheet> {
           const SizedBox(height: AppSpacing.xl),
           FilledButton(
             onPressed: _saving ? null : _addCustom,
-            style: FilledButton.styleFrom(backgroundColor: cs.primary),
+            style: FilledButton.styleFrom(
+              backgroundColor: shiftFillOf(context).fill,
+              foregroundColor: shiftFillOf(context).onFill,
+            ),
             child: _saving
                 ? SizedBox(
                     width: 18,

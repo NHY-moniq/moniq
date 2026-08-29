@@ -18,7 +18,7 @@ import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/shift_theme.dart'
-    show ShiftFillColors;
+    show ShiftFillColors, shiftFillOf;
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_date_picker_sheet.dart';

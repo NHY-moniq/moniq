@@ -267,6 +267,20 @@ class ShiftThemeData {
 /// ([ShiftThemeData.offBlue])로 primary(잉크)와 갈라지고, 나머지 시프트는
 /// fill == primary다. 등록은 `AppTheme.light`에서 하며, 미등록 테마(다크 등)
 /// 에서는 소비처가 `?.fill ?? colorScheme.primary`로 폴백한다.
+/// 면(fill) 색과 그 위 글자색을 한 번에 얻는다.
+///
+/// 채움 버튼·FAB·토글 트랙처럼 "면적이 큰" 요소에서 쓴다. 테마에
+/// [ShiftFillColors]가 없으면 ColorScheme.primary/onPrimary로 폴백하므로
+/// 어느 테마에서든 안전하다.
+({Color fill, Color onFill}) shiftFillOf(BuildContext context) {
+  final theme = Theme.of(context);
+  final ext = theme.extension<ShiftFillColors>();
+  return (
+    fill: ext?.fill ?? theme.colorScheme.primary,
+    onFill: ext?.onFill ?? theme.colorScheme.onPrimary,
+  );
+}
+
 class ShiftFillColors extends ThemeExtension<ShiftFillColors> {
   const ShiftFillColors({required this.fill, required this.onFill});
 

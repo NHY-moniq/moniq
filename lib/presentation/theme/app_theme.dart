@@ -127,6 +127,12 @@ abstract final class AppTheme {
           color: AppColors.onSurface,
         ),
       ),
+      // FAB도 면 요소 — 배경은 fill, 아이콘/라벨은 onFill.
+      // (콜사이트에서 색을 지정하지 않은 모든 FAB에 일괄 적용된다)
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: fill,
+        foregroundColor: onFill,
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         // 주요 채움 CTA(저장·발행하기류)는 면 요소 — 오프면 파스텔 배경에
         // 잉크 남색 글자, 다른 시프트는 fill == primary라 기존과 동일.
