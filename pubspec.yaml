@@ -1,7 +1,7 @@
 name: moniq
 description: "간호사 교대 근무표 관리 앱"
 publish_to: 'none'
-version: 1.0.2+3
+version: 1.0.2+4
 
 environment:
   sdk: ^3.8.1
