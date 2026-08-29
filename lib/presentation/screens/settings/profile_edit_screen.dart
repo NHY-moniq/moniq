@@ -146,6 +146,15 @@ class ProfileEditScreen extends HookConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: FilledButton.tonal(
+                    // tonal은 FilledButtonTheme(면색)을 공유하므로 본래 톤 명시.
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.secondaryContainer,
+                      foregroundColor: Theme.of(
+                        context,
+                      ).colorScheme.onSecondaryContainer,
+                    ),
                     onPressed: profileState.isCheckingNickname
                         ? null
                         : () {

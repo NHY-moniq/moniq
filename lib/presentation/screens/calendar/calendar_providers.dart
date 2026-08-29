@@ -166,7 +166,9 @@ final hiddenShiftDatesProvider = Provider<Set<DateTime>>((ref) {
 /// 그 달의 근무를 통째로 치우는 동작이라 직접 넣은 근무도 함께 사라져야 한다.
 /// (제목이 근무 유형과 무관한 일반 일정·메모는 그대로 남는다)
 bool _isShiftEvent(PersonalEvent e, Set<String> shiftTitles) =>
-    _isImportWork(e) || shiftTitles.contains(e.title);
+    // 제목 목록은 즐겨찾기 팀/개인 유형에서 오므로, 팀을 나갔거나 유형을
+    // 지운 뒤에는 옛 근무를 못 알아본다. 저장 시 찍어둔 플래그를 함께 본다.
+    _isImportWork(e) || e.isShift || shiftTitles.contains(e.title);
 
 /// 캘린더 셀 표시용 월간 일정. 여러 날에 걸친 일정은 걸쳐 있는 모든 날짜에
 /// 나타난다 (표시 전용 — 수정/삭제 인덱스로는 [dateEventOccurrencesProvider] 사용).

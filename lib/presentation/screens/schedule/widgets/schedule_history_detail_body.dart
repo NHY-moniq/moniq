@@ -133,7 +133,7 @@ class ScheduleHistoryDetailBody extends StatelessWidget {
             child: Text(
               'O',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: AppColors.shiftOff,
+                color: readableInk(AppColors.shiftOff),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -150,13 +150,16 @@ class ScheduleHistoryDetailBody extends StatelessWidget {
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(AppRadius.xs),
-          border: Border.all(color: color.withValues(alpha: 0.45)),
+          // 옅은 파스텔 색도 테두리/글자가 보이도록 잉크 톤으로 대비 확보.
+          border: Border.all(
+            color: readableInk(color).withValues(alpha: 0.5),
+          ),
         ),
         child: Center(
           child: Text(
             code,
             style: theme.textTheme.labelSmall?.copyWith(
-              color: color,
+              color: readableInk(color),
               fontWeight: FontWeight.w600,
             ),
           ),

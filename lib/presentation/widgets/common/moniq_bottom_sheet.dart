@@ -6,6 +6,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moniq/presentation/router/bottom_sheet_visibility_provider.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/theme/app_typography.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart' show shiftFillOf;
 
 /// Themed bottom sheet for Moniq.
 ///
@@ -278,7 +279,9 @@ Future<void> showMoniqInfoSheet({
             const SizedBox(height: AppSpacing.xxl),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: cs.primary,
+                // 채움 버튼은 면 요소 — 오프면 파스텔, 그 외엔 기존과 동일.
+                backgroundColor: shiftFillOf(context).fill,
+                foregroundColor: shiftFillOf(context).onFill,
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                 shape: RoundedRectangleBorder(
                   borderRadius: AppRadius.borderRadiusFull,
@@ -357,7 +360,12 @@ class MoniqConfirmSheetBody extends StatelessWidget {
                 flex: 2,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: destructive ? cs.error : cs.primary,
+                    backgroundColor: destructive
+                        ? cs.error
+                        : shiftFillOf(context).fill,
+                    foregroundColor: destructive
+                        ? cs.onError
+                        : shiftFillOf(context).onFill,
                     padding: const EdgeInsets.symmetric(
                       vertical: AppSpacing.md,
                     ),
@@ -686,8 +694,8 @@ class _MoniqInfoConfirmDialog extends StatelessWidget {
                 const SizedBox(width: AppSpacing.sm),
                 FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: cs.primary,
-                    foregroundColor: cs.onPrimary,
+                    backgroundColor: shiftFillOf(context).fill,
+                    foregroundColor: shiftFillOf(context).onFill,
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.xl,
                       vertical: AppSpacing.sm + 2,

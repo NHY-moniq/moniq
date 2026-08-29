@@ -6,7 +6,6 @@ import 'package:moniq/core/utils/color_utils.dart';
 import 'package:moniq/core/utils/team_icon_utils.dart';
 import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/models/team_model.dart';
-import 'package:moniq/data/providers/team_providers.dart';
 import 'package:moniq/presentation/widgets/common/moniq_app_bar.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/layout/adaptive_layout.dart';
@@ -22,9 +21,10 @@ import 'package:moniq/presentation/screens/calendar/calendar_export.dart';
 import 'package:moniq/presentation/screens/calendar/calendar_providers.dart';
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/data/providers/settings_providers.dart';
+import 'package:moniq/core/utils/perf_trace.dart';
 import 'package:moniq/presentation/widgets/common/moniq_empty_state.dart';
 import 'package:moniq/presentation/widgets/common/moniq_error_view.dart';
-import 'package:moniq/presentation/widgets/common/moniq_loading_view.dart';
+import 'package:moniq/presentation/widgets/common/moniq_skeleton.dart';
 import 'package:moniq/presentation/screens/team/appointment_management_screen.dart';
 import 'package:moniq/presentation/screens/team/personal_team_calendar_screen.dart';
 import 'package:moniq/presentation/viewmodels/personal_team_calendar_viewmodel.dart';
@@ -41,17 +41,19 @@ class TeamScreen extends HookConsumerWidget {
     final favoriteTeamAsync = ref.watch(favoriteTeamProvider);
     final viewingTeamIdOverride = ref.watch(viewingTeamIdOverrideProvider);
 
-    if (favoriteTeamAsync.isLoading) {
+    // 캐시로 이미 값을 받은 뒤의 백그라운드 갱신(isRefreshing)에서는 화면을
+    // 유지하고, 값이 아직 하나도 없을 때만 뼈대를 보여준다.
+    if (favoriteTeamAsync.isLoading && !favoriteTeamAsync.hasValue) {
       return Scaffold(
         backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : const MoniqAppBar(title: '팀', showBack: false),
-        body: const MoniqLoadingView(),
+        body: const MoniqTeamCalendarSkeleton(),
       );
     }
 
-    if (favoriteTeamAsync.hasError) {
+    if (favoriteTeamAsync.hasError && !favoriteTeamAsync.hasValue) {
       return Scaffold(
         backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
@@ -75,6 +77,7 @@ class TeamScreen extends HookConsumerWidget {
 
     // 즐겨찾기 팀이 있거나 사용자가 팀 피커로 임시 전환한 경우 바로 캘린더 렌더링.
     if (favoriteTeam != null || canRenderOverrideTeam) {
+      PerfTrace.mark('team first paint');
       final teams = teamsAsync.valueOrNull ?? [favoriteTeam!];
       final viewingTeam = viewingTeamIdOverride == null
           ? favoriteTeam!
@@ -88,17 +91,17 @@ class TeamScreen extends HookConsumerWidget {
     }
 
     // 즐겨찾기가 없으면 팀 목록이 필요함
-    if (favoriteTeam == null && teamsAsync.isLoading) {
+    if (favoriteTeam == null && teamsAsync.isLoading && !teamsAsync.hasValue) {
       return Scaffold(
         backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
             ? null
             : const MoniqAppBar(title: '팀', showBack: false),
-        body: const MoniqLoadingView(),
+        body: const MoniqTeamCalendarSkeleton(),
       );
     }
 
-    if (favoriteTeam == null && teamsAsync.hasError) {
+    if (favoriteTeam == null && teamsAsync.hasError && !teamsAsync.hasValue) {
       return Scaffold(
         backgroundColor: ref.watch(todayShiftThemeProvider).scaffoldBackground,
         appBar: AdaptiveLayout.isWide(context)
@@ -175,10 +178,10 @@ class _NoFavoriteView extends HookConsumerWidget {
                         team.id;
                     return;
                   }
-                  final teamRepo = ref.read(teamRepositoryProvider);
-                  await teamRepo.setFavoriteTeam(team.id);
+                  await ref
+                      .read(favoriteTeamProvider.notifier)
+                      .select(team.id, team: team);
                   ref.read(viewingTeamIdOverrideProvider.notifier).state = null;
-                  ref.invalidate(favoriteTeamProvider);
                   ref.invalidate(favoriteTeamShiftTypesProvider);
                   ref.invalidate(homeViewModelProvider);
                   ref.invalidate(teamViewModelProvider);
@@ -672,7 +675,9 @@ class _TeamCalendarView extends HookConsumerWidget {
               scaffoldContext: context,
             ),
       body: calendarAsync.when(
-        loading: () => const MoniqLoadingView(),
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
+        loading: () => const MoniqTeamCalendarSkeleton(),
         error: (e, _) => MoniqErrorView(
           message: '캘린더를 불러올 수 없습니다',
           onRetry: () => ref.invalidate(teamCalendarViewModelProvider(team.id)),
@@ -930,7 +935,9 @@ class _PersonalTeamCalendarView extends HookConsumerWidget {
               scaffoldContext: context,
             ),
       body: stateAsync.when(
-        loading: () => const MoniqLoadingView(),
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
+        loading: () => const MoniqTeamCalendarSkeleton(),
         error: (e, _) => MoniqErrorView(
           message: '개인 팀 캘린더를 불러올 수 없습니다',
           onRetry: () =>

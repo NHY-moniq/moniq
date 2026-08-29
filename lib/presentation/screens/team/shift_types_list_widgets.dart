@@ -8,6 +8,7 @@ import 'package:moniq/presentation/screens/team/shift_template_data.dart';
 import 'package:moniq/presentation/screens/team/shift_type_manage_widgets.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
 import 'package:moniq/presentation/viewmodels/team_detail_viewmodel.dart';
+import 'package:moniq/presentation/theme/shift_theme.dart' show shiftFillOf;
 
 /// 근무 유형 목록
 class ShiftTypesList extends ConsumerStatefulWidget {
@@ -211,8 +212,8 @@ class _EmptyShiftTypesViewState extends ConsumerState<EmptyShiftTypesView> {
                 : const Icon(Icons.auto_awesome_rounded, size: 20),
             label: Text(_loading ? '추가 중...' : '기본 4개 한번에 추가'),
             style: FilledButton.styleFrom(
-              backgroundColor: theme.colorScheme.primary,
-              foregroundColor: theme.colorScheme.onPrimary,
+              backgroundColor: shiftFillOf(context).fill,
+              foregroundColor: shiftFillOf(context).onFill,
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
               shape: RoundedRectangleBorder(
                 borderRadius: AppRadius.borderRadiusMd,
