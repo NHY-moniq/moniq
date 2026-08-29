@@ -276,6 +276,9 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
         const <String>{};
     final hidden = ref.read(personalHiddenShiftsDataSourceProvider);
     final refresh = ref.read(eventRefreshProvider.notifier);
+    // 로컬 표시(숨김·오프)는 서버 데이터가 아니라 화면 계산에만 쓰이므로,
+    // 쓰기 후 홈 상태를 다시 계산해야 캘린더에 바로 반영된다.
+    final homeVm = ref.read(homeViewModelProvider.notifier);
 
     // DateTime.add 대신 필드 산술 — 월/연 경계를 정확히 넘긴다.
     final next = DateTime(target.year, target.month, target.day + 1);
@@ -309,7 +312,7 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
             hidden: hidden,
             shiftTitles: shiftTitles,
             refresh: refresh,
-          ),
+          ).then((_) => homeVm.reapplyLocalMarks()),
         )
         // 한 건이 실패해도 큐가 멈추면 이후 탭이 모두 유실된다.
         .catchError((_) {});
@@ -1157,6 +1160,7 @@ Future<void> editTeamShiftAsPersonal(
       shiftTitles: ref.read(shiftEventTitlesProvider),
       refresh: ref.read(eventRefreshProvider.notifier),
     );
+    ref.read(homeViewModelProvider.notifier).reapplyLocalMarks();
     refreshAll(ref, date);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

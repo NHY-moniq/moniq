@@ -368,6 +368,29 @@ class HomeViewModel extends AsyncNotifier<HomeCalendarState> {
   }
 
   /// 강제 새로고침 (pull-to-refresh) — 즐겨찾기 팀까지 네트워크에서 다시 받는다.
+  /// 로컬 표시(숨김·오프)만 다시 적용한다 — 네트워크 없이 즉시 반영.
+  ///
+  /// 근무 칩으로 오프/삭제를 찍으면 서버 근무는 그대로고 로컬 표시만 바뀐다.
+  /// 그때 이 메서드를 부르지 않으면 다음 갱신 전까지 화면이 옛 상태로 남는다.
+  void reapplyLocalMarks() {
+    final current = state.valueOrNull;
+    final teamId = _teamId;
+    if (current == null || teamId == null) return;
+    final cached = _cache?.getMonth(teamId: teamId, month: current.focusedMonth);
+    if (cached == null) return;
+    final visible = _applyHidden(
+      (mine: cached.value.mine, coverage: cached.value.coverage),
+      _hiddenDates(),
+    );
+    state = AsyncData(
+      current.copyWith(
+        monthlyShifts: visible.mine,
+        selectedDateShifts: visible.mine[current.selectedDate],
+        teamScheduledDates: visible.coverage,
+      ),
+    );
+  }
+
   Future<void> refresh() async {
     final current = state.valueOrNull;
     if (current == null) {
