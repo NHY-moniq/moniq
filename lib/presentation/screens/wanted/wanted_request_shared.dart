@@ -146,10 +146,10 @@ class _WantedModeTabButton extends StatelessWidget {
     // 고정 색은 나이트/오프의 쿨톤 배경이나 다크 모드에서 겉돌았다.
     // 활성 채움은 면 요소 — 오프면 파스텔(ShiftFillColors.fill),
     // 다른 시프트는 fill == primary라 기존과 동일.
-    final fills = Theme.of(context).extension<ShiftFillColors>();
-    final fill = fills?.fill ?? colorScheme.primary;
+    final fills = shiftFillOf(context);
+    final fill = fills.fill;
     final foreground = selected
-        ? (fills?.onFill ?? colorScheme.onPrimary)
+        ? (fills.onFill)
         : colorScheme.onSurfaceVariant;
 
     return InkWell(

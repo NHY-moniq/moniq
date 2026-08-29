@@ -307,11 +307,9 @@ class CalendarScreen extends HookConsumerWidget {
               // FAB는 면 요소 — 오프면 파스텔(ShiftFillColors.fill),
               // 다른 시프트는 fill == primary라 기존과 동일.
               backgroundColor:
-                  Theme.of(context).extension<ShiftFillColors>()?.fill ??
-                      Theme.of(context).colorScheme.primary,
+                  shiftFillOf(context).fill,
               foregroundColor:
-                  Theme.of(context).extension<ShiftFillColors>()?.onFill ??
-                      Theme.of(context).colorScheme.onPrimary,
+                  shiftFillOf(context).onFill,
               elevation: 3,
               child: const Icon(Icons.add),
             ),

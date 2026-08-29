@@ -133,8 +133,7 @@ class ScheduleRulePatternToggleRow extends StatelessWidget {
             value: value,
             onChanged: readOnly ? null : onChanged,
             activeTrackColor:
-                Theme.of(context).extension<ShiftFillColors>()?.fill ??
-                colorScheme.primary,
+                shiftFillOf(context).fill,
           ),
         ],
       ),
@@ -191,8 +190,7 @@ class ScheduleRuleToggleRow extends StatelessWidget {
             value: value,
             onChanged: readOnly ? null : onChanged,
             activeTrackColor:
-                Theme.of(context).extension<ShiftFillColors>()?.fill ??
-                Theme.of(context).colorScheme.primary,
+                shiftFillOf(context).fill,
           ),
         ],
       ),

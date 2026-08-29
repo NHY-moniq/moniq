@@ -96,9 +96,9 @@ class _MiniSwitch extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     // 스위치 트랙은 "면" 요소 — 오프처럼 면(cardColor)과 잉크(primary)가
     // 갈라진 시프트에서는 파스텔 면색을 쓴다 (ShiftFillColors 참고).
-    final fills = Theme.of(context).extension<ShiftFillColors>();
-    final trackOn = fills?.fill ?? cs.primary;
-    final knobOn = fills?.onFill ?? cs.onPrimary;
+    final fills = shiftFillOf(context);
+    final trackOn = fills.fill;
+    final knobOn = fills.onFill;
     final knobColor = on
         ? knobOn
         : (cs.brightness == Brightness.dark

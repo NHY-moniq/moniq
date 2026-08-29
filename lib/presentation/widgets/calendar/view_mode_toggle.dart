@@ -19,9 +19,9 @@ class ViewModeToggle extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     // 활성 pill은 면 요소 — 오프면 파스텔(ShiftFillColors.fill),
     // 다른 시프트는 fill == primary라 기존과 동일.
-    final fills = Theme.of(context).extension<ShiftFillColors>();
-    final fill = fills?.fill ?? colorScheme.primary;
-    final onFill = fills?.onFill ?? colorScheme.onPrimary;
+    final fills = shiftFillOf(context);
+    final fill = fills.fill;
+    final onFill = fills.onFill;
 
     return Padding(
       padding: const EdgeInsets.symmetric(

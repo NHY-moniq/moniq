@@ -319,8 +319,7 @@ class _ShiftTypeTile extends StatelessWidget {
               value: shiftType.isActive,
               onChanged: onToggle,
               activeTrackColor:
-                  Theme.of(context).extension<ShiftFillColors>()?.fill ??
-                      Theme.of(context).colorScheme.primary,
+                  shiftFillOf(context).fill,
             )
           : null,
       onTap: onTap,

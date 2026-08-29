@@ -475,9 +475,9 @@ class _EntryView extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     // 채움 버튼은 면 요소 — 오프면 파스텔(ShiftFillColors.fill),
     // 다른 시프트는 fill == primary라 기존과 동일.
-    final fills = Theme.of(context).extension<ShiftFillColors>();
-    final fill = fills?.fill ?? colorScheme.primary;
-    final onFill = fills?.onFill ?? colorScheme.onPrimary;
+    final fills = shiftFillOf(context);
+    final fill = fills.fill;
+    final onFill = fills.onFill;
 
     // 나이트 전담 뷰
     if (_isNightView) {
@@ -1078,14 +1078,8 @@ class _EntryView extends HookConsumerWidget {
                   child: FilledButton(
                     style: FilledButton.styleFrom(
                       // 채움 버튼은 면 요소 — 오프면 파스텔(fill/onFill).
-                      backgroundColor: Theme.of(context)
-                              .extension<ShiftFillColors>()
-                              ?.fill ??
-                          Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context)
-                              .extension<ShiftFillColors>()
-                              ?.onFill ??
-                          Theme.of(context).colorScheme.onPrimary,
+                      backgroundColor: shiftFillOf(context).fill,
+                      foregroundColor: shiftFillOf(context).onFill,
                       shape: RoundedRectangleBorder(
                         borderRadius: AppRadius.borderRadiusFull,
                       ),
