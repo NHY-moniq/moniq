@@ -472,7 +472,6 @@ class _EntryView extends HookConsumerWidget {
     WidgetRef ref,
     bool isBlocked,
   ) {
-    final colorScheme = Theme.of(context).colorScheme;
     // 채움 버튼은 면 요소 — 오프면 파스텔(ShiftFillColors.fill),
     // 다른 시프트는 fill == primary라 기존과 동일.
     final fills = shiftFillOf(context);

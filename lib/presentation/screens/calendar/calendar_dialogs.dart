@@ -17,8 +17,7 @@ import 'package:moniq/data/models/shift_with_type.dart';
 import 'package:moniq/data/providers/shift_providers.dart';
 import 'package:moniq/presentation/theme/app_colors.dart';
 import 'package:moniq/presentation/theme/app_spacing.dart';
-import 'package:moniq/presentation/theme/shift_theme.dart'
-    show ShiftFillColors, shiftFillOf;
+import 'package:moniq/presentation/theme/shift_theme.dart' show shiftFillOf;
 import 'package:moniq/presentation/viewmodels/home_viewmodel.dart';
 import 'package:moniq/presentation/widgets/common/moniq_bottom_sheet.dart';
 import 'package:moniq/presentation/widgets/common/moniq_date_picker_sheet.dart';
@@ -195,6 +194,14 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
     final shiftTitles = ref.read(shiftEventTitlesProvider);
     final home = ref.read(homeViewModelProvider.notifier);
     final focused = ref.read(homeViewModelProvider).valueOrNull?.focusedMonth;
+    // 그 날 팀(서버) 근무가 있으면 개인 근무를 덧붙이는 대신 그 근무를
+    // 바꿔야 한다 — 안 그러면 한 날에 팀 근무 + 개인 근무가 함께 남는다.
+    final teamShift = ref
+        .read(homeViewModelProvider)
+        .valueOrNull
+        ?.monthlyShifts[target]
+        ?.firstOrNull;
+    final overrideRepo = ref.read(personalShiftOverrideRemoteProvider);
 
     // DateTime.add 대신 필드 산술 — 월/연 경계를 정확히 넘긴다.
     final next = DateTime(target.year, target.month, target.day + 1);
@@ -217,9 +224,38 @@ class _AddMenuSheetState extends ConsumerState<_AddMenuSheet> {
     );
 
     _writes = _writes
-        .then((_) => writer.setShift(target, st, shiftTitles))
+        .then(
+          (_) => teamShift != null
+              // 팀 근무가 있는 날: 개인 오버라이드로 그 근무를 교체한다.
+              // (원래 팀 근무를 다시 고르면 오버라이드를 지워 복원)
+              ? _overrideTeamShift(overrideRepo, teamShift, st)
+              : writer.setShift(target, st, shiftTitles),
+        )
         // 한 건이 실패해도 큐가 멈추면 이후 탭이 모두 유실된다.
         .catchError((_) {});
+  }
+
+  /// 팀 근무를 개인 오버라이드로 교체 — 근무 유형 변경 시트와 같은 규칙.
+  Future<void> _overrideTeamShift(
+    PersonalShiftOverrideRemoteDataSource repo,
+    ShiftWithType teamShift,
+    PersonalShiftType st,
+  ) async {
+    if (st.id == teamShift.shift.shiftTypeId) {
+      await repo.remove(teamShift.shift.id);
+      return;
+    }
+    await repo.upsert(
+      PersonalShiftOverrideRemote(
+        shiftId: teamShift.shift.id,
+        shiftTypeId: st.id,
+        code: st.code,
+        name: st.name,
+        color: st.color,
+        startTime: (st.startTime?.isEmpty ?? true) ? null : st.startTime,
+        endTime: (st.endTime?.isEmpty ?? true) ? null : st.endTime,
+      ),
+    );
   }
 
   /// 삭제 칩 — 지금 보고 있는 날짜의 근무를 지우고 **전날로** 이동한다.
